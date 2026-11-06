@@ -50,6 +50,7 @@ config/
 controllers/
   main_window_controller.py          Controlador de la ventana: catálogo activo, añadir y sincronizar carpetas, quitar ausentes, trabajos (metadatos, miniaturas y escritura de datos del usuario), regenerar miniaturas, barra de estado, ventana de opciones; conecta la cuadrícula (modelo, atajos y guardado de rating/flag/color) y crea los módulos (_configurar_modulos)
   inspector_controller.py            InspectorController: selección de la cuadrícula -> resumen en segundo plano -> inspector; módulo activo (set_module); cambios de las secciones en cola (edit_requested -> user_data_changed); «Mostrar en el Explorador»
+  folder_actions.py                  FolderActions: «Quitar del catálogo...» de una carpeta de la barra lateral (cuenta, pregunta y pide al controlador el trabajo JOB_REMOVE)
   collection_actions.py              CollectionActions: une barra lateral + menú de la cuadrícula + BD para las colecciones del usuario (crear, renombrar, borrar, soltar, añadir, quitar); lo crea CatalogModule
   app_modules/                       ── Módulos de la aplicación (Catálogo, Imagen, Vídeo, Audio) ── ([FLUJOS.md §11](FLUJOS.md))
     base.py                            AppModule (clase base: barra izquierda, panel derecho, qué muestra la cuadrícula, ciclo de vida) y ModuleContext
@@ -124,6 +125,7 @@ core/
     user_collections.py                Colecciones del usuario: árbol, crear, renombrar, borrar, añadir y quitar elementos
     folder_tree.py                     Árbol de carpetas con recuentos (fetch_folder_tree, build_folder_tree, sort_key natural)
     missing_items.py                   Contar y quitar del catálogo los ausentes de una carpeta (y sus miniaturas)
+    folder_removal.py                  Quitar del catálogo una carpeta entera (y, si es la raíz, su ubicación): count_folder_items, remove_folder_from_catalog (trabajo; usa remove_media_items)
     media_removal.py                   Eliminar: plan_removal (qué puede ir a la papelera: no los ausentes, desconectados ni en red), remove_media_items (trabajo: quitar del catálogo y, si se pide, papelera + sidecar del RAW + entrada del .arca.json), is_network_path
     catalog_schema.py                  Esquema SQL: MIGRATIONS, apply_migrations, configure_connection
     catalog_builder.py                 CatalogBuilder: crea carpetas + catalogo.db (WAL) + esquema

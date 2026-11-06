@@ -29,6 +29,7 @@ python -m core.catalog.folder_tree           python -m core.catalog.missing_item
 python -m core.catalog.selection_metadata    python -m ui_helpers.inspector.formatting
 python -m ui_helpers.inspector.metadata_fields  (todas las vistas sobre una foto y un vídeo de ejemplo)
 python -m core.catalog.media_removal        (papelera simulada: nunca toca la del sistema)
+python -m core.catalog.folder_removal       python -m controllers.folder_actions   (solo el texto del aviso)
 python -m core.metadata.track.gpx_reader     python -m core.metadata.track.extractor
 python -m core.metadata.track.inspect_cli ruta.gpx    (diagnóstico de GPX: resumen y desnivel con varios umbrales)
 python -m core.userdata.policy               python -m core.userdata.xmp_writer   (ExifTool)

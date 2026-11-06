@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 06/11/2026: carpetas, «Quitar del catálogo...» (`core/catalog/folder_removal.py` 1.0.0, `controllers/folder_actions.py` 1.0.0, `catalog_sidebar` 1.11.0: también la vuelta a la carpeta padre); entregas del 05/11 verificadas por el autor
 - 05/11/2026: el icono de la barra de estado seguía sin teñir (gris #1f1f1f, el del SVG): `ui_status` 1.1.1 lo tiñe con `tinted_pixmap` (`ui_icons` 1.1.0), directo y a la escala de la pantalla
 - 05/11/2026: barra de estado con el icono teñido (`ui_status` 1.1.0 con `tinted_icon`; `theme_colors` 1.2.0: `success` y `warning` amarillo)
 - 05/11/2026: «Añadir carpeta» se abre en la carpeta de la última añadida (`last_add_folder_parent`, `app_config_manager` 1.09); `theme_style` 1.2.0 (el desplazamiento del indicador, al dibujar)

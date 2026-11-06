@@ -22,7 +22,8 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula):
     - Menú contextual de las carpetas (clic derecho): "Sincronizar carpeta" emite
       'sync_folder_requested(ruta)', "Mostrar en el Explorador" emite
       'reveal_folder_requested(ruta)' y "Quitar archivos ausentes del catálogo" emite
-      'remove_missing_requested(ubicación, carpeta)'. Los atiende el controlador.
+      'remove_missing_requested(ubicación, carpeta)' y "Quitar del catálogo" emite
+      'remove_folder_requested(ubicación, carpeta, nombre)'. Los atiende el controlador.
     - 'set_include_subfolders' decide si al elegir una carpeta se ven también los
       elementos de sus subcarpetas (opción de settings.json; ver el controlador). Cambia
       también los contadores: con subcarpetas o solo los de la propia carpeta.
@@ -51,6 +52,9 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.11.0 Menú de las carpetas: "Quitar del catálogo..." (también con el disco desconectado).
+       Si la carpeta elegida desaparece del árbol, se elige su carpeta padre (antes,
+       "Todos los archivos").
 1.10.1 Los iconos de las filas, en 'ui_helpers/helpers/sidebar_icons.py' (los usa también la
        barra del módulo Imagen).
 1.10.0 Fila «Sin clasificar» en la sección Catálogo (elementos sin biblioteca); solo se
@@ -79,7 +83,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.10.1"
+__version__ = "1.11.0"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -191,6 +195,9 @@ class CatalogSidebar(QWidget):
         reveal_folder_requested(str): "Mostrar en el Explorador" en el menú de una carpeta.
         remove_missing_requested(int, str): "Quitar archivos ausentes del catálogo" en el
             menú de una carpeta (id de la ubicación y carpeta relativa; '' = toda).
+        remove_folder_requested(int, str, str): "Quitar del catálogo" en el menú de una
+            carpeta o ubicación (id de la ubicación, carpeta relativa, '' = la ubicación, y
+            el nombre que se ve en el árbol).
         create_collection_requested(str, object): crear una colección, una colección
             inteligente o un conjunto (KIND_STATIC, KIND_SMART o KIND_SET, y el id del
             conjunto donde crearla o None).
@@ -208,6 +215,7 @@ class CatalogSidebar(QWidget):
     sync_folder_requested = Signal(str)  # ruta absoluta de la carpeta
     reveal_folder_requested = Signal(str)  # ruta absoluta de la carpeta
     remove_missing_requested = Signal(int, str)  # ubicación y carpeta relativa
+    remove_folder_requested = Signal(int, str, str)  # ubicación, carpeta relativa y nombre
     create_collection_requested = Signal(str, object)  # tipo y conjunto (o None)
     rename_collection_requested = Signal(int, str)  # id y nombre actual
     delete_collection_requested = Signal(int, str, str)  # id, nombre y tipo
@@ -605,12 +613,32 @@ class CatalogSidebar(QWidget):
                     view.setExpanded(item.index(), True)
                     self._update_open_icon(model, item.index(), True)
 
-        # La selección: se mantiene la carpeta elegida; si ya no existe, "Todos los archivos"
-        if self._current.kind == SourceKind.FOLDER:
-            if self._current in self._folder_items:
-                self.select_source(self._current, emit=False)
+        # La selección: se mantiene la carpeta elegida; si ya no existe (p. ej. se ha quitado
+        # del catálogo), la carpeta más cercana que la contenga y, si no queda ninguna (se
+        # ha quitado la ubicación entera), "Todos los archivos"
+        current = self._current
+        if current.kind == SourceKind.FOLDER:
+            if current in self._folder_items:
+                self.select_source(current, emit=False)
             else:
-                self.select_source(ALL_ITEMS, emit=True)
+                self.select_source(self._closest_folder(current), emit=True)
+
+    def _closest_folder(self, source: GridSource) -> GridSource:
+        """La carpeta del árbol más cercana que contiene a 'source', o 'ALL_ITEMS' si no hay.
+
+        Se sube de nivel en nivel ('2024/Viaje/Día 1' -> '2024/Viaje' -> '2024' -> la
+        ubicación): una carpeta padre sin archivos propios ni otras subcarpetas también
+        desaparece del árbol al quitar su única subcarpeta.
+        """
+        if source.location_id is None:
+            return ALL_ITEMS
+        parts = source.folder.split("/") if source.folder else []
+        while parts:
+            parts.pop()
+            parent = self._source_for(source.location_id, "/".join(parts))
+            if parent in self._folder_items:
+                return parent
+        return ALL_ITEMS
 
     def set_collection_tree(self, nodes: Iterable[CollectionNode]) -> None:
         """Muestra las colecciones y conjuntos del usuario (debajo de los del sistema).
@@ -908,9 +936,12 @@ class CatalogSidebar(QWidget):
         reveal_action = menu.addAction(f"Mostrar en {FILE_MANAGER_NAME}")
         menu.addSeparator()
         remove_action = menu.addAction("Quitar archivos ausentes del catálogo...")
+        # Siempre activa, también con el disco desconectado: no toca el disco (sirve, p. ej.,
+        # para quitar un disco que ya no existe)
+        remove_folder_action = menu.addAction("Quitar del catálogo...")
         if not online:
             # Con el disco desconectado no hay nada que leer ni que mostrar, y no se sabe
-            # si los archivos siguen ahí (no se puede quitar nada)
+            # si los archivos siguen ahí (no se pueden quitar los ausentes)
             for action in (sync_action, reveal_action, remove_action):
                 action.setEnabled(False)
             menu.addSeparator()
@@ -924,6 +955,9 @@ class CatalogSidebar(QWidget):
             self.reveal_folder_requested.emit(path)
         elif chosen is remove_action and source.location_id is not None:
             self.remove_missing_requested.emit(source.location_id, source.folder)
+        elif chosen is remove_folder_action and source.location_id is not None:
+            name = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+            self.remove_folder_requested.emit(source.location_id, source.folder, name)
 
     def _on_folder_expanded(self, index: QModelIndex) -> None:
         source = index.data(ROLE_SOURCE)

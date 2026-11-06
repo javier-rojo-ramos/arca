@@ -32,7 +32,7 @@ from pathlib import Path
 # 05/11/2026, antes de usarse en producción, sin migrar nada)
 APP_NAME = "arca"
 APP_NAME_COMERCIAL = "Arca Media"
-APP_VERSION = "0.03 (26.11)"
+APP_VERSION = "26.11.001"
 ORG_NAME = "RT"
 
 # RUTAS DE CONFIGURACIÓN DEL USUARIO (mutables, por SO, en Windows con LOCALAPPDATA

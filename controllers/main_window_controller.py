@@ -1,6 +1,7 @@
 # Librerías estándar
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 # Librerías de terceros
@@ -42,6 +43,7 @@ from config.app_constants import (
 from controllers.app_modules.base import ModuleContext
 from controllers.app_modules.module_host import ModuleHost
 from controllers.app_modules.registry import create_modules
+from controllers.folder_actions import FolderActions
 from controllers.inspector_controller import InspectorController
 from core.catalog.availability import AvailabilityCheck, check_availability
 from core.catalog.catalog_builder import CatalogBuilder, CatalogError
@@ -404,6 +406,16 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.widget_catalog_sidebar.reveal_folder_requested.connect(self._on_reveal_folder)
         self.widget_catalog_sidebar.remove_missing_requested.connect(
             self._on_remove_missing_requested
+        )
+        # "Quitar del catálogo..." de una carpeta: lo atiende 'controllers/folder_actions.py'
+        # y el trabajo se lanza aquí, como el de "Eliminar" ('_start_removal_job')
+        self._folder_actions = FolderActions(
+            self,
+            self.widget_catalog_sidebar,
+            self.message_box,
+            get_db=lambda: self.db,
+            busy_reason=self._busy_reason,
+            start_removal=self._start_removal_job,
         )
         # Menú de la fila «Selección rápida»: vaciarla
         self.widget_catalog_sidebar.clear_quick_selection_requested.connect(
@@ -1516,24 +1528,41 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             self._schedule_userdata_write()
             return
 
-        # "Quitar del catálogo": antes se escribe lo pendiente (p. ej. unas estrellas puestas
-        # hace un instante), si la escritura en los archivos está activa y ya confirmada
-        # en esta sesión. Con la papelera da igual: el archivo se va
-        write_pending = (
-            write_pending_user_data
-            if not to_trash
-            and self._write_to_files_enabled()
-            and self._userdata_backlog_state == "ok"
-            else None
-        )
+        # Con la papelera no se escribe antes lo pendiente: el archivo se va
         self.job_manager.start(
             JOB_REMOVE,
             remove_media_items,
             media_ids,
             to_trash=to_trash,
             trash=move_to_trash if to_trash else None,
-            write_pending=write_pending,
+            write_pending=None if to_trash else self._pending_writer(),
         )
+
+    def _pending_writer(self) -> Callable[..., object] | None:
+        """Función que escribe lo pendiente antes de quitar algo del catálogo, o None.
+
+        Antes de quitar del catálogo se escribe en los archivos lo pendiente (p. ej. unas
+        estrellas puestas hace un instante), si la escritura en los archivos está activa y
+        ya confirmada en esta sesión: así vuelve con el archivo si se sincroniza otra vez.
+        """
+        if self._write_to_files_enabled() and self._userdata_backlog_state == "ok":
+            return write_pending_user_data
+        return None
+
+    def _start_removal_job(self, job: Callable[..., object], *args: object) -> None:
+        """Lanza un trabajo de quitar del catálogo (p. ej. una carpeta) como "Eliminar".
+
+        Con el mismo nombre (JOB_REMOVE): misma barra de progreso y, al terminar, lo mismo
+        que tras eliminar ('_on_removal_finished'). Se vuelve a comprobar que no haya nada
+        en marcha: puede haber empezado algo mientras se preguntaba al usuario.
+        """
+        if self.job_manager is None:
+            return
+        busy = self._busy_reason()
+        if busy:
+            self.message_box.info(f"{busy}\n\nNo se ha quitado nada; inténtalo al terminar.")
+            return
+        self.job_manager.start(JOB_REMOVE, job, *args, write_pending=self._pending_writer())
 
     def _on_removal_finished(self, result: object) -> None:
         """Terminó de eliminar: cuadrícula, contadores, aviso de fallos y trabajos en espera."""
