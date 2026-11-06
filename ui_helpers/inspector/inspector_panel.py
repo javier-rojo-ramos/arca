@@ -1,0 +1,255 @@
+"""Inspector: el panel lateral DERECHO, con la información de lo seleccionado.
+
+Mismo aspecto que la barra izquierda (Catálogo, Carpetas, Colecciones): secciones
+plegables una debajo de otra dentro de un área con desplazamiento. Cada sección es un
+'InspectorSection' (ver 'base_section.py'):
+
+    ▼ SELECCIÓN     nombre, carpeta, tamaño, fecha, biblioteca y estado (selection_section.py)
+    ▼ PALABRAS CLAVE  las asignadas a lo seleccionado (keywords_section.py); en el
+                    módulo Imagen, la caja para escribirlas (keyword_editor_section.py)
+    ▼ LISTA DE PALABRAS CLAVE  solo en Imagen: el árbol con casillas
+                    (keyword_list_section.py)
+    ▼ METADATOS     cámara, exposición, ubicación... de la biblioteca Imagen, con un
+                    desplegable de vistas en la cabecera (metadata_section.py)
+
+Más adelante (decidido el 30/10/2026): «Organización» (valoración, marca, color,
+colecciones), «Descripción», y las propias de cada tipo («Cámara», «Ubicación», «Etiquetas
+de audio», «Ficha»...). Cada módulo podrá tener su propio inspector con otro orden de
+secciones ('AppModule.info_panel'); de momento todos usan este, y cada sección dice en
+qué módulos aparece ('InspectorSection.shown_in'; el controlador avisa con 'set_module').
+
+Cómo se usa:
+    panel = InspectorPanel(parent)                       # con las secciones por defecto
+    panel.show_summary(summary)    # 'SelectionSummary' (lo calcula el controlador)
+    panel.show_no_catalog()        # sin catálogo abierto
+    panel.reveal_requested.connect(...)  # «Mostrar en el Explorador» de alguna sección
+    panel.edit_requested.connect(...)    # una sección quiere cambiar el catálogo
+    panel.set_module("image")            # qué secciones tocan (según el módulo activo)
+
+El panel NO lee la base de datos: el resumen se lo da 'controllers/inspector_controller.py'.
+Las secciones que no tienen nada que mostrar para lo seleccionado se ocultan enteras.
+
+El título de cada sección puede cambiar con lo que se ve ('InspectorSection.title_for'):
+p. ej. «SELECCIÓN» con algo seleccionado y «SELECCIÓN (VISTA ACTUAL)» sin selección.
+
+1.5.3 Reenvía 'navigate_requested'.
+1.5.2 Reenvía 'drop_edit_requested' (tarjetas soltadas en una sección).
+1.5.1 En Imagen, la caja y el árbol con casillas en dos secciones (se pliegan por separado).
+1.5.0 Secciones según el módulo activo ('set_module'): en Imagen, el editor de palabras
+      clave en lugar de la lista; señal 'edit_requested' (paso K4b).
+1.4.0 Sección «Palabras clave» (entre «Selección» y «Metadatos»).
+1.3.0 Lo plegado y desplegado de cada sección se guarda en settings.json
+      ('inspector_sections', por la clave de la sección) y se recupera al abrir.
+1.2.0 Sección «Metadatos»; secciones con datos propios ('data_requests' / 'deliver_data'),
+      widget en la cabecera de cada sección y la columna de etiquetas con el mismo ancho
+      en todas las secciones.
+1.1.0 El título de cada sección se actualiza con cada resumen ('title_for').
+
+El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
+nombres de objeto 'scroll_inspector', 'widget_inspector_content' y los 'lbl_inspector_*'.
+"""
+
+__version__ = "1.5.3"
+__all__ = ["DEFAULT_SECTIONS", "InspectorPanel"]
+
+# Librerías estándar
+from collections.abc import Callable, Sequence
+from typing import Any
+
+# Librerías de terceros (Qt)
+from qtpy.QtCore import Qt, Signal
+from qtpy.QtWidgets import QFrame, QLabel, QScrollArea, QVBoxLayout, QWidget
+
+# Módulos del proyecto
+from config.app_config import config
+from config.app_constants import SETTING_INSPECTOR_SECTIONS
+from core.catalog.selection_summary import SelectionSummary
+from ui_helpers.inspector.base_section import InspectorSection, set_secondary_text
+from ui_helpers.inspector.keyword_editor_section import KeywordEditorSection
+from ui_helpers.inspector.keyword_list_section import KeywordListSection
+from ui_helpers.inspector.keywords_section import KeywordsSection
+from ui_helpers.inspector.metadata_section import MetadataSection
+from ui_helpers.inspector.selection_section import SelectionSection
+from ui_helpers.widgets.collapsible_section import CollapsibleSection
+
+# Secciones del inspector por defecto, en orden (una función que crea cada una).
+# Para añadir una sección: escribir su clase (heredando de 'InspectorSection') y ponerla aquí
+DEFAULT_SECTIONS: tuple[Callable[[QWidget], InspectorSection], ...] = (
+    SelectionSection,
+    KeywordsSection,        # en todos los módulos menos Imagen
+    KeywordEditorSection,   # solo en Imagen: la caja de texto
+    KeywordListSection,     # solo en Imagen: el árbol con casillas
+    MetadataSection,
+)
+
+
+class InspectorPanel(QWidget):
+    """Panel derecho con las secciones del inspector (ver el docstring del módulo).
+
+    Signals:
+        reveal_requested(object): mostrar una ruta ('Path') en el explorador de archivos.
+    """
+
+    reveal_requested = Signal(object)
+    # Alguna sección necesita sus datos otra vez (p. ej. ha cambiado de vista)
+    refresh_requested = Signal()
+    # Alguna sección quiere cambiar el catálogo: (función, argumentos)
+    edit_requested = Signal(object, object)
+    # Lo mismo con tarjetas soltadas: (función, argumentos, MediaDrag)
+    drop_edit_requested = Signal(object, object, object)
+    # Alguna sección quiere que la cuadrícula muestre otro origen ('GridSource')
+    navigate_requested = Signal(object)
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        sections: Sequence[Callable[[QWidget], InspectorSection]] = DEFAULT_SECTIONS,
+    ) -> None:
+        """Crea el panel con sus secciones (vacías hasta 'show_summary').
+
+        Args:
+            parent: Widget padre.
+            sections: Qué secciones lleva y en qué orden (por defecto, 'DEFAULT_SECTIONS').
+        """
+        super().__init__(parent)
+        self._module: str | None = None  # módulo activo (qué secciones tocan)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # Todo el panel se desplaza a la vez (como la barra izquierda)
+        scroll = QScrollArea(self)
+        scroll.setObjectName("scroll_inspector")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        outer.addWidget(scroll)
+
+        content = QWidget(scroll)
+        content.setObjectName("widget_inspector_content")
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        scroll.setWidget(content)
+
+        # Aviso cuando no hay catálogo abierto (en lugar de secciones vacías)
+        self._empty_label = QLabel("Abre o crea un catálogo para ver aquí la información.", content)
+        self._empty_label.setObjectName("lbl_inspector_hint")
+        self._empty_label.setWordWrap(True)
+        self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_label.setContentsMargins(12, 24, 12, 0)
+        set_secondary_text(self._empty_label)
+        layout.addWidget(self._empty_label)
+
+        # Secciones: cada una en su sección plegable
+        self._sections: list[tuple[InspectorSection, CollapsibleSection]] = []
+        for factory in sections:
+            section = factory(content)
+            # Plegada o desplegada como se dejó la última vez (por defecto, desplegada)
+            frame = CollapsibleSection(
+                section.title, content, expanded=self._saved_expanded(section.key)
+            )
+            frame.toggled.connect(
+                lambda expanded, key=section.key: self._save_expanded(key, expanded)
+            )
+            frame.set_content(section)
+            header_widget = section.header_widget()
+            if header_widget is not None:
+                frame.add_header_widget(header_widget)  # p. ej. el desplegable de vistas
+            layout.addWidget(frame)
+            section.reveal_requested.connect(self.reveal_requested)
+            section.refresh_requested.connect(self.refresh_requested)
+            section.edit_requested.connect(self.edit_requested)
+            section.drop_edit_requested.connect(self.drop_edit_requested)
+            section.navigate_requested.connect(self.navigate_requested)
+            self._sections.append((section, frame))
+
+        layout.addStretch(1)  # las secciones arriba, el hueco abajo
+        self.show_no_catalog()
+
+    # -------------------------------------------------------------------------
+    # API pública
+    # -------------------------------------------------------------------------
+
+    def set_module(self, module: str | None) -> None:
+        """Módulo activo: decide qué secciones aparecen (se ve en el próximo resumen)."""
+        self._module = module
+
+    def show_summary(self, summary: SelectionSummary) -> None:
+        """Muestra el resumen en todas las secciones (oculta las que no aplican)."""
+        self._empty_label.setVisible(False)
+        for section, frame in self._sections:
+            applies = section.shown_in(self._module) and section.applies_to(summary)
+            frame.setVisible(applies)
+            if applies:
+                frame.set_title(section.title_for(summary))
+                section.show_summary(summary)
+        self._align_key_columns()
+
+    def data_requests(
+        self, summary: SelectionSummary, ids: Sequence[int]
+    ) -> list[tuple[InspectorSection, Callable[..., Any], tuple[Any, ...]]]:
+        """Datos propios que piden las secciones visibles: (sección, función, argumentos).
+
+        Lo llama el controlador después de 'show_summary' y lanza cada función en segundo
+        plano; el resultado vuelve con 'deliver_data'.
+        """
+        requests = []
+        for section, frame in self._sections:
+            if not frame.isVisibleTo(self):
+                continue
+            request = section.data_request(summary, ids)
+            if request is not None:
+                function, arguments = request
+                requests.append((section, function, arguments))
+        return requests
+
+    def deliver_data(self, section: InspectorSection, result: Any) -> None:
+        """Entrega a una sección el resultado de su 'data_request'."""
+        section.show_data(result)
+        self._align_key_columns()
+
+    def _align_key_columns(self) -> None:
+        """La columna de etiquetas, con el mismo ancho FIJO en todas las secciones y vistas.
+
+        El ancho es el de la etiqueta más larga de TODAS las que pueden aparecer (no solo
+        las de ahora): así los valores empiezan siempre en el mismo sitio, sea cual sea la
+        sección o la vista elegida en «Metadatos». Las etiquetas usan la fuente del panel.
+        """
+        grids = [grid for section, _frame in self._sections for grid in section.info_grids()]
+        if not grids:
+            return
+        labels = [text for section, _frame in self._sections for text in section.possible_key_labels()]
+        metrics = grids[0].fontMetrics()
+        width = max((metrics.horizontalAdvance(text) for text in labels), default=0) + 2
+        for grid in grids:
+            grid.set_key_column_width(width)
+
+    @staticmethod
+    def _saved_states() -> dict[str, bool]:
+        """Lo guardado en settings.json; lo que no se entienda se ignora."""
+        states = config.get(SETTING_INSPECTOR_SECTIONS)
+        if not isinstance(states, dict):
+            return {}
+        return {key: value for key, value in states.items() if isinstance(value, bool)}
+
+    def _saved_expanded(self, key: str) -> bool:
+        """Si la sección 'key' estaba desplegada al cerrar (True si no consta)."""
+        return self._saved_states().get(key, True)
+
+    def _save_expanded(self, key: str, expanded: bool) -> None:
+        """Guarda al momento que la sección 'key' se ha plegado o desplegado."""
+        states = self._saved_states()
+        states[key] = expanded
+        config.set(SETTING_INSPECTOR_SECTIONS, states)
+
+    def show_no_catalog(self) -> None:
+        """Sin catálogo abierto: solo el aviso, sin secciones."""
+        self._empty_label.setVisible(True)
+        for _section, frame in self._sections:
+            frame.setVisible(False)
+
+    def sections(self) -> list[InspectorSection]:
+        """Las secciones del panel, en orden (para las pruebas y para guardar su estado)."""
+        return [section for section, _frame in self._sections]

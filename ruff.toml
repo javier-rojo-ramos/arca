@@ -1,0 +1,2 @@
+# Carpetas o archivos que la extensión "Ruff" debe ignorar
+extend-exclude = ["tests/", "ui/"]

@@ -1,0 +1,84 @@
+# ==========================================
+# Entorno virtual y caché de Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+
+# ==========================================
+# Ignorar las bases de datos SQLite
+# ==========================================
+*.sqlite
+*.db
+
+# ==========================================
+# Archivos temporales de SQLite
+# ==========================================
+*.sqlite-wal
+*.sqlite-shm
+*.db-wal
+*.db-shm
+
+# ==========================================
+# Archivos temporales de Microsoft Office / Word
+# (generados al abrir o editar plantillas .docx)
+# ==========================================
+~$*.docx
+~$*.doc
+~$*.xlsx
+
+# ==========================================
+# Empaquetado y Compilación (PyInstaller)
+# ==========================================
+build/
+dist/
+*.manifest
+*.spec.bak
+
+# ==========================================
+# Calidad de Código, Tests y Linting (Ruff / Pytest)
+# ==========================================
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# ==========================================
+# Logs y archivos temporales de ejecución
+# ==========================================
+*.log
+*.tmp
+
+# ==========================================
+# Configuración local / IDEs
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==========================================
+# Archivos del Sistema Operativo (Windows / macOS)
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ==========================================
+# Herramientas externas (ExifTool)
+# ==========================================
+
+tools/

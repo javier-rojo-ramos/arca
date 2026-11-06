@@ -1,0 +1,80 @@
+# CLAUDE.md — Arca Media
+
+Catalogador multimedia (tipo DAM) de escritorio, multiplataforma: Python 3.14 + PySide6 (vía `qtpy`), SQLite y ExifTool. Lo desarrolla una sola persona, para uso interno de su empresa, a largo plazo. Se trabaja sobre todo en **Windows**.
+
+Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto está** se cuenta en [docs/INDEX.md](docs/INDEX.md).
+
+## Cómo leer el proyecto (sin leerlo entero)
+
+1. Empieza por [docs/INDEX.md](docs/INDEX.md) y [docs/ESTADO.md](docs/ESTADO.md). Son cortos.
+2. Lee **solo** el documento del tema que vas a tocar (la tabla de `INDEX.md` dice cuál) y, si existe, el `LEEME.md` de su carpeta (`core/metadata/`, `core/thumbnails/`, `core/userdata/`).
+3. Para saber **dónde** está algo: el mapa de [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) y la tabla de [docs/COMO_AMPLIAR.md](docs/COMO_AMPLIAR.md). Después, busca (`grep`) el nombre concreto en lugar de abrir carpetas enteras.
+4. Cada `.py` explica en su **cabecera** qué hace, cómo se usa y su historial: léela antes que el resto del archivo.
+5. Archivos grandes: abre solo los métodos que necesites. Son grandes `controllers/main_window_controller.py` (~1 750 líneas), `ui_helpers/sidebars/catalog_sidebar.py` (~1 200) y `ui_helpers/delegates/thumbnails_delegate.py` (~830).
+6. **No leas** `ui/main_window.py`: se genera desde `ui/main_window.ui` con `build_ui.py`. Para el nombre de un widget, búscalo con `grep`.
+7. Si el código y la documentación no coinciden, **manda el código**: corrige la documentación y avisa.
+
+## Cómo trabajar
+
+- **Paso a paso**: haz cambios pequeños y comprobables, uno cada vez. Si un cambio toca varios archivos o hay que decidir algo, explica antes el plan y espera el visto bueno. No mezcles una refactorización con una funcionalidad nueva.
+- **Edita solo lo afectado**: cambia el método o la sección que haga falta. No reescribas archivos enteros ni reordenes código que no tiene que ver con el cambio.
+- **Pregunta antes de decidir** lo que es del autor: comportamiento visible, textos de la interfaz, qué se guarda en los archivos del usuario y qué se borra.
+- **Commits**: no los hagas salvo que te lo pida el autor.
+- **Al terminar**: resume qué has cambiado y qué tiene que comprobar el autor en la aplicación. La interfaz no tiene pruebas automáticas.
+
+## Convenciones del código
+
+- **Idioma**: nombres (variables, constantes, funciones, clases) en **inglés**; **docstrings y comentarios en español**, como el resto del proyecto. Textos de la interfaz en español. En el chat, en español.
+- **Comentarios**: código bien comentado. Explica el **porqué** y lo que no es evidente, no lo que ya dice el código.
+- **Estilo**: PEP 8, comprobado con **ruff** (`ruff check <archivos tocados>`; configuración en `ruff.toml`). Líneas de hasta unos 100 caracteres, como el resto del código.
+- **Tipado**: *type hints* en todas las firmas (`def update_status(self, message: str) -> None:`).
+- **Cada módulo** lleva:
+  - una cabecera con qué hace, cómo se usa y el historial de versiones (`1.2.0 Qué cambió.`, la más reciente arriba);
+  - `__version__`: súbela al cambiar el módulo;
+  - `__all__`;
+  - una **autoprueba** en `if __name__ == "__main__":` que termina imprimiendo «Autoprueba finalizada correctamente.».
+- **Importaciones** agrupadas con estos comentarios: `# Librerías estándar`, `# Librerías de terceros`, `# Librerías de terceros (Qt)`, `# Módulos del proyecto`.
+- **Qt** siempre a través de `qtpy`, nunca de `PySide6` directamente (salvo el `.py` generado).
+
+## Reglas de arquitectura (no romper)
+
+- `core/` **no usa Qt**, salvo `core/database/db_manager.py` y `core/workers/`. Lo que necesite Qt (papelera, diálogos...) se le pasa como función desde `ui_helpers/`.
+- La interfaz **nunca** accede a la base de datos ni hace trabajo largo en el hilo principal:
+  - consultas: `self.db.execute_async(funcion, ...)`;
+  - trabajos largos: `JobManager.start(nombre, trabajo)`.
+- Toda función que accede a la base de datos recibe la **conexión (`conn`) como primer parámetro** y **no hace `commit`**. La excepción son los trabajos largos, que hacen `commit` por lotes y obedecen su `cancel_event`.
+- En las respuestas asíncronas, comprueba que el catálogo sigue abierto (`if self.db is None: return`): puede haberse cerrado mientras tanto.
+- **Qt y memoria**: crea cada widget o `QObject` con su `parent` correcto, o mételo en un layout que lo tenga. Usa `deleteLater()` para los que se descartan. Así se evitan fugas y cierres con *Segmentation Fault*.
+- **Base de datos**:
+  - las migraciones solo se **añaden al final** de `MIGRATIONS` (`core/catalog/catalog_schema.py`); nunca se edita una existente (la 1 es el esquema consolidado el 05/11/2026);
+  - el esquema está en [docs/MODELO_DE_DATOS.md](docs/MODELO_DE_DATOS.md), con los bloques de columnas y quién escribe cada uno;
+  - un extractor nunca escribe datos del usuario.
+- **Versiones que obligan a reprocesar**: sube `IMAGE_FIELDS_VERSION` o `VIDEO_FIELDS_VERSION` si cambian los campos o sus reglas, y `THUMBNAIL_VERSION` si cambia el resultado de las miniaturas.
+- **Archivos del usuario**: los originales no se mueven ni se modifican. La única excepción es escribir valoración, marca y color con las reglas de `core/userdata/` (ver su `LEEME.md`), y la papelera cuando el usuario la pide.
+- **Interfaz**: no edites `ui/main_window.py`. Cambia `ui/main_window.ui` y ejecuta `python build_ui.py`. Los nombres de las bibliotecas salen siempre de `LIBRARY_NAMES`.
+- **Colores**: ningún `"#rrggbb"` suelto en la interfaz. Salen de `ui_helpers/helpers/theme_colors.py` (por su nombre de función) o de la paleta de Qt (`palette(...)` en QSS); los estilos, en `ui_theme.py`.
+- **Tamaño**: si una clase de interfaz pasa de unas **400 líneas**, propón dividirla en componentes, widgets propios o helpers. `main_window_controller.py` ya es demasiado grande: no le añadas lógica nueva. Ponla en su propio módulo (como `controllers/collection_actions.py` o `controllers/inspector_controller.py`) y deja en el controlador solo la conexión.
+
+## Cómo comprobar un cambio
+
+- La autoprueba de cada módulo tocado, desde la raíz: `python -m paquete.modulo`. La lista completa está en [docs/PRUEBAS.md](docs/PRUEBAS.md).
+- `ruff check` de los archivos tocados.
+- Si una autoprueba depende de lo que haya instalado (ExifTool, `pillow-heif`), pásale un registro explícito.
+- Lo que no se puede probar sin la aplicación, díselo al autor como lista de comprobaciones.
+
+## Al terminar cada paso: actualizar la documentación
+
+| Si... | Actualiza |
+|---|---|
+| Siempre | [docs/ESTADO.md](docs/ESTADO.md): la entrega en «Pendiente de verificar» y una línea en «Últimos cambios» (se guardan 10; la que sobra pasa a [docs/HISTORIAL.md](docs/HISTORIAL.md)) |
+| Avanza o cambia el plan | [docs/PENDIENTE.md](docs/PENDIENTE.md) |
+| El autor confirma que algo funciona | Pásalo a «Verificado» en `ESTADO.md` |
+| Cambia el esquema | [docs/MODELO_DE_DATOS.md](docs/MODELO_DE_DATOS.md) y la tabla de versiones de [docs/INDEX.md](docs/INDEX.md) |
+| Cambia una versión (campos, miniaturas, GPX) | La tabla de versiones de `INDEX.md` |
+| Cambia cómo funciona una operación | [docs/FLUJOS.md](docs/FLUJOS.md) |
+| Archivo o módulo nuevo | El mapa de [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) y, si es un punto de ampliación, [docs/COMO_AMPLIAR.md](docs/COMO_AMPLIAR.md) |
+| Se decide algo de diseño | [docs/DECISIONES.md](docs/DECISIONES.md): al final, con fecha y el porqué |
+| Aparece una limitación o un error fácil de cometer | [docs/TRAMPAS.md](docs/TRAMPAS.md) |
+| Autoprueba o herramienta nueva | [docs/PRUEBAS.md](docs/PRUEBAS.md) |
+
+Escribe la documentación en español, breve y concreta. Enlaza a otros documentos en vez de repetir su contenido.

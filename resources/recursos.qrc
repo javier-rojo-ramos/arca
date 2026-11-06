@@ -1,0 +1,38 @@
+<RCC>
+    <qresource prefix="/img">
+        <file alias="main_icon.ico">icons/icon_128.ico</file>
+        <file alias="logo.png">images/logo.png</file>
+        <file alias="check_circle.svg">images/check_circle.svg</file>
+        <file alias="check_circle__green.svg">images/check_circle__green.svg</file>
+        <file alias="close.svg">images/close.svg</file>
+        <file alias="error.svg">images/error.svg</file>
+        <file alias="error__red.svg">images/error__red.svg</file>
+        <file alias="folder_open.svg">images/folder_open.svg</file>
+        <file alias="info.svg">images/info.svg</file>
+        <file alias="warning.svg">images/warning.svg</file>
+        <file alias="note_add.svg">images/note_add.svg</file>
+        <file alias="file_open.svg">images/file_open.svg</file>
+        <file alias="save.svg">images/save.svg</file>
+        <file alias="save_as.svg">images/save_as.svg</file>
+        <file alias="create_new_folder.svg">images/create_new_folder.svg</file>
+        <file alias="bookmark_manager.svg">images/bookmark_manager.svg</file>
+        <file alias="add.svg">images/add.svg</file>
+        <file alias="folder.svg">images/folder.svg</file>
+        <file alias="folder_open.svg">images/folder_open.svg</file>
+        <file alias="folder_delete.svg">images/folder_delete.svg</file>
+        <file alias="folder_managed.svg">images/folder_managed.svg</file>
+        <file alias="folder_special.svg">images/folder_special.svg</file>
+        <file alias="storage.svg">images/storage.svg</file>
+        <file alias="check_box_all.svg">images/check_box_all.svg</file>
+        <file alias="check_box_none.svg">images/check_box_none.svg</file>
+        <file alias="arrow_circle_up.svg">images/arrow_circle_up.svg</file>
+        <file alias="arrow_circle_down.svg">images/arrow_circle_down.svg</file>
+        <file alias="equal.svg">images/equal.svg</file>
+        <file alias="settings.svg">images/settings.svg</file>
+        <file alias="settings_applications.svg">images/settings_applications.svg</file>
+        <file alias="arrow_back_ios.svg">images/arrow_back_ios.svg</file>
+        <file alias="arrow_forward_ios.svg">images/arrow_forward_ios.svg</file>
+        <file alias="library_image.svg">images/library_image.svg</file>
+        <file alias="library_all.svg">images/library_all.svg</file>
+    </qresource>
+</RCC>

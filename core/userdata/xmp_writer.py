@@ -1,0 +1,581 @@
+"""Escritura de valoración, marca, etiqueta de color y palabras clave en XMP con ExifTool.
+
+Este módulo NO depende de Qt ni de la base de datos: recibe rutas y valores, escribe y
+comprueba. Quién decide QUÉ escribir y CUÁNDO es 'sync.py'.
+
+Etiquetas que se escriben (las mismas que Lightroom Classic y que lee el extractor):
+
+    rating       XMP-xmp:Rating               0 a 5 (el 0 se escribe: "sin estrellas")
+    flag         XMP-xmpDM:Pick               1 marcada, 0 sin marca, -1 rechazada
+                 XMP-xmpDM:Good               True / False (Lightroom escribe las dos;
+                                              sin marca, se borra)
+    color_label  XMP-photoshop:LabelColor     'red', 'blue'... (inglés)
+                 XMP-xmp:Label                texto del juego de etiquetas de Lightroom
+                                              ('Roja', 'Azul'...; ver XMP_LABEL_TEXTS)
+    keywords     XMP-lr:HierarchicalSubject   las rutas asignadas ('Coche|Opel Astra')
+                 XMP-dc:Subject               lista plana: cada palabra y sus padres
+                                              ('Coche', 'Opel Astra'), como Lightroom
+                 IPTC:Keywords                la misma lista plana, SOLO si el archivo ya
+                                              la tenía (si no, al quitar todas las palabras
+                                              del XMP volverían a leerse las viejas de IPTC)
+
+Por qué el 0 se escribe y no se borra la etiqueta: al releer, una etiqueta AUSENTE
+significa "el archivo no dice nada" y no toca el catálogo; un 0 escrito significa "sin
+estrellas" y sí lo cambia. Así un RAW cuya cámara guardó una valoración dentro no la
+recupera al quitarle las estrellas aquí (se crea su sidecar con Rating = 0).
+
+Medidas de seguridad:
+    - Solo se tocan los campos que se piden (los PENDIENTES del elemento: si en la
+      aplicación solo se cambió el color, la valoración del archivo no se toca) y, de
+      ellos, solo los que CAMBIAN. Antes de escribir se
+      leen los valores actuales del archivo: si ya coinciden, el archivo no se toca
+      (ni siquiera cambia su fecha de modificación). Una etiqueta personalizada de
+      Lightroom (un texto en 'xmp:Label' que no es un color) no se borra si el color no
+      cambia.
+    - Nunca se reescribe el XMP entero ni la imagen: ExifTool modifica solo esas
+      etiquetas y conserva todo lo demás (ajustes de revelado de Lightroom, EXIF...).
+    - ExifTool escribe en un archivo temporal y lo cambia por el original al final
+      ('-overwrite_original'): si algo se corta a mitad, el original queda intacto.
+    - Después de escribir se VUELVE A LEER el archivo: solo cuenta como escrito si
+      ahora tiene exactamente los valores pedidos.
+    - Un archivo que falla no afecta a los demás del lote.
+    - Si una escritura anterior se cortó y dejó el temporal de ExifTool
+      ('foto.jpg_exiftool_tmp'), ExifTool se negaría a escribir para siempre: un temporal
+      de más de 10 minutos se borra (el original nunca llegó a sustituirse: está intacto).
+
+Rendimiento: arrancar ExifTool tarda unos cientos de milisegundos, así que cada lote
+de archivos se escribe con UNA sola llamada ('-execute' separa los archivos dentro de
+la misma llamada) y se lee con otra antes y otra después.
+
+1.1.2 Marca de la salida de ExifTool con el nombre nuevo de la aplicación ('@@ARCA ').
+1.1.1 Las palabras clave se comparan letra a letra para decidir si se escribe: renombrar
+      solo con mayúsculas o acentos («Familia» -> «Família») también llega al archivo.
+
+Prueba rápida (necesita ExifTool instalado; trabaja sobre archivos de prueba temporales):
+    python -m core.userdata.xmp_writer
+"""
+
+__version__ = "1.1.2"
+__all__ = [
+    "XMP_READ_TAGS",
+    "XmpWriteOutcome",
+    "XmpWriteRequest",
+    "XmpUserDataWriter",
+    "keyword_paths_from_tags",
+    "user_values_from_tags",
+]
+
+# Librerías estándar
+import subprocess
+import tempfile
+import threading
+import time
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+# Librerías de terceros
+from loguru import logger
+
+# Módulos del proyecto
+from core.catalog.color_labels import (
+    XMP_LABEL_TEXTS,
+    color_label_from_xmp,
+    normalize_color_label,
+)
+from core.metadata.exiftool_runner import (
+    ExifToolError,
+    ExifToolFileError,
+    ExifToolLaunchError,
+    ExifToolRunner,
+)
+from core.catalog.keywords import flat_keyword_names, same_keywords
+from core.metadata.field_spec import pick_flag, rating_value
+from core.metadata.keyword_tags import HIERARCHY_SEPARATOR, read_keywords
+
+# Etiquetas que se leen para saber qué valores tiene ya un archivo
+XMP_READ_TAGS: tuple[str, ...] = (
+    "-XMP-xmp:Rating",
+    "-XMP-xmpDM:Pick",
+    "-XMP-xmpDM:Good",
+    "-XMP-photoshop:LabelColor",
+    "-XMP-xmp:Label",
+    "-XMP-dc:Subject",
+    "-XMP-lr:HierarchicalSubject",
+    "-IPTC:Keywords",
+)
+
+# Archivos por llamada de escritura
+_WRITE_BATCH_SIZE = 25
+
+# Segundos máximos por llamada de escritura (ExifTool copia el archivo entero: 25 TIFF o
+# DNG grandes en una unidad de red pueden tardar)
+_WRITE_TIMEOUT_SECONDS = 600.0
+
+# Antigüedad a partir de la cual un temporal de ExifTool se considera abandonado
+_STALE_TEMP_SECONDS = 600.0
+
+# Marca que se escribe en la salida de errores antes de cada archivo, para saber a qué
+# archivo pertenece cada mensaje de ExifTool
+_MARK = "@@ARCA "
+
+# En Windows, evita que aparezca una ventana de consola en cada llamada
+_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+@dataclass(frozen=True, slots=True)
+class XmpWriteRequest:
+    """Valores que debe tener un archivo XMP (o un archivo con XMP incrustado).
+
+    Attributes:
+        path: Archivo donde se escribe: el propio original (XMP incrustado) o su
+            sidecar '.xmp' (que se crea si no existe).
+        values: SOLO los campos que hay que dejar con ese valor ('rating' 0-5, 'flag'
+            -1/0/1, 'color_label' nombre canónico o None, 'keywords' las rutas asignadas,
+            p. ej. (('Coche', 'Opel Astra'),)). Los que no estén no se tocan.
+    """
+
+    path: Path
+    values: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class XmpWriteOutcome:
+    """Qué ha pasado con un archivo.
+
+    Attributes:
+        request: Lo que se pidió.
+        ok: True si el archivo tiene ya los valores pedidos (escritos ahora o antes).
+        written: True si se ha modificado el archivo (False si ya los tenía o si falló).
+        message: Motivo del fallo (texto de ExifTool), o '' si fue bien.
+    """
+
+    request: XmpWriteRequest
+    ok: bool
+    written: bool = False
+    message: str = ""
+
+
+def user_values_from_tags(tags: Mapping[str, Any]) -> dict[str, Any]:
+    """Valores del usuario que tiene un archivo, con los valores por defecto si faltan.
+
+    Usa las mismas reglas que la lectura al importar ('IMAGE_USER_FIELDS'): rating 0-5,
+    marca de 'xmpDM:Pick' y color de 'photoshop:LabelColor' o, si falta, de 'xmp:Label'.
+    """
+    rating = rating_value(tags.get("XMP-xmp:Rating"))
+    flag = pick_flag(tags.get("XMP-xmpDM:Pick"))
+    color = color_label_from_xmp(tags.get("XMP-xmp:Label"), tags.get("XMP-photoshop:LabelColor"))
+    return {"rating": rating or 0, "flag": flag or 0, "color_label": color}
+
+
+def keyword_paths_from_tags(tags: Mapping[str, Any]) -> tuple[tuple[str, ...], ...]:
+    """Palabras clave que tiene un archivo, como rutas (con la misma regla que al importar:
+    'keyword_tags.read_keywords'). Las sueltas, como rutas de una palabra."""
+    found = read_keywords(tags)
+    return (*found.paths, *((name,) for name in found.flat))
+
+
+def _keyword_arguments(wanted: Sequence[Sequence[str]], current_tags: Mapping[str, Any]) -> list[str]:
+    """Argumentos para dejar EXACTAMENTE esas palabras (las listas se vacían y se rellenan)."""
+    args = ["-XMP-lr:HierarchicalSubject="]
+    args += [f"-XMP-lr:HierarchicalSubject={HIERARCHY_SEPARATOR.join(path)}" for path in wanted]
+    flat = flat_keyword_names(wanted)
+    args.append("-XMP-dc:Subject=")
+    args += [f"-XMP-dc:Subject={name}" for name in flat]
+    if current_tags.get("IPTC:Keywords") is not None:
+        args.append("-IPTC:Keywords=")
+        args += [f"-IPTC:Keywords={name}" for name in flat]
+    return args
+
+
+def _arguments_for(
+    request: XmpWriteRequest, current_tags: Mapping[str, Any], *, creating: bool
+) -> list[str]:
+    """Argumentos de ExifTool para dejar el archivo con los valores pedidos.
+
+    Args:
+        request: Lo que se pide (solo los campos pendientes).
+        current_tags: Etiquetas que tiene ahora el archivo.
+        creating: True si el archivo aún no existe (un sidecar nuevo). Entonces se
+            escriben la valoración y la marca aunque valgan 0: así el sidecar dice
+            explícitamente "sin estrellas" y no vale lo que la cámara guardó en el RAW.
+
+    Returns:
+        Solo las etiquetas de los campos pedidos que cambian (vacío = nada que hacer).
+    """
+    current = user_values_from_tags(current_tags)
+    wanted = request.values
+    args: list[str] = []
+
+    if "rating" in wanted and (creating or current["rating"] != wanted["rating"]):
+        args.append(f"-XMP-xmp:Rating={wanted['rating']}")
+
+    if "flag" in wanted and (creating or current["flag"] != wanted["flag"]):
+        if wanted["flag"] == 0:
+            args += ["-XMP-xmpDM:Pick=0", "-XMP-xmpDM:Good="]
+        else:
+            good = "true" if wanted["flag"] == 1 else "false"
+            args += [f"-XMP-xmpDM:Pick={wanted['flag']}", f"-XMP-xmpDM:Good={good}"]
+
+    if "color_label" in wanted and current["color_label"] != wanted["color_label"]:
+        color = wanted["color_label"]
+        if color is None:
+            args.append("-XMP-photoshop:LabelColor=")
+            # 'xmp:Label' solo se borra si es un color: un texto personalizado de
+            # Lightroom ('Revisar', 'Para imprimir'...) no es una etiqueta de color
+            if normalize_color_label(current_tags.get("XMP-xmp:Label")) is not None:
+                args.append("-XMP-xmp:Label=")
+        else:
+            # Si el archivo ya tiene un texto de ese mismo color (p. ej. 'Rojo' en otro
+            # juego de etiquetas), se conserva; si no, el texto de Lightroom en español
+            label_text = current_tags.get("XMP-xmp:Label")
+            if normalize_color_label(label_text) != color:
+                label_text = XMP_LABEL_TEXTS[color]
+            args += [f"-XMP-photoshop:LabelColor={color}", f"-XMP-xmp:Label={label_text}"]
+
+    # Letra a letra: un cambio solo de mayúsculas o acentos (renombrar) también se escribe
+    if "keywords" in wanted and not same_keywords(
+        keyword_paths_from_tags(current_tags), wanted["keywords"], exact=True
+    ):
+        args += _keyword_arguments(wanted["keywords"], current_tags)
+    return args
+
+
+def _matches(tags: Mapping[str, Any], wanted: Mapping[str, Any]) -> bool:
+    """True si el archivo tiene ya los valores pedidos (solo se comparan esos campos)."""
+    current = user_values_from_tags(tags)
+    for field, value in wanted.items():
+        if field == "keywords":
+            if not same_keywords(keyword_paths_from_tags(tags), value, exact=True):
+                return False
+        elif current[field] != value:
+            return False
+    return True
+
+
+def _remove_stale_temp(path: Path) -> None:
+    """Borra el temporal que deja ExifTool si una escritura anterior se cortó.
+
+    ExifTool escribe en 'archivo_exiftool_tmp' y solo al final lo cambia por el original;
+    si se corta (cierre, apagado, tiempo agotado), el temporal se queda y ExifTool ya no
+    escribe ese archivo nunca más ("Temporary file already exists"). El original sigue
+    intacto. Solo se borra si tiene más de unos minutos (no es de una escritura en curso).
+    """
+    temp = path.with_name(path.name + "_exiftool_tmp")
+    try:
+        if temp.is_file() and time.time() - temp.stat().st_mtime > _STALE_TEMP_SECONDS:
+            temp.unlink()
+            logger.warning(f"Borrado un temporal antiguo de ExifTool: {temp}")
+    except OSError as error:
+        logger.debug(f"No se pudo revisar el temporal {temp}: {error}")
+
+
+class XmpUserDataWriter:
+    """Escribe valoración, marca y color en XMP (incrustado o sidecar) con ExifTool."""
+
+    def __init__(self, runner: ExifToolRunner) -> None:
+        """Crea el escritor.
+
+        Args:
+            runner: Lector de ExifTool ya configurado (se usa su comando y su lectura).
+        """
+        self._runner = runner
+        self.calls = 0  # llamadas de escritura a ExifTool (para pruebas y diagnóstico)
+
+    def write(
+        self,
+        requests: Sequence[XmpWriteRequest],
+        cancel_event: threading.Event | None = None,
+    ) -> list[XmpWriteOutcome]:
+        """Deja cada archivo con los valores pedidos.
+
+        Args:
+            requests: Un 'XmpWriteRequest' por archivo.
+            cancel_event: Si se activa, no se empiezan lotes nuevos.
+
+        Returns:
+            Un resultado por cada petición tratada, en el mismo orden (si se cancela o
+            ExifTool deja de funcionar a mitad, las que no se llegaron a tratar no
+            aparecen).
+
+        Raises:
+            ExifToolLaunchError: Si ExifTool no se puede ejecutar ya en el primer lote
+                (fallo general: no tiene sentido seguir con más archivos).
+        """
+        outcomes: list[XmpWriteOutcome] = []
+        for start in range(0, len(requests), _WRITE_BATCH_SIZE):
+            if cancel_event is not None and cancel_event.is_set():
+                break
+            try:
+                outcomes += self._write_batch(list(requests[start : start + _WRITE_BATCH_SIZE]))
+            except ExifToolLaunchError:
+                if not outcomes:
+                    raise
+                # Lo ya escrito se conserva (quien llama lo anota); el resto queda sin tratar
+                logger.exception("ExifTool dejó de funcionar a mitad de la escritura")
+                break
+        return outcomes
+
+    # -------------------------------------------------------------------------
+    # Pasos internos
+    # -------------------------------------------------------------------------
+
+    def _write_batch(self, batch: list[XmpWriteRequest]) -> list[XmpWriteOutcome]:
+        """Lee, escribe lo que haga falta y comprueba un lote de archivos."""
+        # 1. Valores actuales. Un sidecar que aún no existe no tiene ninguno.
+        existing = [request.path for request in batch if request.path.exists()]
+        before = self._read(existing)
+
+        results: dict[int, XmpWriteOutcome] = {}
+        to_write: list[tuple[int, XmpWriteRequest, list[str]]] = []
+        for index, request in enumerate(batch):
+            tags: Mapping[str, Any] = {}
+            if request.path.exists():
+                metadata = before.get(request.path)
+                if metadata is None or metadata.error:
+                    message = metadata.error if metadata else "ExifTool no pudo leerlo"
+                    results[index] = XmpWriteOutcome(request, ok=False, message=message)
+                    continue
+                tags = metadata.tags
+            elif request.path.suffix.lower() != ".xmp":
+                # El original ha desaparecido (solo un sidecar se puede crear de cero)
+                results[index] = XmpWriteOutcome(request, ok=False, message="El archivo no existe")
+                continue
+
+            _remove_stale_temp(request.path)
+            args = _arguments_for(request, tags, creating=not request.path.exists())
+            if not args:
+                results[index] = XmpWriteOutcome(request, ok=True)  # ya los tenía
+            else:
+                to_write.append((index, request, args))
+
+        if to_write:
+            # 2. Escritura de todo el lote en una sola llamada
+            messages = self._run_write([(request.path, args) for _, request, args in to_write])
+
+            # 3. Comprobación: se vuelve a leer lo escrito
+            after = self._read([request.path for _, request, _ in to_write if request.path.exists()])
+            for position, (index, request, _) in enumerate(to_write):
+                message = messages.get(position, "")
+                metadata = after.get(request.path)
+                if metadata is not None and not metadata.error:
+                    if _matches(metadata.tags, request.values):
+                        results[index] = XmpWriteOutcome(request, ok=True, written=True)
+                        continue
+                    message = message or "Tras escribir, el archivo no tiene los valores pedidos"
+                results[index] = XmpWriteOutcome(
+                    request, ok=False, message=message or "ExifTool no pudo escribirlo"
+                )
+
+        return [results[index] for index in range(len(batch))]
+
+    def _read(self, paths: list[Path]) -> dict[Path, Any]:
+        """Lee las etiquetas del usuario de varios archivos (aislando un lote que falle)."""
+        if not paths:
+            return {}
+        try:
+            return self._runner.read(paths, tags=XMP_READ_TAGS)
+        except ExifToolFileError:
+            if len(paths) == 1:
+                return {}
+            middle = len(paths) // 2
+            return {**self._read(paths[:middle]), **self._read(paths[middle:])}
+
+    def _run_write(self, items: list[tuple[Path, list[str]]]) -> dict[int, str]:
+        """Ejecuta ExifTool con un bloque de argumentos por archivo ('-execute').
+
+        Returns:
+            Posición del archivo en 'items' -> mensajes de error/aviso de ExifTool sobre
+            él (solo los que tienen alguno).
+
+        Raises:
+            ExifToolLaunchError: Si ExifTool no se puede ejecutar.
+        """
+        lines: list[str] = []
+        for position, (path, args) in enumerate(items):
+            # Antes de cada archivo, una marca en la salida de errores para saber a quién
+            # pertenece cada mensaje
+            lines += ["-echo2", f"{_MARK}{position}", *args, str(path), "-execute"]
+
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", newline="\n", suffix=".txt", delete=False
+        ) as arg_file:
+            arg_file.write("\n".join(lines) + "\n")
+            arg_name = arg_file.name
+
+        command = [
+            *self._runner.command,
+            "-@",
+            arg_name,
+            # Opciones comunes a todos los bloques (deben ir al final)
+            "-common_args",
+            "-overwrite_original",
+            "-charset",
+            "utf8",
+            "-charset",
+            "filename=utf8",
+        ]
+        try:
+            self.calls += 1
+            completed = subprocess.run(  # noqa: S603 - comando fijo, sin shell
+                command,
+                capture_output=True,
+                timeout=_WRITE_TIMEOUT_SECONDS,
+                creationflags=_CREATE_NO_WINDOW,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            # Lo que se haya escrito se comprobará al releer; el resto contará como fallo
+            logger.warning(f"ExifTool tardó demasiado escribiendo {len(items)} archivos")
+            return {position: "ExifTool tardó demasiado" for position in range(len(items))}
+        except OSError as exc:
+            raise ExifToolLaunchError(f"No se pudo ejecutar ExifTool: {exc}") from exc
+        finally:
+            Path(arg_name).unlink(missing_ok=True)
+
+        return _split_messages(completed.stderr.decode("utf-8", errors="replace"))
+
+
+def _split_messages(stderr: str) -> dict[int, str]:
+    """Reparte la salida de errores de ExifTool entre los archivos (por sus marcas)."""
+    messages: dict[int, list[str]] = {}
+    current: int | None = None
+    for line in stderr.splitlines():
+        if line.startswith(_MARK):
+            try:
+                current = int(line[len(_MARK) :].strip())
+            except ValueError:
+                current = None
+            continue
+        text = line.strip()
+        if current is not None and text and not text.startswith("Warning: [minor]"):
+            messages.setdefault(current, []).append(text)
+    return {position: " | ".join(texts) for position, texts in messages.items()}
+
+
+if __name__ == "__main__":
+    # Autoprueba con ExifTool real sobre archivos temporales (no toca nada tuyo).
+    # Ejecutar desde la raíz del proyecto:  python -m core.userdata.xmp_writer
+    import os
+    import sys
+
+    from PIL import Image
+
+    try:
+        runner = ExifToolRunner()
+        runner.version()
+    except ExifToolError as error:
+        print(f"Sin ExifTool no se puede probar la escritura: {error}")
+        sys.exit(0)
+
+    def read_tags(path: Path) -> dict[str, Any]:
+        return runner.read([path], tags=XMP_READ_TAGS)[path].tags
+
+    def exiftool(*args: str) -> None:
+        subprocess.run([*runner.command, "-overwrite_original", *args], capture_output=True, check=True)
+
+    ALL = ("rating", "flag", "color_label")
+
+    def req(path: Path, rating: int, flag: int, color: str | None, fields=ALL) -> XmpWriteRequest:
+        values = {"rating": rating, "flag": flag, "color_label": color}
+        return XmpWriteRequest(path, {field: values[field] for field in fields})
+
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        jpeg = folder / "foto ñ.jpg"  # con acento: comprueba la codificación de rutas
+        Image.new("RGB", (32, 24), "red").save(jpeg, quality=90)
+        png = folder / "foto.png"
+        Image.new("RGB", (32, 24), "blue").save(png)
+        raw_sidecar = folder / "IMG_0001.xmp"  # sidecar que todavía no existe
+        broken = folder / "roto.jpg"
+        broken.write_bytes(b"esto no es un jpeg")
+
+        # 1. Un lote con formatos distintos, un sidecar nuevo y un archivo roto
+        writer = XmpUserDataWriter(runner)
+        outcomes = writer.write([
+            req(jpeg, 3, -1, "red"), req(png, 5, 1, "blue"),
+            req(raw_sidecar, 0, 0, None), req(broken, 1, 0, None),
+        ])  # fmt: skip
+        for outcome in outcomes:
+            print(f"{outcome.request.path.name}: ok={outcome.ok} written={outcome.written} {outcome.message}")
+        assert [o.ok for o in outcomes] == [True, True, True, False]
+        assert writer.calls == 1  # todo el lote en una sola llamada de escritura
+        tags = read_tags(jpeg)
+        assert tags["XMP-xmp:Label"] == "Roja" and tags["XMP-xmpDM:Good"] is False
+        # El sidecar nuevo dice EXPLÍCITAMENTE "sin estrellas y sin marca"
+        sidecar_tags = read_tags(raw_sidecar)
+        assert sidecar_tags["XMP-xmp:Rating"] == 0 and sidecar_tags["XMP-xmpDM:Pick"] == 0
+
+        # 2. Mismos valores otra vez: no se toca el archivo (ni su fecha)
+        mtime = jpeg.stat().st_mtime_ns
+        again = writer.write([req(jpeg, 3, -1, "red")])
+        assert again[0].ok and not again[0].written and jpeg.stat().st_mtime_ns == mtime
+        assert writer.calls == 1  # no hizo falta ninguna escritura
+
+        # 3. Solo se tocan los campos pedidos: otro programa pone 4 estrellas y aquí solo
+        #    se cambia el color -> las 4 estrellas siguen en el archivo
+        exiftool("-XMP-xmp:Rating=4", str(jpeg))
+        only_color = writer.write([req(jpeg, 0, 0, "blue", fields=("color_label",))])
+        assert only_color[0].ok and only_color[0].written
+        assert user_values_from_tags(read_tags(jpeg)) == {"rating": 4, "flag": -1, "color_label": "blue"}
+
+        # 4. Quitar valores: el 0 se escribe (no se borra la etiqueta); el color sí se borra
+        cleared = writer.write([req(jpeg, 0, 0, None)])
+        assert cleared[0].ok and cleared[0].written
+        tags = read_tags(jpeg)
+        assert tags["XMP-xmp:Rating"] == 0 and tags["XMP-xmpDM:Pick"] == 0
+        assert "XMP-xmpDM:Good" not in tags and "XMP-photoshop:LabelColor" not in tags
+
+        # 5. Etiqueta personalizada de Lightroom: al quitar el color, se conserva
+        exiftool("-XMP-xmp:Label=Revisar", str(png))
+        kept = writer.write([req(png, 4, 1, None)])
+        assert kept[0].ok and read_tags(png).get("XMP-xmp:Label") == "Revisar"
+
+        # 6. Un texto de otro idioma del mismo color se conserva
+        exiftool("-XMP-xmp:Label=Rot", "-XMP-photoshop:LabelColor=", str(png))
+        recolored = writer.write([req(png, 2, 1, "red")])  # 'Rot' ya es rojo: solo cambia el 2
+        assert recolored[0].ok and recolored[0].written
+        png_tags = read_tags(png)
+        assert png_tags.get("XMP-xmp:Label") == "Rot" and png_tags["XMP-xmp:Rating"] == 2
+
+        # 7. Temporal abandonado por una escritura cortada: se borra y se puede escribir
+        stale = png.with_name(png.name + "_exiftool_tmp")
+        stale.write_bytes(b"resto de una escritura cortada")
+        old = time.time() - 3600
+        os.utime(stale, (old, old))
+        after_crash = writer.write([req(png, 5, 1, "red")])
+        assert after_crash[0].ok and after_crash[0].written and not stale.exists()
+
+        # 8. Palabras clave, como Lightroom: rutas en la jerárquica; palabra y padres en la plana
+        astra = (("Coche", "Opel Astra"), ("Familia", "Isa"), ("Familia", "Javi"))
+        tagged = writer.write([XmpWriteRequest(jpeg, {"keywords": astra})])
+        assert tagged[0].ok and tagged[0].written, tagged
+        tags = read_tags(jpeg)
+        assert tags["XMP-lr:HierarchicalSubject"] == ["Coche|Opel Astra", "Familia|Isa", "Familia|Javi"], tags
+        assert tags["XMP-dc:Subject"] == ["Coche", "Opel Astra", "Familia", "Isa", "Javi"], tags
+        assert "IPTC:Keywords" not in tags  # no tenía IPTC: no se crea
+        assert read_tags(jpeg)["XMP-xmp:Rating"] == 0  # lo demás, intacto
+        # Las mismas en otro orden: no se toca el archivo
+        mtime = jpeg.stat().st_mtime_ns
+        same = writer.write([XmpWriteRequest(jpeg, {"keywords": (("Familia", "Javi"), ("Familia", "Isa"), ("Coche", "Opel Astra"))})])
+        assert same[0].ok and not same[0].written and jpeg.stat().st_mtime_ns == mtime
+        # Con otras mayúsculas (una palabra renombrada en la aplicación): SÍ se escribe
+        renamed = writer.write([XmpWriteRequest(jpeg, {"keywords": (("familia", "javi"), ("Familia", "Isa"), ("Coche", "Opel Astra"))})])
+        assert renamed[0].ok and renamed[0].written, renamed
+        assert "Familia|Isa" in read_tags(jpeg)["XMP-lr:HierarchicalSubject"]
+        assert "familia|javi" in read_tags(jpeg)["XMP-lr:HierarchicalSubject"]
+        # Un archivo con IPTC antiguo: se actualiza también; y quitar todas vacía las listas
+        exiftool("-IPTC:Keywords=Vieja", str(jpeg))
+        emptied = writer.write([XmpWriteRequest(jpeg, {"keywords": ()})])
+        assert emptied[0].ok and emptied[0].written, emptied
+        tags = read_tags(jpeg)
+        assert "XMP-dc:Subject" not in tags and "XMP-lr:HierarchicalSubject" not in tags, tags
+        assert "IPTC:Keywords" not in tags, tags  # no vuelve a aparecer «Vieja» al releer
+        # En un sidecar nuevo de RAW
+        raw2 = folder / "IMG_0002.xmp"
+        made = writer.write([XmpWriteRequest(raw2, {"rating": 0, "flag": 0, "keywords": (("Playa",),)})])
+        assert made[0].ok and read_tags(raw2)["XMP-dc:Subject"] in ("Playa", ["Playa"])
+        print("Palabras clave: escritas como Lightroom, sin tocar lo demás; IPTC al día")
+
+    print("Autoprueba finalizada correctamente.")

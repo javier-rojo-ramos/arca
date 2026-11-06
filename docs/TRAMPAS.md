@@ -1,0 +1,57 @@
+# Arca Media — Trampas conocidas
+
+> Comportamientos que sorprenden, limitaciones aceptadas y errores fáciles de cometer al tocar el código.
+> Índice: [INDEX.md](INDEX.md).
+
+- Los `.emc.json` (y sus `.bak`) de antes del cambio de nombre a Arca Media (05/11/2026) **ya no se leen**: la valoración, marca, color y palabras clave de esos vídeos, GPX... solo están en el catálogo, que los escribe en `.arca.json` la próxima vez que cambien. Los `.emc.json` sobrantes se pueden borrar a mano.
+- Renombrar, mover o borrar una palabra clave reescribe (con «Guardar en los archivos») el XMP de TODOS los archivos que la tienen, o tienen alguna de sus hijas, de todas las bibliotecas: con una palabra muy usada son muchos archivos. Borrar no se puede deshacer.
+- Elegir una fila por código con las señales del modelo de SELECCIÓN bloqueadas (para no emitir dos veces) deja la vista sin repintar: hay que llamar a `view.viewport().update()` después (si no, la fila se marca solo al pasar el ratón; pasó en la barra de Imagen, 05/11/2026).
+- **Nunca bloquear las señales de un modelo de Qt** (`blockSignals` / `blocked_signals` sobre un `QStandardItemModel`) mientras se borran o añaden filas: la vista no se entera, sigue con índices a filas borradas y el programa se cierra sin aviso (pasó en el árbol con casillas, K4b, 03/11/2026). Para que los avisos no se tomen por clics del usuario, un indicador (`_building`). Bloquear la VISTA o su modelo de selección sí es seguro.
+- Con un `QCompleter` sobre una caja de texto, las teclas se atienden en `keyPressEvent` de una **subclase**, no con un filtro de eventos: el completer las reenvía con `widget.event()`, que se salta los filtros. Y al abrirse su lista la caja recibe `focusOut` con `PopupFocusReason`: no es «salir de la caja».
+- `title` y `description` se sobrescriben al releer los metadatos (todavía no se pueden editar en la aplicación).
+- Si un nombre de biblioteca lleva `&`, en un `QAction`, `QRadioButton` o `QPushButton` hay que pasarlo por `qt_text()` o el `&` desaparece (se toma como tecla de acceso). En `QLabel` de texto plano, `QComboBox` y textos emergentes no hace falta.
+- En el delegado, el rectángulo de lo que se dibuja (miniatura o marcador) sale SIEMPRE de `_content_rect`, tanto en `paint` como en `_zone_at`: si uno de los dos usara otro cálculo, el círculo de la selección rápida se pulsaría en un sitio distinto del que se ve.
+- Un vídeo convertido a otro formato (`.MOV` → `.mp4`) es, para el catálogo, un archivo nuevo: el original queda ausente con sus datos de usuario (ver [PENDIENTE.md](PENDIENTE.md), C.3).
+- Un archivo cuya lectura falla se marca "intentado" y no se reintenta hasta que cambie o suba la versión.
+- ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.
+- Sin ExifTool, los HEIC y RAW salen como "formato sin soporte todavía" y se leen solos en cuanto haya ExifTool (su versión de extractor es mayor).
+- `ScanFilter` no distingue el atributo de "oculto" propio de macOS (solo el punto inicial y los atributos de Windows).
+- La unicidad de rutas distingue mayúsculas en macOS y Linux, no en Windows.
+- Los elementos con `content_created_at` NULL (metadatos aún sin leer, o sin EXIF) van al final de la cuadrícula hasta que se lean.
+- Al añadir una carpeta la cuadrícula se recarga entera y se pierde la selección.
+- «Eliminar del catálogo» no deja rastro: al sincronizar la carpeta el archivo vuelve, con la valoración, marca y color que tenga ESCRITOS en su XMP o `.arca.json`. Un cambio aún pendiente de escribir (`user_data_pending`) se pierde al quitarlo.
+- «Eliminar del disco» en una unidad de red no se ofrece: esos archivos solo se quitan del catálogo (`is_network_path`). Si la detección fallara en un caso raro (p. ej. una carpeta de red montada como carpeta local), Windows podría borrar el archivo definitivamente.
+- Con la aplicación abierta solo se comprueban las **tarjetas visibles** (cada 5 s con la ventana activa y al volver a ella): un archivo borrado que no se está viendo se marca al verlo, al reescanear o cuando un trabajo intenta abrirlo. Los archivos nuevos solo aparecen al añadir (reescanear) la carpeta.
+- Comprobar una unidad de red caída puede tardar varios segundos en Windows: ocupa uno de los 4 hilos del gestor de BD mientras tanto (nunca dos comprobaciones a la vez).
+- Un cambio de rating/marca/color se muestra al instante pero se guarda de forma asíncrona; si el guardado falla se recarga la lista desde la BD.
+- La cuadrícula se **recarga entera** al terminar el trabajo de metadatos (para mostrar rating, marca y color leídos de los archivos y el orden por fecha de captura): se pierde la selección. Mejora posible: refresco por filas.
+- `xmp:Rating = -1` (rechazo en Bridge) no se interpreta como rechazo; solo se lee `xmpDM:Pick`.
+- Quitar un color **en Lightroom** (borra las etiquetas) no se refleja en un catálogo existente al releer: una etiqueta ausente "no dice nada". Al reconstruir el catálogo sí sale sin color. Igual con las estrellas si Lightroom borra `xmp:Rating` en vez de escribir 0.
+- Los sidecars de otros programas para formatos con XMP incrustado (p. ej. `foto.jpg.xmp` de darktable, o un `IMG.xmp` de un HEIC de versiones antiguas de Lightroom) no se leen para la valoración, la marca y el color (sí para los demás campos).
+- Dos RAW con el mismo nombre y distinta extensión en la misma carpeta (`IMG_1.CR2` + `IMG_1.CR3`) comparten el sidecar `IMG_1.xmp` (limitación de la convención de Adobe).
+- Un archivo que no se puede escribir (solo lectura, abierto en otro programa) se reintenta en cada pasada de escritura; su error queda en `scan_errors` (fase `userdata`) y en el registro.
+- Renombrar o mover un vídeo (o cualquier archivo del archivo de carpeta) **fuera** de la aplicación deja su entrada en el `.arca.json` con el nombre antiguo: el archivo renombrado aparece sin datos. (Cuando existan los hashes se podrá reasociar.)
+- `-overwrite_original` sustituye el archivo: rompe enlaces duros y, en macOS, probablemente pierde las etiquetas del Finder y otros atributos extendidos.
+- La primera vez que se abre un catálogo tras esta versión, los valores que ya tenía quedan pendientes de escribirse en los archivos (solo se modifican los que no los tengan ya); si son 100 o más, se pregunta antes. Con miles de fotos valoradas, tarda (barra de progreso "Guardando en los archivos"). En parejas RAW + JPEG, el JPEG puede recibir en su XMP la valoración que el paso 1 tomó del sidecar del RAW.
+- Una miniatura borrada de la caché a mano no se detecta (no se comprueba el disco): usar "Regenerar todas las miniaturas".
+- Sin `pillow-heif`, los HEIC quedan con error de miniatura (estado 2) y no se reintentan solos: tras instalarla, "Regenerar miniaturas con error".
+- Un RAW cuya vista previa incrustada es pequeña da miniaturas de hasta ese tamaño, y los tamaños mayores contienen esa misma imagen (DNG de Lightroom: 1024 px; las vistas previas JPEG XL no se leen).
+- Las autopruebas que usan `default_registry()` dependen de lo que haya instalado (ExifTool...): deben pasar un registro explícito. Falló la del procesador en un equipo con ExifTool.
+- **Tras cambiar el .ui hay que ejecutar `build_ui.py`**: si no, `ui/main_window.py` sigue con la versión anterior (p. ej. `list_view_grid` como `QListView` normal y las tarjetas se arrastran a tamaño real; o sin `widget_organize_bar`: la barra inferior no aparece y el registro avisa).
+- `QListView.setMovement(Static)` desactiva el arrastre: `setDragDropMode(DragOnly)` tiene que ir DESPUÉS.
+- Con selección única, al borrar filas del modelo Qt selecciona otra fila sola (`rowsAboutToBeRemoved`): por eso `set_collection_tree` limpia la selección antes de `removeRows` (si no, se seleccionaba «Rechazadas»).
+- Una colección inteligente que se está viendo **no se recarga sola** si un elemento deja de cumplir las reglas (p. ej. al quitarle las estrellas): sigue en la cuadrícula hasta volver a pulsarla. El contador sí se actualiza.
+- Los iconos nuevos (`hard_drive`, `inventory_2`, `photo_library`, `auto_awesome`) tienen que estar en el `.qrc` (y recompilado); si no, la barra usa los iconos estándar.
+- `ConfigManager.set` compara el valor antiguo con el nuevo: para cambiar un diccionario (p. ej. `sidebar_state`) hay que pasar una COPIA nueva, no modificar el que devuelve `get`.
+- `message_box.warning(...)` usa `title=` (no `titulo=`).
+- **Re-declarar una carpeta ya catalogada** (p. ej. de `auto` a Música) no quita lo que ya no encaja: se queda en el catálogo (sin marcarse ausente) con su biblioteca anterior. Hasta el 2b, quitarlo es a mano.
+- En una carpeta **automática** sí se catalogan las carátulas y pósters sueltos (`cover.jpg`) como fotos: para música y películas hay que declarar la carpeta.
+- Los vídeos de las carpetas automáticas cuyo nombre no dice nada quedan **sin clasificar** (`library` NULL) hasta el 2c o hasta clasificarlos a mano. La detección por el nombre puede equivocarse con nombres raros (p. ej. un vídeo personal llamado «Concierto (2019).mp4» va a Vídeo): se corrige con el submenú «Biblioteca».
+- Algunas cámaras escriben la hora LOCAL en `QuickTime:CreateDate` (contra la especificación, que dice UTC): sus vídeos saldrían desplazados lo que valga la zona horaria. Pendiente de comprobar con vídeos reales y corregir por marca si pasa.
+- Las etiquetas de vídeo (`video/fields.py`) salen de la documentación de ExifTool; comprobadas con iPhone (31/10/2026), pero hasta probar otras marcas alguna puede no dar cámara o fecha.
+- En el JSON de ExifTool, un texto que parece número llega como número: `Keys:Software` de iPhone es `"27.0.1"` en un vídeo y `27.2` (número) en otro. Se guarda bien («27.2»), pero una versión como «18.10» se guardaría «18.1».
+- Cambiar la biblioteca con «Sin clasificar» a la vista **recarga la cuadrícula** (para que los vídeos salgan de ella): se pierde la selección.
+- Al abrir un catálogo, `mosaico_model.attach` va ANTES de restaurar las barras laterales: `attach` llama a `detach`, que vuelve a mostrar todo y borraría lo restaurado.
+- Los módulos se crean en `_configurar_modulos`, DESPUÉS de la cuadrícula (el Catálogo necesita `grid_actions`). Hasta entonces `module_host` es None: los métodos que lo usan lo comprueban.
+- `_configurar_toolbar` reparte el ancho entre TODOS los `QToolButton` de `frame_toolbar`: no meter ahí otros botones que no deban centrarse.
+- `ThumbnailCache.resolve` y las comprobaciones de existencia miran el disco: no llamarlas miles de veces por repintado; cachear el resultado en el modelo de la cuadrícula.

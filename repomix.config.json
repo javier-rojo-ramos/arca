@@ -1,0 +1,23 @@
+{
+  "output": {
+    "file_path": "repomix-output.xml"
+  },
+  "ignore": {
+    "custom_patterns": [
+      ".venv/**",
+      "venv/**",
+      "build/**",
+      "dist/**",
+      "resources/**",
+      "scripts/**",
+      "tools/**",
+      "ui/**/*.py",
+      "**/*.pyc",
+      "**/__pycache__/**",
+      ".pytest_cache/**"
+    ]
+  },
+  "security": {
+    "enable_security_check": false
+  }
+}

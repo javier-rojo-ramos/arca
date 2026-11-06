@@ -1,0 +1,119 @@
+"""Módulo de constantes globales de la aplicación.
+
+Este módulo centraliza todas las configuraciones estáticas, valores por defecto,
+y constantes de negocio utilizadas a lo largo de la aplicación. Su propósito es
+evitar "números mágicos" o cadenas de texto hardcodeadas en la lógica principal.
+
+Incluye:
+    - Rutas de iconos de la interfaz (vinculados a recursos.qrc).
+    - Constantes de negocio (IVA, tarifas por defecto de módulos).
+    - Listas de referencia estáticas (tipos de vía, tipologías, meses).
+    - Parámetros de comportamiento y métricas de la interfaz de usuario (UI).
+"""
+
+# ruff: noqa: RUF022
+__all__ = [
+    "AppIcons",
+    "SETTING_INSPECTOR_METADATA_PRESET",
+    "SETTING_INSPECTOR_SECTIONS",
+    "SETTING_ACTIVE_MODULE",
+    "SETTING_LAST_ADD_FOLDER_PARENT",
+    "SETTING_MAIN_SPLITTER_STATE",
+    "SETTING_SHOW_SUBFOLDER_ITEMS",
+    "SETTING_SIDEBAR_STATE",
+    "SETTING_WRITE_USER_DATA_TO_FILES",
+    "SIDEBAR_CATALOG_DEFAULT_WIDTH",
+    "SIDEBAR_METADATA_DEFAULT_WIDTH",
+    "SNAP_GAP",
+    "SNAP_THRESHOLD",
+    "STATUSBAR_DURATION",
+    "THUMBNAIL_SIZE_DEFAULT",
+    "THUMBNAIL_SIZE_MAX",
+    "THUMBNAIL_SIZE_MIN",
+]
+
+
+# Esta clase se debe actualizar con el contenido del archivo 'recursos.qrc'
+class AppIcons:
+    MAIN_ICON = ":/img/main_icon.ico"
+    LOGO = ":/img/logo.png"
+    CHECK_CIRCLE = ":/img/check_circle.svg"
+    CHECK_CIRCLE__GREEN = ":/img/check_circle__green.svg"
+    CLOSE = ":/img/close.svg"
+    ERROR = ":/img/error.svg"
+    ERROR__RED = ":/img/error__red.svg"
+    FOLDER = ":/img/folder.svg"
+    FOLDER_OPEN = ":/img/folder_open.svg"
+    # Barra lateral del catálogo (Material Symbols; si falta alguno en el .qrc, la barra
+    # usa el icono estándar del sistema)
+    ADD = ":/img/add.svg"  # botón "+" de las cabeceras (Carpetas, Colecciones)
+    DRIVE = ":/img/storage.svg"  # ubicación (disco o carpeta raíz)
+    COLLECTION_SET = ":/img/folder.svg"  # conjunto de colecciones
+    COLLECTION = ":/img/folder_special.svg"  # colección
+    COLLECTION_SMART = ":/img/folder_managed.svg"  # colección inteligente
+    INFO = ":/img/info.svg"
+    WARNING = ":/img/warning.svg"
+    NEW = ":/img/note_add.svg"
+    OPEN = ":/img/file_open.svg"
+    TASK_NEW = ":/img/create_new_folder.svg"
+    TASK_EDIT = ":/img/bookmark_manager.svg"
+    TASK_DELETE = ":/img/folder_delete.svg"
+    SELECT_ALL = ":/img/check_box_all.svg"
+    SELECT_NONE = ":/img/check_box_none.svg"
+    UP = ":/img/arrow_circle_up.svg"
+    DOWN = ":/img/arrow_circle_down.svg"
+    EQUAL = ":/img/equal.svg"
+    SETTINGS = ":/img/settings.svg"
+    SETTINGS_APP = ":/img/settings_applications.svg"
+    BACK = ":/img/arrow_back_ios.svg"
+    FORWARD = ":/img/arrow_forward_ios.svg"
+    LIB_IMAGE = ":/img/library_image.svg"
+    LIB_ALL = ":/img/library_all.svg"
+
+
+# Constantes de UI
+SNAP_THRESHOLD = 15
+SNAP_GAP = 8
+STATUSBAR_DURATION = 5000
+
+# Tamaño (en píxeles) de las miniaturas del mosaico: rango permitido del slider
+# (slider_thumbnails) y valor por defecto la primera vez que se abre el programa
+THUMBNAIL_SIZE_MIN = 120
+THUMBNAIL_SIZE_MAX = 300
+THUMBNAIL_SIZE_DEFAULT = 160
+
+# Ancho inicial (píxeles) de las barras laterales la primera vez que se abre el programa
+# (o si el valor guardado no sirve). Después se usa el que deje el usuario al arrastrar
+# los separadores, guardado en settings.json (SETTING_MAIN_SPLITTER_STATE)
+SIDEBAR_CATALOG_DEFAULT_WIDTH = 250  # izquierda: Catálogo, Carpetas, Colecciones
+SIDEBAR_METADATA_DEFAULT_WIDTH = 280  # derecha: metadatos
+
+# Claves de settings.json que se usan en varios módulos (así no se escriben a mano)
+# Escribir la valoración, la marca y el color en los archivos (XMP o archivo de carpeta)
+SETTING_WRITE_USER_DATA_TO_FILES = "write_user_data_to_files"
+# Anchos de las barras laterales y de la zona central (estado de 'splitter_main', en hexadecimal)
+SETTING_MAIN_SPLITTER_STATE = "main_splitter_state"
+# Al elegir una carpeta en la barra lateral, mostrar también lo de sus subcarpetas
+# (Opciones > Catálogo; como "Mostrar fotos en subcarpetas" de Lightroom)
+SETTING_SHOW_SUBFOLDER_ITEMS = "show_subfolder_items"
+# Lo desplegado y lo elegido en las barras laterales de cada módulo, POR CATÁLOGO:
+# {"<carpeta del catálogo>": {"modules": {"catalog": {...}, ...}}}
+# (ver controllers/app_modules/module_host.py; el formato anterior, sin "modules", se
+# sigue leyendo como el estado del módulo Catálogo)
+SETTING_SIDEBAR_STATE = "sidebar_state"
+# Vista elegida en la sección «Metadatos» del inspector ("default", "location", "exif"...;
+# ver ui_helpers/inspector/metadata_fields.py)
+SETTING_INSPECTOR_METADATA_PRESET = "inspector_metadata_preset"
+
+# Secciones del inspector desplegadas o plegadas: {clave de la sección: True/False}.
+# Es común a todos los catálogos (la barra izquierda, en cambio, se guarda por catálogo)
+SETTING_INSPECTOR_SECTIONS = "inspector_sections"
+
+# Módulo activo al cerrar la aplicación ('catalog', 'image', 'video', 'audio'): se
+# vuelve a él al arrancar. Es común a todos los catálogos
+SETTING_ACTIVE_MODULE = "active_module"
+
+# Carpeta en la que se abre «Añadir carpeta»: la que contiene la última carpeta añadida
+# (así, para añadir varias de un mismo sitio, no hay que volver a navegar hasta allí).
+# Común a todos los catálogos. "" = la carpeta personal; si ya no existe, también
+SETTING_LAST_ADD_FOLDER_PARENT = "last_add_folder_parent"
