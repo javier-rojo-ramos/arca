@@ -14,6 +14,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       del árbol con casillas del inspector (estado 'INSPECTOR' de 'keyword_expansion'),
       independiente del de la barra.
 
+1.8.0 'sort_fields' y 'default_order' (orden de partida: «Hora de captura»).
 1.7.0 'show_source': la flecha «ver sus fotos» del inspector elige la palabra en la barra.
 1.6.0 «Selección rápida» de Imagen: su contador se lee con los demás.
 1.5.0 Sección «Carpetas» de la barra: árbol con lo de Imagen ('fetch_folder_tree(conn,
@@ -25,7 +26,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = ["ImageModule"]
 
 # Librerías estándar
@@ -44,6 +45,7 @@ from qtpy.QtWidgets import QToolButton, QWidget
 from config.app_constants import SETTING_SHOW_SUBFOLDER_ITEMS, AppIcons
 from controllers.app_modules.base import AppModule, ModuleContext
 from core.catalog.folder_tree import fetch_folder_tree
+from core.catalog.grid_orders import CAPTURE_TIME_ORDER, SORT_FIELDS, GridOrder
 from core.catalog.grid_source import GridSource
 from core.catalog.keywords import fetch_keyword_tree
 from core.catalog.media_queries import count_grid_items
@@ -106,6 +108,14 @@ class ImageModule(AppModule):
     def current_source(self) -> GridSource | None:
         """Lo elegido en la barra («Todas las imágenes» o una palabra clave)."""
         return self.sidebar.current_source()
+
+    def sort_fields(self) -> tuple[str, ...]:
+        """Todos los campos de orden (de momento; llegarán los propios de las fotos)."""
+        return tuple(SORT_FIELDS)
+
+    def default_order(self) -> GridOrder:
+        """Por hora de captura, ascendente (como Lightroom)."""
+        return CAPTURE_TIME_ORDER
 
     def show_source(self, source: GridSource) -> None:
         """Lo pide el inspector (flecha «ver sus fotos»): se elige en la barra, que lo

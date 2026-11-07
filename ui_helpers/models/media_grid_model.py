@@ -22,6 +22,8 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.10.0 'set_view': origen y orden a la vez, con una sola recarga (al cambiar de módulo);
+       'set_order(..., reload=False)' para fijarlo antes de la primera carga.
 1.9.0 El orden es un 'GridOrder' (campo y dirección; 'core/catalog/grid_orders.py'); por
       defecto, por nombre. 'set_order' no recarga si el orden no cambia; propiedad 'order'.
 1.8.1 'catalog_key()': el catálogo abierto (para comprobar tarjetas soltadas en el inspector).
@@ -40,7 +42,7 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
@@ -235,13 +237,32 @@ class MediaGridModel(QAbstractListModel):
         """Orden que se usa ahora."""
         return self._order
 
-    def set_order(self, order: GridOrder) -> None:
+    def set_order(self, order: GridOrder, *, reload: bool = True) -> None:
         """Cambia el orden (campo y dirección) y vuelve a cargar.
 
         Si es el mismo orden que ya se usa, no hace nada.
+
+        Args:
+            order: Orden nuevo.
+            reload: False = solo lo apunta, sin cargar. Al abrir un catálogo, el orden del
+                módulo activo se fija así ANTES de que las barras restauren su origen: la
+                primera carga ya sale en su orden y no se repite la consulta.
         """
         if order == self._order:
             return
+        self._order = order
+        if reload:
+            self.reload()
+
+    def set_view(self, source: GridSource, order: GridOrder) -> None:
+        """Cambia a la vez QUÉ se muestra y en qué orden, con una sola recarga.
+
+        Lo usa el 'ModuleHost' al cambiar de módulo (cada módulo tiene su origen y su
+        orden). Si no cambia ninguno de los dos, no hace nada.
+        """
+        if source == self._source and order == self._order:
+            return
+        self._source = source
         self._order = order
         self.reload()
 

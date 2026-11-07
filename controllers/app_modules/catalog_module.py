@@ -17,9 +17,14 @@ Qué hace este módulo (antes estaba repartido por 'main_window_controller.py'):
 Qué NO hace: las operaciones con el catálogo entero que se piden desde su barra (añadir,
 sincronizar o mostrar una carpeta, quitar ausentes, vaciar la selección rápida) siguen en
 el controlador principal, que conecta esas señales de 'CatalogSidebar' directamente.
+
+Orden de la cuadrícula: todos los campos de 'grid_orders.py'; parte de «Nombre» (con tipos
+mezclados, la hora de captura dejaría al final todo lo que no la tiene).
+
+1.1.0 'sort_fields' y 'default_order' (orden de partida: «Nombre»).
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["CatalogModule"]
 
 # Librerías estándar
@@ -39,6 +44,7 @@ from config.app_constants import SETTING_SHOW_SUBFOLDER_ITEMS, AppIcons
 from controllers.app_modules.base import AppModule, ModuleContext
 from controllers.collection_actions import CollectionActions
 from core.catalog.folder_tree import LocationNode, fetch_folder_tree
+from core.catalog.grid_orders import NAME_ORDER, SORT_FIELDS, GridOrder
 from core.catalog.grid_source import GridSource, SourceKind
 from core.catalog.media_queries import count_grid_items
 from ui_helpers.helpers.mode_toolbar import MODE_CATALOG
@@ -118,6 +124,14 @@ class CatalogModule(AppModule):
         if source.kind == SourceKind.SMART and source.rules is None:
             return None
         return source
+
+    def sort_fields(self) -> tuple[str, ...]:
+        """Todos los campos de orden (sirven para cualquier tipo de archivo)."""
+        return tuple(SORT_FIELDS)
+
+    def default_order(self) -> GridOrder:
+        """Por nombre, ascendente."""
+        return NAME_ORDER
 
     # -------------------------------------------------------------------------
     # Ciclo de vida del catálogo

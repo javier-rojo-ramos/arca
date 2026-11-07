@@ -9,10 +9,16 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El ciclo de vida del catálogo: 'attach' / 'detach' / 'refresh' / 'apply_settings'
       se reparten a todos los módulos. 'refresh' solo consulta la base de datos para el
       módulo activo: los demás quedan marcados y se refrescan al activarlos.
+    - El ORDEN de la cuadrícula de cada módulo: el módulo ofrece sus campos y su orden de
+      partida ('sort_fields', 'default_order'); el que elige el usuario ('set_order') lo
+      guarda el host, por módulo y por catálogo. Al cambiar de módulo, la cuadrícula
+      cambia a la vez de origen y de orden (una sola recarga). 'order_changed' avisa al
+      control de la barra inferior.
     - El estado visual de cada módulo, guardado POR CATÁLOGO en settings.json (clave
-      'sidebar_state'):
+      'sidebar_state'), con los órdenes elegidos en 'orders':
 
-        {"<carpeta del catálogo>": {"modules": {"catalog": {...}, "image": {...}}}}
+        {"<carpeta del catálogo>": {"modules": {"catalog": {...}, "image": {...}},
+                                    "orders": {"image": {"field": ..., "descending": ...}}}}
 
       Formato anterior (hasta el 29/10/2026), que se sigue leyendo: el estado de la barra
       del catálogo directamente, {"<carpeta del catálogo>": {...}}. Se toma como el del
@@ -21,6 +27,9 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.4.0 Orden de la cuadrícula por módulo: 'set_order', 'active_order', 'active_sort_fields',
+      señal 'order_changed'; se guarda por catálogo ('orders') y se aplica al cambiar de
+      módulo y al abrir el catálogo, sin cargar la cuadrícula dos veces.
 1.3.1 'show_source' recarga la cuadrícula si ya mostraba ese origen (pulsar otra vez la
       flecha «ver sus fotos» tras quitar la palabra a una foto no la quitaba de la vista).
 1.3.0 'show_source': el módulo activo muestra un origen pedido desde fuera de su barra.
@@ -29,7 +38,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -47,12 +56,15 @@ from qtpy.QtWidgets import QStackedWidget, QWidget
 # Módulos del proyecto
 from config.app_constants import SETTING_ACTIVE_MODULE, SETTING_SIDEBAR_STATE
 from controllers.app_modules.base import AppModule
+from core.catalog.grid_orders import GridOrder
 from core.catalog.grid_source import GridSource
 from ui_helpers.helpers.mode_toolbar import MODE_CATALOG, ModeToolbar
 from ui_helpers.models.media_grid_model import MediaGridModel
 
 # Clave del nuevo formato guardado (ver el docstring del archivo)
 _MODULES_KEY = "modules"
+# Órdenes de la cuadrícula elegidos por el usuario, por módulo (ver el docstring del archivo)
+_ORDERS_KEY = "orders"
 # El formato anterior solo tenía el estado de la barra del catálogo
 _LEGACY_MODULE_KEY = MODE_CATALOG
 
@@ -64,10 +76,14 @@ class ModuleHost(QObject):
         module_changed(str): ha cambiado el módulo activo (lleva su clave).
         catalog_edit_requested(object, object): un módulo quiere cambiar el catálogo
             (función, argumentos); lo atiende el controlador principal.
+        order_changed(object): ha cambiado el orden del módulo activo (un 'GridOrder', o
+            None si el módulo no decide el orden). Se emite al cambiar de módulo, al
+            elegir otro orden y al abrir o cerrar un catálogo.
     """
 
     module_changed = Signal(str)
     catalog_edit_requested = Signal(object, object)
+    order_changed = Signal(object)
 
     def __init__(
         self,
@@ -114,6 +130,9 @@ class ModuleHost(QObject):
         self._attached = False  # True mientras hay un catálogo abierto
         # Módulos cuya barra hay que releer al activarlos (no se refrescaron por no verse)
         self._dirty: set[str] = set()
+        # Orden elegido por el usuario en cada módulo, para el catálogo abierto (los que
+        # no están aquí usan su 'default_order')
+        self._orders: dict[str, GridOrder] = {}
 
         # Barras izquierdas: las que no están ya en el stack (las creadas en código) se
         # añaden. Las de los módulos sin barra las pone 'ModeToolbar' (provisionales)
@@ -170,6 +189,33 @@ class ModuleHost(QObject):
         """Módulo con esa clave (None si no existe)."""
         return self._modules.get(key)
 
+    @property
+    def active_order(self) -> GridOrder | None:
+        """Orden del módulo activo (None si no decide el orden)."""
+        return self._order_for(self._active) if self._active is not None else None
+
+    def active_sort_fields(self) -> tuple[str, ...]:
+        """Campos de orden que ofrece el módulo activo (vacío si no decide el orden)."""
+        return self._active.sort_fields() if self._active is not None else ()
+
+    def set_order(self, order: GridOrder) -> None:
+        """El usuario ha elegido otro orden para el módulo activo: se recuerda y se aplica.
+
+        Un campo que el módulo no ofrece se ignora (con un aviso en el registro).
+        """
+        module = self._active
+        if module is None:
+            return
+        if order.field not in module.sort_fields():
+            logger.warning(f"El módulo {module.key!r} no ordena por {order.field!r}.")
+            return
+        if order == self._order_for(module):
+            return
+        self._orders[module.key] = order
+        if self._attached:
+            self._grid_model.set_order(order)
+        self.order_changed.emit(order)
+
     def show_source(self, source: GridSource) -> None:
         """Muestra un origen pedido desde fuera de la barra (p. ej. la flecha «ver sus
         fotos» del inspector): lo hace el módulo activo, eligiéndolo en su barra.
@@ -207,16 +253,19 @@ class ModuleHost(QObject):
         # La cuadrícula, con lo que tenga elegido el módulo activo. El Catálogo ya lo ha
         # emitido al recuperar su estado, pero otro módulo (p. ej. Imagen con «Todas las
         # imágenes») puede no hacerlo. 'set_source' no recarga si ya es lo que se muestra
-        source = self._active.current_source() if self._active is not None else None
-        if source is not None:
-            self._grid_model.set_source(source)
+        # El orden ya lo fijó 'restore_state' (sin cargar); 'set_view' no recarga si ya
+        # es lo que se muestra
+        if self._active is not None:
+            self._apply_view(self._active)
 
     def detach(self) -> None:
         """El catálogo se ha cerrado: cada módulo olvida lo suyo (llamar tras 'save_state')."""
         self._attached = False
         self._dirty.clear()
+        self._orders.clear()  # son de cada catálogo
         for module in self._modules.values():
             module.detach()
+        self.order_changed.emit(self.active_order)
 
     def refresh(self) -> None:
         """Refresca la barra del módulo activo; las demás, al activarlas."""
@@ -247,7 +296,10 @@ class ModuleHost(QObject):
         # Copia nueva: 'ConfigManager.set' compara con el valor anterior para saber si
         # ha cambiado (si se modificara el diccionario que devuelve 'get', no lo notaría)
         states = dict(saved) if isinstance(saved, dict) else {}
-        states[str(catalog_dir)] = {_MODULES_KEY: modules_state}
+        entry: dict[str, Any] = {_MODULES_KEY: modules_state}
+        if self._orders:
+            entry[_ORDERS_KEY] = {key: order.to_state() for key, order in self._orders.items()}
+        states[str(catalog_dir)] = entry
         try:
             self._config.set(SETTING_SIDEBAR_STATE, states)
         except Exception:  # noqa: BLE001 - no poder guardarlo no debe impedir cerrar
@@ -261,8 +313,31 @@ class ModuleHost(QObject):
         """
         saved = self._config.get(SETTING_SIDEBAR_STATE, {})
         entry = saved.get(str(catalog_dir)) if isinstance(saved, dict) else None
+        self._restore_orders(entry)
+        # El orden del módulo activo, en la cuadrícula ANTES de restaurar las barras (sin
+        # cargar): el origen que emitan al restaurarse ya se carga en su orden
+        order = self.active_order
+        if order is not None:
+            self._grid_model.set_order(order, reload=False)
         for key, module in self._modules.items():
             module.restore_state(self._module_state(entry, key))
+        self.order_changed.emit(order)
+
+    def _restore_orders(self, entry: object) -> None:
+        """Recupera los órdenes elegidos en cada módulo; descarta los que ya no valen
+        (módulo que no existe, campo desconocido o que el módulo ya no ofrece)."""
+        self._orders.clear()
+        saved = entry.get(_ORDERS_KEY) if isinstance(entry, dict) else None
+        if not isinstance(saved, dict):
+            return
+        for key, state in saved.items():
+            module = self._modules.get(key)
+            default = module.default_order() if module is not None else None
+            if default is None:
+                continue  # módulo que ya no existe o que no decide el orden
+            order = GridOrder.from_state(state, default)
+            if order.field in module.sort_fields():
+                self._orders[key] = order
 
     @staticmethod
     def _module_state(entry: object, key: str) -> object:
@@ -303,11 +378,10 @@ class ModuleHost(QObject):
             self._dirty.discard(key)
             module.refresh()
 
-        # La cuadrícula pasa a mostrar lo que tenga elegido el módulo (si decide algo).
-        # 'set_source' no recarga si es lo mismo que ya se muestra
-        source = module.current_source()
-        if source is not None and self._attached:
-            self._grid_model.set_source(source)
+        # La cuadrícula pasa a mostrar lo que tenga elegido el módulo, en su orden
+        if self._attached:
+            self._apply_view(module)
+        self.order_changed.emit(self._order_for(module))
 
         # Se recuerda para el próximo arranque
         try:
@@ -317,6 +391,28 @@ class ModuleHost(QObject):
 
         logger.debug(f"Módulo activo: {key}")
         self.module_changed.emit(key)
+
+    def _order_for(self, module: AppModule) -> GridOrder | None:
+        """Orden de un módulo: el elegido por el usuario o, si no, el de partida."""
+        chosen = self._orders.get(module.key)
+        if chosen is not None and chosen.field in module.sort_fields():
+            return chosen
+        return module.default_order()
+
+    def _apply_view(self, module: AppModule) -> None:
+        """La cuadrícula, con el origen y el orden del módulo (una sola recarga).
+
+        Lo que el módulo no decide (None) se queda como estaba. 'set_view' no recarga si
+        no cambia nada.
+        """
+        source = module.current_source()
+        order = self._order_for(module)
+        if source is None and order is None:
+            return
+        self._grid_model.set_view(
+            source if source is not None else self._grid_model.source,
+            order if order is not None else self._grid_model.order,
+        )
 
     def _on_module_source_selected(self, module: AppModule, source: GridSource) -> None:
         """Un módulo ha elegido otro origen: solo el activo cambia la cuadrícula."""

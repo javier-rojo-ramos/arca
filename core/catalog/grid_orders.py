@@ -27,6 +27,7 @@ Añadir un campo: una línea en '_FIELD_LIST'. Si ordena por una columna de otra
 ('photo_details', 'video_details'...), hará falta antes un JOIN en 'fetch_grid_rows'.
 Las claves son las de las colecciones inteligentes ('smart_fields.py') cuando existen.
 
+1.0.1 Textos como en las colecciones inteligentes: «Extensión» y «Fecha de importación».
 1.0.0 Primera versión (07/11/2026): seis campos, con dirección; sustituye a
       'media_queries.GRID_ORDERS'.
 
@@ -34,7 +35,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.grid_orders
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = [
     "CAPTURE_TIME_ORDER",
     "NAME_ORDER",
@@ -93,13 +94,13 @@ _FIELD_LIST: tuple[SortField, ...] = (
               (SortColumn("content_created_at", nullable=True),)),
     SortField("file_name", "Nombre", (SortColumn("file_name", nocase=True),)),
     # Por la extensión (ya normalizada en minúsculas): JPG, DNG, MP4... juntos
-    SortField("file_extension", "Tipo de archivo",
+    SortField("file_extension", "Extensión",
               (SortColumn("file_extension", nullable=True),)),
     SortField("file_size", "Tamaño", (SortColumn("file_size"),)),
     # 'file_mtime_ns' es la fecha de modificación del archivo según el sistema
     SortField("file_modified_at", "Fecha de modificación", (SortColumn("file_mtime_ns"),)),
     # Cuándo entró en el catálogo (la «Hora de adición» de Lightroom)
-    SortField("added_at", "Fecha de alta", (SortColumn("added_at"),)),
+    SortField("added_at", "Fecha de importación", (SortColumn("added_at"),)),
 )  # fmt: skip
 
 SORT_FIELDS: dict[str, SortField] = {field.key: field for field in _FIELD_LIST}
@@ -252,7 +253,7 @@ if __name__ == "__main__":
     # Sin hora de captura, al final en las dos direcciones
     assert names(CAPTURE_TIME_ORDER) == ["c.mp4", "b.jpg", "A.dng"]
     assert names(CAPTURE_TIME_ORDER.reversed()) == ["b.jpg", "c.mp4", "A.dng"]
-    # Fecha de alta: todas iguales en la prueba (CURRENT_TIMESTAMP) -> desempata por nombre
+    # Fecha de importación: todas iguales en la prueba (CURRENT_TIMESTAMP) -> desempata por nombre
     assert names(GridOrder("added_at")) == ["A.dng", "b.jpg", "c.mp4"]
 
     print("Autoprueba finalizada correctamente.")

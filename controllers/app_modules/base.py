@@ -17,6 +17,10 @@ Qué aporta cada módulo (sobrescribiendo los métodos de 'AppModule'):
     - 'info_panel()':     su panel derecho (None = el panel por defecto).
     - 'current_source()': qué muestra la cuadrícula cuando el módulo está activo (None =
                           el módulo no decide: la cuadrícula se queda como estaba).
+    - 'sort_fields()' y 'default_order()': por qué campos se puede ordenar su cuadrícula
+                          y su orden de partida ('core/catalog/grid_orders.py'). El orden
+                          que elige el usuario lo guarda el 'ModuleHost', por módulo y por
+                          catálogo. Sin campos, el módulo no decide el orden.
     - Señal 'source_selected': el usuario ha elegido otra cosa en su barra.
     - Señal 'catalog_edit_requested(función, argumentos)': el usuario quiere cambiar el
       catálogo desde la barra (p. ej. renombrar una palabra clave). La función recibe la
@@ -28,6 +32,7 @@ Qué aporta cada módulo (sobrescribiendo los métodos de 'AppModule'):
 Quién los coordina: 'module_host.ModuleHost' (toolbar, barras laterales, cuadrícula y
 estado guardado). Dónde se da de alta un módulo nuevo: 'registry.py'.
 
+1.3.0 'sort_fields' y 'default_order': el orden de la cuadrícula de cada módulo.
 1.2.0 'show_source': mostrar un origen elegido fuera de la barra (p. ej. desde el inspector).
 1.1.0 Señal 'catalog_edit_requested' (paso K4c-2).
 
@@ -36,7 +41,7 @@ Los módulos son la capa que une la interfaz de su barra lateral con 'core/' (co
 sincronizar una carpeta, trabajos en segundo plano...) siguen en el controlador principal.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["AppModule", "ModuleContext"]
 
 # Librerías estándar
@@ -49,6 +54,7 @@ from qtpy.QtCore import QObject, Signal
 from qtpy.QtWidgets import QListView, QToolButton, QWidget
 
 # Módulos del proyecto
+from core.catalog.grid_orders import GridOrder
 from core.catalog.grid_source import GridSource
 from ui_helpers.helpers.grid_actions import GridActions
 from ui_helpers.helpers.ui_message import MessageBoxHelper
@@ -132,6 +138,17 @@ class AppModule(QObject):
         None = el módulo no decide (p. ej. un módulo provisional, o uno que aún espera
         datos de la base de datos): la cuadrícula se queda como estaba.
         """
+        return None
+
+    def sort_fields(self) -> tuple[str, ...]:
+        """Campos por los que se puede ordenar su cuadrícula (claves de 'SORT_FIELDS', en
+        el orden del desplegable). Vacío = el módulo no decide el orden (p. ej. uno
+        provisional, o una vista sin cuadrícula): se queda el que hubiera."""
+        return ()
+
+    def default_order(self) -> GridOrder | None:
+        """Orden de partida (hasta que el usuario elige otro). Su campo debe estar en
+        'sort_fields'. None = el módulo no decide el orden."""
         return None
 
     def show_source(self, source: GridSource) -> None:

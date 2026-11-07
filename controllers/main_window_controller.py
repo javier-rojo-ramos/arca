@@ -1045,7 +1045,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             self.inspector.attach(self.db)
 
         # 4. Si no se restauró nada (o se espera a una colección inteligente), se carga el
-        #    catálogo completo (orden por defecto: hora de captura, 'content_created_at').
+        #    catálogo completo (en el orden del módulo activo, fijado en 'restore_state').
         #    Si ya se restauró un origen, 'set_source' lo ha cargado: no se repite la consulta
         if self.mosaico_model.source == ALL_ITEMS:
             self.mosaico_model.reload()
