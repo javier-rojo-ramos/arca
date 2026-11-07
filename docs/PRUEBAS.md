@@ -36,6 +36,7 @@ python -m core.userdata.policy               python -m core.userdata.xmp_writer 
 python -m core.userdata.folder_file          python -m core.userdata.sync         (ExifTool; ida y vuelta completa)
 python -m ui_helpers.helpers.card_marks      (dibuja las marcas en una imagen; necesita PySide6)
 python -m ui_helpers.widgets.organize_bar    (lógica de la barra y la barra sola en una ventana)
+python -m ui_helpers.widgets.sort_control    (lógica del control del orden; sin ventana)
 python -m ui_helpers.helpers.theme_style     (colores de los indicadores y una ventana con todos sus estados)
 ```
 

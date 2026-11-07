@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 07/11/2026: orden de la cuadrícula, paso 3 (`ui_helpers/widgets/sort_control.py` 1.0.0, promocionado como `widget_sort_control` en `widget_bottom_left`; conexión en `_conectar_orden` del controlador); CLAUDE.md: `scripts/build_ui.py`. Autoprueba del control sin ventana y comprobación del control con el `ModuleHost` con un script sin ventana
 - 07/11/2026: orden de la cuadrícula, paso 2 (`base` 1.3.0: `sort_fields` y `default_order`; `catalog_module` 1.1.0, nombre; `image_module` 1.8.0, hora de captura; `module_host` 1.4.0: `set_order`, `active_order`, `active_sort_fields`, señal `order_changed`, clave `orders` en `sidebar_state`; `media_grid_model` 1.10.0: `set_view` y `set_order(..., reload=False)`); `grid_orders` 1.0.1, textos «Extensión» y «Fecha de importación». Comprobado con un script sin ventana (cargas y recargas contadas)
 - 07/11/2026: orden de la cuadrícula, paso 1 (`core/catalog/grid_orders.py` 1.0.0: `SORT_FIELDS`, `GridOrder`, `order_by_sql`; `media_queries` 2.0.0 sin `GRID_ORDERS` ni `DEFAULT_ORDER`; `media_grid_model` 1.9.0); la cuadrícula parte de «Nombre»
 - 06/11/2026: carpetas, «Quitar del catálogo...» (`core/catalog/folder_removal.py` 1.0.0, `controllers/folder_actions.py` 1.0.0, `catalog_sidebar` 1.11.0: también la vuelta a la carpeta padre); entregas del 05/11 verificadas por el autor

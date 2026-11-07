@@ -55,7 +55,7 @@ Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto e
   - un extractor nunca escribe datos del usuario.
 - **Versiones que obligan a reprocesar**: sube `IMAGE_FIELDS_VERSION` o `VIDEO_FIELDS_VERSION` si cambian los campos o sus reglas, `TRACK_EXTRACTOR_VERSION` si cambia la lectura de los GPX y `THUMBNAIL_VERSION` si cambia el resultado de las miniaturas.
 - **Archivos del usuario**: los originales no se mueven ni se modifican. La única excepción es escribir valoración, marca, color y palabras clave con las reglas de `core/userdata/` (ver su `LEEME.md`), y la papelera cuando el usuario la pide.
-- **Interfaz**: no edites `ui/main_window.py`. Cambia `ui/main_window.ui` y ejecuta `python build_ui.py`. Los nombres de las bibliotecas salen siempre de `LIBRARY_NAMES`.
+- **Interfaz**: no edites `ui/main_window.py`. Cambia `ui/main_window.ui` y ejecuta `python scripts/build_ui.py` (desde la raíz). Los nombres de las bibliotecas salen siempre de `LIBRARY_NAMES`.
 - **Colores**: ningún `"#rrggbb"` suelto en la interfaz. Salen de `ui_helpers/helpers/theme_colors.py` (por su nombre de función) o de la paleta de Qt (`palette(...)` en QSS); los estilos, en `ui_theme.py`. Los botones de opción y las casillas los dibuja `theme_style.py`: el QSS no puede tener reglas `::indicator`.
 - **Tamaño**: si una clase de interfaz pasa de unas **400 líneas**, propón dividirla en componentes, widgets propios o helpers. `main_window_controller.py` ya es demasiado grande: no le añadas lógica nueva. Ponla en su propio módulo (como `controllers/collection_actions.py` o `controllers/inspector_controller.py`) y deja en el controlador solo la conexión.
 

@@ -95,6 +95,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   widgets/collapsible_section.py     CollapsibleSection: sección plegable con cabecera y botones ("+")
   widgets/elided_label.py            ElidedLabel: etiqueta de una línea que recorta con «…» (por la derecha, la izquierda o el centro)
   widgets/organize_bar.py            OrganizeBar: barra inferior para clasificar la selección (marcar, rechazar, estrellas, colores, selección rápida); attach(vista, modelo)
+  widgets/sort_control.py            SortControl: «Orden: [campo] [↑]» a la izquierda de la barra inferior; set_options(campos, orden) y señal order_requested (no sabe nada de los módulos)
   inspector/                         ── Inspector: el panel DERECHO ── ([FLUJOS.md §12](FLUJOS.md))
     inspector_panel.py               ► InspectorPanel y DEFAULT_SECTIONS (aquí se añade una sección)
     base_section.py                    InspectorSection (title, title_for, key, modules / hidden_in / shown_in, applies_to, show_summary; datos propios con data_request / show_data; header_widget; señal edit_requested), InfoGrid (etiqueta | valor | icono; ROW_SPACING) e IconCell (icono o botón; ICON_Y_OFFSET)
@@ -177,7 +178,7 @@ core/
     job.py                             generate_pending_thumbnails (trabajo) e invalidate_thumbnails (regenerar a demanda)
     inspect_cli.py                     Diagnóstico: genera miniaturas de archivos reales y las cuenta
 tools/exiftool/                      ExifTool (no se versiona; ver tools/exiftool/LEEME.txt)
-build_ui.py                          Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc
+scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc
 ruff.toml                            Configuración de Ruff (excluye tests/ y ui/)
 CLAUDE.md                            Reglas de trabajo para la IA (Claude Code): cómo leer el proyecto, convenciones y qué actualizar
 docs/                                Esta documentación (empieza por docs/INDEX.md)

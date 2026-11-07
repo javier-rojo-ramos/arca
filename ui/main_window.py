@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QHeaderView,
 from ui_helpers.sidebars.catalog_sidebar import CatalogSidebar
 from ui_helpers.widgets.media_grid_view import MediaGridView
 from ui_helpers.widgets.organize_bar import OrganizeBar
+from ui_helpers.widgets.sort_control import SortControl
 
 import resources.recursos_rc  # noqa: F401
 
@@ -218,6 +219,11 @@ class Ui_MainWindow(object):
         self.layout_bottom_left = QHBoxLayout(self.widget_bottom_left)
         self.layout_bottom_left.setObjectName(u"layout_bottom_left")
         self.layout_bottom_left.setContentsMargins(0, 0, 0, 0)
+        self.widget_sort_control = SortControl(self.widget_bottom_left)
+        self.widget_sort_control.setObjectName(u"widget_sort_control")
+
+        self.layout_bottom_left.addWidget(self.widget_sort_control)
+
         self.spacer_bottom_left = QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.layout_bottom_left.addItem(self.spacer_bottom_left)

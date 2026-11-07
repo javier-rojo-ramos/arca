@@ -421,6 +421,9 @@
                  <number>0</number>
                 </property>
                 <item>
+                 <widget class="SortControl" name="widget_sort_control" native="true"/>
+                </item>
+                <item>
                  <spacer name="spacer_bottom_left">
                   <property name="orientation">
                    <enum>Qt::Horizontal</enum>
@@ -680,6 +683,11 @@
    <class>OrganizeBar</class>
    <extends>QWidget</extends>
    <header>ui_helpers/widgets/organize_bar.h</header>
+  </customwidget>
+  <customwidget>
+   <class>SortControl</class>
+   <extends>QWidget</extends>
+   <header>ui_helpers/widgets/sort_control.h</header>
   </customwidget>
   <customwidget>
    <class>MediaGridView</class>

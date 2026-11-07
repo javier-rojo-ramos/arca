@@ -805,7 +805,29 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             info_default_page=self.page_metadata_default,
             parent=self,
         )
+        self._conectar_orden()
         self._configurar_inspector()
+
+    def _conectar_orden(self) -> None:
+        """Conecta el control «Orden:» de la barra inferior con el orden del módulo activo.
+
+        El control solo muestra y pide; el 'ModuleHost' decide y guarda (ver su docstring).
+        """
+        sort_control = getattr(self, "widget_sort_control", None)
+        if sort_control is None or self.module_host is None:
+            logger.warning(
+                "Falta 'widget_sort_control' en la ventana: ejecuta scripts/build_ui.py para "
+                "regenerar ui/main_window.py desde el .ui."
+            )
+            return
+        host = self.module_host
+
+        def show_active_order(_order: object = None) -> None:
+            sort_control.set_options(host.active_sort_fields(), host.active_order)
+
+        sort_control.order_requested.connect(host.set_order)
+        host.order_changed.connect(show_active_order)
+        show_active_order()  # el módulo inicial ya se activó al crear el host
 
     def _configurar_inspector(self) -> None:
         """Pone el inspector en el panel derecho por defecto y lo conecta con la cuadrícula.
