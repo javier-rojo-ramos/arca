@@ -5,6 +5,8 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 07/11/2026: acento ámbar (`theme_colors` 1.4.0: `accent` `#eca531`, `text_on_accent` `#1a1a1a`; `theme_qss` 1.2.1: asa del deslizador; `ui_icons` 1.2.0: iconos en filas seleccionadas con `HighlightedText`; `mode_toolbar` 1.1.0 y botón de Opciones sin acento al pasar el ratón). Vista previa sin ventana: fila elegida con texto e icono oscuros
+- 07/11/2026: tema T5, con LightTable como referencia (`theme_colors` 1.3.0: grises neutros y color `divider`; `theme_qss` 1.2.0: `SPLITTER_WIDTH` = 1; `ui_theme` 1.6.0: rayas de 1 px y cajas en la toolbar, `TOOLBAR_BUTTON_RADIUS`; `.ui`: `layout_content` y `layout_central_area` sin márgenes ni espacios, iconos de la toolbar de 24 px y 4 px entre botones). Vista previa dibujada sin ventana (offscreen)
 - 07/11/2026: orden de la cuadrícula (pasos 1 a 3) verificado por el autor
 - 07/11/2026: orden de la cuadrícula, paso 3 (`ui_helpers/widgets/sort_control.py` 1.0.0, promocionado como `widget_sort_control` en `widget_bottom_left`; conexión en `_conectar_orden` del controlador); CLAUDE.md: `scripts/build_ui.py`. Autoprueba del control sin ventana y comprobación del control con el `ModuleHost` con un script sin ventana
 - 07/11/2026: orden de la cuadrícula, paso 2 (`base` 1.3.0: `sort_fields` y `default_order`; `catalog_module` 1.1.0, nombre; `image_module` 1.8.0, hora de captura; `module_host` 1.4.0: `set_order`, `active_order`, `active_sort_fields`, señal `order_changed`, clave `orders` en `sidebar_state`; `media_grid_model` 1.10.0: `set_view` y `set_order(..., reload=False)`); `grid_orders` 1.0.1, textos «Extensión» y «Fecha de importación». Comprobado con un script sin ventana (cargas y recargas contadas)

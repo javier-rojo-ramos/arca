@@ -914,10 +914,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self._configurar_toolbar()
 
         # Icono de ajustes: dos versiones del mismo SVG, con el mismo acento que los modos
-        #   - normal: sigue la paleta y al pasar el ratón se tiñe de color de acento
+        #   - normal: sigue la paleta (también con el ratón encima, como los modos)
         #   - activo: acento fijo; se usa mientras la ventana de ajustes está abierta
         accent = toolbar_accent_color()
-        self.icon_settings = tinted_icon(AppIcons.SETTINGS, hover_color=accent)
+        self.icon_settings = tinted_icon(AppIcons.SETTINGS)
         self.icon_settings_active = tinted_icon(AppIcons.SETTINGS, accent)
         self.btn_settings.setIcon(self.icon_settings)
 

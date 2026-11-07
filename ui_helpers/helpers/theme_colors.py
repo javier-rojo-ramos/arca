@@ -9,11 +9,14 @@ por el autor el 02/11/2026).
 Capas, de más oscura a más clara (la profundidad se marca con escalones de gris, no con
 bordes, como en LightTable o darktable):
 
-    base     marco exterior, toolbar lateral, barra de menús
+    base     toolbar lateral, barra de menús
     panel    barras laterales e inspector (el "fondo" de la ventana)
     raised   cabeceras de sección, botones
     hover    elementos bajo el ratón
     input    campos de texto, listas y desplegables (un poco hundidos)
+
+Las zonas (toolbar, barras laterales, zona central) van pegadas, separadas por una raya
+de 1 px ('divider'), algo MÁS CLARA que los paneles (como en LightTable).
 
 Las tarjetas de la cuadrícula tienen su propio juego ('CardColors'), porque se pintan a
 mano en el delegado y necesitan más matices (reposo, ratón encima, seleccionada,
@@ -22,6 +25,11 @@ rechazada, no disponible).
 Este módulo NO depende de Qt: solo define valores. 'ui_theme.py' los convierte en la
 paleta de Qt (QPalette) y en la hoja de estilos (QSS).
 
+1.4.0 Acento ámbar #eca531 (antes azul #4c8ee8; el autor, 07/11/2026) y texto OSCURO sobre
+      él ('text_on_accent'): el blanco sobre ámbar no se lee (contraste 2:1).
+1.3.0 Grises neutros como los de LightTable (toolbar #1a1a1a, paneles #222222), sin el
+      leve tinte azul de antes; color nuevo 'divider' (raya de 1 px entre zonas). Las
+      tarjetas no cambian. Decidido por el autor el 07/11/2026.
 1.2.0 Color 'success' (verde #2e7d32) y 'warning' en amarillo, para los iconos de la barra
       de estado; la autoprueba comprueba que se distinguen sobre los fondos.
 
@@ -29,7 +37,7 @@ Prueba rápida (contraste del texto sobre cada fondo):
     python -m ui_helpers.helpers.theme_colors
 """
 
-__version__ = "1.2.0"
+__version__ = "1.4.0"
 __all__ = ["DARK", "DARK_CARDS", "CardColors", "ThemeColors", "contrast_ratio"]
 
 # Librerías estándar
@@ -48,11 +56,13 @@ class ThemeColors:
         bg_input: Campos de texto, listas y desplegables.
         bg_tooltip: Fondo de los textos emergentes.
         line: Separadores y bordes finos (sobre los fondos de panel).
-        line_dark: Separación entre zonas grandes (paneles y cuadrícula).
+        line_dark: Raya oscura (bordes hundidos, sombra).
+        divider: Raya de 1 px entre zonas (toolbar, barras laterales, zona central).
         text: Texto principal (nunca blanco puro: cansa menos la vista).
         text_dim: Texto secundario: etiquetas, contadores, «Varios».
         text_disabled: Texto de lo desactivado.
-        text_on_accent: Texto sobre el color de acento (fila seleccionada).
+        text_on_accent: Texto y marcas sobre el color de acento (fila seleccionada, casilla
+            marcada). Oscuro: el acento es claro.
         accent: Acento ÚNICO: selección, elemento activo, iconos al pasar el ratón.
         link: Enlaces.
         success: Acciones terminadas bien (icono de la barra de estado).
@@ -68,6 +78,7 @@ class ThemeColors:
     bg_tooltip: str
     line: str
     line_dark: str
+    divider: str
     text: str
     text_dim: str
     text_disabled: str
@@ -79,22 +90,23 @@ class ThemeColors:
     error: str
 
 
-# Tema oscuro: grises grafito neutros (sin tinte azul) y un acento azul algo apagado
-# (#4c8ee8, elegido por el autor el 02/11/2026)
+# Tema oscuro: grises neutros (R = G = B), tomados de LightTable, y un acento ámbar
+# (#eca531); los dos, elegidos por el autor el 07/11/2026 (antes, acento azul #4c8ee8)
 DARK = ThemeColors(
-    bg_base="#141517",
-    bg_panel="#1c1d20",
-    bg_raised="#26282c",
-    bg_hover="#2f3237",
-    bg_input="#18191b",
-    bg_tooltip="#2f3237",
-    line="#3a3d43",
-    line_dark="#0d0e10",
-    text="#d6d7da",
-    text_dim="#8a8e95",
-    text_disabled="#5c6067",
-    text_on_accent="#ffffff",
-    accent="#4c8ee8",
+    bg_base="#1a1a1a",
+    bg_panel="#222222",
+    bg_raised="#2a2a2a",
+    bg_hover="#333333",
+    bg_input="#1c1c1c",
+    bg_tooltip="#333333",
+    line="#3a3a3a",
+    line_dark="#0e0e0e",
+    divider="#2e2e2e",
+    text="#d8d8d8",
+    text_dim="#8c8c8c",
+    text_disabled="#5e5e5e",
+    text_on_accent="#1a1a1a",
+    accent="#eca531",
     link="#6ea4ef",
     success="#2e7d32",  # verde elegido por el autor (05/11/2026)
     warning="#e8b830",  # amarillo (antes naranja, #e8833a; no se usaba en ningún sitio)
@@ -202,14 +214,16 @@ if __name__ == "__main__":
     # Las capas, de más oscura a más clara (la profundidad se ve sin bordes)
     order = [theme.bg_base, theme.bg_panel, theme.bg_raised, theme.bg_hover]
     assert order == sorted(order, key=_luminance), order
+    # La raya entre zonas, algo más clara que los paneles que separa
+    assert _luminance(theme.divider) > _luminance(theme.bg_panel) > _luminance(theme.bg_base)
     # Iconos de estado (éxito, aviso, error): se distinguen sobre la barra de estado y los
     # paneles (WCAG pide 3 para lo que no es texto)
     for name in ("success", "warning", "error"):
         for background in (theme.bg_base, theme.bg_panel):
             ratio = contrast_ratio(getattr(theme, name), background)
             assert ratio >= 3, (name, background, ratio)
-    # Texto blanco sobre el acento (fila seleccionada): legible
-    assert contrast_ratio(theme.text_on_accent, theme.accent) >= 3, "acento demasiado claro"
+    # Texto sobre el acento (fila seleccionada): legible como texto normal (WCAG, 4,5)
+    assert contrast_ratio(theme.text_on_accent, theme.accent) >= 4.5, "texto sobre el acento"
     # Todos los valores tienen formato "#rrggbb"
     for colors in (theme, DARK_CARDS):
         for name in type(colors).__dataclass_fields__:

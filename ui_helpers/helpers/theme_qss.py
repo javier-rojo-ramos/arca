@@ -16,11 +16,16 @@ QSS con bordes obliga a Qt a redibujar el control entero (y se pierden sus flech
       (aquí no puede haber reglas '::indicator', o Qt dejaría de pasárselos).
     - QToolTip: va por la paleta ('ui_theme.apply_tooltip_style').
 
+1.2.1 Asa del deslizador con el ratón: en el acento (con el texto sobre el acento ya
+      oscuro, se perdía sobre el carril).
+1.2.0 Separadores de paneles: una raya de 1 px ('divider'), en azul al pasar el ratón; las
+      zonas van pegadas (07/11/2026, el autor, como LightTable).
+
 Prueba rápida (que la hoja se construye y que todas las llaves están cerradas):
     python -m ui_helpers.helpers.theme_qss
 """
 
-__version__ = "1.1.2"
+__version__ = "1.2.1"
 __all__ = ["CONTROL_RADIUS", "SCROLLBAR_WIDTH", "SPLITTER_WIDTH", "general_stylesheet"]
 
 # Módulos del proyecto
@@ -29,10 +34,11 @@ from ui_helpers.helpers.theme_colors import ThemeColors
 # Medidas comunes (px lógicos)
 CONTROL_RADIUS = 3  # esquinas de botones, campos y menús
 SCROLLBAR_WIDTH = 10  # grosor de las barras de desplazamiento
-# Separación entre las barras laterales y la zona central: la misma que hay entre la franja
-# de filtros, la cuadrícula y la barra inferior ('spacing' de 'layout_central_area' en el
-# .ui), para que los cuatro lados de la cuadrícula se vean iguales
-SPLITTER_WIDTH = 6
+# Separador entre las barras laterales y la zona central: una raya de 1 px, como la que
+# separa la franja de filtros, la cuadrícula y la barra inferior. Con 1 px, Qt amplía él
+# solo la zona donde se puede coger a 5 px ("tiny mode" de QSplitterHandle): se sigue
+# pudiendo arrastrar sin que se vea un hueco
+SPLITTER_WIDTH = 1
 
 
 def general_stylesheet(colors: ThemeColors) -> str:
@@ -77,12 +83,11 @@ QScrollBar::add-page, QScrollBar::sub-page {{
     background: none;
 }}
 
-/* ===== Separadores de paneles (splitter): un hueco del color de los paneles, del mismo
-   ancho que el que separa la cuadrícula de las franjas de arriba y abajo, sin los
-   puntitos de Fusion; al pasar el ratón, en gris (se ve que se puede arrastrar sin que
-   destaque una franja ancha de color) */
+/* ===== Separadores de paneles (splitter): una raya de 1 px algo más clara que los paneles
+   (las zonas van pegadas, como en LightTable), sin los puntitos de Fusion; al pasar el
+   ratón, en el color de acento (se ve que se puede arrastrar) */
 QSplitter::handle {{
-    background: {c.bg_panel};
+    background: {c.divider};
 }}
 QSplitter::handle:horizontal {{
     width: {SPLITTER_WIDTH}px;
@@ -91,7 +96,7 @@ QSplitter::handle:vertical {{
     height: {SPLITTER_WIDTH}px;
 }}
 QSplitter::handle:hover {{
-    background: {c.line};
+    background: {c.accent};
 }}
 
 /* ===== Botones de texto (Aceptar, Cancelar, los de los diálogos): planos, con borde fino
@@ -228,7 +233,7 @@ QSlider::handle:horizontal {{
     border-radius: 6px;
 }}
 QSlider::handle:horizontal:hover {{
-    background: {c.text_on_accent};
+    background: {c.accent};
 }}
 
 /* ===== Cabeceras de tablas (vista de lista, diálogos) */

@@ -56,3 +56,4 @@
 - `_configurar_toolbar` reparte el ancho entre TODOS los `QToolButton` de `frame_toolbar`: no meter ahí otros botones que no deban centrarse.
 - `ThumbnailCache.resolve` y las comprobaciones de existencia miran el disco: no llamarlas miles de veces por repintado; cachear el resultado en el modelo de la cuadrícula.
 - **Finales de línea**: el repositorio usa LF (`.gitattributes`: `* text=auto eol=lf`, salvo `*.bat`). Si un archivo vuelve a aparecer con CRLF, `git checkout-index -f` no lo reescribe mientras Git lo dé por igual (lo compara por la fecha): hay que cambiarle antes la fecha de modificación y después `git add` para quitar la marca de «modificado».
+- **Separadores de 1 px (`SPLITTER_WIDTH` = 1)**: se pueden arrastrar porque Qt, con un ancho de 1 px o menos, amplía solo la zona de agarre a 5 px ("tiny mode" de `QSplitterHandle`). Con 2 o 3 px NO lo hace y serían casi imposibles de coger: o 1 px, o un ancho cómodo (5-6 px).

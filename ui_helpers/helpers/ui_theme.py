@@ -18,6 +18,10 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.6.0 Zonas pegadas, separadas por rayas de 1 px ('divider'): toolbar, franja de filtros,
+      cuadrícula, barra inferior y barra de estado; botones de la toolbar en cajas
+      redondeadas (borde suave, más claro con el ratón; el activo, relleno gris). Decidido
+      por el autor el 07/11/2026, con LightTable como referencia.
 1.5.1 Botón «Cancelar» compacto de los trabajos de la barra de estado ('#btn_job_cancel').
 1.5.0 Estilo propio sobre Fusion ('ThemeStyle'): botones de opción y casillas visibles
       en el tema oscuro (borde gris claro, relleno del acento al marcarlos).
@@ -30,7 +34,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.5.1"
+__version__ = "1.6.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -73,12 +77,14 @@ SIDEBAR_ICON_COLOR: str | None = None
 # Color de la carpeta DESPLEGADA (carpeta abierta). None = el color de selección de la
 # paleta (el acento del sistema). Para que sea igual que las demás: SIDEBAR_ICON_COLOR
 SIDEBAR_ICON_OPEN_COLOR: str | None = None
-# Acento de los iconos de la toolbar lateral (ratón encima y modo activo; ver
+# Acento de los iconos de la toolbar lateral (solo el modo activo; ver
 # ui_helpers/helpers/mode_toolbar.py). None = el color de selección del sistema
 TOOLBAR_ICON_ACCENT_COLOR: str | None = None
 # Aire (px) alrededor de los botones de la toolbar lateral: el mismo en los cuatro lados
 # (izquierda y derecha, por encima del primer botón y por debajo del de ajustes)
 TOOLBAR_MARGIN = 4
+# Esquinas de los botones de la toolbar lateral (cajas redondeadas)
+TOOLBAR_BUTTON_RADIUS = 6
 
 # Fondo de la cuadrícula de miniaturas, algo más hundido que las tarjetas (paso T3); también
 # es el fondo de la barra inferior ('frame_main_bottom'), para que formen un solo bloque.
@@ -96,42 +102,53 @@ TOOLTIP_FG = COLORS.text  # Texto
 # piezas propias de la aplicación. Cada regla se acota con un selector para que solo
 # afecte a lo que debe.
 STYLESHEET = general_stylesheet(COLORS) + f"""
-/* Zona central: la franja de arriba (filtros) del color de los paneles, separada de la
-   cuadrícula por una línea oscura; sin el marco claro de 'StyledPanel' */
+/* Zona central: la franja de arriba (filtros) del color de los paneles, pegada a la
+   cuadrícula y separada por una raya de 1 px; sin el marco claro de 'StyledPanel' */
 QFrame#frame_main_top {{
     background-color: {COLORS.bg_panel};
-    border: 1px solid {COLORS.line_dark};
+    border: none;
+    border-bottom: 1px solid {COLORS.divider};
 }}
 
-/* Línea encima de la barra de estado: una raya oscura, no el relieve de Fusion */
+/* Línea encima de la barra de estado: la raya de 1 px entre zonas, no el relieve de Fusion */
 QFrame#frame_separator_bottom {{
     border: none;
-    background-color: {COLORS.line_dark};
+    background-color: {COLORS.divider};
     max-height: 1px;
 }}
 
-/* Toolbar lateral: una franja propia, distinguida solo por su fondo (zonificación sutil,
-   sin líneas y sin dejar el tema Fusion). 'alternate-base' es un gris apenas distinto del
-   de la ventana */
+/* Toolbar lateral: una franja propia, más oscura que las barras laterales y separada de
+   ellas por la raya de 1 px. 'alternate-base' es 'bg_base' (ver 'build_palette') */
 QFrame#frame_toolbar {{
     background-color: palette(alternate-base);
     border: none;
+    border-right: 1px solid {COLORS.divider};
 }}
 
-/* Botones de la toolbar sin marco (también los marcados: el modo activo lo indica el
-   icono en color de acento, no un recuadro). Con autoRaise, Fusion dibujaría un recuadro
-   al pasar el ratón; el feedback visual ya lo da el icono */
-QFrame#frame_toolbar QToolButton,
+/* Botones de la toolbar: cajas redondeadas con un borde casi invisible; al pasar el
+   ratón, el borde y el fondo se aclaran un poco (y el icono pasa al acento: lo pone
+   'mode_toolbar.py'). El modo activo, con un relleno gris discreto además del icono en el
+   acento */
+QFrame#frame_toolbar QToolButton {{
+    border: 1px solid {COLORS.divider};
+    border-radius: {TOOLBAR_BUTTON_RADIUS}px;
+    background: transparent;
+}}
+QFrame#frame_toolbar QToolButton:hover {{
+    border-color: {COLORS.line};
+    background: {COLORS.bg_panel};
+}}
 QFrame#frame_toolbar QToolButton:checked,
 QFrame#frame_toolbar QToolButton:pressed {{
-    border: none;
-    background: transparent;
+    border-color: {COLORS.line};
+    background: {COLORS.bg_raised};
 }}
 
 /* Cuadrícula de miniaturas: fondo oscuro en lugar del blanco por defecto. Las tarjetas
    se pintan solas en el delegado, así que solo se define el color de fondo */
 QListView#list_view_grid {{
     background-color: {GRID_BG};
+    border: none;
 }}
 
 /* Barra inferior (debajo de la cuadrícula): el mismo fondo oscuro que la cuadrícula, para
@@ -140,7 +157,8 @@ QListView#list_view_grid {{
    y la propia barra son transparentes: toman este fondo */
 QFrame#frame_main_bottom {{
     background-color: {GRID_BG};
-    border: 1px solid palette(dark);
+    border: none;
+    border-top: 1px solid {COLORS.divider};
 }}
 
 /* Ventana de opciones: la columna de secciones toma el color de la ventana (sin el

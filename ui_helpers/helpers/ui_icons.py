@@ -30,10 +30,14 @@ directamente al tamaño en píxeles físicos de la pantalla, sin pasar por QIcon
 Nota: los iconos a todo color (logo, etc.) NO deben pasar por aquí; para ellos
 se sigue usando QIcon(ruta) normal, porque el teñido borraría sus colores.
 
+1.2.0 Un icono en una fila SELECCIONADA (modo 'Selected') toma 'HighlightedText', el texto
+      sobre el acento, aunque tenga color fijo: con el acento ámbar, los iconos claros de la
+      barra lateral no se veían sobre la fila elegida, y la carpeta abierta (en el acento),
+      nada.
 1.1.0 'tinted_pixmap' para los QLabel (el icono de la barra de estado).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["tinted_icon", "tinted_pixmap"]
 
 # Librerías estándar
@@ -116,6 +120,11 @@ class _TintedSvgEngine(QIconEngine):
         # autoRaise=True lo hacen). Si se definió un color de hover, se usa ese.
         if mode == QIcon.Mode.Active and self._hover_color is not None:
             return QColor(self._hover_color)
+
+        # Fila seleccionada de una lista o árbol: el color del texto sobre el acento, también
+        # con color fijo (si no, un icono en el acento desaparecería sobre la fila)
+        if mode == QIcon.Mode.Selected:
+            return palette.color(QPalette.ColorRole.HighlightedText)
 
         if self._color is not None:
             # Color fijo: si el botón está desactivado se atenúa con transparencia

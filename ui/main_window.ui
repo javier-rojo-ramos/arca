@@ -33,19 +33,19 @@
     <item>
      <layout class="QHBoxLayout" name="layout_content">
       <property name="spacing">
-       <number>4</number>
+       <number>0</number>
       </property>
       <property name="leftMargin">
-       <number>4</number>
+       <number>0</number>
       </property>
       <property name="topMargin">
-       <number>4</number>
+       <number>0</number>
       </property>
       <property name="rightMargin">
-       <number>4</number>
+       <number>0</number>
       </property>
       <property name="bottomMargin">
-       <number>4</number>
+       <number>0</number>
       </property>
       <item>
        <widget class="QFrame" name="frame_toolbar">
@@ -60,7 +60,7 @@
         </property>
         <layout class="QVBoxLayout" name="layout_toolbar">
          <property name="spacing">
-          <number>8</number>
+          <number>4</number>
          </property>
          <property name="leftMargin">
           <number>0</number>
@@ -87,8 +87,8 @@
            </property>
            <property name="iconSize">
             <size>
-             <width>32</width>
-             <height>32</height>
+             <width>24</width>
+             <height>24</height>
             </size>
            </property>
            <property name="autoRaise">
@@ -109,8 +109,8 @@
            </property>
            <property name="iconSize">
             <size>
-             <width>32</width>
-             <height>32</height>
+             <width>24</width>
+             <height>24</height>
             </size>
            </property>
            <property name="autoRaise">
@@ -131,8 +131,8 @@
            </property>
            <property name="iconSize">
             <size>
-             <width>32</width>
-             <height>32</height>
+             <width>24</width>
+             <height>24</height>
             </size>
            </property>
            <property name="autoRaise">
@@ -153,8 +153,8 @@
            </property>
            <property name="iconSize">
             <size>
-             <width>32</width>
-             <height>32</height>
+             <width>24</width>
+             <height>24</height>
             </size>
            </property>
            <property name="autoRaise">
@@ -188,8 +188,8 @@
            </property>
            <property name="iconSize">
             <size>
-             <width>32</width>
-             <height>32</height>
+             <width>24</width>
+             <height>24</height>
             </size>
            </property>
            <property name="autoRaise">
@@ -271,7 +271,7 @@
         <widget class="QWidget" name="widget_central_area">
          <layout class="QVBoxLayout" name="layout_central_area">
           <property name="spacing">
-           <number>6</number>
+           <number>0</number>
           </property>
           <property name="leftMargin">
            <number>0</number>

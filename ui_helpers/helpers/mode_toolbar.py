@@ -5,9 +5,10 @@ se queda en el color de acento, para que siempre se vea en qué modo se está (c
 carpetas desplegadas de la barra lateral). Solo puede haber un modo activo.
 
 Iconos (SVG monocromos de 'AppIcons', teñidos con 'tinted_icon'):
-    - Normal:              color normal (el del texto de la paleta).
-    - Ratón encima:        color de acento.
-    - Modo activo:         color de acento fijo.
+    - Normal y ratón encima: color normal (el del texto de la paleta). Con el ratón solo
+                             cambia la caja del botón (QSS de 'ui_theme.py').
+    - Modo activo:           color de acento fijo (solo al pulsarlo; decidido por el autor
+                             el 07/11/2026).
 El acento es 'TOOLBAR_ICON_ACCENT_COLOR' (ui_theme.py); None = el color de selección del
 sistema, el mismo que usan las carpetas desplegadas de la barra lateral.
 
@@ -23,9 +24,11 @@ Uso (en el controlador):
         parent=self,
     )
     self.mode_toolbar.mode_changed.connect(...)
+
+1.1.0 El icono ya no se pone en el acento al pasar el ratón: solo el del modo activo.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["MODE_AUDIO", "MODE_CATALOG", "MODE_IMAGE", "MODE_VIDEO", "ModeToolbar", "toolbar_accent_color"]
 
 # Librerías de terceros (Qt)
@@ -93,7 +96,7 @@ class ModeToolbar(QObject):
             button.setCheckable(True)
             button.setToolTip(title)
             if icon_path and QFile.exists(icon_path):
-                normal = tinted_icon(icon_path, hover_color=accent)
+                normal = tinted_icon(icon_path)  # sin acento al pasar el ratón
                 active = tinted_icon(icon_path, accent)
                 self._icons[mode] = (normal, active)
                 button.setIcon(normal)
