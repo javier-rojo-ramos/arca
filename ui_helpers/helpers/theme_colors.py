@@ -25,6 +25,8 @@ rechazada, no disponible).
 Este módulo NO depende de Qt: solo define valores. 'ui_theme.py' los convierte en la
 paleta de Qt (QPalette) y en la hoja de estilos (QSS).
 
+1.5.0 Tarjetas y cuadrícula también en grises neutros (cuadrícula #161616, más hundida que
+      la toolbar y los paneles); decidido por el autor el 07/11/2026.
 1.4.0 Acento ámbar #eca531 (antes azul #4c8ee8; el autor, 07/11/2026) y texto OSCURO sobre
       él ('text_on_accent'): el blanco sobre ámbar no se lee (contraste 2:1).
 1.3.0 Grises neutros como los de LightTable (toolbar #1a1a1a, paneles #222222), sin el
@@ -37,7 +39,7 @@ Prueba rápida (contraste del texto sobre cada fondo):
     python -m ui_helpers.helpers.theme_colors
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["DARK", "DARK_CARDS", "CardColors", "ThemeColors", "contrast_ratio"]
 
 # Librerías estándar
@@ -153,28 +155,29 @@ class CardColors:
     text_unavailable_highlighted: str
 
 
-# Tarjetas del tema oscuro: la cuadrícula algo más hundida que los paneles y las tarjetas
-# un escalón por encima (como las celdas de Lightroom), con el borde de la seleccionada en
-# el acento y el de la que está bajo el ratón en gris claro
+# Tarjetas del tema oscuro, en los mismos grises neutros que el resto: la cuadrícula más
+# hundida que la toolbar y los paneles (como el centro de LightTable) y las tarjetas un
+# escalón por encima (como las celdas de Lightroom), con el borde de la seleccionada en el
+# acento y el de la que está bajo el ratón en gris claro
 DARK_CARDS = CardColors(
-    grid_bg="#18191b",
-    bg="#26282c",
-    bg_hover="#2c2f33",
-    bg_selected="#34373c",
-    band="#2c2e32",
-    band_hover="#323539",
-    band_selected="#3a3d42",
-    line="#0d0e10",
-    line_hover="#8a8e95",
+    grid_bg="#161616",
+    bg="#262626",
+    bg_hover="#2c2c2c",
+    bg_selected="#333333",
+    band="#2a2a2a",
+    band_hover="#303030",
+    band_selected="#383838",
+    line=DARK.line_dark,
+    line_hover=DARK.text_dim,
     line_selected=DARK.accent,
-    placeholder_bg="#34373c",
-    placeholder_glyph="#70747b",
-    text="#d6d7da",
+    placeholder_bg="#333333",
+    placeholder_glyph="#707070",
+    text=DARK.text,
     text_highlighted="#ffffff",
-    text_rejected="#8a8e95",
-    text_rejected_highlighted="#a9acb2",
-    text_unavailable="#70747b",
-    text_unavailable_highlighted="#8a8e95",
+    text_rejected=DARK.text_dim,
+    text_rejected_highlighted="#aaaaaa",
+    text_unavailable="#707070",
+    text_unavailable_highlighted=DARK.text_dim,
 )
 
 
@@ -237,5 +240,7 @@ if __name__ == "__main__":
         assert contrast_ratio(cards.text, band) >= 7, band
         assert contrast_ratio(cards.text_rejected, band) >= 3, band
     assert _luminance(cards.grid_bg) < _luminance(cards.bg) < _luminance(cards.bg_hover) < _luminance(cards.bg_selected)
+    # La cuadrícula, más hundida que la toolbar y los paneles que la rodean
+    assert _luminance(cards.grid_bg) < _luminance(theme.bg_base) < _luminance(theme.bg_panel)
     print("Tarjetas: texto legible en la banda y estados de más oscuro a más claro")
     print("Autoprueba finalizada correctamente.")

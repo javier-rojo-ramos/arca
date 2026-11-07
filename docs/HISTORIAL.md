@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 07/11/2026: cuadrícula y tarjetas en grises neutros (`theme_colors` 1.5.0: `DARK_CARDS`, fondo `#161616`; varios valores tomados de `DARK`)
 - 07/11/2026: acento ámbar (`theme_colors` 1.4.0: `accent` `#eca531`, `text_on_accent` `#1a1a1a`; `theme_qss` 1.2.1: asa del deslizador; `ui_icons` 1.2.0: iconos en filas seleccionadas con `HighlightedText`; `mode_toolbar` 1.1.0 y botón de Opciones sin acento al pasar el ratón). Vista previa sin ventana: fila elegida con texto e icono oscuros
 - 07/11/2026: tema T5, con LightTable como referencia (`theme_colors` 1.3.0: grises neutros y color `divider`; `theme_qss` 1.2.0: `SPLITTER_WIDTH` = 1; `ui_theme` 1.6.0: rayas de 1 px y cajas en la toolbar, `TOOLBAR_BUTTON_RADIUS`; `.ui`: `layout_content` y `layout_central_area` sin márgenes ni espacios, iconos de la toolbar de 24 px y 4 px entre botones). Vista previa dibujada sin ventana (offscreen)
 - 07/11/2026: orden de la cuadrícula (pasos 1 a 3) verificado por el autor
