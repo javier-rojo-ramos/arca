@@ -5,8 +5,8 @@ parámetro, así que se pueden enviar tal cual a 'CatalogDatabaseManager.execute
 (se ejecutan en un hilo secundario; el gestor hace el commit).
 
 Tres responsabilidades:
-    1. 'fetch_grid_rows': qué filas muestra la cuadrícula y en qué orden (por defecto, por
-       hora de captura). QUÉ filas lo decide un 'GridSource' (core/catalog/grid_source.py):
+    1. 'fetch_grid_rows': qué filas muestra la cuadrícula y en qué orden (un 'GridOrder' de
+       core/catalog/grid_orders.py; por defecto, por nombre). QUÉ filas lo decide un 'GridSource' (core/catalog/grid_source.py):
        todo el catálogo, una carpeta, una colección... Es el único sitio con el SQL de la
        cuadrícula: '_source_condition' traduce cada origen a una condición WHERE.
     2. 'count_grid_items': cuántos elementos tiene cada origen (los contadores de la barra
@@ -23,6 +23,8 @@ solo la mitad del trabajo: 'update_user_field' deja además el elemento PENDIENT
 archivo, en su sidecar XMP o en el archivo de carpeta, para que sobreviva a recrear el
 catálogo.
 
+2.0.0 El orden es un 'GridOrder' (campo y dirección, de 'grid_orders.py'); se quitan
+      'GRID_ORDERS', 'DEFAULT_ORDER' y el orden por 'file_created_at'. Por defecto, por nombre.
 1.13.1 Comentarios sin números de migración (esquema consolidado en la v1).
 1.13.0 Selección rápida limitada a una biblioteca ('GridSource.library' en QUICK).
 1.12.0 Carpeta limitada a una biblioteca ('GridSource.library' en el origen FOLDER).
@@ -43,15 +45,13 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_queries
 """
 
-__version__ = "1.13.1"
+__version__ = "2.0.0"
 # ruff: noqa: RUF022
 __all__ = [
     "AVAILABLE",
-    "DEFAULT_ORDER",
     "FLAG_NONE",
     "FLAG_PICKED",
     "FLAG_REJECTED",
-    "GRID_ORDERS",
     "MISSING",
     "OFFLINE",
     "USER_FIELDS",
@@ -71,6 +71,7 @@ from typing import Any
 
 # Módulos del proyecto
 from core.catalog.color_labels import is_valid_color_label
+from core.catalog.grid_orders import NAME_ORDER, GridOrder, order_by_sql
 from core.catalog.grid_source import ALL_ITEMS, GridSource, SourceKind
 from core.catalog.keywords import KEYWORD_MEDIA_SQL
 from core.catalog.smart_rules import rules_to_sql
@@ -91,26 +92,6 @@ FLAG_PICKED = 1
 AVAILABLE = 0
 MISSING = 1
 OFFLINE = 2
-
-# Órdenes disponibles para la cuadrícula: clave -> cláusula ORDER BY.
-# Los NULL van siempre al final ('X IS NULL' vale 1 para NULL). El desempate por nombre
-# e id hace el orden ESTABLE (varias fotos con la misma fecha no bailan entre consultas).
-#
-# 'content_created_at' es la hora de captura (EXIF; hora local) y equivale a la "Hora de
-# captura" de Lightroom: es el orden por defecto. Los archivos sin esa fecha (aún sin leer
-# sus metadatos, o sin EXIF) van al final.
-# OJO con 'file_created_at': es la fecha de creación del ARCHIVO según el sistema (UTC) y
-# puede ser NULL (p. ej. en Linux); NO es la hora de captura.
-GRID_ORDERS: dict[str, str] = {
-    "file_created_at": (
-        "file_created_at IS NULL, file_created_at, file_name COLLATE NOCASE, id"
-    ),
-    "content_created_at": (
-        "content_created_at IS NULL, content_created_at, file_name COLLATE NOCASE, id"
-    ),
-    "file_name": "file_name COLLATE NOCASE, id",
-}
-DEFAULT_ORDER = "content_created_at"  # hora de captura (EXIF): como la de Lightroom
 
 # Campos del usuario que se pueden escribir desde la cuadrícula
 USER_FIELDS: tuple[str, ...] = ("rating", "flag", "color_label")
@@ -216,7 +197,7 @@ def _folder_condition(source: GridSource) -> tuple[str, tuple[Any, ...]]:
 
 def fetch_grid_rows(
     conn: sqlite3.Connection,
-    order: str = DEFAULT_ORDER,
+    order: GridOrder = NAME_ORDER,
     source: GridSource = ALL_ITEMS,
 ) -> list[dict[str, Any]]:
     """Devuelve las filas que muestra la cuadrícula para un origen.
@@ -232,18 +213,17 @@ def fetch_grid_rows(
 
     Args:
         conn: Conexión (la pone el gestor de la base de datos).
-        order: Clave de 'GRID_ORDERS'. Va en segundo lugar (antes que 'source') para
+        order: Orden (campo y dirección; ver 'grid_orders.py'). Va en segundo lugar (antes que 'source') para
             no romper las llamadas que ya pasaban el orden como argumento posicional.
         source: Qué elementos mostrar (por defecto, todo el catálogo).
 
     Raises:
-        ValueError: Si 'order' o 'source' no son conocidos (así nunca se interpola en
-            el SQL un texto que venga de fuera).
+        TypeError: Si 'order' no es un 'GridOrder' (su campo ya se validó al crearlo:
+            así nunca se interpola en el SQL un texto que venga de fuera).
+        ValueError: Si 'source' no es conocido.
     """
-    try:
-        order_by = GRID_ORDERS[order]
-    except KeyError:
-        raise ValueError(f"Orden desconocido: {order!r}") from None
+    if not isinstance(order, GridOrder):
+        raise TypeError(f"Orden no válido: {order!r} (se espera un GridOrder)")
     where_sql, where_params = _source_condition(source)
 
     rows = conn.execute(
@@ -256,7 +236,7 @@ def fetch_grid_rows(
               FROM media_items AS m
               JOIN storage_locations AS l ON l.id = m.storage_location_id
              WHERE {where_sql}
-          ORDER BY {_qualified(order_by)}""",  # noqa: S608 - todo sale de listas cerradas
+          ORDER BY {order_by_sql(order, "m")}""",  # noqa: S608 - todo sale de listas cerradas
         where_params,
     ).fetchall()
     keys = (
@@ -294,18 +274,6 @@ def count_grid_items(
         ).fetchone()
         counts[source] = int(row[0])
     return counts
-
-
-def _qualified(order_by: str) -> str:
-    """Antepone 'm.' a las columnas de un ORDER BY de 'GRID_ORDERS' (por el JOIN).
-
-    'id' y otros nombres existen en las dos tablas; con el alias no hay ambigüedad.
-    """
-    words = []
-    for part in order_by.split(","):
-        part = part.strip()
-        words.append(part if part.startswith("m.") else f"m.{part}")
-    return ", ".join(words)
 
 
 # -----------------------------------------------------------------------------
@@ -416,6 +384,7 @@ if __name__ == "__main__":
     from dataclasses import dataclass
 
     from core.catalog.catalog_schema import apply_migrations, configure_connection
+    from core.catalog.grid_orders import CAPTURE_TIME_ORDER
 
     db = sqlite3.connect(":memory:")
     configure_connection(db)
@@ -441,17 +410,13 @@ if __name__ == "__main__":
     add("B2.jpg", None, None)  # empate de NULL: desempata por nombre, sin distinguir mayúsculas
     add("gone.jpg", "2019-01-01 00:00:00", is_missing=1)  # ausente: se muestra, marcado
 
-    # El ausente se muestra (al final por no tener fecha de contenido), marcado como tal
-    rows = fetch_grid_rows(db, "file_created_at")
+    # Por defecto, por nombre (sin distinguir mayúsculas). El ausente se muestra, marcado
+    rows = fetch_grid_rows(db)
     names = [r["file_name"] for r in rows]
-    assert names == ["gone.jpg", "a.jpg", "c.jpg", "b.jpg", "B2.jpg"], names
+    assert names == ["a.jpg", "b.jpg", "B2.jpg", "c.jpg", "gone.jpg"], names
     assert {r["file_name"]: r["availability"] for r in rows}["gone.jpg"] == MISSING
     assert all(r["availability"] == AVAILABLE for r in rows if r["file_name"] != "gone.jpg")
     rows = [r for r in rows if r["file_name"] != "gone.jpg"]
-    assert DEFAULT_ORDER == "content_created_at"
-    assert [r["file_name"] for r in fetch_grid_rows(db)] == [
-        "c.jpg", "a.jpg", "b.jpg", "B2.jpg", "gone.jpg"
-    ]  # fmt: skip
     # Ubicación desconectada: todo lo suyo sale como OFFLINE (también el ausente)
     db.execute("UPDATE storage_locations SET is_online = 0")
     assert {r["availability"] for r in fetch_grid_rows(db)} == {OFFLINE}
@@ -461,16 +426,16 @@ if __name__ == "__main__":
         "id", "media_type", "file_name", "rating", "flag", "color_label", "thumbnail_status",
         "in_quick_selection", "library", "library_manual", "duration", "availability",
     }  # fmt: skip
-    # Hora de captura (EXIF): el orden cambia
-    by_content = [r["file_name"] for r in fetch_grid_rows(db, "content_created_at")]
+    # Hora de captura (EXIF): el orden cambia; sin ella, al final (desempate por nombre)
+    by_content = [r["file_name"] for r in fetch_grid_rows(db, CAPTURE_TIME_ORDER)]
     assert by_content == ["c.jpg", "a.jpg", "b.jpg", "B2.jpg", "gone.jpg"], by_content
-    assert [r["file_name"] for r in fetch_grid_rows(db, "file_name")] == [
-        "a.jpg", "b.jpg", "B2.jpg", "c.jpg", "gone.jpg",
-    ]  # fmt: skip
+    # Descendente: los que no tienen fecha siguen al final; el desempate también se invierte
+    by_content = [r["file_name"] for r in fetch_grid_rows(db, CAPTURE_TIME_ORDER.reversed())]
+    assert by_content == ["a.jpg", "c.jpg", "gone.jpg", "B2.jpg", "b.jpg"], by_content
     try:
-        fetch_grid_rows(db, "id; DROP TABLE media_items")
-        raise AssertionError("debía rechazar un orden desconocido")
-    except ValueError:
+        fetch_grid_rows(db, "id; DROP TABLE media_items")  # type: ignore[arg-type]
+        raise AssertionError("debía rechazar un orden que no es un GridOrder")
+    except TypeError:
         pass
 
     # Carpetas: con subcarpetas (por defecto) y sin ellas; 'ab' no está dentro de 'a'
@@ -481,7 +446,7 @@ if __name__ == "__main__":
         add(path, None, None, storage_location_id=2)
 
     def names(source: GridSource) -> list[str]:
-        return sorted(r["file_name"] for r in fetch_grid_rows(db, "file_name", source))
+        return sorted(r["file_name"] for r in fetch_grid_rows(db, NAME_ORDER, source))
 
     assert names(folder_source(2, "a")) == ["a/sub/y.jpg", "a/x.jpg"]
     assert names(folder_source(2, "a", include_subfolders=False)) == ["a/x.jpg"]
@@ -508,7 +473,7 @@ if __name__ == "__main__":
     from core.catalog.smart_rules import Rule
 
     three = smart_source(Rule("rating", "eq", 3))
-    assert [r["file_name"] for r in fetch_grid_rows(db, "file_name", three)] == ["a.jpg"]
+    assert [r["file_name"] for r in fetch_grid_rows(db, NAME_ORDER, three)] == ["a.jpg"]
     assert count_grid_items(db, [three]) == {three: 1}
     picked = smart_source(Rule("flag", "eq", FLAG_PICKED))
     assert count_grid_items(db, [picked])[picked] == 1
@@ -526,7 +491,7 @@ if __name__ == "__main__":
 
     # Origen de la cuadrícula: "todo el catálogo" (por defecto o explícito) da lo mismo
     assert fetch_grid_rows(db, source=ALL_ITEMS) == fetch_grid_rows(db)
-    assert len(fetch_grid_rows(db, DEFAULT_ORDER, ALL_ITEMS)) == 5
+    assert len(fetch_grid_rows(db, NAME_ORDER, ALL_ITEMS)) == 5
 
     # Contadores: cuentan lo mismo que muestra la cuadrícula (también el ausente)
     assert count_grid_items(db, [ALL_ITEMS]) == {ALL_ITEMS: 5}

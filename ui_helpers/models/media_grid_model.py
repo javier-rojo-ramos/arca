@@ -22,6 +22,8 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.9.0 El orden es un 'GridOrder' (campo y dirección; 'core/catalog/grid_orders.py'); por
+      defecto, por nombre. 'set_order' no recarga si el orden no cambia; propiedad 'order'.
 1.8.1 'catalog_key()': el catálogo abierto (para comprobar tarjetas soltadas en el inspector).
 1.8.0 Roles del tipo, la duración, la biblioteca y el estado de la miniatura (marcador de
       las tarjetas sin miniatura e insignia de duración).
@@ -38,7 +40,7 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.8.1"
+__version__ = "1.9.0"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
@@ -62,10 +64,10 @@ from qtpy.QtGui import QImage, QImageReader, QPixmap
 
 # Módulos del proyecto
 from core.catalog.color_labels import is_valid_color_label, normalize_color_label
+from core.catalog.grid_orders import NAME_ORDER, GridOrder
 from core.catalog.grid_source import ALL_ITEMS, GridSource
 from core.catalog.media_queries import (
     AVAILABLE,
-    DEFAULT_ORDER,
     FLAG_NONE,
     FLAG_PICKED,
     FLAG_REJECTED,
@@ -181,7 +183,8 @@ class MediaGridModel(QAbstractListModel):
         self._cache: ThumbnailCache | None = None
         # Carpeta del catálogo (en texto): viaja con las tarjetas que se arrastran
         self._catalog_key = ""
-        self._order = DEFAULT_ORDER
+        # En qué orden (lo decide el módulo activo; ver 'grid_orders.py')
+        self._order: GridOrder = NAME_ORDER
         # Qué elementos se muestran (todo el catálogo, una carpeta, una colección...)
         self._source: GridSource = ALL_ITEMS
         self._wanted: ThumbnailSize = ThumbnailSize.THUMBNAIL
@@ -227,8 +230,18 @@ class MediaGridModel(QAbstractListModel):
         self._pool.clear()
         self._pool.waitForDone()
 
-    def set_order(self, order: str) -> None:
-        """Cambia el orden (clave de 'media_queries.GRID_ORDERS') y vuelve a cargar."""
+    @property
+    def order(self) -> GridOrder:
+        """Orden que se usa ahora."""
+        return self._order
+
+    def set_order(self, order: GridOrder) -> None:
+        """Cambia el orden (campo y dirección) y vuelve a cargar.
+
+        Si es el mismo orden que ya se usa, no hace nada.
+        """
+        if order == self._order:
+            return
         self._order = order
         self.reload()
 

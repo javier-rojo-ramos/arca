@@ -19,7 +19,7 @@ python -m core.catalog.folder_importer
 python -m core.thumbnails.sizes              python -m core.thumbnails.generator
 python -m core.thumbnails.imaging            python -m core.thumbnails.job
 python -m core.thumbnails.cache               python -m core.catalog.color_labels
-                                             python -m core.catalog.media_queries
+python -m core.catalog.grid_orders          python -m core.catalog.media_queries
 python -m core.catalog.availability          python -m core.catalog.libraries
 python -m core.metadata.video.fields         python -m core.metadata.video.rules
 python -m core.metadata.video.extractor

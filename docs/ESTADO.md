@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 06/11/2026.
+**Actualizado**: 07/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes (añadir carpetas, metadatos con ExifTool, miniaturas, cuadrícula con valoración/marca/color guardados también en los archivos, barra lateral con carpetas y colecciones, inspector con la sección «Selección»). Vídeo, audio, GPX y ebooks se catalogan y clasifican en bibliotecas, pero sus módulos (Imagen, Vídeo, Audio) aún son provisionales. En curso: la sección «Metadatos» del inspector ([PENDIENTE.md](PENDIENTE.md), A.4).
 
@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Orden de la cuadrícula, paso 1** (07/11; `core/catalog/grid_orders.py`) | Aún sin control en la interfaz. La cuadrícula, en el Catálogo y en Imagen, sale ahora **por nombre** (sin distinguir mayúsculas) en vez de por hora de captura; todo lo demás igual (cargar, cambiar de carpeta o colección, marcar, arrastrar) |
 | **Inspector: sección «Metadatos»** (02/11; [FLUJOS.md §12](FLUJOS.md)) | Aparece al seleccionar fotos o vídeos de la biblioteca Imagen (no con varias bibliotecas ni sin selección). Las tres vistas del desplegable (duración, fotogramas y códec de un vídeo del móvil, vistos por el autor el 02/11) y que la elegida se recuerda al reiniciar. Valores de una foto (comparar con Lightroom), de un vídeo del iPhone y de varias (con «Varios» en gris); filas en blanco; la sección no cambia de alto al cambiar la selección. Visto funcionando por el autor (02/11, comparado con Lightroom: coincide salvo la exposición redondeada y los ajustes corregidos después; el recorte, en su propia fila). Falta ver: fila «Flash» («Disparado» / «No disparado») entre Compensación y Programa, en Por defecto y EXIF; las tres vistas empiezan igual (dimensiones y recorte; captura, digitalización y modificación); exposición redondeada como Lightroom («1/50 s», con «Tiempo exacto: 1/54 s» al pasar el ratón) en IMG_6257.heic y en otras fotos del móvil; etiquetas a la izquierda con ancho fijo (los valores no se mueven al cambiar de vista), focal con dos decimales («2,22 mm»), programa «Normal»; nombre completo al pasar el ratón por la etiqueta. Aspecto del desplegable en la cabecera. Rapidez con Ctrl+A |
 | **Palabras clave: flecha «ver sus fotos»** (04/11; [FLUJOS.md §12](FLUJOS.md)) | **Visto funcionando por el autor** (05/11). Arreglado el 05/11: pulsar otra vez la flecha de la palabra que ya se ve RECARGA la cuadrícula (tras quitar «Cena» a una foto, la foto desaparece; antes seguía); además, la palabra elegida en la barra izquierda se marca en azul al momento (antes, solo al pasar el ratón por la barra) y la flecha va DELANTE del número; comprobar que el clic en la flecha sigue funcionando con números de distinto ancho (3, 21, 112). En la «LISTA DE PALABRAS CLAVE» del inspector, al pasar el ratón por una palabra con fotos aparece una flecha azul a la derecha de su número (los números no se mueven); en las palabras sin fotos, no. Pulsarla: la cuadrícula muestra sus fotos y las de sus hijas, y la palabra queda elegida en la barra izquierda (con sus padres desplegados; si el filtro de la barra la ocultaba, se vacía). Pulsar la flecha no marca la casilla ni despliega la fila. Sin selección (tras usar la flecha), la lista del inspector **se sigue viendo**, con las casillas vacías que no se pueden pulsar; el menú y soltar tarjetas siguen funcionando |
 | **Módulo Imagen: «Selección rápida»** (04/11) | «Todas las imágenes» y «Selección rápida» con el mismo icono que «Todos los archivos» en el Catálogo, y su texto alineado con el de las carpetas (04/11, tras ver la primera versión). En «BIBLIOTECA - IMAGEN», bajo «Todas las imágenes»: su número cuenta solo las imágenes y vídeos del móvil marcados con el círculo (un PDF o una canción marcados no cuentan; en el Catálogo sí); clic: la cuadrícula los muestra. Marcar o desmarcar con B o el círculo actualiza el número; «Vaciar selección rápida» desde el Catálogo deja la de Imagen vacía (y la recarga si se está viendo). Sin menú contextual aquí. Al cerrar y abrir, si estaba elegida, sigue elegida |
@@ -70,6 +71,7 @@
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 07/11/2026: orden de la cuadrícula, paso 1: registro de campos de orden con dirección (`grid_orders.py`) en lugar de `GRID_ORDERS`; la cuadrícula parte de «Nombre».
 - 06/11/2026: carpetas: «Quitar del catálogo...» en el menú de una carpeta o ubicación (como Lightroom); si la carpeta elegida desaparece, se elige su padre.
 - 05/11/2026: barra de estado: icono del mensaje teñido (verde «hecho», amarillo aviso, rojo error; el resto, claro).
 - 05/11/2026: «Añadir carpeta» se abre en la carpeta que contiene la última añadida; el círculo y la casilla bajan al dibujarlos (el ajuste anterior no se veía).
@@ -79,4 +81,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 05/11/2026: la aplicación pasa a llamarse **Arca Media** (antes EMC Manager), versión 0.03 (26.11); archivo de carpeta `.arca.json`, sin migración.
 - 05/11/2026: palabras clave: pulsar otra vez la flecha «ver sus fotos» recarga la cuadrícula.
 - 05/11/2026: palabras clave: la flecha «ver sus fotos», delante del número; la palabra elegida se marca al momento en la barra izquierda.
-- 04/11/2026: palabras clave: flecha «ver sus fotos» en el árbol del inspector; el árbol se ve también sin selección.

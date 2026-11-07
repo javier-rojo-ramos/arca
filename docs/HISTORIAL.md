@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 07/11/2026: orden de la cuadrícula, paso 1 (`core/catalog/grid_orders.py` 1.0.0: `SORT_FIELDS`, `GridOrder`, `order_by_sql`; `media_queries` 2.0.0 sin `GRID_ORDERS` ni `DEFAULT_ORDER`; `media_grid_model` 1.9.0); la cuadrícula parte de «Nombre»
 - 06/11/2026: carpetas, «Quitar del catálogo...» (`core/catalog/folder_removal.py` 1.0.0, `controllers/folder_actions.py` 1.0.0, `catalog_sidebar` 1.11.0: también la vuelta a la carpeta padre); entregas del 05/11 verificadas por el autor
 - 05/11/2026: el icono de la barra de estado seguía sin teñir (gris #1f1f1f, el del SVG): `ui_status` 1.1.1 lo tiñe con `tinted_pixmap` (`ui_icons` 1.1.0), directo y a la escala de la pantalla
 - 05/11/2026: barra de estado con el icono teñido (`ui_status` 1.1.0 con `tinted_icon`; `theme_colors` 1.2.0: `success` y `warning` amarillo)

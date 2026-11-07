@@ -113,12 +113,13 @@ core/
     media_types.py                     MediaType (photo, video, audio, ebook, track, other) y CACHEABLE_MEDIA_TYPES
     libraries.py                     ► BIBLIOTECAS (Library, LIBRARY_NAMES: su nombre en toda la interfaz) y tipo de contenido de las carpetas: qué se cataloga en cada una (ALLOWED_MEDIA_TYPES), biblioteca de cada archivo (library_for), detección de vídeos por el nombre (guess_video_library: patrones al principio del archivo), corrección manual (set_library, CLASSIFIABLE_MEDIA_TYPES), classify_pending_videos, count_unclassified, declaraciones con herencia (FolderContentResolver, set_folder_content, folder_content_for)
     color_labels.py                    Etiquetas de color canónicas y equivalencia con Lightroom (xmp:Label, photoshop:LabelColor); sin Qt
-    media_queries.py                   SQL de la cuadrícula (fetch_grid_rows, count_grid_items, GRID_ORDERS); _source_condition traduce
+    media_queries.py                   SQL de la cuadrícula (fetch_grid_rows, count_grid_items); _source_condition traduce
                                        el GridSource a SQL (ÚNICO sitio; pública como source_condition); guardado de rating/flag/color (update_user_field); sin Qt
     selection_summary.py               Resumen para el inspector: fetch_selection_summary (ids) y fetch_source_summary (origen); SelectionSummary
     keywords.py                        Palabras clave en el catálogo: ensure_keyword_path, resolve_flat_keyword (sueltas), set_media_keywords (manda el archivo), keyword_tree, fetch_keyword_tree, filter_keyword_tree; edición: assign_keyword, remove_keyword, diff_keyword_text, apply_keyword_changes; sin Qt
     selection_metadata.py              Valores comunes de unos campos en la selección (común / «Varios» / vacío); FieldSource dice de qué columnas sale cada campo por tipo de medio
     grid_source.py                     GridSource (ALL / FOLDER / SMART / COLLECTION / QUICK): qué muestra la cuadrícula; inmutable. UNCLASSIFIED = «Sin clasificar»
+    grid_orders.py                   ► ÓRDENES de la cuadrícula: SORT_FIELDS (campos del desplegable), GridOrder (campo + dirección; to_state / from_state), order_by_sql (NULL al final, desempate por nombre e id); sin Qt
     smart_fields.py                  ► CAMPOS de las colecciones inteligentes (grupos, secciones, tipo, columna SQL, unidades)
     smart_rules.py                     Rule, RuleSet: validación, rules_to_sql, JSON (rules_to_json / rules_from_json) y describe_rule
     system_collections.py              SYSTEM_COLLECTIONS: Clasificación (1..5), Etiqueta (Rojo..Púrpura), Marcadas, Rechazadas
