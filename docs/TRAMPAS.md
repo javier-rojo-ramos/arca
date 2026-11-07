@@ -55,3 +55,4 @@
 - Los módulos se crean en `_configurar_modulos`, DESPUÉS de la cuadrícula (el Catálogo necesita `grid_actions`). Hasta entonces `module_host` es None: los métodos que lo usan lo comprueban.
 - `_configurar_toolbar` reparte el ancho entre TODOS los `QToolButton` de `frame_toolbar`: no meter ahí otros botones que no deban centrarse.
 - `ThumbnailCache.resolve` y las comprobaciones de existencia miran el disco: no llamarlas miles de veces por repintado; cachear el resultado en el modelo de la cuadrícula.
+- **Finales de línea**: el repositorio usa LF (`.gitattributes`: `* text=auto eol=lf`, salvo `*.bat`). Si un archivo vuelve a aparecer con CRLF, `git checkout-index -f` no lo reescribe mientras Git lo dé por igual (lo compara por la fecha): hay que cambiarle antes la fecha de modificación y después `git add` para quitar la marca de «modificado».
