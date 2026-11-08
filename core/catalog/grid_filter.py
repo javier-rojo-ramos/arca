@@ -23,7 +23,9 @@ Qué guarda un 'GridFilter':
 
 «Atributos»: cada GRUPO con algo elegido aporta su propio 'RuleSet' (AND entre grupos).
 Dentro de un grupo, lo elegido vale con «alguna» (MATCH_ANY): marcadas O sin marca, rojo O
-verde, fotos O vídeos. «Sin color» es 'color_label' vacío ('COLOR_NONE').
+verde, fotos O vídeos. «Sin color» es 'color_label' vacío ('COLOR_NONE'). Valoración:
+«≥ / ≤ / =» y de 1 a 5 estrellas; SIN estrellas, «=» y «≤» son «sin valoración» (0) y
+«≥» no filtra (como Lightroom; decidido por el autor el 08/11/2026).
 
 Ejemplo:
 
@@ -38,6 +40,7 @@ de «no contiene»); con los demás operadores, «alguno» (MATCH_ANY).
 Todo es inmutable ('frozen'): un filtro se compara con '==' y se cambia creando otro
 ('with_panel', 'cleared', 'toggled', 'dataclasses.replace').
 
+1.2.0 «Sin valoración»: «=» o «≤» sin estrellas filtra la valoración 0.
 1.1.0 Fila de «Atributos» ('AttributeFilter', 'GridFilter.attributes'); paso A.3.
 1.0.0 Primera versión (paso A.3, subpaso 1): pestañas, candado y fila de «Texto».
 
@@ -45,7 +48,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.grid_filter
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "COLOR_NONE",
     "FILTER_ATTRIBUTES",
@@ -134,8 +137,9 @@ class AttributeFilter:
 
     Attributes:
         flags: Marcas elegidas (1 marcada, 0 sin marca, -1 rechazada).
-        rating: Estrellas (1 a 5; 0 = sin filtro de valoración).
-        rating_operator: Clave de 'RATING_OPERATORS' (≥, ≤ o =).
+        rating: Estrellas (0 a 5).
+        rating_operator: Clave de 'RATING_OPERATORS' (≥, ≤ o =). Con 0 estrellas, «=» y
+            «≤» son «sin valoración»; «≥» no filtra (≥ 0 es todo).
         colors: Colores elegidos (nombres de 'COLOR_LABELS' y 'COLOR_NONE').
         quick: Solo lo de la selección rápida.
         media_types: Tipos elegidos (valores de 'MediaType').
@@ -155,7 +159,7 @@ class AttributeFilter:
         flags = [f for f in _FLAGS if f in self.flags]
         if flags:
             sets.append(RuleSet(MATCH_ANY, tuple(Rule("flag", "eq", f) for f in flags)))
-        if 1 <= self.rating <= 5 and self.rating_operator in RATING_OPERATORS:
+        if self._rating_filters():
             sets.append(RuleSet(rules=(Rule("rating", self.rating_operator, self.rating),)))
         colors = [Rule("color_label", "eq", c) for c in COLOR_LABELS if c in self.colors]
         if COLOR_NONE in self.colors:
@@ -168,6 +172,14 @@ class AttributeFilter:
         if types:
             sets.append(RuleSet(MATCH_ANY, tuple(Rule("media_type", "eq", t) for t in types)))
         return tuple(sets)
+
+
+    def _rating_filters(self) -> bool:
+        """Si la valoración filtra: de 1 a 5 estrellas con cualquier operador, o ninguna
+        con «=» o «≤» (sin valoración). «≥ 0» sería todo."""
+        if self.rating_operator not in RATING_OPERATORS or not 0 <= self.rating <= 5:
+            return False
+        return self.rating > 0 or self.rating_operator != "gte"
 
 
 # La fila de «Atributos» sin nada elegido
@@ -389,6 +401,12 @@ if __name__ == "__main__":
     for rule_set in sets:
         rules_to_sql(rule_set)  # todas son reglas válidas
     assert NO_ATTRIBUTES.rule_sets() == () and AttributeFilter(rating=9).rule_sets() == ()
+    # Sin estrellas: «=» y «≤» son «sin valoración»; «≥», nada
+    unrated = RuleSet(rules=(Rule("rating", "eq", 0),))
+    assert AttributeFilter(rating_operator="eq").rule_sets() == (unrated,)
+    assert AttributeFilter(rating_operator="lte").rule_sets()[0].rules[0] == Rule("rating", "lte", 0)
+    assert AttributeFilter(rating_operator="gte").rule_sets() == ()
+    rules_to_sql(unrated)
     # Solo filtran con la pestaña encendida, y se suman al texto
     with_attrs = replace(on, attributes=attrs)
     assert replace(written, attributes=attrs).rule_sets() == ()

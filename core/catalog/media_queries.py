@@ -645,6 +645,8 @@ if __name__ == "__main__":
     assert by_attributes(rating=2) == ["a.jpg", "b.jpg"]  # 2 o más
     assert by_attributes(rating=2, rating_operator="lte") == ["B2.jpg", "b.jpg", "c.jpg", "gone.jpg"]
     assert by_attributes(rating=4, rating_operator="eq") == ["a.jpg"]
+    unrated = ["B2.jpg", "c.jpg", "gone.jpg"]  # sin estrellas: «=» o «≤» sin ninguna
+    assert by_attributes(rating_operator="eq") == unrated == by_attributes(rating_operator="lte")
     assert by_attributes(colors=frozenset({"red", "green"})) == ["a.jpg", "c.jpg"]
     assert by_attributes(colors=frozenset({COLOR_NONE})) == ["B2.jpg", "b.jpg", "gone.jpg"]
     assert by_attributes(quick=True) == ["c.jpg"]

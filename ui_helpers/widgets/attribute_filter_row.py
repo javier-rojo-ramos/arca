@@ -11,7 +11,8 @@ las mismas funciones que la tarjeta y la barra inferior ('card_marks', 'card_gly
 Cada icono es un interruptor: encendido, a plena intensidad; apagado, atenuado. Dentro de
 un grupo se pueden encender varios (marcadas O sin marca; rojo O verde). Las estrellas no
 son interruptores: pulsar la tercera es «3 estrellas» (con el operador del desplegable:
-≥, ≤ o =) y pulsarla otra vez quita la valoración, como en la barra inferior.
+≥, ≤ o =) y pulsarla otra vez las apaga, como en la barra inferior. Sin estrellas, «=» y
+«≤» filtran lo que no tiene valoración; «≥», nada (lo decide 'AttributeFilter').
 
 Solo muestra y avisa: cada clic emite 'attribute_filter_changed(AttributeFilter)' (de
 'core/catalog/grid_filter.py') en el acto, sin pausa; lo que se ve lo pone 'set_filter'
@@ -23,13 +24,14 @@ Uso (lo crea el controlador principal y se lo pasa al 'FilterController'):
     row.set_media_types(("photo", "video"))
     row.attribute_filter_changed.connect(...)
 
+1.0.1 Cabecera: «=» o «≤» sin estrellas es «sin valoración» (lo decide el motor).
 1.0.0 Primera versión (paso A.3, «Atributos», subpaso 2).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.attribute_filter_row
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["OPERATOR_TEXTS", "TYPE_TEXTS", "AttributeFilterRow"]
 
 # Librerías estándar

@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 08/11/2026: «sin valoración» (`grid_filter` 1.2.0: `AttributeFilter._rating_filters`, «=» o «≤» con 0 estrellas filtra la valoración 0, «≥ 0» no filtra; `attribute_filter_row` 1.0.1, cabecera). Autopruebas de `grid_filter` y `media_queries`
 - 08/11/2026: «Atributos», subpaso 3 (`filter_controller` 1.2.0: `attribute_row`; `AppModule.filter_media_types` en `base` 1.5.0, `catalog_module` 1.3.0 y `image_module` 1.11.0; `module_host` 1.8.2: `active_filter_media_types`; conexión en `_conectar_filtros`). Autoprueba del controlador y comprobación sin ventana con el `ModuleHost` real (tipos por módulo, un clic llega a la consulta)
 - 08/11/2026: «Atributos», subpaso 2 (`ui_helpers/widgets/attribute_filter_row.py` 1.0.0: `AttributeFilterRow`, tiras de iconos dibujados con `card_marks`, `card_glyphs` y `ui_color_labels`, desplegable «≥ / ≤ / =»; `card_glyphs` 1.1.0: `draw_type_glyph`, el dibujo del tipo sin el fondo, y el marcador de siempre por la misma función). Autoprueba de la fila (clics, operador, `set_filter`, dibujo) y captura sin ventana
 - 08/11/2026: «Atributos», subpaso 1 (`grid_filter` 1.1.0: `AttributeFilter`, `GridFilter.attributes`, un `RuleSet` por grupo con MATCH_ANY dentro, guardado en diccionario; `smart_fields` 1.4.0: campo `in_quick_selection`). Autopruebas de `grid_filter` y de `media_queries` (atributos contra un catálogo en memoria)
