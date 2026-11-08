@@ -41,8 +41,10 @@ from config.app_constants import (
     AppIcons,
 )
 from controllers.app_modules.base import ModuleContext
+from controllers.app_modules.center_views import CenterView
 from controllers.app_modules.module_host import ModuleHost
 from controllers.app_modules.registry import create_modules
+from controllers.center_view_controller import CenterViewController
 from controllers.folder_actions import FolderActions
 from controllers.inspector_controller import InspectorController
 from core.catalog.availability import AvailabilityCheck, check_availability
@@ -806,7 +808,28 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             parent=self,
         )
         self._conectar_orden()
+        self._conectar_vistas()
         self._configurar_inspector()
+
+    def _conectar_vistas(self) -> None:
+        """Vistas del centro (cuadrícula, individual...): botones de vista, página de la pila
+        y deslizador del tamaño, según el módulo activo (ver 'CenterViewController')."""
+        buttons = getattr(self, "widget_view_buttons", None)
+        page_single = getattr(self, "page_single", None)
+        if buttons is None or page_single is None or self.module_host is None:
+            logger.warning(
+                "Faltan 'widget_view_buttons' o 'page_single' en la ventana: ejecuta "
+                "scripts/build_ui.py para regenerar ui/main_window.py desde el .ui."
+            )
+            return
+        self.center_views = CenterViewController(
+            self.module_host,
+            buttons=buttons,
+            stack=self.stacked_widget_main,
+            pages={CenterView.GRID: self.page_grid, CenterView.SINGLE: page_single},
+            size_slider=self.slider_thumbnails,
+            parent=self,
+        )
 
     def _conectar_orden(self) -> None:
         """Conecta el control «Orden:» de la barra inferior con el orden del módulo activo.

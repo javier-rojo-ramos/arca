@@ -52,11 +52,13 @@ controllers/
   inspector_controller.py            InspectorController: selección de la cuadrícula -> resumen en segundo plano -> inspector; módulo activo (set_module); cambios de las secciones en cola (edit_requested -> user_data_changed); «Mostrar en el Explorador»
   folder_actions.py                  FolderActions: «Quitar del catálogo...» de una carpeta de la barra lateral (cuenta, pregunta y pide al controlador el trabajo JOB_REMOVE)
   collection_actions.py              CollectionActions: une barra lateral + menú de la cuadrícula + BD para las colecciones del usuario (crear, renombrar, borrar, soltar, añadir, quitar); lo crea CatalogModule
+  center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula)
   app_modules/                       ── Módulos de la aplicación (Catálogo, Imagen, Vídeo, Audio) ── ([FLUJOS.md §11](FLUJOS.md))
     base.py                            AppModule (clase base: barra izquierda, panel derecho, qué muestra la cuadrícula, ciclo de vida) y ModuleContext
     registry.py                      ► LISTA de módulos en el orden de la toolbar (aquí se da de alta uno nuevo)
     module_host.py                     ModuleHost: toolbar de modos, barras laterales, módulo activo -> cuadrícula, estado por catálogo
-    module_view_state.py               ModuleViewState: lo elegido en cada módulo (hoy, el orden) y cómo se guarda por catálogo (clave 'orders'); sin Qt
+    module_view_state.py               ModuleViewState: lo elegido en cada módulo (orden y vista del centro) y cómo se guarda por catálogo (claves 'orders' y 'views'); sin Qt
+    center_views.py                    CenterView: vistas del centro (cuadrícula, individual, lista, mapa) con su texto emergente e icono; sin Qt
     catalog_module.py                  CatalogModule: barra CatalogSidebar (contadores, árboles, colecciones, opción de subcarpetas, estado)
     image_module.py                    ImageModule: barra ImageSidebar (contador de la biblioteca Imagen y árbol de palabras clave con recuentos), estado
     placeholder_module.py              PlaceholderModule: botón sin módulo todavía (página «próximamente»)
@@ -98,6 +100,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   widgets/elided_label.py            ElidedLabel: etiqueta de una línea que recorta con «…» (por la derecha, la izquierda o el centro)
   widgets/organize_bar.py            OrganizeBar: barra inferior para clasificar la selección (marcar, rechazar, estrellas, colores, selección rápida); attach(vista, modelo)
   widgets/sort_control.py            SortControl: «Orden: [campo] [↑]» a la izquierda de la barra inferior; set_options(campos, orden) y señal order_requested (no sabe nada de los módulos)
+  widgets/view_buttons.py            ViewButtons: botones de vista de la barra inferior (uno por vista del módulo activo); set_views y señal view_requested (no sabe qué es una vista)
   inspector/                         ── Inspector: el panel DERECHO ── ([FLUJOS.md §12](FLUJOS.md))
     inspector_panel.py               ► InspectorPanel y DEFAULT_SECTIONS (aquí se añade una sección)
     base_section.py                    InspectorSection (title, title_for, key, modules / hidden_in / shown_in, applies_to, show_summary; datos propios con data_request / show_data; header_widget; señal edit_requested), InfoGrid (etiqueta | valor | icono; ROW_SPACING) e IconCell (icono o botón; ICON_Y_OFFSET)

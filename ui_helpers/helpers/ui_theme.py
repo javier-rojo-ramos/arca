@@ -18,6 +18,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.7.0 Botones de vista de la barra inferior ('#widget_view_buttons', como los de la toolbar)
+      y su raya de separación ('#line_bottom_views'); paso A.1.
 1.6.0 Zonas pegadas, separadas por rayas de 1 px ('divider'): toolbar, franja de filtros,
       cuadrícula, barra inferior y barra de estado; botones de la toolbar en cajas
       redondeadas (borde suave, más claro con el ratón; el activo, relleno gris). Decidido
@@ -34,7 +36,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -85,6 +87,8 @@ TOOLBAR_ICON_ACCENT_COLOR: str | None = None
 TOOLBAR_MARGIN = 4
 # Esquinas de los botones de la toolbar lateral (cajas redondeadas)
 TOOLBAR_BUTTON_RADIUS = 6
+# Esquinas de los botones de vista de la barra inferior (más pequeños: menos redondeados)
+VIEW_BUTTON_RADIUS = 4
 
 # Fondo de la cuadrícula de miniaturas, algo más hundido que las tarjetas (paso T3); también
 # es el fondo de la barra inferior ('frame_main_bottom'), para que formen un solo bloque.
@@ -142,6 +146,31 @@ QFrame#frame_toolbar QToolButton:checked,
 QFrame#frame_toolbar QToolButton:pressed {{
     border-color: {COLORS.line};
     background: {COLORS.bg_raised};
+}}
+
+/* Botones de vista de la barra inferior (cuadrícula, individual...): las mismas cajas que
+   los de la toolbar; el icono de la vista elegida, en el acento (lo pone 'tinted_icon') */
+QWidget#widget_view_buttons QToolButton {{
+    border: 1px solid {COLORS.divider};
+    border-radius: {VIEW_BUTTON_RADIUS}px;
+    background: transparent;
+}}
+QWidget#widget_view_buttons QToolButton:hover {{
+    border-color: {COLORS.line};
+    background: {COLORS.bg_panel};
+}}
+QWidget#widget_view_buttons QToolButton:checked,
+QWidget#widget_view_buttons QToolButton:pressed {{
+    border-color: {COLORS.line};
+    background: {COLORS.bg_raised};
+}}
+
+/* Raya vertical entre los botones de vista y el orden: la de 1 px entre zonas, no el
+   relieve de Fusion */
+QFrame#line_bottom_views {{
+    border: none;
+    background-color: {COLORS.divider};
+    max-width: 1px;
 }}
 
 /* Cuadrícula de miniaturas: fondo oscuro en lugar del blanco por defecto. Las tarjetas

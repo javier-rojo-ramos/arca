@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 08/11/2026: A.1, subpaso 3 (`controllers/app_modules/center_views.py` 1.0.0: `CenterView`; `base` 1.4.0: `views`, `default_view`; `module_view_state` 1.1.0: vista por módulo, clave `views`; `module_host` 1.6.0: `set_view`, `active_view`, `active_views`, `view_changed`; `ui_helpers/widgets/view_buttons.py` 1.0.0; `controllers/center_view_controller.py` 1.0.0; `ui_theme` 1.7.0; `.ui`: `page_single`, `widget_view_buttons`, `line_bottom_views`; `_conectar_vistas` en el controlador). Autopruebas sin ventana y vista previa offscreen de la barra inferior
 - 08/11/2026: A.1, subpaso 2 (`controllers/app_modules/module_view_state.py` 1.0.0: `ModuleViewState`; `module_host` 1.5.0 lo usa, baja de 420 a 398 líneas). Mismo `settings.json`; comprobado con su autoprueba y con los scripts sin ventana del orden
 - 08/11/2026: A.1, subpaso 1 (`ui_helpers/helpers/card_glyphs.py` 1.0.0: `draw_placeholder`, `draw_availability_badge`, `MISSING_COLOR`, `OFFLINE_COLOR`; `thumbnails_delegate` 2.13.0 los usa). Comparado píxel a píxel con el delegado anterior (20 casos)
 - 08/11/2026: nuevo planteamiento de la interfaz en DECISIONES (seis entradas; revisadas las del 30/10 y 02/11 sobre la edición), PENDIENTE (apartado A reorganizado: A.1 a A.7) y FLUJOS §11 y §12 (intención de diseño); sin cambios de código

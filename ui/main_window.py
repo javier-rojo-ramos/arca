@@ -26,6 +26,7 @@ from ui_helpers.sidebars.catalog_sidebar import CatalogSidebar
 from ui_helpers.widgets.media_grid_view import MediaGridView
 from ui_helpers.widgets.organize_bar import OrganizeBar
 from ui_helpers.widgets.sort_control import SortControl
+from ui_helpers.widgets.view_buttons import ViewButtons
 
 import resources.recursos_rc  # noqa: F401
 
@@ -201,6 +202,12 @@ class Ui_MainWindow(object):
         self.layout_page_grid.addWidget(self.list_view_grid)
 
         self.stacked_widget_main.addWidget(self.page_grid)
+        self.page_single = QWidget()
+        self.page_single.setObjectName(u"page_single")
+        self.layout_page_single = QVBoxLayout(self.page_single)
+        self.layout_page_single.setObjectName(u"layout_page_single")
+        self.layout_page_single.setContentsMargins(0, 0, 0, 0)
+        self.stacked_widget_main.addWidget(self.page_single)
 
         self.layout_main_center.addWidget(self.stacked_widget_main)
 
@@ -219,6 +226,19 @@ class Ui_MainWindow(object):
         self.layout_bottom_left = QHBoxLayout(self.widget_bottom_left)
         self.layout_bottom_left.setObjectName(u"layout_bottom_left")
         self.layout_bottom_left.setContentsMargins(0, 0, 0, 0)
+        self.widget_view_buttons = ViewButtons(self.widget_bottom_left)
+        self.widget_view_buttons.setObjectName(u"widget_view_buttons")
+
+        self.layout_bottom_left.addWidget(self.widget_view_buttons)
+
+        self.line_bottom_views = QFrame(self.widget_bottom_left)
+        self.line_bottom_views.setObjectName(u"line_bottom_views")
+        self.line_bottom_views.setMaximumSize(QSize(1, 18))
+        self.line_bottom_views.setFrameShape(QFrame.Shape.VLine)
+        self.line_bottom_views.setFrameShadow(QFrame.Shadow.Sunken)
+
+        self.layout_bottom_left.addWidget(self.line_bottom_views)
+
         self.widget_sort_control = SortControl(self.widget_bottom_left)
         self.widget_sort_control.setObjectName(u"widget_sort_control")
 

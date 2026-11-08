@@ -15,6 +15,10 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       cambiar de módulo, la cuadrícula
       cambia a la vez de origen y de orden (una sola recarga). 'order_changed' avisa al
       control de la barra inferior.
+    - La VISTA del centro de cada módulo (cuadrícula, individual...): el módulo ofrece las
+      suyas y su inicial ('views', 'default_view'); la que elige el usuario ('set_view')
+      se guarda igual que el orden. 'view_changed' avisa al 'CenterViewController', que
+      pone la página y los botones.
     - El estado visual de cada módulo, guardado POR CATÁLOGO en settings.json (clave
       'sidebar_state'), con los órdenes elegidos en 'orders':
 
@@ -28,6 +32,8 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.6.0 Vista del centro por módulo: 'set_view', 'active_view', 'active_views', señal
+      'view_changed'; se guarda por catálogo ('views') y se aplica al cambiar de módulo.
 1.5.0 Lo que se guarda por módulo (el orden) pasa a 'ModuleViewState'; sin cambios de
       comportamiento ni en settings.json.
 1.4.0 Orden de la cuadrícula por módulo: 'set_order', 'active_order', 'active_sort_fields',
@@ -41,7 +47,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -59,6 +65,7 @@ from qtpy.QtWidgets import QStackedWidget, QWidget
 # Módulos del proyecto
 from config.app_constants import SETTING_ACTIVE_MODULE, SETTING_SIDEBAR_STATE
 from controllers.app_modules.base import AppModule
+from controllers.app_modules.center_views import CenterView
 from controllers.app_modules.module_view_state import ModuleViewState
 from core.catalog.grid_orders import GridOrder
 from core.catalog.grid_source import GridSource
@@ -81,11 +88,14 @@ class ModuleHost(QObject):
         order_changed(object): ha cambiado el orden del módulo activo (un 'GridOrder', o
             None si el módulo no decide el orden). Se emite al cambiar de módulo, al
             elegir otro orden y al abrir o cerrar un catálogo.
+        view_changed(object): ha cambiado la vista del centro del módulo activo (un
+            'CenterView'). Se emite en los mismos momentos que 'order_changed'.
     """
 
     module_changed = Signal(str)
     catalog_edit_requested = Signal(object, object)
     order_changed = Signal(object)
+    view_changed = Signal(object)
 
     def __init__(
         self,
@@ -132,7 +142,7 @@ class ModuleHost(QObject):
         self._attached = False  # True mientras hay un catálogo abierto
         # Módulos cuya barra hay que releer al activarlos (no se refrescaron por no verse)
         self._dirty: set[str] = set()
-        # Lo elegido en cada módulo (el orden) para el catálogo abierto
+        # Lo elegido en cada módulo (orden y vista) para el catálogo abierto
         self._view_state = ModuleViewState()
 
         # Barras izquierdas: las que no están ya en el stack (las creadas en código) se
@@ -218,6 +228,33 @@ class ModuleHost(QObject):
             self._grid_model.set_order(order)
         self.order_changed.emit(order)
 
+    @property
+    def active_view(self) -> CenterView:
+        """Vista del centro del módulo activo (la cuadrícula si aún no hay ninguno)."""
+        if self._active is None:
+            return CenterView.GRID
+        return self._view_state.view_for(self._active)
+
+    def active_views(self) -> tuple[CenterView, ...]:
+        """Vistas que ofrece el módulo activo, en el orden de sus botones."""
+        return self._active.views() if self._active is not None else (CenterView.GRID,)
+
+    def set_view(self, view: CenterView) -> None:
+        """El usuario ha elegido otra vista para el módulo activo: se recuerda y se avisa.
+
+        Una vista que el módulo no ofrece se ignora (con un aviso en el registro).
+        """
+        module = self._active
+        if module is None:
+            return
+        try:
+            changed = self._view_state.set_view(module, view)
+        except ValueError as error:
+            logger.warning(str(error))
+            return
+        if changed:
+            self.view_changed.emit(view)
+
     def show_source(self, source: GridSource) -> None:
         """Muestra un origen pedido desde fuera de la barra (p. ej. la flecha «ver sus
         fotos» del inspector): lo hace el módulo activo, eligiéndolo en su barra.
@@ -268,6 +305,7 @@ class ModuleHost(QObject):
         for module in self._modules.values():
             module.detach()
         self.order_changed.emit(self.active_order)
+        self.view_changed.emit(self.active_view)
 
     def refresh(self) -> None:
         """Refresca la barra del módulo activo; las demás, al activarlas."""
@@ -299,7 +337,7 @@ class ModuleHost(QObject):
         # ha cambiado (si se modificara el diccionario que devuelve 'get', no lo notaría)
         states = dict(saved) if isinstance(saved, dict) else {}
         entry: dict[str, Any] = {_MODULES_KEY: modules_state}
-        entry.update(self._view_state.to_state())  # los órdenes elegidos ('orders')
+        entry.update(self._view_state.to_state())  # órdenes y vistas ('orders', 'views')
         states[str(catalog_dir)] = entry
         try:
             self._config.set(SETTING_SIDEBAR_STATE, states)
@@ -323,6 +361,7 @@ class ModuleHost(QObject):
         for key, module in self._modules.items():
             module.restore_state(self._module_state(entry, key))
         self.order_changed.emit(order)
+        self.view_changed.emit(self.active_view)
 
     @staticmethod
     def _module_state(entry: object, key: str) -> object:
@@ -367,6 +406,7 @@ class ModuleHost(QObject):
         if self._attached:
             self._apply_view(module)
         self.order_changed.emit(self._view_state.order_for(module))
+        self.view_changed.emit(self._view_state.view_for(module))
 
         # Se recuerda para el próximo arranque
         try:

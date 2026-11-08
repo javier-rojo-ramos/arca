@@ -21,6 +21,9 @@ Qué aporta cada módulo (sobrescribiendo los métodos de 'AppModule'):
                           y su orden de partida ('core/catalog/grid_orders.py'). El orden
                           que elige el usuario lo guarda el 'ModuleHost', por módulo y por
                           catálogo. Sin campos, el módulo no decide el orden.
+    - 'views()' y 'default_view()': qué vistas del centro ofrece (cuadrícula, individual...;
+                          'center_views.py') y con cuál empieza. La elegida también se
+                          recuerda por módulo y por catálogo.
     - Señal 'source_selected': el usuario ha elegido otra cosa en su barra.
     - Señal 'catalog_edit_requested(función, argumentos)': el usuario quiere cambiar el
       catálogo desde la barra (p. ej. renombrar una palabra clave). La función recibe la
@@ -32,6 +35,7 @@ Qué aporta cada módulo (sobrescribiendo los métodos de 'AppModule'):
 Quién los coordina: 'module_host.ModuleHost' (toolbar, barras laterales, cuadrícula y
 estado guardado). Dónde se da de alta un módulo nuevo: 'registry.py'.
 
+1.4.0 'views' y 'default_view': las vistas del centro de cada módulo (paso A.1).
 1.3.0 'sort_fields' y 'default_order': el orden de la cuadrícula de cada módulo.
 1.2.0 'show_source': mostrar un origen elegido fuera de la barra (p. ej. desde el inspector).
 1.1.0 Señal 'catalog_edit_requested' (paso K4c-2).
@@ -41,7 +45,7 @@ Los módulos son la capa que une la interfaz de su barra lateral con 'core/' (co
 sincronizar una carpeta, trabajos en segundo plano...) siguen en el controlador principal.
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["AppModule", "ModuleContext"]
 
 # Librerías estándar
@@ -54,6 +58,7 @@ from qtpy.QtCore import QObject, Signal
 from qtpy.QtWidgets import QListView, QToolButton, QWidget
 
 # Módulos del proyecto
+from controllers.app_modules.center_views import CenterView
 from core.catalog.grid_orders import GridOrder
 from core.catalog.grid_source import GridSource
 from ui_helpers.helpers.grid_actions import GridActions
@@ -150,6 +155,19 @@ class AppModule(QObject):
         """Orden de partida (hasta que el usuario elige otro). Su campo debe estar en
         'sort_fields'. None = el módulo no decide el orden."""
         return None
+
+    def views(self) -> tuple[CenterView, ...]:
+        """Vistas del centro que ofrece, en el orden de sus botones en la barra inferior.
+
+        De momento, todos los módulos ofrecen la cuadrícula y la vista individual (la lista
+        y el mapa llegarán con los módulos Audio y Tracks).
+        """
+        return (CenterView.GRID, CenterView.SINGLE)
+
+    def default_view(self) -> CenterView:
+        """Vista con la que empieza (hasta que el usuario elige otra). Debe estar en
+        'views'."""
+        return CenterView.GRID
 
     def show_source(self, source: GridSource) -> None:
         """Mostrar un origen pedido desde fuera de la barra (p. ej. la flecha «ver sus

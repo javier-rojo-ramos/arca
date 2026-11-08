@@ -377,6 +377,22 @@
                 </item>
                </layout>
               </widget>
+              <widget class="QWidget" name="page_single">
+               <layout class="QVBoxLayout" name="layout_page_single">
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <property name="topMargin">
+                 <number>0</number>
+                </property>
+                <property name="rightMargin">
+                 <number>0</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>0</number>
+                </property>
+               </layout>
+              </widget>
              </widget>
             </item>
            </layout>
@@ -420,6 +436,22 @@
                 <property name="bottomMargin">
                  <number>0</number>
                 </property>
+                <item>
+                 <widget class="ViewButtons" name="widget_view_buttons" native="true"/>
+                </item>
+                <item>
+                 <widget class="Line" name="line_bottom_views">
+                  <property name="maximumSize">
+                   <size>
+                    <width>1</width>
+                    <height>18</height>
+                   </size>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Vertical</enum>
+                  </property>
+                 </widget>
+                </item>
                 <item>
                  <widget class="SortControl" name="widget_sort_control" native="true"/>
                 </item>
@@ -683,6 +715,11 @@
    <class>OrganizeBar</class>
    <extends>QWidget</extends>
    <header>ui_helpers/widgets/organize_bar.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ViewButtons</class>
+   <extends>QWidget</extends>
+   <header>ui_helpers/widgets/view_buttons.h</header>
   </customwidget>
   <customwidget>
    <class>SortControl</class>
