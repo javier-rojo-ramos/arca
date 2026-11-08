@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 08/11/2026: «Atributos», subpaso 2 (`ui_helpers/widgets/attribute_filter_row.py` 1.0.0: `AttributeFilterRow`, tiras de iconos dibujados con `card_marks`, `card_glyphs` y `ui_color_labels`, desplegable «≥ / ≤ / =»; `card_glyphs` 1.1.0: `draw_type_glyph`, el dibujo del tipo sin el fondo, y el marcador de siempre por la misma función). Autoprueba de la fila (clics, operador, `set_filter`, dibujo) y captura sin ventana
 - 08/11/2026: «Atributos», subpaso 1 (`grid_filter` 1.1.0: `AttributeFilter`, `GridFilter.attributes`, un `RuleSet` por grupo con MATCH_ANY dentro, guardado en diccionario; `smart_fields` 1.4.0: campo `in_quick_selection`). Autopruebas de `grid_filter` y de `media_queries` (atributos contra un catálogo en memoria)
 - 08/11/2026: alturas (`filter_bar` 1.0.1: margen de 1 px sobre los paneles para su raya; el `.ui`: `frame_main_bottom` con altura mínima de 39 px en lugar de 40). Medido en la captura del autor y comprobado montando la ventana sin mostrarla
 - 08/11/2026: A.3, subpaso 4 (`ui_helpers/widgets/text_filter_row.py` 1.0.0: `TextFilterRow`, pausa de 300 ms, la «×» también avisa; `filter_controller` 1.1.0: `text_row`, Ctrl+F; `ui_theme` 1.8.1: `frame_main_top` con `GRID_BG`, a petición del autor; `_conectar_filtros` sin la franja provisional). Autopruebas de la fila y del controlador, y comprobación sin ventana de lo escrito hasta la consulta con el `ModuleHost` real

@@ -9,6 +9,8 @@ que se vean idénticos en los dos sitios. Se dibujan con QPainter: no necesitan 
             vídeo -> círculo con «reproducir»     audio -> corchea (♪)
             libro -> libro                        track -> recorrido
             foto (o tipo desconocido) -> paisaje
+    draw_type_glyph(painter, box, media_type, color)
+        Solo el dibujo del tipo, sin el fondo (la fila «Atributos» de la barra de filtros).
     draw_availability_badge(painter, badge, availability)
         Indicador de archivo no disponible, dentro del rectángulo 'badge':
             ausente       (MISSING) -> círculo naranja con «!»
@@ -17,6 +19,8 @@ que se vean idénticos en los dos sitios. Se dibujan con QPainter: no necesitan 
 Quien llama decide el tamaño y la posición (la tarjeta, 16 px en la esquina; la vista
 individual, más grande).
 
+1.1.0 'draw_type_glyph': el dibujo del tipo sin el fondo del marcador (paso A.3,
+      «Atributos»). El marcador de las tarjetas no cambia.
 1.0.0 Sacado de 'thumbnails_delegate.py' (2.12.0) sin cambios en el dibujo, para la vista
       individual (paso A.1).
 
@@ -24,7 +28,7 @@ Prueba rápida (dibuja en una imagen; no abre ninguna ventana):
     python -m ui_helpers.helpers.card_glyphs
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "AVAILABLE",
     "MISSING",
@@ -33,6 +37,7 @@ __all__ = [
     "OFFLINE_COLOR",
     "draw_availability_badge",
     "draw_placeholder",
+    "draw_type_glyph",
 ]
 
 # Librerías estándar
@@ -142,7 +147,29 @@ def draw_placeholder(
     # El centro del propio rectángulo (en un QRect, entero: igual que antes en la tarjeta)
     center = rect.center()
     box = QRectF(center.x() - side / 2, center.y() - side / 2, side, side)
-    color = QColor(CARD_COLORS.placeholder_glyph)
+    _draw_glyph(painter, box, media_type, QColor(CARD_COLORS.placeholder_glyph))
+    painter.restore()
+
+
+def draw_type_glyph(
+    painter: QPainter, box: QRectF, media_type: str | None, color: QColor | str
+) -> None:
+    """Solo el dibujo del tipo (el del marcador, sin su fondo), en el cuadrado 'box'.
+
+    Args:
+        painter: Pintor ya preparado.
+        box: Zona del dibujo (cuadrada).
+        media_type: Tipo de medio ('photo', 'video'...); uno desconocido, como una foto.
+        color: Color del dibujo.
+    """
+    painter.save()
+    _draw_glyph(painter, box, media_type, QColor(color))
+    painter.restore()
+
+
+def _draw_glyph(painter: QPainter, box: QRectF, media_type: str | None, color: QColor) -> None:
+    """El dibujo de un tipo en 'box', con su grosor de línea proporcional."""
+    side = min(box.width(), box.height())
     line = QPen(color, max(1.5, side / 14), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
                 Qt.PenJoinStyle.RoundJoin)  # fmt: skip
     draw: Callable[[QPainter, QRectF, QColor, QPen], None] = {
@@ -152,7 +179,6 @@ def draw_placeholder(
         _TRACK: _glyph_track,
     }.get(media_type or "", _glyph_photo)
     draw(painter, box, color, line)
-    painter.restore()
 
 
 def _glyph_video(painter: QPainter, box: QRectF, color: QColor, line: QPen) -> None:
@@ -295,6 +321,11 @@ if __name__ == "__main__":
     # Demasiado pequeño: solo el fondo
     tiny = render(lambda p: draw_placeholder(p, QRect(0, 0, 12, 12), "video"), size=12)
     assert colors_in(tiny) == {bg}
+    # Solo el dibujo, sin fondo, en el color pedido
+    for media_type in ("photo", "video", "audio", "ebook", "track"):
+        image = render(lambda p, t=media_type: draw_type_glyph(p, QRectF(2, 2, 16, 16), t, "#ff0000"), size=20)
+        assert image.pixelColor(0, 0).alpha() == 0, media_type  # sin fondo
+        assert any(image.pixelColor(x, y).red() > 200 for x in range(20) for y in range(20)), media_type
 
     # Indicador: naranja si falta, gris sin conexión, nada si está disponible
     missing = render(lambda p: draw_availability_badge(p, QRectF(10, 10, 100, 100), MISSING))

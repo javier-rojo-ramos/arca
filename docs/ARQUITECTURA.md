@@ -78,7 +78,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/grid_actions.py            GridActions: atajos de teclado (estilo Lightroom) y menú contextual de la cuadrícula
   helpers/ui_color_labels.py         Colores y textos de las etiquetas de color en la interfaz
   helpers/card_marks.py              Dibujo de estrellas, marca (recuadro / X) y círculo de la selección rápida: lo comparten la tarjeta y la barra inferior
-  helpers/card_glyphs.py             Dibujo del marcador de tipo (sin miniatura) y del indicador de no disponible: lo comparten la tarjeta y la vista individual
+  helpers/card_glyphs.py             Dibujo del marcador de tipo (sin miniatura; draw_type_glyph, solo el dibujo, para la fila «Atributos») y del indicador de no disponible: lo comparten la tarjeta y la vista individual
   helpers/theme_colors.py            Colores del tema con nombre por función (ThemeColors; DARK) y de las tarjetas (CardColors; DARK_CARDS), sin Qt: el ÚNICO sitio de los colores de la interfaz
   helpers/theme_qss.py               QSS de los componentes generales (barras de desplazamiento, separadores, botones, campos, menús...) a partir de un ThemeColors
   helpers/theme_style.py             ThemeStyle: QProxyStyle sobre Fusion que dibuja los botones de opción y las casillas (también las de listas y árboles) con los colores del tema
@@ -103,6 +103,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   widgets/organize_bar.py            OrganizeBar: barra inferior para clasificar la selección (marcar, rechazar, estrellas, colores, selección rápida); attach(vista, modelo)
   widgets/sort_control.py            SortControl: «Orden: [campo] [↑]» a la izquierda de la barra inferior; set_options(campos, orden) y señal order_requested (no sabe nada de los módulos)
   widgets/filter_bar.py              FilterBar: barra de filtros de la franja superior («Filtro activo:», pestañas, «Ninguno», candado; paneles debajo); solo muestra y avisa
+  widgets/attribute_filter_row.py    AttributeFilterRow: fila de «Atributos» de la barra de filtros (marca, ≥/≤/= y estrellas, colores y «sin color», selección rápida, tipos del módulo); iconos dibujados; avisa en el acto
   widgets/text_filter_row.py         TextFilterRow: fila de «Texto» de la barra de filtros (campo, operador, caja; avisa tras 300 ms al escribir)
   widgets/view_buttons.py            ViewButtons: botones de vista de la barra inferior (uno por vista del módulo activo); set_views y señal view_requested (no sabe qué es una vista)
   widgets/single_media_view.py       SingleMediaView: vista individual (archivo actual de la cuadrícula, mismo modelo y selección): imagen ajustada y nítida, marcador sin miniatura, aviso de no disponible, «No hay archivos»
