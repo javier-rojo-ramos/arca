@@ -27,13 +27,15 @@ Uso (en el .ui es un widget promocionado, 'widget_filter_bar', dentro de 'frame_
     bar.set_available({"text"})
     bar.set_state(frozenset({"text"}), locked=False)
 
+1.0.1 Los paneles empiezan DEBAJO de su raya de 1 px (antes la raya tapaba su primera fila
+      y medían 29 px en lugar de 30): misma altura que la fila de las pestañas.
 1.0.0 Primera versión (paso A.3, subpaso 3).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.filter_bar
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["LOCK_TOOLTIPS", "TAB_TEXTS", "TITLE_TEXT", "FilterBar"]
 
 # Librerías estándar
@@ -73,6 +75,7 @@ LOCK_BUTTON_SIZE = 24
 LOCK_ICON_SIZE = 16
 _TAB_SPACING = 14  # entre las palabras del centro
 _SIDE_MARGIN = 10  # a izquierda y derecha de la fila
+_PANEL_LINE = 1  # raya sobre los paneles (la pinta el QSS: 'border-top' de 1 px)
 
 # Nombres de objeto (los usa el QSS de 'ui_theme.py')
 TAB_OBJECT_NAME = "btn_filter_tab"
@@ -161,7 +164,9 @@ class FilterBar(QWidget):
         # Sin esto, el QSS de un QWidget simple (la raya de arriba) no se pinta
         self._panel_area.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._panel_layout = QVBoxLayout(self._panel_area)
-        self._panel_layout.setContentsMargins(0, 0, 0, 0)
+        # 1 px arriba para la raya: el borde del QSS de un QWidget simple no aparta su
+        # contenido, y sin esto taparía la primera fila del panel
+        self._panel_layout.setContentsMargins(0, _PANEL_LINE, 0, 0)
         self._panel_layout.setSpacing(0)
         layout.addWidget(self._panel_area)
 

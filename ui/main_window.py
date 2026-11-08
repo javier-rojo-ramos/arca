@@ -220,7 +220,7 @@ class Ui_MainWindow(object):
 
         self.frame_main_bottom = QFrame(self.widget_central_area)
         self.frame_main_bottom.setObjectName(u"frame_main_bottom")
-        self.frame_main_bottom.setMinimumSize(QSize(0, 40))
+        self.frame_main_bottom.setMinimumSize(QSize(0, 39))
         self.frame_main_bottom.setFrameShape(QFrame.StyledPanel)
         self.layout_main_bottom = QHBoxLayout(self.frame_main_bottom)
         self.layout_main_bottom.setObjectName(u"layout_main_bottom")
