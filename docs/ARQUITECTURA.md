@@ -56,6 +56,7 @@ controllers/
     base.py                            AppModule (clase base: barra izquierda, panel derecho, qué muestra la cuadrícula, ciclo de vida) y ModuleContext
     registry.py                      ► LISTA de módulos en el orden de la toolbar (aquí se da de alta uno nuevo)
     module_host.py                     ModuleHost: toolbar de modos, barras laterales, módulo activo -> cuadrícula, estado por catálogo
+    module_view_state.py               ModuleViewState: lo elegido en cada módulo (hoy, el orden) y cómo se guarda por catálogo (clave 'orders'); sin Qt
     catalog_module.py                  CatalogModule: barra CatalogSidebar (contadores, árboles, colecciones, opción de subcarpetas, estado)
     image_module.py                    ImageModule: barra ImageSidebar (contador de la biblioteca Imagen y árbol de palabras clave con recuentos), estado
     placeholder_module.py              PlaceholderModule: botón sin módulo todavía (página «próximamente»)

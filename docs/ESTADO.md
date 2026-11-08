@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **A.1, subpaso 2: estado por módulo fuera de `ModuleHost`** (08/11; `module_view_state.py`, `module_host` 1.5.0) | Sin cambio visible: el orden de cada módulo se sigue recordando al cambiar de módulo y al cerrar y abrir la aplicación (también un orden elegido antes de este cambio: `settings.json` guarda lo mismo) |
 | **A.1, subpaso 1: dibujo compartido del marcador y del aviso** (08/11; `card_glyphs.py`, `thumbnails_delegate` 2.13.0) | Sin cambio visible: las tarjetas sin miniatura (vídeo, audio, GPX, foto con error) con su marcador y las de archivos ausentes o sin conexión con su indicador, igual que antes (comprobado píxel a píxel con un script sin ventana) |
 | **Cuadrícula en grises neutros** (07/11; `theme_colors` 1.5.0) | Fondo de la cuadrícula y de la barra inferior `#161616` (algo más oscuro que la toolbar); tarjetas `#262626` / `#2c2c2c` con el ratón / `#333333` seleccionada (con el borde ámbar), sin el tinte azul. Que se distinga bien la tarjeta seleccionada y la que está bajo el ratón; nombres legibles (también rechazadas y no disponibles); marcador de vídeo, GPX y audio; etiquetas de color igual que antes |
 | **Acento ámbar y toolbar sin acento al pasar el ratón** (07/11; `theme_colors` 1.4.0, `ui_icons` 1.2.0, `mode_toolbar` 1.1.0) | Acento `#eca531` en todas partes: fila elegida de las barras (texto, contador e **icono oscuros**, también el de una carpeta desplegada), casillas marcadas (señal oscura), menús, campos de texto seleccionados, deslizador (el asa se pone ámbar con el ratón), borde de la tarjeta seleccionada, título de «Eliminar». Toolbar: al pasar el ratón, solo cambia la caja (el icono sigue gris); el icono ámbar, solo en el módulo activo y en Opciones mientras está abierta. Ver si el icono de aviso de la barra de estado (amarillo `#e8b830`) se confunde ahora con el acento |
@@ -75,6 +76,7 @@
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 08/11/2026: A.1, subpaso 2: lo que se guarda por módulo (el orden) pasa de `ModuleHost` a `ModuleViewState`; sin cambio visible.
 - 08/11/2026: A.1, subpaso 1: el marcador de tipo y el indicador de no disponible se dibujan con `card_glyphs.py` (para la vista individual); sin cambio visible.
 - 08/11/2026: nuevo planteamiento de la interfaz (inspector único que edita, qué es un módulo, vistas del centro, barra inferior, filtros) y hoja de ruta del apartado A reorganizada; solo documentación.
 - 07/11/2026: cuadrícula y tarjetas en grises neutros (fondo `#161616`).
@@ -84,4 +86,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 07/11/2026: orden de la cuadrícula, paso 2: cada módulo tiene sus campos y su orden de partida (Catálogo, nombre; Imagen, hora de captura); el elegido se guarda por módulo y por catálogo.
 - 07/11/2026: orden de la cuadrícula, paso 1: registro de campos de orden con dirección (`grid_orders.py`) en lugar de `GRID_ORDERS`; la cuadrícula parte de «Nombre».
 - 06/11/2026: carpetas: «Quitar del catálogo...» en el menú de una carpeta o ubicación (como Lightroom); si la carpeta elegida desaparece, se elige su padre.
-- 05/11/2026: barra de estado: icono del mensaje teñido (verde «hecho», amarillo aviso, rojo error; el resto, claro).

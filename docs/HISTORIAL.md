@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 08/11/2026: A.1, subpaso 2 (`controllers/app_modules/module_view_state.py` 1.0.0: `ModuleViewState`; `module_host` 1.5.0 lo usa, baja de 420 a 398 líneas). Mismo `settings.json`; comprobado con su autoprueba y con los scripts sin ventana del orden
 - 08/11/2026: A.1, subpaso 1 (`ui_helpers/helpers/card_glyphs.py` 1.0.0: `draw_placeholder`, `draw_availability_badge`, `MISSING_COLOR`, `OFFLINE_COLOR`; `thumbnails_delegate` 2.13.0 los usa). Comparado píxel a píxel con el delegado anterior (20 casos)
 - 08/11/2026: nuevo planteamiento de la interfaz en DECISIONES (seis entradas; revisadas las del 30/10 y 02/11 sobre la edición), PENDIENTE (apartado A reorganizado: A.1 a A.7) y FLUJOS §11 y §12 (intención de diseño); sin cambios de código
 - 07/11/2026: cuadrícula y tarjetas en grises neutros (`theme_colors` 1.5.0: `DARK_CARDS`, fondo `#161616`; varios valores tomados de `DARK`)

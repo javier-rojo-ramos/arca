@@ -38,6 +38,7 @@ python -m ui_helpers.helpers.card_marks      (dibuja las marcas en una imagen; n
 python -m ui_helpers.helpers.card_glyphs     (dibuja marcadores e indicadores en una imagen; sin ventana)
 python -m ui_helpers.widgets.organize_bar    (lógica de la barra y la barra sola en una ventana)
 python -m ui_helpers.widgets.sort_control    (lógica del control del orden; sin ventana)
+python -m controllers.app_modules.module_view_state   (orden por módulo, guardar y recuperar; sin Qt)
 python -m ui_helpers.helpers.theme_style     (colores de los indicadores y una ventana con todos sus estados)
 ```
 
