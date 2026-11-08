@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 08/11/2026: A.2, subpaso 2 (`selection_summary` 1.1.0: `single_library`; `base_section` 1.8.0: `libraries`, `fits`, fuera `modules` / `hidden_in` / `shown_in`; `inspector_panel` 1.6.0: sin `set_module` ni `KeywordsSection`; `keyword_editor_section` 1.3.0 y `keyword_list_section` 1.5.0 en todos los módulos; `metadata_section` 1.1.0; `inspector_controller` 1.7.0; sin la conexión `module_changed` → inspector). Reglas comprobadas con el panel real sin ventana
 - 08/11/2026: A.2, subpaso 1 (`inspector_controller` 1.6.0: `save_state`, `restore_state`, `STATE_KEY` = «inspector», lee el formato anterior; `module_host` 1.7.0: `save_state(..., extra)`, `saved_entry`; `image_module` 1.9.0 ya no lo guarda; conexión al abrir y cerrar el catálogo). Comprobado con scripts sin ventana
 - 08/11/2026: A.1 (subpasos 1 a 5) verificado por el autor
 - 08/11/2026: A.1, subpaso 5 (`center_view_controller` 1.1.0: navegación y vuelta al archivo tras recargar; `grid_actions` 1.5.0: `watch`; `media_grid_model` 1.12.0: `row_of_id`; conexión en `_conectar_vistas`). Autoprueba con un host de mentira y un script con el modelo, `GridActions` y la vista individual reales (atajos solo a la foto vista)

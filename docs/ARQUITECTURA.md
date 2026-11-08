@@ -106,7 +106,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   inspector/                         ── Inspector: el panel DERECHO ── ([FLUJOS.md §12](FLUJOS.md))
     inspector_panel.py               ► InspectorPanel y DEFAULT_SECTIONS (aquí se añade una sección)
     base_section.py                    InspectorSection (title, title_for, key, modules / hidden_in / shown_in, applies_to, show_summary; datos propios con data_request / show_data; header_widget; señal edit_requested), InfoGrid (etiqueta | valor | icono; ROW_SPACING) e IconCell (icono o botón; ICON_Y_OFFSET)
-    keywords_section.py                Sección «Palabras clave» (cualquier selección, menos en Imagen): las asignadas, separadas por comas, con «*» las que no tienen todos; valores con fetch_selection_keywords
+    keywords_section.py                Sección «Palabras clave» de solo lectura (las asignadas, separadas por comas, con «*» las que no tienen todos). Sin usar desde el 08/11/2026: el editor la sustituye en todos los módulos
     keyword_editor_section.py          «Palabras clave» en Imagen: caja con comas (KeywordTextEdit: Intro, Esc, sugerencias, Ctrl+K); cambios con apply_keyword_changes
     keyword_list_section.py            «Lista de palabras clave» en Imagen: KeywordChecklist (árbol con casillas); cambios con apply_keyword_changes
     metadata_section.py                Sección «Metadatos» (biblioteca Imagen): desplegable de vistas en la cabecera, filas de metadata_fields.py, valores con fetch_field_values

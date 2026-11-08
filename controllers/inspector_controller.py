@@ -23,8 +23,8 @@ su resultado se entrega a su sección ('deliver_data'), con el mismo contador de
 (si entretanto cambió la selección, se descarta). Si una sección pide sus datos otra vez
 (p. ej. al cambiar de vista), el panel avisa ('refresh_requested') y se recalcula todo.
 
-Módulo activo ('set_module'): el panel muestra las secciones de ese módulo (p. ej. en
-Imagen, el editor de palabras clave); al cambiar, se recalcula.
+Las secciones NO dependen del módulo activo (el inspector es el mismo en todos): el panel
+las elige según la biblioteca de lo resumido ('InspectorSection.fits').
 
 Estado guardado por catálogo ('save_state' / 'restore_state'): lo desplegado del árbol
 de palabras clave del inspector (estado 'INSPECTOR' de 'keyword_expansion'), para que se
@@ -37,6 +37,7 @@ adelantan entre sí). Si cambian algo, se avisa con 'user_data_changed' (el cont
 principal programa la escritura en los archivos y refresca la barra lateral) y el
 inspector se recalcula.
 
+1.7.0 Fuera 'set_module': las secciones dependen de la selección, no del módulo (A.2).
 1.6.0 Guarda y recupera lo desplegado del árbol de palabras clave ('save_state',
       'restore_state'; antes lo hacía el módulo Imagen) y lo olvida al cerrar el catálogo.
 1.5.0 Reenvía 'navigate_requested' de las secciones.
@@ -53,7 +54,7 @@ inspector se recalcula.
 Acciones del panel: «Mostrar en el Explorador» (botón de la carpeta) se atiende aquí.
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["STATE_KEY", "InspectorController"]
 
 # Librerías estándar
@@ -198,11 +199,6 @@ class InspectorController(QObject):
 
     def refresh(self) -> None:
         """Vuelve a calcular el resumen (p. ej. tras cambiar la biblioteca de lo seleccionado)."""
-        self._schedule()
-
-    def set_module(self, module: str) -> None:
-        """Ha cambiado el módulo activo: otras secciones (p. ej. el editor en Imagen)."""
-        self._panel.set_module(module)
         self._schedule()
 
     # -------------------------------------------------------------------------

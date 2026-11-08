@@ -20,9 +20,11 @@ Qué define cada sección (sobrescribiendo):
                         (p. ej. el desplegable de vistas de «Metadatos»).
     - señal 'refresh_requested': la sección necesita sus datos otra vez (p. ej. al
                         cambiar de vista); el panel la reenvía al controlador.
-    - 'modules' / 'hidden_in': en qué módulos aparece (vacío = en todos) y en cuáles no.
-                        P. ej. el editor de palabras clave solo en «Imagen», y la lista
-                        de solo lectura en todos menos en «Imagen». Ver 'shown_in'.
+    - 'libraries':      de qué bibliotecas es la sección (vacío = de todas, como las
+                        palabras clave). Una sección de una biblioteca solo aparece si TODO
+                        lo resumido (la selección; sin ella, lo que se ve) es de ella: p. ej.
+                        «Metadatos», de Imagen. NO depende del módulo activo: el inspector
+                        es el mismo en todos (decidido por el autor el 08/11/2026). Ver 'fits'.
     - señal 'edit_requested(función, argumentos)': la sección quiere CAMBIAR algo del
                         catálogo (p. ej. asignar una palabra clave). Como con
                         'data_request', la función recibe la conexión y después los
@@ -50,6 +52,8 @@ pegados al borde DERECHO, igual que la etiqueta de la extensión de la cabecera,
 de una línea de texto queda por encima del de las letras, por el hueco de los
 descendentes).
 
+1.8.0 Secciones según la biblioteca de lo resumido ('libraries', 'fits'), no según el
+      módulo activo (fuera 'modules', 'hidden_in' y 'shown_in'); paso A.2.
 1.7.0 Señal 'navigate_requested' (la flecha «ver sus fotos» del árbol de palabras).
 1.6.0 Señal 'drop_edit_requested' (tarjetas soltadas en el inspector).
 1.5.0 Secciones según el módulo activo ('modules', 'hidden_in', 'shown_in') y secciones
@@ -67,7 +71,7 @@ descendentes).
       entre filas de 6 px ('ROW_SPACING'), como las filas de la barra izquierda.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = [
     "ICON_SIZE",
     "IconCell",
@@ -319,20 +323,14 @@ class InspectorSection(QWidget):
     title: str = ""
     # Clave estable (para recordar si está plegada): 'selection', 'organization'...
     key: str = ""
-    # Módulos en los que aparece ('catalog', 'image'...); vacío = en todos
-    modules: tuple[str, ...] = ()
-    # Módulos en los que NO aparece (p. ej. donde otra sección la sustituye)
-    hidden_in: tuple[str, ...] = ()
+    # Bibliotecas de las que es la sección ('image', 'audio'...); vacío = de todas
+    libraries: tuple[str, ...] = ()
 
     @classmethod
-    def shown_in(cls, module: str | None) -> bool:
-        """True si la sección aparece en el módulo 'module' (None = aún sin módulo: en
-        ese caso solo las que valen para todos)."""
-        if module is None:
-            return not cls.modules
-        if module in cls.hidden_in:
-            return False
-        return not cls.modules or module in cls.modules
+    def fits(cls, summary: SelectionSummary) -> bool:
+        """True si la sección es de la biblioteca de lo resumido (o de todas). Lo comprueba
+        el panel antes de 'applies_to'."""
+        return not cls.libraries or summary.single_library in cls.libraries
 
     def title_for(self, summary: SelectionSummary) -> str:
         """Título de la cabecera para este resumen (por defecto, el fijo: 'title')."""

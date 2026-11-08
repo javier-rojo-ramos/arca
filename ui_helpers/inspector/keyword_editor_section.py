@@ -1,4 +1,4 @@
-"""Sección «Palabras clave» del módulo Imagen: verlas y escribirlas (paso K4b).
+"""Sección «Palabras clave»: verlas y escribirlas, con cualquier selección (paso K4b).
 
     ▼ PALABRAS CLAVE
       ┌──────────────────────────────────────┐
@@ -49,6 +49,8 @@ La sección no toca la base de datos: lee con 'data_request'
 Solo aparece en el módulo Imagen ('modules'); en los demás está la de solo lectura
 ('keywords_section.py').
 
+1.3.0 En todos los módulos, también el Catálogo, y con selecciones de varias bibliotecas
+      (paso A.2): las palabras clave son comunes a todos los tipos.
 1.2.0 «Últimas palabras clave» bajo la caja (paso K4c); datos con 'KeywordEditorData'.
 1.1.0 Arreglos tras verlo el autor: teclas en una subclase (Intro con la lista abierta ya
       no mete un salto de línea ni deja la lista a la vista); al abrirse la lista no se
@@ -58,7 +60,7 @@ Prueba rápida de la lógica (sin Qt):
     python -m ui_helpers.inspector.keyword_editor_section
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["KeywordEditorSection", "KeywordTextEdit", "completion_names", "current_token_bounds"]
 
 # Librerías estándar
@@ -209,8 +211,6 @@ class KeywordEditorSection(InspectorSection):
 
     title = "Palabras clave"
     key = "keyword_editor"
-    modules = ("image",)
-
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._ids: tuple[int, ...] = ()           # a quién se aplican los cambios

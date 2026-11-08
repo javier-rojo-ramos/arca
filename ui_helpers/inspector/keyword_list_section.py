@@ -1,4 +1,4 @@
-"""Sección «Lista de palabras clave» del módulo Imagen: el árbol con casillas (paso K4b).
+"""Sección «Lista de palabras clave»: el árbol con casillas, en todos los módulos (K4b).
 
     ▼ LISTA DE PALABRAS CLAVE
       [Filtrar palabras clave        ]
@@ -25,6 +25,8 @@ La sección no toca la base de datos: lee con 'data_request'
 ('keywords.fetch_keyword_editor_data') y pide los cambios con 'edit_requested'
 ('keywords.apply_keyword_changes'), que atiende el controlador del inspector.
 
+1.5.0 En todos los módulos, siempre (también sin selección: para navegar con la flecha o
+      soltar tarjetas); paso A.2.
 1.4.0 Flecha «ver sus fotos» ('navigate_requested') y visible también sin selección.
 1.3.0 Soltar tarjetas de la cuadrícula sobre una palabra se la asigna (antes, en la barra
       izquierda: la barra es para navegar y el inspector para editar).
@@ -32,7 +34,7 @@ La sección no toca la base de datos: lee con 'data_request'
 1.1.0 Datos con 'KeywordEditorData'; los padres de las palabras asignadas, resaltados.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["KeywordListSection"]
 
 # Librerías estándar
@@ -65,8 +67,6 @@ class KeywordListSection(InspectorSection):
 
     title = "Lista de palabras clave"
     key = "keyword_list"
-    modules = ("image",)
-
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._ids: tuple[int, ...] = ()           # a quién se aplican los cambios
@@ -94,7 +94,7 @@ class KeywordListSection(InspectorSection):
     # -------------------------------------------------------------------------
 
     def applies_to(self, summary: SelectionSummary) -> bool:
-        """Siempre (en su módulo): sin selección, el árbol se ve con las casillas vacías."""
+        """Siempre: sin selección, el árbol se ve con las casillas vacías."""
         return True
 
     def show_summary(self, summary: SelectionSummary) -> None:

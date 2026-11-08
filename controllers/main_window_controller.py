@@ -885,17 +885,14 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # Tras cualquier cambio (también crear o purgar palabras, que no tocan archivos),
         # la barra lateral se relee (el árbol de palabras clave)
         self.inspector.edit_finished.connect(self._sidebar_refresh_timer.start)
-        # Cada módulo tiene sus secciones (en Imagen, el editor de palabras clave)
+        # El inspector es el mismo en todos los módulos (sus secciones dependen de la
+        # selección, no del módulo)
         if self.module_host is not None:
-            self.module_host.module_changed.connect(self.inspector.set_module)
             # Cambios pedidos desde la barra de un módulo (p. ej. el menú del árbol de
             # palabras clave): por la misma cola que los del inspector
             self.module_host.catalog_edit_requested.connect(self.inspector.request_edit)
             # Flecha «ver sus fotos» del inspector: lo muestra el módulo activo en su barra
             self.inspector.navigate_requested.connect(self.module_host.show_source)
-            active = self.module_host.active_module
-            if active is not None:
-                self.inspector.set_module(active.key)
 
     def _configurar_toolbar(self) -> None:
         """Reparte el espacio de la toolbar de modos ('frame_toolbar').

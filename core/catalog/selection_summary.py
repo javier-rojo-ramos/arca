@@ -21,11 +21,14 @@ Cómo se calcula (rápido aunque se seleccionen decenas de miles de archivos):
     - Si es un solo elemento, una consulta más con sus datos propios (nombre, ruta, origen y
       zona horaria de la fecha).
 
+1.1.0 'single_library': la biblioteca común de lo resumido (el inspector decide con ella
+      qué secciones aparecen; paso A.2).
+
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.selection_summary
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "SelectionItem",
     "SelectionSummary",
@@ -124,6 +127,14 @@ class SelectionSummary:
     def is_empty(self) -> bool:
         """True si no hay ningún elemento."""
         return self.count == 0
+
+    @property
+    def single_library(self) -> str | None:
+        """La biblioteca de TODO lo resumido, o None si hay varias, alguno sin clasificar o
+        nada (el inspector muestra las secciones propias de una biblioteca solo entonces)."""
+        if len(self.libraries) == 1 and self.libraries[0] is not None:
+            return self.libraries[0]
+        return None
 
 
 @dataclass(slots=True)
@@ -386,5 +397,10 @@ if __name__ == "__main__":
     assert _common_folder("a/b/x.jpg", "a/bc/y.jpg") == "a"
     assert _common_folder("x.jpg", "y.jpg") == ""
     assert _common_folder("a/x.jpg", "a/x.jpg") == "a"
+    # Biblioteca común: una sola; varias, sin clasificar o nada -> None
+    assert SelectionSummary("selection", count=2, libraries=("image",)).single_library == "image"
+    assert SelectionSummary("selection", count=2, libraries=("image", "tracks")).single_library is None
+    assert SelectionSummary("selection", count=1, libraries=(None,)).single_library is None
+    assert SelectionSummary("selection").single_library is None
     db.close()
     print("Autoprueba finalizada correctamente.")

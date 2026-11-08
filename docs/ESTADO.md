@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **A.2, subpaso 2: secciones según la biblioteca, no según el módulo** (08/11; `base_section` 1.8.0, `inspector_panel` 1.6.0, `selection_summary` 1.1.0...) | En el **Catálogo**, con algo seleccionado (fotos, un vídeo, un GPX, una canción o una mezcla): la caja «Palabras clave» y la «Lista de palabras clave» con casillas, que permiten asignar y quitar (comprobar que se guarda: el número del árbol y, en las fotos, Lightroom); sin selección, el árbol con las casillas vacías. «Metadatos» solo si todo lo seleccionado es de Imagen, en cualquier módulo. En Imagen, todo igual que antes. Todavía (subpasos 3 y 4): los números del árbol son siempre los de Imagen y la flecha «ver sus fotos» no hace nada en el Catálogo |
 | **A.2, subpaso 1: lo desplegado del árbol del inspector, fuera de Imagen** (08/11; `inspector_controller` 1.6.0, `module_host` 1.7.0, `image_module` 1.9.0) | Sin cambio visible: en Imagen, el árbol de palabras clave del inspector se abre con lo que tenía desplegado (también lo desplegado antes de este cambio); desplegar otras ramas, cerrar y abrir la aplicación: las mismas. Al cambiar de catálogo y volver, igual. El árbol de la barra izquierda, como siempre (independiente) |
 | **Cuadrícula en grises neutros** (07/11; `theme_colors` 1.5.0) | Fondo de la cuadrícula y de la barra inferior `#161616` (algo más oscuro que la toolbar); tarjetas `#262626` / `#2c2c2c` con el ratón / `#333333` seleccionada (con el borde ámbar), sin el tinte azul. Que se distinga bien la tarjeta seleccionada y la que está bajo el ratón; nombres legibles (también rechazadas y no disponibles); marcador de vídeo, GPX y audio; etiquetas de color igual que antes |
 | **Acento ámbar y toolbar sin acento al pasar el ratón** (07/11; `theme_colors` 1.4.0, `ui_icons` 1.2.0, `mode_toolbar` 1.1.0) | Acento `#eca531` en todas partes: fila elegida de las barras (texto, contador e **icono oscuros**, también el de una carpeta desplegada), casillas marcadas (señal oscura), menús, campos de texto seleccionados, deslizador (el asa se pone ámbar con el ratón), borde de la tarjeta seleccionada, título de «Eliminar». Toolbar: al pasar el ratón, solo cambia la caja (el icono sigue gris); el icono ámbar, solo en el módulo activo y en Opciones mientras está abierta. Ver si el icono de aviso de la barra de estado (amarillo `#e8b830`) se confunde ahora con el acento |
@@ -76,6 +77,7 @@
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 08/11/2026: A.2, subpaso 2: las secciones del inspector dependen de la biblioteca de la selección, no del módulo; las palabras clave se editan también en el Catálogo.
 - 08/11/2026: A.2, subpaso 1: lo desplegado del árbol de palabras clave del inspector lo guarda el inspector (antes, el módulo Imagen); sin cambio visible.
 - 08/11/2026: A.1, subpaso 5: doble clic / Intro abren la vista individual (solo esa foto seleccionada), Esc / G vuelven, flechas / Inicio / Fin pasan de foto y los atajos de clasificación funcionan en ella.
 - 08/11/2026: A.1, subpaso 4: la vista individual muestra la foto actual (miniatura de 2560 px leída en segundo plano, precarga de las vecinas, marcador y avisos).
@@ -85,4 +87,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 08/11/2026: nuevo planteamiento de la interfaz (inspector único que edita, qué es un módulo, vistas del centro, barra inferior, filtros) y hoja de ruta del apartado A reorganizada; solo documentación.
 - 07/11/2026: cuadrícula y tarjetas en grises neutros (fondo `#161616`).
 - 07/11/2026: acento ámbar `#eca531` (texto e iconos oscuros encima); los iconos de la toolbar solo se ponen en el acento en el módulo activo.
-- 07/11/2026: tema: grises neutros de LightTable, zonas pegadas con rayas de 1 px y botones de la toolbar en cajas redondeadas.

@@ -24,15 +24,17 @@ controlador del inspector ejecuta en segundo plano) y los recibe en 'show_data'.
 llegan, se ven los anteriores (sin parpadeo).
 
 La vista elegida se guarda en 'settings.json' (SETTING_INSPECTOR_METADATA_PRESET) y se
-recupera al abrir la aplicación. En el Catálogo es de solo lectura (decidido por el autor
-el 02/11/2026); la edición llegará con el módulo Imagen.
+recupera al abrir la aplicación. De solo lectura por ahora; la edición llegará desde este
+mismo inspector, en cualquier módulo (decidido por el autor el 08/11/2026).
 
+1.1.0 Es de la biblioteca Imagen ('libraries'): aparece cuando todo lo seleccionado es de
+      ella, en cualquier módulo (paso A.2). Sin cambio visible.
 1.0.1 Columna de etiquetas de ancho fijo (las de todos los campos): los valores no se
       mueven al cambiar de vista.
 1.0.0 Primera versión: vistas «Por defecto», «Ubicación» y «EXIF».
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = ["MetadataSection"]
 
 # Librerías estándar
@@ -64,15 +66,13 @@ from ui_helpers.inspector.metadata_fields import (
     sources_for,
 )
 
-# Bibliotecas con las que aparece la sección (todo lo seleccionado debe ser de una de ellas)
-_LIBRARIES = (Library.IMAGE.value,)
-
 
 class MetadataSection(InspectorSection):
     """Metadatos de lo seleccionado, con varias vistas (ver el docstring del módulo)."""
 
     title = "Metadatos"
     key = "metadata"
+    libraries = (Library.IMAGE.value,)  # solo si todo lo seleccionado es de Imagen
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -113,13 +113,8 @@ class MetadataSection(InspectorSection):
         return [field.label for field in FIELDS.values()]
 
     def applies_to(self, summary: SelectionSummary) -> bool:
-        """Solo con selección, y si todo lo seleccionado es de la biblioteca Imagen."""
-        return (
-            summary.scope == "selection"
-            and not summary.is_empty
-            and bool(summary.libraries)
-            and all(library in _LIBRARIES for library in summary.libraries)
-        )
+        """Solo con selección (que todo sea de Imagen lo comprueba 'fits')."""
+        return summary.scope == "selection" and not summary.is_empty
 
     def show_summary(self, summary: SelectionSummary) -> None:
         """Nada que hacer con el resumen: los valores llegan con 'show_data'."""

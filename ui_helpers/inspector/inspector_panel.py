@@ -5,18 +5,18 @@ plegables una debajo de otra dentro de un área con desplazamiento. Cada secció
 'InspectorSection' (ver 'base_section.py'):
 
     ▼ SELECCIÓN     nombre, carpeta, tamaño, fecha, biblioteca y estado (selection_section.py)
-    ▼ PALABRAS CLAVE  las asignadas a lo seleccionado (keywords_section.py); en el
-                    módulo Imagen, la caja para escribirlas (keyword_editor_section.py)
-    ▼ LISTA DE PALABRAS CLAVE  solo en Imagen: el árbol con casillas
-                    (keyword_list_section.py)
+    ▼ PALABRAS CLAVE  la caja para verlas y escribirlas, con cualquier selección
+                    (keyword_editor_section.py)
+    ▼ LISTA DE PALABRAS CLAVE  el árbol con casillas, siempre (keyword_list_section.py)
     ▼ METADATOS     cámara, exposición, ubicación... de la biblioteca Imagen, con un
                     desplegable de vistas en la cabecera (metadata_section.py)
 
 Más adelante (decidido el 30/10/2026): «Organización» (valoración, marca, color,
 colecciones), «Descripción», y las propias de cada tipo («Cámara», «Ubicación», «Etiquetas
-de audio», «Ficha»...). Cada módulo podrá tener su propio inspector con otro orden de
-secciones ('AppModule.info_panel'); de momento todos usan este, y cada sección dice en
-qué módulos aparece ('InspectorSection.shown_in'; el controlador avisa con 'set_module').
+de audio», «Ficha»...). El inspector es EL MISMO en todos los módulos (decidido por el
+autor el 08/11/2026): cada sección aparece según la biblioteca de lo resumido
+('InspectorSection.fits': las de una biblioteca, solo si todo es de ella) y lo que tenga
+que mostrar ('applies_to'), nunca según el módulo activo.
 
 Cómo se usa:
     panel = InspectorPanel(parent)                       # con las secciones por defecto
@@ -24,7 +24,6 @@ Cómo se usa:
     panel.show_no_catalog()        # sin catálogo abierto
     panel.reveal_requested.connect(...)  # «Mostrar en el Explorador» de alguna sección
     panel.edit_requested.connect(...)    # una sección quiere cambiar el catálogo
-    panel.set_module("image")            # qué secciones tocan (según el módulo activo)
 
 El panel NO lee la base de datos: el resumen se lo da 'controllers/inspector_controller.py'.
 Las secciones que no tienen nada que mostrar para lo seleccionado se ocultan enteras.
@@ -32,6 +31,9 @@ Las secciones que no tienen nada que mostrar para lo seleccionado se ocultan ent
 El título de cada sección puede cambiar con lo que se ve ('InspectorSection.title_for'):
 p. ej. «SELECCIÓN» con algo seleccionado y «SELECCIÓN (VISTA ACTUAL)» sin selección.
 
+1.6.0 Las secciones, según la biblioteca de lo resumido ('fits'), no según el módulo
+      (fuera 'set_module'); las palabras clave se editan en todos los módulos y la sección
+      de solo lectura ('KeywordsSection') deja de usarse (paso A.2).
 1.5.3 Reenvía 'navigate_requested'.
 1.5.2 Reenvía 'drop_edit_requested' (tarjetas soltadas en una sección).
 1.5.1 En Imagen, la caja y el árbol con casillas en dos secciones (se pliegan por separado).
@@ -49,7 +51,7 @@ El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.p
 nombres de objeto 'scroll_inspector', 'widget_inspector_content' y los 'lbl_inspector_*'.
 """
 
-__version__ = "1.5.3"
+__version__ = "1.6.0"
 __all__ = ["DEFAULT_SECTIONS", "InspectorPanel"]
 
 # Librerías estándar
@@ -67,7 +69,6 @@ from core.catalog.selection_summary import SelectionSummary
 from ui_helpers.inspector.base_section import InspectorSection, set_secondary_text
 from ui_helpers.inspector.keyword_editor_section import KeywordEditorSection
 from ui_helpers.inspector.keyword_list_section import KeywordListSection
-from ui_helpers.inspector.keywords_section import KeywordsSection
 from ui_helpers.inspector.metadata_section import MetadataSection
 from ui_helpers.inspector.selection_section import SelectionSection
 from ui_helpers.widgets.collapsible_section import CollapsibleSection
@@ -76,10 +77,9 @@ from ui_helpers.widgets.collapsible_section import CollapsibleSection
 # Para añadir una sección: escribir su clase (heredando de 'InspectorSection') y ponerla aquí
 DEFAULT_SECTIONS: tuple[Callable[[QWidget], InspectorSection], ...] = (
     SelectionSection,
-    KeywordsSection,        # en todos los módulos menos Imagen
-    KeywordEditorSection,   # solo en Imagen: la caja de texto
-    KeywordListSection,     # solo en Imagen: el árbol con casillas
-    MetadataSection,
+    KeywordEditorSection,   # la caja de texto (con cualquier selección)
+    KeywordListSection,     # el árbol con casillas (siempre)
+    MetadataSection,        # solo si todo es de la biblioteca Imagen
 )
 
 
@@ -112,7 +112,6 @@ class InspectorPanel(QWidget):
             sections: Qué secciones lleva y en qué orden (por defecto, 'DEFAULT_SECTIONS').
         """
         super().__init__(parent)
-        self._module: str | None = None  # módulo activo (qué secciones tocan)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -172,15 +171,11 @@ class InspectorPanel(QWidget):
     # API pública
     # -------------------------------------------------------------------------
 
-    def set_module(self, module: str | None) -> None:
-        """Módulo activo: decide qué secciones aparecen (se ve en el próximo resumen)."""
-        self._module = module
-
     def show_summary(self, summary: SelectionSummary) -> None:
         """Muestra el resumen en todas las secciones (oculta las que no aplican)."""
         self._empty_label.setVisible(False)
         for section, frame in self._sections:
-            applies = section.shown_in(self._module) and section.applies_to(summary)
+            applies = section.fits(summary) and section.applies_to(summary)
             frame.setVisible(applies)
             if applies:
                 frame.set_title(section.title_for(summary))
