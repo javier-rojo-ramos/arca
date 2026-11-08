@@ -42,6 +42,8 @@ python -m controllers.app_modules.module_view_state   (orden y vista por módulo
 python -m controllers.app_modules.center_views        (vistas del centro; sin Qt)
 python -m ui_helpers.widgets.view_buttons    (lógica de los botones de vista; sin ventana)
 python -m controllers.center_view_controller (página, botones y deslizador con un host de mentira; sin ventana)
+python -m ui_helpers.models.full_image_loader   (caché temporal: la mayor miniatura, sin miniatura, memoria; sin ventana)
+python -m ui_helpers.widgets.single_media_view  (dibuja en una imagen con un modelo de mentira; sin ventana)
 python -m ui_helpers.helpers.theme_style     (colores de los indicadores y una ventana con todos sus estados)
 ```
 

@@ -73,6 +73,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   delegates/thumbnails_delegate.py   ThumbnailsDelegate: dibuja la tarjeta (miniatura o marcador por tipo, duración, nombre, estrellas, marca, fondo de color, aviso de no disponible y círculo de la selección rápida)
   models/media_roles.py              Roles compartidos modelo <-> delegado (ROLE_RATING, ROLE_FLAG, ROLE_COLOR_LABEL, ROLE_MEDIA_TYPE, ROLE_DURATION...)
   models/media_grid_model.py         MediaGridModel: lista desde la BD + miniaturas desde la caché + edición del usuario
+  models/full_image_loader.py        FullImageLoader: miniatura grande (2560 px o la mayor que haya) de la caché en un hilo propio, con memoria de 5 imágenes y precarga; para la vista individual
   helpers/grid_actions.py            GridActions: atajos de teclado (estilo Lightroom) y menú contextual de la cuadrícula
   helpers/ui_color_labels.py         Colores y textos de las etiquetas de color en la interfaz
   helpers/card_marks.py              Dibujo de estrellas, marca (recuadro / X) y círculo de la selección rápida: lo comparten la tarjeta y la barra inferior
@@ -101,6 +102,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   widgets/organize_bar.py            OrganizeBar: barra inferior para clasificar la selección (marcar, rechazar, estrellas, colores, selección rápida); attach(vista, modelo)
   widgets/sort_control.py            SortControl: «Orden: [campo] [↑]» a la izquierda de la barra inferior; set_options(campos, orden) y señal order_requested (no sabe nada de los módulos)
   widgets/view_buttons.py            ViewButtons: botones de vista de la barra inferior (uno por vista del módulo activo); set_views y señal view_requested (no sabe qué es una vista)
+  widgets/single_media_view.py       SingleMediaView: vista individual (archivo actual de la cuadrícula, mismo modelo y selección): imagen ajustada y nítida, marcador sin miniatura, aviso de no disponible, «No hay archivos»
   inspector/                         ── Inspector: el panel DERECHO ── ([FLUJOS.md §12](FLUJOS.md))
     inspector_panel.py               ► InspectorPanel y DEFAULT_SECTIONS (aquí se añade una sección)
     base_section.py                    InspectorSection (title, title_for, key, modules / hidden_in / shown_in, applies_to, show_summary; datos propios con data_request / show_data; header_widget; señal edit_requested), InfoGrid (etiqueta | valor | icono; ROW_SPACING) e IconCell (icono o botón; ICON_Y_OFFSET)

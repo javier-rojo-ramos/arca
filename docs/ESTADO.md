@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **A.1, subpaso 4: vista individual** (08/11; `single_media_view.py`, `full_image_loader.py`, `media_grid_model` 1.11.0, `.ui`) | Con el botón de la vista individual: la foto actual de la cuadrícula (la que tiene el foco; si no, la primera seleccionada), ajustada y centrada, sin deformar, sobre el fondo de la cuadrícula; nítida (comparar con la de 2560 px en otro visor; también a 125-150 %). Al cambiar de foto en la cuadrícula y volver, la nueva. Primero puede verse un instante la miniatura pequeña. Redimensionar la ventana: se reajusta (un momento más borrosa y luego nítida). Un vídeo, una canción y un GPX: su miniatura grande o su marcador con el nombre. Un archivo ausente y uno en un disco desconectado: imagen oscurecida, indicador y su texto. Una carpeta vacía: «No hay archivos». La barra inferior y los atajos de clasificación actúan sobre la foto actual si es la única seleccionada (dejar seleccionada solo la que se ve llega en el subpaso 5). Aún no se entra con doble clic / Intro ni se navega con las flechas (subpaso 5) |
 | **A.1, subpaso 3: botones de vista** (08/11; `center_views.py`, `view_buttons.py`, `center_view_controller.py`, `module_host` 1.6.0, `.ui`) | A la izquierda de la barra inferior, dos botones con caja (como los de la toolbar), una raya y el orden. Iconos de los botones (SVG con `viewBox="0 0 24 24"`, corregido el 08/11); el de la vista elegida en ámbar; textos emergentes «Cuadrícula (G)» y «Vista individual (Intro)». Pulsar la vista individual: el centro se queda vacío (aún sin contenido) y el deslizador desaparece (la barra de clasificación sigue centrada); volver a la cuadrícula: todo como antes. Cada módulo recuerda su vista (Catálogo en una, Imagen en otra, cambiar entre ellos) y al cerrar y abrir la aplicación. Los atajos de clasificación siguen funcionando tras pulsar los botones |
 | **A.1, subpaso 2: estado por módulo fuera de `ModuleHost`** (08/11; `module_view_state.py`, `module_host` 1.5.0) | Sin cambio visible: el orden de cada módulo se sigue recordando al cambiar de módulo y al cerrar y abrir la aplicación (también un orden elegido antes de este cambio: `settings.json` guarda lo mismo) |
 | **A.1, subpaso 1: dibujo compartido del marcador y del aviso** (08/11; `card_glyphs.py`, `thumbnails_delegate` 2.13.0) | Sin cambio visible: las tarjetas sin miniatura (vídeo, audio, GPX, foto con error) con su marcador y las de archivos ausentes o sin conexión con su indicador, igual que antes (comprobado píxel a píxel con un script sin ventana) |
@@ -77,6 +78,7 @@
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 08/11/2026: A.1, subpaso 4: la vista individual muestra la foto actual (miniatura de 2560 px leída en segundo plano, precarga de las vecinas, marcador y avisos).
 - 08/11/2026: A.1, subpaso 3: botones de vista en la barra inferior, página de la vista individual (vacía) y vista recordada por módulo; el deslizador solo en la cuadrícula.
 - 08/11/2026: A.1, subpaso 2: lo que se guarda por módulo (el orden) pasa de `ModuleHost` a `ModuleViewState`; sin cambio visible.
 - 08/11/2026: A.1, subpaso 1: el marcador de tipo y el indicador de no disponible se dibujan con `card_glyphs.py` (para la vista individual); sin cambio visible.
@@ -86,4 +88,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 07/11/2026: tema: grises neutros de LightTable, zonas pegadas con rayas de 1 px y botones de la toolbar en cajas redondeadas.
 - 07/11/2026: orden de la cuadrícula, paso 3: «Orden: [campo] [↑]» a la izquierda de la barra inferior (`SortControl`).
 - 07/11/2026: orden de la cuadrícula, paso 2: cada módulo tiene sus campos y su orden de partida (Catálogo, nombre; Imagen, hora de captura); el elegido se guarda por módulo y por catálogo.
-- 07/11/2026: orden de la cuadrícula, paso 1: registro de campos de orden con dirección (`grid_orders.py`) en lugar de `GRID_ORDERS`; la cuadrícula parte de «Nombre».

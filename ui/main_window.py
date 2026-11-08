@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QHeaderView,
 from ui_helpers.sidebars.catalog_sidebar import CatalogSidebar
 from ui_helpers.widgets.media_grid_view import MediaGridView
 from ui_helpers.widgets.organize_bar import OrganizeBar
+from ui_helpers.widgets.single_media_view import SingleMediaView
 from ui_helpers.widgets.sort_control import SortControl
 from ui_helpers.widgets.view_buttons import ViewButtons
 
@@ -207,6 +208,11 @@ class Ui_MainWindow(object):
         self.layout_page_single = QVBoxLayout(self.page_single)
         self.layout_page_single.setObjectName(u"layout_page_single")
         self.layout_page_single.setContentsMargins(0, 0, 0, 0)
+        self.widget_single_view = SingleMediaView(self.page_single)
+        self.widget_single_view.setObjectName(u"widget_single_view")
+
+        self.layout_page_single.addWidget(self.widget_single_view)
+
         self.stacked_widget_main.addWidget(self.page_single)
 
         self.layout_main_center.addWidget(self.stacked_widget_main)

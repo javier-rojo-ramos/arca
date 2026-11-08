@@ -391,6 +391,9 @@
                 <property name="bottomMargin">
                  <number>0</number>
                 </property>
+                <item>
+                 <widget class="SingleMediaView" name="widget_single_view" native="true"/>
+                </item>
                </layout>
               </widget>
              </widget>
@@ -715,6 +718,11 @@
    <class>OrganizeBar</class>
    <extends>QWidget</extends>
    <header>ui_helpers/widgets/organize_bar.h</header>
+  </customwidget>
+  <customwidget>
+   <class>SingleMediaView</class>
+   <extends>QWidget</extends>
+   <header>ui_helpers/widgets/single_media_view.h</header>
   </customwidget>
   <customwidget>
    <class>ViewButtons</class>

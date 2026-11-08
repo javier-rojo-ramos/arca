@@ -289,7 +289,11 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self._close_catalog()
 
         # Cancelar y esperar la finalización de la lectura de miniaturas de la cuadrícula
+        # (y de la imagen grande de la vista individual)
         self.mosaico_model.shutdown()
+        single_view = getattr(self, "widget_single_view", None)
+        if single_view is not None:
+            single_view.shutdown()
 
         geometria_hex = self.saveGeometry().data().hex()
         self.config.set("window_geometry", geometria_hex)
@@ -816,12 +820,15 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         y deslizador del tamaño, según el módulo activo (ver 'CenterViewController')."""
         buttons = getattr(self, "widget_view_buttons", None)
         page_single = getattr(self, "page_single", None)
-        if buttons is None or page_single is None or self.module_host is None:
+        single_view = getattr(self, "widget_single_view", None)
+        if buttons is None or single_view is None or self.module_host is None:
             logger.warning(
-                "Faltan 'widget_view_buttons' o 'page_single' en la ventana: ejecuta "
+                "Faltan 'widget_view_buttons' o 'widget_single_view' en la ventana: ejecuta "
                 "scripts/build_ui.py para regenerar ui/main_window.py desde el .ui."
             )
             return
+        # La vista individual usa el modelo y la selección de la cuadrícula
+        single_view.attach(self.list_view_grid, self.mosaico_model)
         self.center_views = CenterViewController(
             self.module_host,
             buttons=buttons,

@@ -22,6 +22,8 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.11.0 Para la vista individual: propiedad 'thumbnail_cache' y señales
+       'thumbnails_refreshed' (miniaturas regeneradas) y 'missing_retried'.
 1.10.0 'set_view': origen y orden a la vez, con una sola recarga (al cambiar de módulo);
        'set_order(..., reload=False)' para fijarlo antes de la primera carga.
 1.9.0 El orden es un 'GridOrder' (campo y dirección; 'core/catalog/grid_orders.py'); por
@@ -42,7 +44,7 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
@@ -159,11 +161,16 @@ class MediaGridModel(QAbstractListModel):
             guardarlo.
         rows_loaded(int): se cargó la lista (número de elementos).
         load_failed(object): falló la consulta (la excepción).
+        thumbnails_refreshed(list): las miniaturas de esos 'id' se han generado o
+            regenerado ('refresh_thumbnails'): quien guarde otras copias, que las relea.
+        missing_retried(): se reintentan los que no tenían miniatura ('retry_missing').
     """
 
     user_field_changed = Signal(list, str, object)
     rows_loaded = Signal(int)
     load_failed = Signal(object)
+    thumbnails_refreshed = Signal(list)
+    missing_retried = Signal()
 
     # Miniaturas decodificadas que se conservan en memoria (una de 480 px ocupa ~1 MB)
     MAX_CACHED_PIXMAPS = 3000
@@ -389,12 +396,15 @@ class MediaGridModel(QAbstractListModel):
         else:
             for row in rows:
                 self._notify_row(row, [_DECORATION])
+        self.thumbnails_refreshed.emit([self._rows[row]["id"] for row in rows])
 
     def retry_missing(self) -> None:
         """Reintenta las tarjetas que no tenían miniatura (se llama mientras se generan)."""
         if self._no_thumb:
             self._no_thumb.clear()
             self._notify_all([_DECORATION])
+        # Siempre: la vista individual puede tener sus propios «sin miniatura»
+        self.missing_retried.emit()
 
     def _invalidate_loads(self) -> None:
         """Descarta las lecturas encoladas o en curso."""
@@ -600,6 +610,11 @@ class MediaGridModel(QAbstractListModel):
         else:
             for row in rows:
                 self._notify_row(row, [ROLE_QUICK_SELECTION])
+
+    @property
+    def thumbnail_cache(self) -> ThumbnailCache | None:
+        """Caché de miniaturas del catálogo abierto (None sin catálogo)."""
+        return self._cache
 
     def catalog_key(self) -> str:
         """Carpeta del catálogo abierto, en texto ("" sin catálogo): la que viaja al
