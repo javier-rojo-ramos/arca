@@ -10,10 +10,11 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
     - 'refresh' lee en segundo plano el contador de «Todas las imágenes» y el árbol de
       palabras clave con sus recuentos ('keywords.fetch_keyword_tree').
     - Lo desplegado y la fila elegida, guardados por catálogo ('save_state' /
-      'restore_state'; el 'ModuleHost' los escribe en settings.json). También lo desplegado
-      del árbol con casillas del inspector (estado 'INSPECTOR' de 'keyword_expansion'),
-      independiente del de la barra.
+      'restore_state'; el 'ModuleHost' los escribe en settings.json). Lo desplegado del
+      árbol con casillas del inspector ya no es de este módulo: lo guarda el inspector.
 
+1.9.0 Lo desplegado del árbol del inspector lo guarda 'InspectorController' (el inspector
+      es común a todos los módulos).
 1.8.0 'sort_fields' y 'default_order' (orden de partida: «Hora de captura»).
 1.7.0 'show_source': la flecha «ver sus fotos» del inspector elige la palabra en la barra.
 1.6.0 «Selección rápida» de Imagen: su contador se lee con los demás.
@@ -26,7 +27,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 __all__ = ["ImageModule"]
 
 # Librerías estándar
@@ -49,13 +50,9 @@ from core.catalog.grid_orders import CAPTURE_TIME_ORDER, SORT_FIELDS, GridOrder
 from core.catalog.grid_source import GridSource
 from core.catalog.keywords import fetch_keyword_tree
 from core.catalog.media_queries import count_grid_items
-from ui_helpers.helpers.keyword_expansion import INSPECTOR, keyword_expansion
 from ui_helpers.helpers.mode_toolbar import MODE_IMAGE
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME, reveal_in_file_manager
 from ui_helpers.sidebars.image_sidebar import ALL_IMAGES, IMAGE_QUICK, LIBRARY, ImageSidebar
-
-# Clave del estado guardado por catálogo con lo desplegado del árbol del inspector
-INSPECTOR_EXPANDED_KEY = "inspector_expanded_keywords"
 
 
 def _fetch_sidebar_data(conn: Any) -> tuple[int, int, tuple, tuple]:
@@ -136,7 +133,6 @@ class ImageModule(AppModule):
         self._db = None
         self._generation += 1
         self.sidebar.reset()
-        keyword_expansion(INSPECTOR).replace(())  # los id son de cada catálogo
 
     def refresh(self) -> None:
         """Relee en segundo plano el contador y el árbol de palabras clave."""
@@ -151,17 +147,12 @@ class ImageModule(AppModule):
         )
 
     def save_state(self) -> dict:
-        """Lo desplegado y la fila elegida de la barra (ver 'ImageSidebar.save_state') y lo
-        desplegado del árbol con casillas del inspector ('INSPECTOR_EXPANDED_KEY')."""
-        state = self.sidebar.save_state()
-        state[INSPECTOR_EXPANDED_KEY] = sorted(keyword_expansion(INSPECTOR).ids())
-        return state
+        """Lo desplegado y la fila elegida de la barra (ver 'ImageSidebar.save_state')."""
+        return self.sidebar.save_state()
 
     def restore_state(self, state: object) -> None:
-        """Recupera lo desplegado (de los dos árboles) y la fila elegida."""
+        """Recupera lo desplegado de la barra y la fila elegida."""
         self.sidebar.restore_state(state)
-        expanded = state.get(INSPECTOR_EXPANDED_KEY) if isinstance(state, dict) else None
-        keyword_expansion(INSPECTOR).replace(expanded if isinstance(expanded, list) else ())
 
     def apply_settings(self, changed: set[str]) -> None:
         """Si ha cambiado la opción de las subcarpetas, las «Carpetas» se rehacen (y, si hay

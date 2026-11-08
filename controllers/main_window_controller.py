@@ -1096,6 +1096,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         #    la colección inteligente guardada se encuentra)
         if self.module_host is not None:
             self.module_host.restore_state(self.catalog_dir)
+            if self.inspector is not None:
+                self.inspector.restore_state(self.module_host.saved_entry(self.catalog_dir))
             self.module_host.attach(self.db, self.catalog_dir)
         if self.inspector is not None:
             self.inspector.attach(self.db)
@@ -1225,7 +1227,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # (getattr: Qt puede cerrar la ventana antes de terminar 'iniciar')
         module_host = getattr(self, "module_host", None)
         if module_host is not None and self.catalog_dir is not None:
-            module_host.save_state(self.catalog_dir)
+            # Con lo del inspector (lo desplegado de su árbol de palabras clave)
+            inspector = getattr(self, "inspector", None)
+            extra = inspector.save_state() if inspector is not None else None
+            module_host.save_state(self.catalog_dir, extra=extra)
 
         self.mosaico_model.detach()  # vacía la cuadrícula y deja de pedir datos a la base
         if module_host is not None:

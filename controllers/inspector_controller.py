@@ -26,12 +26,19 @@ su resultado se entrega a su sección ('deliver_data'), con el mismo contador de
 Módulo activo ('set_module'): el panel muestra las secciones de ese módulo (p. ej. en
 Imagen, el editor de palabras clave); al cambiar, se recalcula.
 
+Estado guardado por catálogo ('save_state' / 'restore_state'): lo desplegado del árbol
+de palabras clave del inspector (estado 'INSPECTOR' de 'keyword_expansion'), para que se
+abra como se dejó. El controlador principal lo pasa al 'ModuleHost', que lo escribe en
+settings.json junto al estado de las barras (clave 'inspector').
+
 Cambios pedidos por las secciones ('edit_requested', p. ej. asignar una palabra clave):
 se ejecutan en segundo plano DE UNO EN UNO y en orden (marcar y desmarcar deprisa no se
 adelantan entre sí). Si cambian algo, se avisa con 'user_data_changed' (el controlador
 principal programa la escritura en los archivos y refresca la barra lateral) y el
 inspector se recalcula.
 
+1.6.0 Guarda y recupera lo desplegado del árbol de palabras clave ('save_state',
+      'restore_state'; antes lo hacía el módulo Imagen) y lo olvida al cerrar el catálogo.
 1.5.0 Reenvía 'navigate_requested' de las secciones.
 1.4.0 Tarjetas soltadas en una sección ('drop_edit_requested'), con la comprobación de
       que son del catálogo abierto.
@@ -46,8 +53,8 @@ inspector se recalcula.
 Acciones del panel: «Mostrar en el Explorador» (botón de la carpeta) se atiende aquí.
 """
 
-__version__ = "1.5.0"
-__all__ = ["InspectorController"]
+__version__ = "1.6.0"
+__all__ = ["STATE_KEY", "InspectorController"]
 
 # Librerías estándar
 from collections import deque
@@ -67,11 +74,19 @@ from core.catalog.selection_summary import (
     fetch_selection_summary,
     fetch_source_summary,
 )
+from ui_helpers.helpers.keyword_expansion import INSPECTOR, keyword_expansion
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME, reveal_in_file_manager
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.inspector.inspector_panel import InspectorPanel
 from ui_helpers.models.media_grid_model import MediaGridModel
 from ui_helpers.models.media_roles import ROLE_AVAILABILITY
+
+# Clave del inspector dentro de la entrada de cada catálogo en settings.json ('sidebar_state')
+STATE_KEY = "inspector"
+# Lo desplegado del árbol de palabras clave del inspector (lista de 'keywords.id')
+_EXPANDED_KEY = "expanded_keywords"
+# Dónde lo guardaba el módulo Imagen hasta el 08/11/2026 (estado del módulo 'image')
+_LEGACY_EXPANDED_KEY = "inspector_expanded_keywords"
 
 # Espera (ms) desde el último aviso hasta pedir el resumen
 DEBOUNCE_MS = 120
@@ -154,6 +169,32 @@ class InspectorController(QObject):
         self._edits.clear()
         self._edit_running = False
         self._panel.show_no_catalog()
+        keyword_expansion(INSPECTOR).replace(())  # los id son de cada catálogo
+
+    # -------------------------------------------------------------------------
+    # Estado guardado por catálogo
+    # -------------------------------------------------------------------------
+
+    def save_state(self) -> dict[str, Any]:
+        """Lo que se guarda en la entrada del catálogo (settings.json): lo desplegado del
+        árbol de palabras clave del inspector."""
+        return {STATE_KEY: {_EXPANDED_KEY: sorted(keyword_expansion(INSPECTOR).ids())}}
+
+    def restore_state(self, entry: object) -> None:
+        """Recupera lo guardado con 'save_state' en la entrada de un catálogo (llamar al
+        abrirlo). Entiende también el formato anterior al 08/11/2026, cuando lo guardaba el
+        módulo Imagen. Lo que no se entienda, se ignora."""
+        expanded: object = None
+        if isinstance(entry, dict):
+            own = entry.get(STATE_KEY)
+            if isinstance(own, dict):
+                expanded = own.get(_EXPANDED_KEY)
+            else:
+                modules = entry.get("modules")
+                image = modules.get("image") if isinstance(modules, dict) else None
+                expanded = image.get(_LEGACY_EXPANDED_KEY) if isinstance(image, dict) else None
+        ids = [value for value in expanded if isinstance(value, int)] if isinstance(expanded, list) else []
+        keyword_expansion(INSPECTOR).replace(ids)
 
     def refresh(self) -> None:
         """Vuelve a calcular el resumen (p. ej. tras cambiar la biblioteca de lo seleccionado)."""

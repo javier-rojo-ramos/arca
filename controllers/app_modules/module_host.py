@@ -32,6 +32,8 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.7.0 'save_state(..., extra)' y 'saved_entry': otros (el inspector) guardan lo suyo en la
+      entrada del catálogo.
 1.6.0 Vista del centro por módulo: 'set_view', 'active_view', 'active_views', señal
       'view_changed'; se guarda por catálogo ('views') y se aplica al cambiar de módulo.
 1.5.0 Lo que se guarda por módulo (el orden) pasa a 'ModuleViewState'; sin cambios de
@@ -47,7 +49,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -324,8 +326,14 @@ class ModuleHost(QObject):
     # Estado guardado por catálogo (settings.json)
     # -------------------------------------------------------------------------
 
-    def save_state(self, catalog_dir: Path) -> None:
-        """Guarda el estado de todos los módulos para ese catálogo (antes de 'detach')."""
+    def save_state(self, catalog_dir: Path, extra: dict[str, Any] | None = None) -> None:
+        """Guarda el estado de todos los módulos para ese catálogo (antes de 'detach').
+
+        Args:
+            catalog_dir: Carpeta del catálogo.
+            extra: Lo que otros guardan en la misma entrada (p. ej. el inspector, con su
+                propia clave; ver 'saved_entry').
+        """
         modules_state = {}
         for key, module in self._modules.items():
             state = module.save_state()
@@ -338,11 +346,19 @@ class ModuleHost(QObject):
         states = dict(saved) if isinstance(saved, dict) else {}
         entry: dict[str, Any] = {_MODULES_KEY: modules_state}
         entry.update(self._view_state.to_state())  # órdenes y vistas ('orders', 'views')
+        if extra:
+            entry.update(extra)
         states[str(catalog_dir)] = entry
         try:
             self._config.set(SETTING_SIDEBAR_STATE, states)
         except Exception:  # noqa: BLE001 - no poder guardarlo no debe impedir cerrar
             logger.exception("No se pudo guardar el estado de las barras laterales.")
+
+    def saved_entry(self, catalog_dir: Path) -> object:
+        """La entrada guardada de ese catálogo, tal cual (None si no hay): para que otros
+        (el inspector) recuperen lo que guardaron con 'save_state(..., extra)'."""
+        saved = self._config.get(SETTING_SIDEBAR_STATE, {})
+        return saved.get(str(catalog_dir)) if isinstance(saved, dict) else None
 
     def restore_state(self, catalog_dir: Path) -> None:
         """Recupera el estado de cada módulo para ese catálogo (antes de 'attach').

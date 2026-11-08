@@ -5,6 +5,8 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 08/11/2026: A.2, subpaso 1 (`inspector_controller` 1.6.0: `save_state`, `restore_state`, `STATE_KEY` = «inspector», lee el formato anterior; `module_host` 1.7.0: `save_state(..., extra)`, `saved_entry`; `image_module` 1.9.0 ya no lo guarda; conexión al abrir y cerrar el catálogo). Comprobado con scripts sin ventana
+- 08/11/2026: A.1 (subpasos 1 a 5) verificado por el autor
 - 08/11/2026: A.1, subpaso 5 (`center_view_controller` 1.1.0: navegación y vuelta al archivo tras recargar; `grid_actions` 1.5.0: `watch`; `media_grid_model` 1.12.0: `row_of_id`; conexión en `_conectar_vistas`). Autoprueba con un host de mentira y un script con el modelo, `GridActions` y la vista individual reales (atajos solo a la foto vista)
 - 08/11/2026: A.1, subpaso 4 (`ui_helpers/widgets/single_media_view.py` 1.0.0; `ui_helpers/models/full_image_loader.py` 1.0.0; `media_grid_model` 1.11.0: `thumbnail_cache`, `thumbnails_refreshed`, `missing_retried`; `.ui`: `widget_single_view`; conexión y parada al cerrar en el controlador). Autopruebas sin ventana y un script con el modelo y la caché reales (carga en segundo plano y precarga de la siguiente)
 - 08/11/2026: A.1, subpaso 3 (`controllers/app_modules/center_views.py` 1.0.0: `CenterView`; `base` 1.4.0: `views`, `default_view`; `module_view_state` 1.1.0: vista por módulo, clave `views`; `module_host` 1.6.0: `set_view`, `active_view`, `active_views`, `view_changed`; `ui_helpers/widgets/view_buttons.py` 1.0.0; `controllers/center_view_controller.py` 1.0.0; `ui_theme` 1.7.0; `.ui`: `page_single`, `widget_view_buttons`, `line_bottom_views`; `_conectar_vistas` en el controlador). Autopruebas sin ventana y vista previa offscreen de la barra inferior
