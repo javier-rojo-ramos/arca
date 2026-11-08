@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **A.1, subpaso 1: dibujo compartido del marcador y del aviso** (08/11; `card_glyphs.py`, `thumbnails_delegate` 2.13.0) | Sin cambio visible: las tarjetas sin miniatura (vídeo, audio, GPX, foto con error) con su marcador y las de archivos ausentes o sin conexión con su indicador, igual que antes (comprobado píxel a píxel con un script sin ventana) |
 | **Cuadrícula en grises neutros** (07/11; `theme_colors` 1.5.0) | Fondo de la cuadrícula y de la barra inferior `#161616` (algo más oscuro que la toolbar); tarjetas `#262626` / `#2c2c2c` con el ratón / `#333333` seleccionada (con el borde ámbar), sin el tinte azul. Que se distinga bien la tarjeta seleccionada y la que está bajo el ratón; nombres legibles (también rechazadas y no disponibles); marcador de vídeo, GPX y audio; etiquetas de color igual que antes |
 | **Acento ámbar y toolbar sin acento al pasar el ratón** (07/11; `theme_colors` 1.4.0, `ui_icons` 1.2.0, `mode_toolbar` 1.1.0) | Acento `#eca531` en todas partes: fila elegida de las barras (texto, contador e **icono oscuros**, también el de una carpeta desplegada), casillas marcadas (señal oscura), menús, campos de texto seleccionados, deslizador (el asa se pone ámbar con el ratón), borde de la tarjeta seleccionada, título de «Eliminar». Toolbar: al pasar el ratón, solo cambia la caja (el icono sigue gris); el icono ámbar, solo en el módulo activo y en Opciones mientras está abierta. Ver si el icono de aviso de la barra de estado (amarillo `#e8b830`) se confunde ahora con el acento |
 | **Tema: grises de LightTable, zonas pegadas y toolbar con cajas** (07/11; `theme_colors` 1.3.0, `theme_qss` 1.2.0, `ui_theme` 1.6.0, `.ui`) | Toolbar `#1a1a1a`, barras laterales e inspector `#222222`, grises sin tinte azul (menús, diálogos, barra de estado y franja de filtros también); la cuadrícula y las tarjetas, igual que antes. Sin huecos: la toolbar, las barras laterales, la franja de filtros, la cuadrícula, la barra inferior y la barra de estado pegadas, con una raya de 1 px entre ellas (sin rayas dobles). Los separadores de las barras laterales se siguen pudiendo arrastrar (se ponen azules con el ratón) y se recuerda su ancho. Botones de la toolbar: caja redondeada con borde suave; con el ratón, borde y fondo algo más claros y el icono en azul; el activo, relleno gris discreto e icono azul; icono más pequeño (24 px en vez de 32) y 4 px entre botones; también el de Opciones. Texto legible en todas partes (contadores, etiquetas del inspector, «Varios»). Sustituye al hueco de 6 px de «Tema oscuro, ajustes tras T3» |
@@ -74,6 +75,7 @@
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 08/11/2026: A.1, subpaso 1: el marcador de tipo y el indicador de no disponible se dibujan con `card_glyphs.py` (para la vista individual); sin cambio visible.
 - 08/11/2026: nuevo planteamiento de la interfaz (inspector único que edita, qué es un módulo, vistas del centro, barra inferior, filtros) y hoja de ruta del apartado A reorganizada; solo documentación.
 - 07/11/2026: cuadrícula y tarjetas en grises neutros (fondo `#161616`).
 - 07/11/2026: acento ámbar `#eca531` (texto e iconos oscuros encima); los iconos de la toolbar solo se ponen en el acento en el módulo activo.
@@ -83,4 +85,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 07/11/2026: orden de la cuadrícula, paso 1: registro de campos de orden con dirección (`grid_orders.py`) en lugar de `GRID_ORDERS`; la cuadrícula parte de «Nombre».
 - 06/11/2026: carpetas: «Quitar del catálogo...» en el menú de una carpeta o ubicación (como Lightroom); si la carpeta elegida desaparece, se elige su padre.
 - 05/11/2026: barra de estado: icono del mensaje teñido (verde «hecho», amarillo aviso, rojo error; el resto, claro).
-- 05/11/2026: «Añadir carpeta» se abre en la carpeta que contiene la última añadida; el círculo y la casilla bajan al dibujarlos (el ajuste anterior no se veía).

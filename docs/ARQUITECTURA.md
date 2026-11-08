@@ -73,6 +73,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/grid_actions.py            GridActions: atajos de teclado (estilo Lightroom) y menú contextual de la cuadrícula
   helpers/ui_color_labels.py         Colores y textos de las etiquetas de color en la interfaz
   helpers/card_marks.py              Dibujo de estrellas, marca (recuadro / X) y círculo de la selección rápida: lo comparten la tarjeta y la barra inferior
+  helpers/card_glyphs.py             Dibujo del marcador de tipo (sin miniatura) y del indicador de no disponible: lo comparten la tarjeta y la vista individual
   helpers/theme_colors.py            Colores del tema con nombre por función (ThemeColors; DARK) y de las tarjetas (CardColors; DARK_CARDS), sin Qt: el ÚNICO sitio de los colores de la interfaz
   helpers/theme_qss.py               QSS de los componentes generales (barras de desplazamiento, separadores, botones, campos, menús...) a partir de un ThemeColors
   helpers/theme_style.py             ThemeStyle: QProxyStyle sobre Fusion que dibuja los botones de opción y las casillas (también las de listas y árboles) con los colores del tema

@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 08/11/2026: A.1, subpaso 1 (`ui_helpers/helpers/card_glyphs.py` 1.0.0: `draw_placeholder`, `draw_availability_badge`, `MISSING_COLOR`, `OFFLINE_COLOR`; `thumbnails_delegate` 2.13.0 los usa). Comparado píxel a píxel con el delegado anterior (20 casos)
 - 08/11/2026: nuevo planteamiento de la interfaz en DECISIONES (seis entradas; revisadas las del 30/10 y 02/11 sobre la edición), PENDIENTE (apartado A reorganizado: A.1 a A.7) y FLUJOS §11 y §12 (intención de diseño); sin cambios de código
 - 07/11/2026: cuadrícula y tarjetas en grises neutros (`theme_colors` 1.5.0: `DARK_CARDS`, fondo `#161616`; varios valores tomados de `DARK`)
 - 07/11/2026: acento ámbar (`theme_colors` 1.4.0: `accent` `#eca531`, `text_on_accent` `#1a1a1a`; `theme_qss` 1.2.1: asa del deslizador; `ui_icons` 1.2.0: iconos en filas seleccionadas con `HighlightedText`; `mode_toolbar` 1.1.0 y botón de Opciones sin acento al pasar el ratón). Vista previa sin ventana: fila elegida con texto e icono oscuros

@@ -34,5 +34,7 @@
         <file alias="arrow_forward_ios.svg">images/arrow_forward_ios.svg</file>
         <file alias="library_image.svg">images/library_image.svg</file>
         <file alias="library_all.svg">images/library_all.svg</file>
+        <file alias="view_grid.svg">images/view_grid.svg</file>
+        <file alias="view_full.svg">images/view_full.svg</file>
     </qresource>
 </RCC>

@@ -69,6 +69,8 @@ class AppIcons:
     FORWARD = ":/img/arrow_forward_ios.svg"
     LIB_IMAGE = ":/img/library_image.svg"
     LIB_ALL = ":/img/library_all.svg"
+    VIEW_GRID = ":/img/view_grid.svg"
+    VIEW_FULL = ":/img/view_full.svg"
 
 
 # Constantes de UI

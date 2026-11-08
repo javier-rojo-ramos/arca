@@ -51,6 +51,9 @@ Si la tarjeta pulsada forma parte de una selección de VARIAS, el cambio se apli
 las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
 seleccionada, solo cambia ella.
 
+2.13.0 El marcador de tipo y el indicador de no disponible se dibujan con
+       'ui_helpers/helpers/card_glyphs.py' (compartido con la vista individual). Sin cambio
+       visible.
 2.12.0 Colores del tema oscuro (paso T3): todos salen de 'CARD_COLORS' (theme_colors.py);
        el borde de la tarjeta bajo el ratón pasa de amarillo a gris claro.
 2.11.0 Estrellas, marca y círculo de la selección rápida se dibujan con
@@ -70,7 +73,7 @@ seleccionada, solo cambia ella.
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.12.0"
+__version__ = "2.13.0"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -79,11 +82,11 @@ from typing import ClassVar
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt
-from qtpy.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QPixmap, QPolygonF
+from qtpy.QtGui import QColor, QFont, QPainter, QPen, QPixmap
 from qtpy.QtWidgets import QStyle, QStyledItemDelegate
 
 # Módulos del proyecto
-from ui_helpers.helpers import card_marks
+from ui_helpers.helpers import card_glyphs, card_marks
 from ui_helpers.helpers.ui_color_labels import blend, label_color
 from ui_helpers.helpers.ui_theme import CARD_COLORS
 from ui_helpers.models.media_roles import (
@@ -143,8 +146,7 @@ class ThumbnailsDelegate(QStyledItemDelegate):
     UNAVAILABLE_DIM = 0.55  # Cuánto se oscurece la miniatura de un archivo no disponible (0 a 1)
     BADGE_SIZE = 16  # Diámetro (px lógicos) del indicador de archivo no disponible
     BADGE_MARGIN = 4  # Distancia del indicador a la esquina de la imagen
-    MISSING_COLOR = "#e8833a"  # Indicador "ausente" (naranja: hay que hacer algo)
-    OFFLINE_COLOR = "#7d7d7d"  # Indicador "sin conexión" (gris: volverá al conectar el disco)
+    # (Los colores del indicador están en 'card_glyphs': compartidos con la vista individual)
 
     # Círculo de la selección rápida (esquina superior derecha de la imagen)
     QUICK_SIZE = BADGE_SIZE  # Diámetro (px lógicos): igual que el indicador de no disponible
@@ -154,7 +156,7 @@ class ThumbnailsDelegate(QStyledItemDelegate):
     # con la barra inferior)
 
     # --- Marcador de las tarjetas sin miniatura (paso 4a) ---
-    # (Sus colores, fondo y dibujo, están en 'CARD_COLORS': placeholder_bg y placeholder_glyph)
+    # (Sus colores están en 'CARD_COLORS'; el dibujo de cada tipo, en 'card_glyphs')
     PLACEHOLDER_GLYPH_SCALE = 0.36  # tamaño del dibujo respecto al lado corto del marcador
     # Proporción (ancho / alto) del marcador de cada tipo de medio
     PLACEHOLDER_ASPECT: ClassVar[dict[str, float]] = {_VIDEO: 16 / 9, _AUDIO: 1.0, _EBOOK: 2 / 3, _TRACK: 1.0, _PHOTO: 3 / 2}
@@ -480,55 +482,15 @@ class ThumbnailsDelegate(QStyledItemDelegate):
     def _draw_availability_badge(
         self, painter: QPainter, image_rect: QRect, availability: int
     ) -> None:
-        """Dibuja el indicador de archivo no disponible en la esquina superior izquierda.
-
-        Se dibuja con QPainter (como la X de la marca): no necesita iconos del .qrc y se
-        ve nítido a cualquier escala.
-            ausente       -> círculo naranja con "!"
-            sin conexión  -> círculo gris con un disco tachado
-        """
-        size = float(self.BADGE_SIZE)
+        """Dibuja el indicador de archivo no disponible en la esquina superior izquierda
+        (el dibujo, compartido con la vista individual, está en 'card_glyphs')."""
         badge = QRectF(
             image_rect.left() + self.BADGE_MARGIN,
             image_rect.top() + self.BADGE_MARGIN,
-            size,
-            size,
+            float(self.BADGE_SIZE),
+            float(self.BADGE_SIZE),
         )
-        color = self.MISSING_COLOR if availability == _MISSING else self.OFFLINE_COLOR
-
-        painter.save()
-        # Círculo con un borde oscuro fino: se distingue sobre cualquier miniatura
-        painter.setPen(QPen(QColor(0, 0, 0, 140), 1.0))
-        painter.setBrush(QColor(color))
-        painter.drawEllipse(badge)
-
-        center = badge.center()
-        white = QPen(QColor("#ffffff"), size * 0.13, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
-        painter.setPen(white)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        if availability == _MISSING:
-            # "!": un trazo vertical y un punto
-            painter.drawLine(
-                QPointF(center.x(), badge.top() + size * 0.24),
-                QPointF(center.x(), badge.top() + size * 0.58),
-            )
-            painter.setBrush(QColor("#ffffff"))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(QPointF(center.x(), badge.top() + size * 0.76), size * 0.07, size * 0.07)
-        else:
-            # Disco (rectángulo redondeado) tachado por una diagonal
-            disk = QRectF(0, 0, size * 0.52, size * 0.32)
-            disk.moveCenter(center)
-            thin = QPen(white)
-            thin.setWidthF(size * 0.09)
-            painter.setPen(thin)
-            painter.drawRoundedRect(disk, size * 0.06, size * 0.06)
-            painter.setPen(white)
-            painter.drawLine(
-                QPointF(badge.left() + size * 0.25, badge.bottom() - size * 0.25),
-                QPointF(badge.right() - size * 0.25, badge.top() + size * 0.25),
-            )
-        painter.restore()
+        card_glyphs.draw_availability_badge(painter, badge, availability)
 
     def _draw_duration(self, painter: QPainter, image_rect: QRect, seconds: float) -> None:
         """Insignia con la duración en la esquina inferior derecha de la imagen."""
@@ -552,138 +514,8 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         painter.restore()
 
     def _draw_placeholder(self, painter: QPainter, rect: QRect, media_type: str | None) -> None:
-        """Marcador de una tarjeta sin miniatura: fondo y un dibujo sencillo según el tipo."""
-        painter.save()
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(CARD_COLORS.placeholder_bg))
-        painter.drawRect(rect)
-
-        # El dibujo, centrado y proporcional al lado corto del marcador
-        side = min(rect.width(), rect.height()) * self.PLACEHOLDER_GLYPH_SCALE
-        if side < 8:
-            painter.restore()
-            return  # demasiado pequeño para que se entienda
-        box = QRectF(rect.center().x() - side / 2, rect.center().y() - side / 2, side, side)
-        color = QColor(CARD_COLORS.placeholder_glyph)
-        line = QPen(color, max(1.5, side / 14), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
-                    Qt.PenJoinStyle.RoundJoin)  # fmt: skip
-        draw = {
-            _VIDEO: self._glyph_video,
-            _AUDIO: self._glyph_audio,
-            _EBOOK: self._glyph_ebook,
-            _TRACK: self._glyph_track,
-        }.get(media_type, self._glyph_photo)
-        draw(painter, box, color, line)
-        painter.restore()
-
-    @staticmethod
-    def _glyph_video(painter: QPainter, box: QRectF, color: QColor, line: QPen) -> None:
-        """Círculo con el triángulo de "reproducir"."""
-        painter.setPen(line)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawEllipse(box)
-        w, h, x, y = box.width(), box.height(), box.left(), box.top()
-        triangle = QPolygonF(
-            [QPointF(x + w * 0.40, y + h * 0.30), QPointF(x + w * 0.40, y + h * 0.70),
-             QPointF(x + w * 0.72, y + h * 0.50)]
-        )  # fmt: skip
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(color)
-        painter.drawPolygon(triangle)
-
-    @staticmethod
-    def _glyph_audio(painter: QPainter, box: QRectF, color: QColor, line: QPen) -> None:
-        """Corchea (♪): cabeza ovalada inclinada, plica recta y banderita curva.
-
-        Todo son figuras RELLENAS (sin trazos): los extremos quedan limpios, sin los
-        remates redondeados que dejaba una línea gruesa.
-        """
-        w, h, x, y = box.width(), box.height(), box.left(), box.top()
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(color)
-
-        # Cabeza: óvalo inclinado unos 20 grados, abajo a la izquierda
-        head_x, head_y = x + w * 0.34, y + h * 0.80
-        head_rx, head_ry = w * 0.17, h * 0.12
-        painter.save()
-        painter.translate(head_x, head_y)
-        painter.rotate(-20)
-        painter.drawEllipse(QPointF(0, 0), head_rx, head_ry)
-        painter.restore()
-
-        # Plica: rectángulo fino cuyo borde derecho toca el lado derecho de la cabeza
-        stem_w = line.widthF()
-        stem_right = head_x + head_rx * 0.94
-        top = y + h * 0.04
-        painter.drawRect(QRectF(stem_right - stem_w, top, stem_w, head_y - top))
-
-        # Banderita: curva exterior hasta la punta y curva interior de vuelta a la plica
-        flag = QPainterPath(QPointF(stem_right, top))
-        flag.cubicTo(
-            QPointF(stem_right + w * 0.04, top + h * 0.16),
-            QPointF(stem_right + w * 0.36, top + h * 0.22),
-            QPointF(stem_right + w * 0.26, top + h * 0.56),
-        )
-        flag.cubicTo(
-            QPointF(stem_right + w * 0.26, top + h * 0.36),
-            QPointF(stem_right + w * 0.10, top + h * 0.30),
-            QPointF(stem_right, top + h * 0.28),
-        )
-        flag.closeSubpath()
-        painter.drawPath(flag)
-
-    @staticmethod
-    def _glyph_ebook(painter: QPainter, box: QRectF, color: QColor, line: QPen) -> None:
-        """Libro: tapa con el lomo y unas líneas de texto."""
-        w, h, x, y = box.width(), box.height(), box.left(), box.top()
-        painter.setPen(line)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        cover = QRectF(x + w * 0.18, y, w * 0.64, h)
-        painter.drawRoundedRect(cover, w * 0.05, w * 0.05)
-        spine = cover.left() + w * 0.12
-        painter.drawLine(QPointF(spine, cover.top()), QPointF(spine, cover.bottom()))
-        for fraction in (0.30, 0.45):
-            line_y = y + h * fraction
-            painter.drawLine(QPointF(spine + w * 0.10, line_y), QPointF(cover.right() - w * 0.10, line_y))
-
-    @staticmethod
-    def _glyph_track(painter: QPainter, box: QRectF, color: QColor, line: QPen) -> None:
-        """Recorrido: una línea quebrada con la salida y la llegada marcadas."""
-        w, h, x, y = box.width(), box.height(), box.left(), box.top()
-        points = [QPointF(x + w * fx, y + h * fy) for fx, fy in
-                  ((0.05, 0.85), (0.30, 0.55), (0.50, 0.70), (0.72, 0.30), (0.95, 0.15))]  # fmt: skip
-        path = QPainterPath(points[0])
-        for point in points[1:]:
-            path.lineTo(point)
-        painter.setPen(line)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawPath(path)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(color)
-        radius = w * 0.08
-        for point in (points[0], points[-1]):
-            painter.drawEllipse(point, radius, radius)
-
-    @staticmethod
-    def _glyph_photo(painter: QPainter, box: QRectF, color: QColor, line: QPen) -> None:
-        """Paisaje (marco, montaña y sol): una foto sin miniatura, o un tipo desconocido."""
-        w, h, x, y = box.width(), box.height(), box.left(), box.top()
-        frame = QRectF(x, y + h * 0.12, w, h * 0.76)
-        painter.setPen(line)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawRoundedRect(frame, w * 0.05, w * 0.05)
-        mountain = QPolygonF(
-            [QPointF(frame.left() + w * 0.08, frame.bottom() - h * 0.06),
-             QPointF(frame.left() + w * 0.40, frame.top() + h * 0.30),
-             QPointF(frame.left() + w * 0.62, frame.bottom() - h * 0.20),
-             QPointF(frame.left() + w * 0.75, frame.top() + h * 0.45),
-             QPointF(frame.right() - w * 0.08, frame.bottom() - h * 0.06)]
-        )  # fmt: skip
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(color)
-        painter.drawPolygon(mountain)
-        sun = w * 0.08
-        painter.drawEllipse(QPointF(frame.right() - w * 0.22, frame.top() + h * 0.20), sun, sun)
+        """Marcador de una tarjeta sin miniatura (compartido con la vista individual)."""
+        card_glyphs.draw_placeholder(painter, rect, media_type, self.PLACEHOLDER_GLYPH_SCALE)
 
     # -------------------------------------------------------------------------
     # Ratón
