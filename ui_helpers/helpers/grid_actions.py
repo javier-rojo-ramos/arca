@@ -4,7 +4,8 @@ Todo actúa sobre la SELECCIÓN de la cuadrícula y escribe a través del modelo
 ('MediaGridModel.set_field'), que es quien avisa al controlador para guardar en la base
 de datos. Este módulo no conoce la base de datos.
 
-Atajos (con la cuadrícula enfocada y sin Ctrl/Alt/Mayús):
+Atajos (con la cuadrícula enfocada, o con otra vista que se le dé con 'watch', como la
+vista individual; sin Ctrl/Alt/Mayús):
     0-5   valoración                    P  marcar          X  rechazar        U  quitar marca
     6-9   etiqueta roja/amarilla/verde/azul (pulsarla otra vez la quita; la púrpura, por menú)
     B     selección rápida: mete la selección; si TODA ya estaba dentro, la saca (como Lightroom)
@@ -27,6 +28,7 @@ Eliminar: "Eliminar..." al final del menú y la tecla Supr fuera de las coleccio
 estáticas. Solo emite 'remove_requested' con los 'id'; la ventana (quitar del catálogo o
 enviar a la papelera) y el trabajo los pone el controlador.
 
+1.5.0 'watch': los atajos también con otra vista enfocada (la vista individual, paso A.1).
 1.4.0 "Eliminar..." en el menú y tecla Supr fuera de las colecciones estáticas.
 1.3.1 Los nombres de las bibliotecas pasan por 'qt_text' (por si alguno lleva '&', que en
       un menú de Qt marca la tecla de acceso y no se ve).
@@ -35,12 +37,12 @@ enviar a la papelera) y el trabajo los pone el controlador.
 1.1.0 Colecciones: añadir a una colección, quitar de la colección (menú y tecla Supr).
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["GridActions"]
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QEvent, QObject, QPoint, Qt, Signal
-from qtpy.QtWidgets import QListView, QMenu
+from qtpy.QtWidgets import QListView, QMenu, QWidget
 
 # Módulos del proyecto
 from core.catalog.color_labels import COLOR_LABELS
@@ -94,9 +96,18 @@ class GridActions(QObject):
         self._collections: list[tuple[int, str]] = []
         # Colección que se está viendo en la cuadrícula (None si no es una colección)
         self._current_collection: int | None = None
+        # Vistas cuyas teclas se atienden (la cuadrícula y las que se añadan con 'watch')
+        self._watched: list[QObject] = [view]
         view.installEventFilter(self)
         view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         view.customContextMenuRequested.connect(self._show_menu)
+
+    def watch(self, widget: QWidget) -> None:
+        """Atiende también las teclas de 'widget' (p. ej. la vista individual), que debe
+        mostrar la misma selección que la cuadrícula: los atajos actúan sobre ella."""
+        if widget not in self._watched:
+            self._watched.append(widget)
+            widget.installEventFilter(self)
 
     # -------------------------------------------------------------------------
     # Datos que pone el gestor de colecciones
@@ -151,7 +162,7 @@ class GridActions(QObject):
     # -------------------------------------------------------------------------
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
-        if watched is not self._view or event.type() != QEvent.Type.KeyPress:
+        if watched not in self._watched or event.type() != QEvent.Type.KeyPress:
             return False
         # Con cualquier modificador (salvo el del teclado numérico) no se interviene
         no_modifier = (Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.KeypadModifier)

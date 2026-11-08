@@ -22,6 +22,7 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.12.0 'row_of_id': fila de un elemento (la vista individual vuelve a él tras recargar).
 1.11.0 Para la vista individual: propiedad 'thumbnail_cache' y señales
        'thumbnails_refreshed' (miniaturas regeneradas) y 'missing_retried'.
 1.10.0 'set_view': origen y orden a la vez, con una sola recarga (al cambiar de módulo);
@@ -44,7 +45,7 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
@@ -620,6 +621,10 @@ class MediaGridModel(QAbstractListModel):
         """Carpeta del catálogo abierto, en texto ("" sin catálogo): la que viaja al
         arrastrar tarjetas ('media_mime.MediaDrag.catalog')."""
         return self._catalog_key
+
+    def row_of_id(self, media_id: int) -> int | None:
+        """Fila de un elemento en la lista cargada (None si no está)."""
+        return self._row_of_id.get(media_id)
 
     def media_ids(self, rows: Iterable[int]) -> list[int]:
         """'id' de los elementos de esas filas."""

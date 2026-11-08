@@ -816,8 +816,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self._configurar_inspector()
 
     def _conectar_vistas(self) -> None:
-        """Vistas del centro (cuadrícula, individual...): botones de vista, página de la pila
-        y deslizador del tamaño, según el módulo activo (ver 'CenterViewController')."""
+        """Vistas del centro (cuadrícula, individual...): botones de vista, página de la pila,
+        deslizador del tamaño y navegación entre archivos (ver 'CenterViewController')."""
         buttons = getattr(self, "widget_view_buttons", None)
         page_single = getattr(self, "page_single", None)
         single_view = getattr(self, "widget_single_view", None)
@@ -835,8 +835,12 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             stack=self.stacked_widget_main,
             pages={CenterView.GRID: self.page_grid, CenterView.SINGLE: page_single},
             size_slider=self.slider_thumbnails,
+            grid=self.list_view_grid,
+            single=single_view,
             parent=self,
         )
+        # Los atajos de clasificación (estrellas, color, marca, B, Supr), también en ella
+        self.grid_actions.watch(single_view)
 
     def _conectar_orden(self) -> None:
         """Conecta el control «Orden:» de la barra inferior con el orden del módulo activo.

@@ -52,7 +52,7 @@ controllers/
   inspector_controller.py            InspectorController: selección de la cuadrícula -> resumen en segundo plano -> inspector; módulo activo (set_module); cambios de las secciones en cola (edit_requested -> user_data_changed); «Mostrar en el Explorador»
   folder_actions.py                  FolderActions: «Quitar del catálogo...» de una carpeta de la barra lateral (cuenta, pregunta y pide al controlador el trabajo JOB_REMOVE)
   collection_actions.py              CollectionActions: une barra lateral + menú de la cuadrícula + BD para las colecciones del usuario (crear, renombrar, borrar, soltar, añadir, quitar); lo crea CatalogModule
-  center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula)
+  center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula) y navegación (doble clic / Intro, Esc / G, flechas, Inicio, Fin; un solo archivo seleccionado en la vista individual)
   app_modules/                       ── Módulos de la aplicación (Catálogo, Imagen, Vídeo, Audio) ── ([FLUJOS.md §11](FLUJOS.md))
     base.py                            AppModule (clase base: barra izquierda, panel derecho, qué muestra la cuadrícula, ciclo de vida) y ModuleContext
     registry.py                      ► LISTA de módulos en el orden de la toolbar (aquí se da de alta uno nuevo)
