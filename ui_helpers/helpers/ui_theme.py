@@ -18,6 +18,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.8.1 La franja de la barra de filtros, con el fondo de la barra inferior y de la
+      cuadrícula ('GRID_BG'); lo pidió el autor el 08/11/2026.
 1.8.0 Barra de filtros ('#widget_filter_bar'): pestañas de texto en gris, la encendida en
       el acento; candado en caja como los botones de vista; raya sobre los paneles (A.3).
 1.7.0 Botones de vista de la barra inferior ('#widget_view_buttons', como los de la toolbar)
@@ -38,7 +40,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.8.1"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -108,10 +110,11 @@ TOOLTIP_FG = COLORS.text  # Texto
 # piezas propias de la aplicación. Cada regla se acota con un selector para que solo
 # afecte a lo que debe.
 STYLESHEET = general_stylesheet(COLORS) + f"""
-/* Zona central: la franja de arriba (filtros) del color de los paneles, pegada a la
-   cuadrícula y separada por una raya de 1 px; sin el marco claro de 'StyledPanel' */
+/* Zona central: la franja de arriba (barra de filtros y sus paneles) con el fondo de la
+   barra inferior y de la cuadrícula, separada de esta por una raya de 1 px; sin el marco
+   claro de 'StyledPanel' */
 QFrame#frame_main_top {{
-    background-color: {COLORS.bg_panel};
+    background-color: {GRID_BG};
     border: none;
     border-bottom: 1px solid {COLORS.divider};
 }}
