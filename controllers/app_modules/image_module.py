@@ -13,6 +13,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'restore_state'; el 'ModuleHost' los escribe en settings.json). Lo desplegado del
       árbol con casillas del inspector ya no es de este módulo: lo guarda el inspector.
 
+1.11.0 'filter_media_types': foto y vídeo (lo que entra en Imagen). Paso A.3.
 1.10.0 'show_source': una palabra clave pedida sin biblioteca se limita a Imagen (la
        flecha del inspector la pide sin biblioteca; paso A.2).
 1.9.0 Lo desplegado del árbol del inspector lo guarda 'InspectorController' (el inspector
@@ -29,7 +30,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 __all__ = ["ImageModule"]
 
 # Librerías estándar
@@ -53,6 +54,7 @@ from core.catalog.grid_source import GridSource, SourceKind, keyword_source
 from core.catalog.keywords import fetch_keyword_tree
 from core.catalog.libraries import Library
 from core.catalog.media_queries import count_grid_items
+from core.catalog.media_types import MediaType
 from ui_helpers.helpers.mode_toolbar import MODE_IMAGE
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME, reveal_in_file_manager
 from ui_helpers.sidebars.image_sidebar import ALL_IMAGES, IMAGE_QUICK, LIBRARY, ImageSidebar
@@ -108,6 +110,10 @@ class ImageModule(AppModule):
     def current_source(self) -> GridSource | None:
         """Lo elegido en la barra («Todas las imágenes» o una palabra clave)."""
         return self.sidebar.current_source()
+
+    def filter_media_types(self) -> tuple[str, ...]:
+        """Fotos y vídeos (los del móvil entran en Imagen)."""
+        return (MediaType.PHOTO, MediaType.VIDEO)
 
     def sort_fields(self) -> tuple[str, ...]:
         """Todos los campos de orden (de momento; llegarán los propios de las fotos)."""

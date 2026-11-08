@@ -100,6 +100,7 @@ from ui_helpers.helpers.ui_theme import TOOLBAR_MARGIN
 from ui_helpers.inspector.inspector_panel import InspectorPanel
 from ui_helpers.mixins.window_snap import WindowSnapMixin
 from ui_helpers.models.media_grid_model import QUICK_SELECTION_FIELD, MediaGridModel
+from ui_helpers.widgets.attribute_filter_row import AttributeFilterRow
 from ui_helpers.widgets.job_progress_widget import JobProgressWidget
 from ui_helpers.widgets.text_filter_row import TextFilterRow
 
@@ -860,6 +861,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             frame=self.frame_main_top,
             window=self,
             text_row=TextFilterRow(bar),
+            attribute_row=AttributeFilterRow(bar),
             parent=self,
         )
 

@@ -21,12 +21,14 @@ el controlador principal, que conecta esas señales de 'CatalogSidebar' directam
 Orden de la cuadrícula: todos los campos de 'grid_orders.py'; parte de «Nombre» (con tipos
 mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 
+1.3.0 'filter_media_types': foto, vídeo, audio y track (los tipos que ya existen; el
+      libro electrónico, cuando lo haya). Paso A.3.
 1.2.0 'show_source': la flecha «ver sus fotos» del inspector muestra la palabra en la
       cuadrícula del Catálogo, de todas las bibliotecas, sin fila marcada (paso A.2).
 1.1.0 'sort_fields' y 'default_order' (orden de partida: «Nombre»).
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["CatalogModule"]
 
 # Librerías estándar
@@ -49,6 +51,7 @@ from core.catalog.folder_tree import LocationNode, fetch_folder_tree
 from core.catalog.grid_orders import NAME_ORDER, SORT_FIELDS, GridOrder
 from core.catalog.grid_source import GridSource, SourceKind
 from core.catalog.media_queries import count_grid_items
+from core.catalog.media_types import MediaType
 from ui_helpers.helpers.mode_toolbar import MODE_CATALOG
 from ui_helpers.sidebars.catalog_sidebar import CatalogSidebar
 
@@ -132,6 +135,10 @@ class CatalogModule(AppModule):
         barra no tiene esa fila (una palabra clave), se queda sin fila marcada. Una palabra
         llega sin biblioteca: el Catálogo las abarca todas (decidido el 08/11/2026)."""
         self.sidebar.show_source(source)
+
+    def filter_media_types(self) -> tuple[str, ...]:
+        """Todos los tipos que ya maneja la aplicación (el libro electrónico, cuando lo haya)."""
+        return (MediaType.PHOTO, MediaType.VIDEO, MediaType.AUDIO, MediaType.TRACK)
 
     def sort_fields(self) -> tuple[str, ...]:
         """Todos los campos de orden (sirven para cualquier tipo de archivo)."""

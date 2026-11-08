@@ -13,6 +13,9 @@ la cuadrícula (ver 'module_host.py'). Aquí se traduce lo uno en lo otro:
       escrito en ese módulo.
     - Ctrl+F          -> enciende «Texto» (si no lo estaba) y pone el cursor en su caja.
                          En la vista individual (la barra está oculta) no hace nada.
+    - Fila de «Atributos» ('AttributeFilterRow', su panel) -> el filtro con 'attributes'
+      cambiado (en el acto). Al cambiar de módulo, la fila muestra lo elegido en ese
+      módulo y sus tipos ('ModuleHost.active_filter_media_types').
     - 'ModuleHost.filter_changed' (otro módulo, abrir o cerrar el catálogo, la vuelta a
       «Ninguno» al cambiar de origen) -> la barra.
     - 'ModuleHost.view_changed' -> la franja de la barra se oculta en la vista individual
@@ -21,14 +24,18 @@ la cuadrícula (ver 'module_host.py'). Aquí se traduce lo uno en lo otro:
 La barra está desactivada sin catálogo y en los módulos que no deciden la cuadrícula (los
 provisionales: no ofrecen campos de orden).
 
-Paneles de las pestañas: la fila de «Texto» ('text_row') y los de las demás que ya tengan
-uno ('panels') se pasan al crearlo; solo esas pestañas se pueden pulsar.
+Paneles de las pestañas: las filas de «Texto» ('text_row') y de «Atributos»
+('attribute_row') y los de las demás que ya tengan uno ('panels') se pasan al crearlo;
+solo esas pestañas se pueden pulsar.
 
 Uso (en el controlador principal, solo la conexión):
     self.filters = FilterController(module_host, bar=widget_filter_bar,
                                     frame=frame_main_top, window=self,
-                                    text_row=TextFilterRow(widget_filter_bar), parent=self)
+                                    text_row=TextFilterRow(widget_filter_bar),
+                                    attribute_row=AttributeFilterRow(widget_filter_bar),
+                                    parent=self)
 
+1.2.0 Fila de «Atributos» ('attribute_row'), con los tipos del módulo activo (paso A.3).
 1.1.0 Fila de «Texto» ('text_row') y Ctrl+F (paso A.3, subpaso 4).
 1.0.0 Primera versión (paso A.3, subpaso 3).
 
@@ -36,7 +43,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m controllers.filter_controller
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["TEXT_SHORTCUT", "TOGGLE_SHORTCUT", "FilterController"]
 
 # Librerías estándar
@@ -51,7 +58,13 @@ from qtpy.QtWidgets import QWidget
 
 # Módulos del proyecto
 from controllers.app_modules.center_views import CenterView
-from core.catalog.grid_filter import FILTER_TEXT, TextFilter
+from core.catalog.grid_filter import (
+    FILTER_ATTRIBUTES,
+    FILTER_TEXT,
+    AttributeFilter,
+    TextFilter,
+)
+from ui_helpers.widgets.attribute_filter_row import AttributeFilterRow
 from ui_helpers.widgets.filter_bar import FilterBar
 from ui_helpers.widgets.text_filter_row import TextFilterRow
 
@@ -72,6 +85,7 @@ class FilterController(QObject):
         frame: QWidget,
         window: QWidget,
         text_row: TextFilterRow | None = None,
+        attribute_row: AttributeFilterRow | None = None,
         panels: Mapping[str, QWidget] | None = None,
         parent: QObject | None = None,
     ) -> None:
@@ -86,6 +100,7 @@ class FilterController(QObject):
                 individual.
             window: Ventana donde valen Ctrl+L y Ctrl+F.
             text_row: Fila de «Texto» (el panel de esa pestaña; None = sin él).
+            attribute_row: Fila de «Atributos» (igual).
             panels: Panel de las demás pestañas que ya lo tienen (clave -> widget).
             parent: Objeto padre.
         """
@@ -94,10 +109,14 @@ class FilterController(QObject):
         self._bar = bar
         self._frame = frame
         self._text_row = text_row
+        self._attribute_row = attribute_row
         all_panels: dict[str, QWidget] = dict(panels or {})
         if text_row is not None:
             all_panels[FILTER_TEXT] = text_row
             text_row.text_filter_changed.connect(self._on_text_changed)
+        if attribute_row is not None:
+            all_panels[FILTER_ATTRIBUTES] = attribute_row
+            attribute_row.attribute_filter_changed.connect(self._on_attributes_changed)
         for key, panel in all_panels.items():
             bar.add_panel(key, panel)
         bar.set_available(all_panels.keys())
@@ -160,6 +179,14 @@ class FilterController(QObject):
         self._bar.set_state(grid_filter.active, locked=grid_filter.locked)
         if self._text_row is not None:
             self._text_row.set_filter(grid_filter.text)  # no hace nada si ya es lo que se ve
+        if self._attribute_row is not None:
+            self._attribute_row.set_media_types(self._host.active_filter_media_types())
+            self._attribute_row.set_filter(grid_filter.attributes)
+
+    def _on_attributes_changed(self, attributes: AttributeFilter) -> None:
+        """Lo pulsado en la fila de «Atributos»."""
+        if self._enabled():
+            self._apply(replace(self._host.active_filter, attributes=attributes))
 
     def _on_text_changed(self, text_filter: TextFilter) -> None:
         """Lo escrito (o el campo o el operador) en la fila de «Texto»."""
@@ -192,7 +219,7 @@ if __name__ == "__main__":
     from qtpy.QtCore import Signal
     from qtpy.QtWidgets import QApplication
 
-    from core.catalog.grid_filter import FILTER_ATTRIBUTES, FILTER_TEXT, NO_FILTER
+    from core.catalog.grid_filter import FILTER_METADATA, NO_FILTER
 
     app = QApplication([])
 
@@ -211,6 +238,9 @@ if __name__ == "__main__":
         def active_sort_fields(self) -> tuple[str, ...]:
             return self.fields
 
+        def active_filter_media_types(self) -> tuple[str, ...]:
+            return ("photo", "video")
+
         def set_filter(self, grid_filter) -> None:
             self.requests.append(grid_filter)
             self.active_filter = grid_filter
@@ -220,11 +250,13 @@ if __name__ == "__main__":
     bar = FilterBar(frame)
     host = _Host()
     text_panel = TextFilterRow(window)
-    controller = FilterController(host, bar=bar, frame=frame, window=window,
-                                  text_row=text_panel, parent=window)  # fmt: skip
+    attribute_panel = AttributeFilterRow(window)
+    controller = FilterController(host, bar=bar, frame=frame, window=window, text_row=text_panel,
+                                  attribute_row=attribute_panel, parent=window)  # fmt: skip
 
-    # Solo «Texto» se puede pulsar; al pulsarla se enciende, y su panel se ve
-    assert bar._tabs[FILTER_TEXT].isEnabled() and not bar._tabs[FILTER_ATTRIBUTES].isEnabled()
+    # «Texto» y «Atributos» se pueden pulsar; «Metadatos», no
+    assert bar._tabs[FILTER_TEXT].isEnabled() and bar._tabs[FILTER_ATTRIBUTES].isEnabled()
+    assert not bar._tabs[FILTER_METADATA].isEnabled()
     bar._tabs[FILTER_TEXT].click()
     assert host.active_filter.active == {FILTER_TEXT} and bar.active == {FILTER_TEXT}
     assert not text_panel.isHidden()
@@ -282,6 +314,14 @@ if __name__ == "__main__":
     controller.focus_text()
     assert host.active_filter == NO_FILTER
     host.active_view = CenterView.GRID
+
+    # Fila de «Atributos»: los tipos del módulo; lo pulsado pasa al filtro; y al revés
+    assert [k for k in attribute_panel._rest._zones if k.startswith("type:")] == ["type:photo", "type:video"]
+    attribute_panel.attribute_filter_changed.emit(AttributeFilter(rating=4))
+    assert host.active_filter.attributes.rating == 4
+    host.active_filter = NO_FILTER
+    host.filter_changed.emit(host.active_filter)
+    assert attribute_panel.current() == AttributeFilter()
 
     window.deleteLater()
     print("Autoprueba finalizada correctamente.")

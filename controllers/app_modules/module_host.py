@@ -39,6 +39,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.8.2 'active_filter_media_types': los tipos de la fila «Atributos» del módulo activo.
 1.8.1 Propiedad 'attached' (hay un catálogo abierto) y 'filter_changed' también en
       'attach' (la barra de filtros se activa al abrir el catálogo).
 1.8.0 Filtro de la barra de filtros por módulo: 'set_filter', 'active_filter', señal
@@ -63,7 +64,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.8.1"
+__version__ = "1.8.2"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -242,6 +243,10 @@ class ModuleHost(QObject):
     def active_sort_fields(self) -> tuple[str, ...]:
         """Campos de orden que ofrece el módulo activo (vacío si no decide el orden)."""
         return self._active.sort_fields() if self._active is not None else ()
+
+    def active_filter_media_types(self) -> tuple[str, ...]:
+        """Tipos que ofrece la fila «Atributos» en el módulo activo."""
+        return self._active.filter_media_types() if self._active is not None else ()
 
     def set_order(self, order: GridOrder) -> None:
         """El usuario ha elegido otro orden para el módulo activo: se recuerda y se aplica.

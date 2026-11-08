@@ -24,6 +24,8 @@ Qué aporta cada módulo (sobrescribiendo los métodos de 'AppModule'):
     - 'views()' y 'default_view()': qué vistas del centro ofrece (cuadrícula, individual...;
                           'center_views.py') y con cuál empieza. La elegida también se
                           recuerda por módulo y por catálogo.
+    - 'filter_media_types()': qué tipos ofrece la fila «Atributos» de la barra de filtros
+                          (vacío = ninguno).
     - Señal 'source_selected': el usuario ha elegido otra cosa en su barra.
     - Señal 'catalog_edit_requested(función, argumentos)': el usuario quiere cambiar el
       catálogo desde la barra (p. ej. renombrar una palabra clave). La función recibe la
@@ -35,6 +37,7 @@ Qué aporta cada módulo (sobrescribiendo los métodos de 'AppModule'):
 Quién los coordina: 'module_host.ModuleHost' (toolbar, barras laterales, cuadrícula y
 estado guardado). Dónde se da de alta un módulo nuevo: 'registry.py'.
 
+1.5.0 'filter_media_types': los tipos de la fila «Atributos» (paso A.3).
 1.4.0 'views' y 'default_view': las vistas del centro de cada módulo (paso A.1).
 1.3.0 'sort_fields' y 'default_order': el orden de la cuadrícula de cada módulo.
 1.2.0 'show_source': mostrar un origen elegido fuera de la barra (p. ej. desde el inspector).
@@ -45,7 +48,7 @@ Los módulos son la capa que une la interfaz de su barra lateral con 'core/' (co
 sincronizar una carpeta, trabajos en segundo plano...) siguen en el controlador principal.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["AppModule", "ModuleContext"]
 
 # Librerías estándar
@@ -168,6 +171,11 @@ class AppModule(QObject):
         """Vista con la que empieza (hasta que el usuario elige otra). Debe estar en
         'views'."""
         return CenterView.GRID
+
+    def filter_media_types(self) -> tuple[str, ...]:
+        """Tipos que ofrece la fila «Atributos» de la barra de filtros (valores de
+        'MediaType', en su orden). Por defecto, ninguno."""
+        return ()
 
     def show_source(self, source: GridSource) -> None:
         """Mostrar un origen pedido desde fuera de la barra (p. ej. la flecha «ver sus
