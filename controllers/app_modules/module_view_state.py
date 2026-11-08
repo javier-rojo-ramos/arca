@@ -2,14 +2,15 @@
 
 Este módulo NO depende de Qt: es Python puro.
 
-Guarda, para cada módulo, el ORDEN de la cuadrícula y la VISTA del centro que elige el
-usuario (los módulos sin nada elegido usan su 'default_order' y su 'default_view'). Lo
-usa el 'ModuleHost', que decide cuándo se aplica y lo escribe en settings.json junto al
-estado de las barras laterales:
+Guarda, para cada módulo, el ORDEN de la cuadrícula, la VISTA del centro y el FILTRO de
+la barra de filtros que elige el usuario (los módulos sin nada elegido usan su
+'default_order', su 'default_view' y «Ninguno»). Lo usa el 'ModuleHost', que decide cuándo
+se aplica y lo escribe en settings.json junto al estado de las barras laterales:
 
     {"<carpeta del catálogo>": {"modules": {...},
                                 "orders": {"image": {"field": ..., "descending": ...}},
-                                "views": {"image": "single"}}}
+                                "views": {"image": "single"},
+                                "filters": {"image": {"active": ["text"], ...}}}}
 
 Uso:
     state = ModuleViewState()
@@ -17,12 +18,16 @@ Uso:
     state.set_order(module, order)          # True si cambia; ValueError si no lo ofrece
     state.view_for(module)                  # la vista elegida o la inicial del módulo
     state.set_view(module, view)            # igual que 'set_order'
+    state.filter_for(module)                # el filtro del módulo ('NO_FILTER' si nada)
+    state.set_filter(module, grid_filter)   # True si cambia
     entry.update(state.to_state())          # al cerrar el catálogo
     state.restore(entry, modules_by_key)    # al abrirlo
 
 Un módulo es cualquier objeto con 'key', 'sort_fields()', 'default_order()', 'views()' y
 'default_view()' (como 'AppModule'): así este módulo no depende de la interfaz.
 
+1.2.0 El filtro de la barra de filtros de cada módulo ('filter_for', 'set_filter'; clave
+      'filters'; paso A.3).
 1.1.0 La vista del centro de cada módulo ('view_for', 'set_view'; clave 'views').
 
 1.0.0 Sacado de 'module_host.py' (1.4.0) sin cambios de comportamiento, antes de guardar
@@ -32,7 +37,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m controllers.app_modules.module_view_state
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["ModuleViewState", "ViewStateModule"]
 
 # Librerías estándar
@@ -41,12 +46,20 @@ from typing import Any, Protocol
 
 # Módulos del proyecto
 from controllers.app_modules.center_views import CenterView
+from core.catalog.grid_filter import (
+    NO_FILTER,
+    GridFilter,
+    filter_from_dict,
+    filter_to_dict,
+)
 from core.catalog.grid_orders import GridOrder
 
 # Clave, dentro de la entrada de un catálogo, con los órdenes elegidos por módulo
 _ORDERS_KEY = "orders"
 # Clave con las vistas del centro elegidas por módulo
 _VIEWS_KEY = "views"
+# Clave con los filtros de la barra de filtros por módulo
+_FILTERS_KEY = "filters"
 
 
 class ViewStateModule(Protocol):
@@ -72,6 +85,8 @@ class ModuleViewState:
         self._orders: dict[str, GridOrder] = {}
         # Vista del centro elegida en cada módulo (los que no están aquí, su 'default_view')
         self._views: dict[str, CenterView] = {}
+        # Filtro de cada módulo (los que no están aquí, «Ninguno» sin nada escrito)
+        self._filters: dict[str, GridFilter] = {}
 
     # -------------------------------------------------------------------------
     # Orden de la cuadrícula
@@ -133,6 +148,29 @@ class ModuleViewState:
         return True
 
     # -------------------------------------------------------------------------
+    # Filtro de la barra de filtros
+    # -------------------------------------------------------------------------
+
+    def filter_for(self, module: ViewStateModule) -> GridFilter:
+        """Filtro de un módulo ('NO_FILTER' si no tiene ninguno)."""
+        return self._filters.get(module.key, NO_FILTER)
+
+    def set_filter(self, module: ViewStateModule, grid_filter: GridFilter) -> bool:
+        """Recuerda el filtro de un módulo (también el candado y lo escrito, aunque no
+        filtre).
+
+        Returns:
+            True si cambia algo del filtro; False si ya era ese.
+        """
+        if grid_filter == self.filter_for(module):
+            return False
+        if grid_filter == NO_FILTER:
+            self._filters.pop(module.key, None)  # el de partida no ocupa sitio
+        else:
+            self._filters[module.key] = grid_filter
+        return True
+
+    # -------------------------------------------------------------------------
     # Estado guardado por catálogo
     # -------------------------------------------------------------------------
 
@@ -140,6 +178,7 @@ class ModuleViewState:
         """Olvida todo lo elegido (al cerrar el catálogo: es de cada catálogo)."""
         self._orders.clear()
         self._views.clear()
+        self._filters.clear()
 
     def to_state(self) -> dict[str, Any]:
         """Lo que se añade a la entrada del catálogo en settings.json (vacío si nada)."""
@@ -148,6 +187,8 @@ class ModuleViewState:
             state[_ORDERS_KEY] = {key: order.to_state() for key, order in self._orders.items()}
         if self._views:
             state[_VIEWS_KEY] = {key: view.value for key, view in self._views.items()}
+        if self._filters:
+            state[_FILTERS_KEY] = {key: filter_to_dict(f) for key, f in self._filters.items()}
         return state
 
     def restore(self, entry: object, modules: Mapping[str, ViewStateModule]) -> None:
@@ -155,11 +196,14 @@ class ModuleViewState:
 
         Descarta lo que ya no vale: un módulo que no existe o que no decide el orden, un
         campo desconocido o que el módulo ya no ofrece, una vista que no se entiende o que
-        el módulo no tiene.
+        el módulo no tiene, un filtro de un módulo que no existe (lo que no se entienda de
+        un filtro se queda con su valor de partida: 'filter_from_dict').
         """
         self._orders.clear()
         self._views.clear()
+        self._filters.clear()
         self._restore_views(entry, modules)
+        self._restore_filters(entry, modules)
         saved = entry.get(_ORDERS_KEY) if isinstance(entry, dict) else None
         if not isinstance(saved, dict):
             return
@@ -171,6 +215,16 @@ class ModuleViewState:
             order = GridOrder.from_state(state, default)
             if order.field in module.sort_fields():
                 self._orders[key] = order
+
+    def _restore_filters(self, entry: object, modules: Mapping[str, ViewStateModule]) -> None:
+        """Recupera los filtros de cada módulo (los de módulos que ya no existen, no)."""
+        saved = entry.get(_FILTERS_KEY) if isinstance(entry, dict) else None
+        if not isinstance(saved, dict):
+            return
+        for key, data in saved.items():
+            grid_filter = filter_from_dict(data)
+            if key in modules and grid_filter != NO_FILTER:
+                self._filters[key] = grid_filter
 
     def _restore_views(self, entry: object, modules: Mapping[str, ViewStateModule]) -> None:
         """Recupera las vistas elegidas (las que ya no valen se descartan)."""
@@ -283,6 +337,31 @@ if __name__ == "__main__":
     image.offered = (CenterView.GRID,)
     assert again.view_for(image) is CenterView.GRID
     image.offered = (CenterView.GRID, CenterView.SINGLE)
+
+    # Filtros: «Ninguno» al principio; cada módulo el suyo; guardar y recuperar
+    from dataclasses import replace
+
+    from core.catalog.grid_filter import FILTER_TEXT, TextFilter
+
+    filters = ModuleViewState()
+    assert filters.filter_for(image) == NO_FILTER
+    assert filters.set_filter(image, NO_FILTER) is False and filters.to_state() == {}
+    boda = replace(NO_FILTER, text=TextFilter(text="boda")).with_panel(FILTER_TEXT, True)
+    assert filters.set_filter(image, boda) is True and filters.set_filter(image, boda) is False
+    assert filters.filter_for(image) == boda and filters.filter_for(catalog) == NO_FILTER
+    locked = replace(boda.cleared(), locked=True)  # apagado, pero con candado y texto
+    assert filters.set_filter(catalog, locked) is True
+    saved = filters.to_state()
+    assert set(saved["filters"]) == {"image", "catalog"}, saved
+    again = ModuleViewState()
+    again.restore({**saved, "orders": {}}, modules)
+    assert again.filter_for(image) == boda and again.filter_for(catalog) == locked
+    # Volver a «Ninguno» sin nada escrito lo quita; lo que no vale se descarta
+    assert filters.set_filter(image, NO_FILTER) is True and set(filters.to_state()["filters"]) == {"catalog"}
+    again.restore({"filters": {"borrado": filter_to_dict(boda), "image": "roto", "video": []}}, modules)
+    assert again.to_state() == {}
+    filters.clear()
+    assert filters.to_state() == {} and filters.filter_for(catalog) == NO_FILTER
 
     # Al cerrar el catálogo se olvida todo
     state.clear()

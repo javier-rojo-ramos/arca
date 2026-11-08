@@ -19,6 +19,13 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       suyas y su inicial ('views', 'default_view'); la que elige el usuario ('set_view')
       se guarda igual que el orden. 'view_changed' avisa al 'CenterViewController', que
       pone la página y los botones.
+    - El FILTRO de la barra de filtros de cada módulo ('set_filter', 'active_filter'): se
+      guarda igual que el orden y se aplica al cambiar de módulo (origen, orden y filtro
+      con una sola recarga). Con el candado ABIERTO, cuando el módulo activo cambia de
+      origen (otra fila de su barra, la flecha del inspector), el filtro vuelve a
+      «Ninguno» ('GridFilter.cleared': sin borrar lo escrito). No cuenta como cambio de
+      origen cambiar de módulo ni lo que emiten las barras al restaurarse (al abrir el
+      catálogo, el filtro queda como estaba). 'filter_changed' avisa a la barra de filtros.
     - El estado visual de cada módulo, guardado POR CATÁLOGO en settings.json (clave
       'sidebar_state'), con los órdenes elegidos en 'orders':
 
@@ -32,6 +39,9 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.8.0 Filtro de la barra de filtros por módulo: 'set_filter', 'active_filter', señal
+      'filter_changed'; se guarda por catálogo ('filters'); vuelta a «Ninguno» al cambiar
+      de origen con el candado abierto (paso A.3).
 1.7.1 'show_source' recarga si, tras atender la petición, la cuadrícula sigue con el mismo
       origen (la flecha pide la palabra sin biblioteca y Imagen se la pone).
 1.7.0 'save_state(..., extra)' y 'saved_entry': otros (el inspector) guardan lo suyo en la
@@ -51,7 +61,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.7.1"
+__version__ = "1.8.0"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -71,6 +81,7 @@ from config.app_constants import SETTING_ACTIVE_MODULE, SETTING_SIDEBAR_STATE
 from controllers.app_modules.base import AppModule
 from controllers.app_modules.center_views import CenterView
 from controllers.app_modules.module_view_state import ModuleViewState
+from core.catalog.grid_filter import NO_FILTER, GridFilter
 from core.catalog.grid_orders import GridOrder
 from core.catalog.grid_source import GridSource
 from ui_helpers.helpers.mode_toolbar import MODE_CATALOG, ModeToolbar
@@ -94,12 +105,17 @@ class ModuleHost(QObject):
             elegir otro orden y al abrir o cerrar un catálogo.
         view_changed(object): ha cambiado la vista del centro del módulo activo (un
             'CenterView'). Se emite en los mismos momentos que 'order_changed'.
+        filter_changed(object): ha cambiado el filtro del módulo activo (un 'GridFilter').
+            Se emite en los mismos momentos que 'order_changed' y cuando el filtro vuelve
+            a «Ninguno» al cambiar de origen (no al llamar a 'set_filter': lo pide quien
+            ya lo sabe).
     """
 
     module_changed = Signal(str)
     catalog_edit_requested = Signal(object, object)
     order_changed = Signal(object)
     view_changed = Signal(object)
+    filter_changed = Signal(object)
 
     def __init__(
         self,
@@ -146,8 +162,15 @@ class ModuleHost(QObject):
         self._attached = False  # True mientras hay un catálogo abierto
         # Módulos cuya barra hay que releer al activarlos (no se refrescaron por no verse)
         self._dirty: set[str] = set()
-        # Lo elegido en cada módulo (orden y vista) para el catálogo abierto
+        # Lo elegido en cada módulo (orden, vista y filtro) para el catálogo abierto
         self._view_state = ModuleViewState()
+        # True mientras las barras restauran su estado: lo que emiten entonces no es un
+        # cambio de origen del usuario (no devuelve el filtro a «Ninguno»)
+        self._restoring = False
+        # Módulos que, tras restaurar, aún no saben su origen (una colección inteligente
+        # del usuario espera sus reglas, que llegan con el árbol): su primer aviso
+        # también es parte de la restauración
+        self._awaiting_source: set[str] = set()
 
         # Barras izquierdas: las que no están ya en el stack (las creadas en código) se
         # añaden. Las de los módulos sin barra las pone 'ModeToolbar' (provisionales)
@@ -259,6 +282,22 @@ class ModuleHost(QObject):
         if changed:
             self.view_changed.emit(view)
 
+    @property
+    def active_filter(self) -> GridFilter:
+        """Filtro de la barra de filtros del módulo activo ('NO_FILTER' si ninguno)."""
+        if self._active is None:
+            return NO_FILTER
+        return self._view_state.filter_for(self._active)
+
+    def set_filter(self, grid_filter: GridFilter) -> None:
+        """El usuario ha cambiado el filtro del módulo activo: se recuerda y se aplica (la
+        cuadrícula solo se recarga si cambian sus reglas). No emite 'filter_changed'."""
+        module = self._active
+        if module is None or not self._view_state.set_filter(module, grid_filter):
+            return
+        if self._attached:
+            self._grid_model.set_filter(grid_filter)
+
     def show_source(self, source: GridSource) -> None:
         """Muestra un origen pedido desde fuera de la barra (p. ej. la flecha «ver sus
         fotos» del inspector): lo hace el módulo activo, eligiéndolo en su barra.
@@ -307,11 +346,13 @@ class ModuleHost(QObject):
         """El catálogo se ha cerrado: cada módulo olvida lo suyo (llamar tras 'save_state')."""
         self._attached = False
         self._dirty.clear()
+        self._awaiting_source.clear()
         self._view_state.clear()  # es de cada catálogo
         for module in self._modules.values():
             module.detach()
         self.order_changed.emit(self.active_order)
         self.view_changed.emit(self.active_view)
+        self.filter_changed.emit(self.active_filter)
 
     def refresh(self) -> None:
         """Refresca la barra del módulo activo; las demás, al activarlas."""
@@ -349,7 +390,8 @@ class ModuleHost(QObject):
         # ha cambiado (si se modificara el diccionario que devuelve 'get', no lo notaría)
         states = dict(saved) if isinstance(saved, dict) else {}
         entry: dict[str, Any] = {_MODULES_KEY: modules_state}
-        entry.update(self._view_state.to_state())  # órdenes y vistas ('orders', 'views')
+        # Órdenes, vistas y filtros ('orders', 'views', 'filters')
+        entry.update(self._view_state.to_state())
         if extra:
             entry.update(extra)
         states[str(catalog_dir)] = entry
@@ -373,15 +415,25 @@ class ModuleHost(QObject):
         saved = self._config.get(SETTING_SIDEBAR_STATE, {})
         entry = saved.get(str(catalog_dir)) if isinstance(saved, dict) else None
         self._view_state.restore(entry, self._modules)
-        # El orden del módulo activo, en la cuadrícula ANTES de restaurar las barras (sin
-        # cargar): el origen que emitan al restaurarse ya se carga en su orden
+        # El orden y el filtro del módulo activo, en la cuadrícula ANTES de restaurar las
+        # barras (sin cargar): el origen que emitan al restaurarse ya se carga con ellos
         order = self.active_order
         if order is not None:
             self._grid_model.set_order(order, reload=False)
-        for key, module in self._modules.items():
-            module.restore_state(self._module_state(entry, key))
+        self._grid_model.set_filter(self.active_filter, reload=False)
+        # Lo que emitan las barras al restaurarse no devuelve el filtro a «Ninguno»
+        self._restoring = True
+        try:
+            for key, module in self._modules.items():
+                module.restore_state(self._module_state(entry, key))
+        finally:
+            self._restoring = False
+        self._awaiting_source = {
+            key for key, module in self._modules.items() if module.current_source() is None
+        }
         self.order_changed.emit(order)
         self.view_changed.emit(self.active_view)
+        self.filter_changed.emit(self.active_filter)
 
     @staticmethod
     def _module_state(entry: object, key: str) -> object:
@@ -427,6 +479,7 @@ class ModuleHost(QObject):
             self._apply_view(module)
         self.order_changed.emit(self._view_state.order_for(module))
         self.view_changed.emit(self._view_state.view_for(module))
+        self.filter_changed.emit(self._view_state.filter_for(module))
 
         # Se recuerda para el próximo arranque
         try:
@@ -438,10 +491,11 @@ class ModuleHost(QObject):
         self.module_changed.emit(key)
 
     def _apply_view(self, module: AppModule) -> None:
-        """La cuadrícula, con el origen y el orden del módulo (una sola recarga).
+        """La cuadrícula, con el origen, el orden y el filtro del módulo (una sola recarga).
 
-        Lo que el módulo no decide (None) se queda como estaba. 'set_view' no recarga si
-        no cambia nada.
+        Lo que el módulo no decide (origen u orden None) se queda como estaba; un módulo
+        provisional, que no decide ninguno de los dos, no cambia la cuadrícula. 'set_view'
+        no recarga si no cambia nada.
         """
         source = module.current_source()
         order = self._view_state.order_for(module)
@@ -450,9 +504,31 @@ class ModuleHost(QObject):
         self._grid_model.set_view(
             source if source is not None else self._grid_model.source,
             order if order is not None else self._grid_model.order,
+            self._view_state.filter_for(module),
         )
 
     def _on_module_source_selected(self, module: AppModule, source: GridSource) -> None:
-        """Un módulo ha elegido otro origen: solo el activo cambia la cuadrícula."""
-        if module is self._active:
-            self._grid_model.set_source(source)
+        """Un módulo ha elegido otro origen: solo el activo cambia la cuadrícula.
+
+        Si es un cambio de origen del usuario (no la restauración de las barras, tampoco
+        la que termina después, cuando llega el árbol) y el candado está abierto, el filtro
+        vuelve a «Ninguno» antes de cargar: una sola recarga, ya sin filtro.
+        """
+        restored_late = module.key in self._awaiting_source
+        self._awaiting_source.discard(module.key)
+        if module is not self._active:
+            return
+        current = self._view_state.filter_for(module)
+        if (
+            not self._restoring
+            and not restored_late
+            and self._attached
+            and source != self._grid_model.source
+            and not current.locked
+            and not current.is_none
+        ):
+            cleared = current.cleared()
+            self._view_state.set_filter(module, cleared)
+            self._grid_model.set_filter(cleared, reload=False)
+            self.filter_changed.emit(cleared)
+        self._grid_model.set_source(source)

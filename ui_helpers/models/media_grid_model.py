@@ -23,6 +23,8 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.14.0 'set_view(..., grid_filter)': origen, orden y filtro a la vez, con una sola recarga
+       (al cambiar de módulo; paso A.3).
 1.13.0 Filtro de la barra de filtros: 'set_filter', propiedades 'grid_filter' y
        'filter_rules' (las reglas que aplican; las usa también el inspector). Solo recarga
        si cambian las reglas (el candado o un texto con su pestaña apagada, no). Paso A.3.
@@ -49,7 +51,7 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.13.0"
+__version__ = "1.14.0"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
@@ -273,16 +275,29 @@ class MediaGridModel(QAbstractListModel):
         if reload:
             self.reload()
 
-    def set_view(self, source: GridSource, order: GridOrder) -> None:
-        """Cambia a la vez QUÉ se muestra y en qué orden, con una sola recarga.
+    def set_view(
+        self, source: GridSource, order: GridOrder, grid_filter: GridFilter | None = None
+    ) -> None:
+        """Cambia a la vez QUÉ se muestra, en qué orden y con qué filtro, con una sola
+        recarga.
 
-        Lo usa el 'ModuleHost' al cambiar de módulo (cada módulo tiene su origen y su
-        orden). Si no cambia ninguno de los dos, no hace nada.
+        Lo usa el 'ModuleHost' al cambiar de módulo (cada módulo tiene su origen, su orden
+        y su filtro). Si no cambia nada de lo que va a la consulta, no recarga.
+
+        Args:
+            source: Origen.
+            order: Orden.
+            grid_filter: Filtro de la barra de filtros (None = se queda el que hay).
         """
-        if source == self._source and order == self._order:
+        rules = self._filter_rules
+        if grid_filter is not None:
+            self._filter = grid_filter
+            rules = grid_filter.rule_sets()
+        if source == self._source and order == self._order and rules == self._filter_rules:
             return
         self._source = source
         self._order = order
+        self._filter_rules = rules
         self.reload()
 
     @property
