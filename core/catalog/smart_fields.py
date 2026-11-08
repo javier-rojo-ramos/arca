@@ -11,7 +11,7 @@ Organización (lo que ve el usuario en el menú "campo" del editor):
     Estándar ▸        común a todos los archivos
         Archivo         Nombre de archivo, Extensión, Tipo de archivo, Carpeta...
         Fechas          Fecha de captura, Fecha de importación
-        Clasificación   Valoración, Marca, Etiqueta de color
+        Clasificación   Valoración, Marca, Etiqueta de color, Selección rápida
         Descripción     Título, Descripción, Autor, Copyright
         Ubicación       Ciudad, Región, País, Coordenadas GPS
         Palabras clave  Palabra clave (cualquier tipo de archivo)
@@ -39,6 +39,8 @@ Cómo añadir un campo:
 Cómo añadir un grupo (p. ej. vídeo, cuando exista 'video_details'): una línea en
 'GROUPS' con sus 'media_types'; sus campos, con 'group=' su clave.
 
+1.4.0 Campo «Selección rápida» (sí / no; 'media_items.in_quick_selection'): lo usa la
+      fila «Atributos» de la barra de filtros y también el editor (paso A.3).
 1.3.0 «empieza con» y «termina con» (antes «empieza por» y «termina en»; mismos textos que
       la barra de filtros) y «termina con» también en «Palabra clave» (paso A.3).
 1.2.0 Campo «Palabra clave» (KIND_KEYWORD): «es» con o sin sus hijas, «contiene»...
@@ -49,7 +51,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.smart_fields
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 # ruff: noqa: RUF022
 __all__ = [
     "KIND_BOOL",
@@ -308,6 +310,9 @@ _FIELD_LIST: tuple[SmartField, ...] = (
     SmartField("color_label", "Etiqueta de color", "standard", "Clasificación", KIND_ENUM,
                "m.color_label", choices=_COLOR_CHOICES,
                operators=("eq", "ne", "is_set", "is_not_set")),
+    # Solo vive en el catálogo (el círculo de la tarjeta): no se escribe en los archivos
+    SmartField("in_quick_selection", "Selección rápida", "standard", "Clasificación", KIND_BOOL,
+               "m.in_quick_selection"),
 
     SmartField("title", "Título", "standard", "Descripción", KIND_TEXT, "m.title"),
     SmartField("description", "Descripción", "standard", "Descripción", KIND_TEXT, "m.description"),

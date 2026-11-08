@@ -621,4 +621,35 @@ if __name__ == "__main__":
     assert filtered(QUICK_SELECTION, TEXT_FILE_NAME, "contains", "jpg") == []  # origen vacío
     assert fetch_grid_rows(db, NAME_ORDER, ALL_ITEMS, NO_FILTER.rule_sets()) == fetch_grid_rows(db)
     assert source_condition(ALL_ITEMS) == ("1 = 1", ())
+
+    # «Atributos»: marca, valoración, color (también «sin color»), selección rápida y tipo
+    from core.catalog.grid_filter import COLOR_NONE, FILTER_ATTRIBUTES, AttributeFilter
+
+    db.executescript("""
+        UPDATE media_items SET rating = 0, flag = 0, color_label = NULL, in_quick_selection = 0;
+        UPDATE media_items SET rating = 4, flag = 1, color_label = 'red' WHERE file_name = 'a.jpg';
+        UPDATE media_items SET rating = 2, flag = -1 WHERE file_name = 'b.jpg';
+        UPDATE media_items SET color_label = 'green', in_quick_selection = 1,
+                               media_type = 'video' WHERE file_name = 'c.jpg';
+    """)
+
+    def by_attributes(**chosen: Any) -> list[str]:
+        grid_filter = replace(NO_FILTER, active=frozenset({FILTER_ATTRIBUTES}),
+                              attributes=AttributeFilter(**chosen))  # fmt: skip
+        rows = fetch_grid_rows(db, NAME_ORDER, ALL_ITEMS, grid_filter.rule_sets())
+        return sorted(r["file_name"] for r in rows)
+
+    everything = sorted(r["file_name"] for r in fetch_grid_rows(db))
+    assert by_attributes() == everything
+    assert by_attributes(flags=frozenset({1, -1})) == ["a.jpg", "b.jpg"]
+    assert by_attributes(rating=2) == ["a.jpg", "b.jpg"]  # 2 o más
+    assert by_attributes(rating=2, rating_operator="lte") == ["B2.jpg", "b.jpg", "c.jpg", "gone.jpg"]
+    assert by_attributes(rating=4, rating_operator="eq") == ["a.jpg"]
+    assert by_attributes(colors=frozenset({"red", "green"})) == ["a.jpg", "c.jpg"]
+    assert by_attributes(colors=frozenset({COLOR_NONE})) == ["B2.jpg", "b.jpg", "gone.jpg"]
+    assert by_attributes(quick=True) == ["c.jpg"]
+    assert by_attributes(media_types=frozenset({"video"})) == ["c.jpg"]
+    # Entre grupos, todos a la vez
+    assert by_attributes(flags=frozenset({0}), colors=frozenset({"green"})) == ["c.jpg"]
+    assert by_attributes(flags=frozenset({1}), quick=True) == []
     print("Autoprueba finalizada correctamente.")
