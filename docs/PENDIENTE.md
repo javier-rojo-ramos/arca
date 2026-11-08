@@ -5,10 +5,22 @@
 
 Plan de interfaz acordado el 29/10/2026 (ver [FLUJOS.md §11](FLUJOS.md) y [DECISIONES.md](DECISIONES.md)): mismo esqueleto en todos los módulos (izquierda navegar, centro ver, derecha ficha), edición habitual en el panel derecho y ventanas solo para operaciones pesadas o por lotes, una sola tarjeta configurable por «perfiles», y un único motor de filtros (`RuleSet`) con estado por módulo.
 
-**A. Módulos e interfaz (en curso)**
+**A. Módulos e interfaz** (hoja de ruta revisada el 08/11/2026; ver [DECISIONES.md](DECISIONES.md), las entradas de esa fecha). Siguientes pasos, en este orden:
 
-1. ~~Infraestructura de módulos~~: entregada el 29/10/2026 y **verificada por el autor**.
-2. **Bibliotecas** (decidido el 29/10/2026; [FLUJOS.md §3](FLUJOS.md) y [DECISIONES.md](DECISIONES.md)):
+1. **Centro con varias vistas + V1: vista individual de las fotos**: pila de vistas en el centro; botones de vista en la barra inferior (los crea cada módulo); doble clic o Intro abre la vista individual en el mismo módulo; Esc o G vuelve a la cuadrícula; flechas para pasar de archivo; miniatura de 2560 px. En la vista individual, la clasificación se aplica al archivo que se ve y el tamaño se oculta. El estado de cada módulo guarda también la vista, la selección y el desplazamiento.
+2. **Inspector que edita en todos los módulos**: secciones de edición cuando toda la selección es de una sola biblioteca (con varias, solo lo común); el editor de palabras clave deja de ser solo de Imagen. Sustituye al «Plan del inspector» del 02/11/2026. Pregunta abierta: la flecha «ver sus fotos» del árbol del inspector, pulsada desde el Catálogo, ¿cambia a Imagen y elige allí la palabra, o la muestra en el Catálogo como origen (sin fila marcada en su barra)?
+3. **Barra de filtros**: F1 motor (`RuleSet` + `GridSource`, estado por módulo, Ctrl+L, indicador y botón para quitarlo; se mantiene al cambiar de origen), F2 texto, F3 atributos (valoración mínima, marca, color, tipo, selección rápida). Después: F4 metadatos en columnas con recuentos, F5 «Guardar como colección inteligente».
+4. **Módulo Imagen completo**: línea de tiempo (año → mes → día), perfil de tarjeta, y qué hacer con las palabras clave que no tienen nada en Imagen (ocultarlas o atenuarlas: lo decidirá el autor).
+5. **Vista de lista** (con el módulo Audio, estilo Mp3tag) y **vista de mapa** (tracks con las fotos cercanas; sección «Ubicación» del inspector).
+6. **Módulos Vídeo, Audio y Tracks** con sus extractores y su navegación.
+7. **«Abrir en su módulo»** (atajo de navegación).
+
+**Pendientes de aspecto**, en cualquier momento: fuente de la aplicación (incluida en `resources/fonts`, p. ej. Inter, con tamaño fijo) y esquinas redondeadas de los menús.
+
+**Hecho y en curso (hasta el 08/11/2026)**: los apartados anteriores, con su número de entonces entre paréntesis (así se citan en [HISTORIAL.md](HISTORIAL.md)).
+
+- ~~Infraestructura de módulos~~ (antes A.1): entregada el 29/10/2026 y **verificada por el autor**.
+- **Bibliotecas** (antes A.2; decidido el 29/10/2026; [FLUJOS.md §3](FLUJOS.md) y [DECISIONES.md](DECISIONES.md)):
    - ~~**2a**~~: entregado (migración 10, `libraries.py`, «¿Qué contiene esta carpeta?», filtrado y biblioteca al escanear, campo «Biblioteca» en las colecciones inteligentes). **Verificado por el autor.**
    - ~~**2b-1**~~: entregado (vídeos por el nombre, fila «Sin clasificar», aviso en el resumen, submenú «Biblioteca», `library_manual`, clasificación al abrir). **Verificado por el autor.**
    - ~~Submenú «Biblioteca» con las bibliotecas posibles y la actual marcada~~ (pedido por el autor tras probar el 2b-1): **verificado por el autor.**
@@ -17,13 +29,13 @@ Plan de interfaz acordado el 29/10/2026 (ver [FLUJOS.md §11](FLUJOS.md) y [DECI
    - ~~Objetivo del vídeo~~ (migración 13): entregado el 31/10/2026. **Verificar en Windows**: comprobar en el inspector (vista EXIF) o con una consulta que los vídeos del iPhone tienen objetivo, focal y apertura.
    - Ideas siguientes: campos de vídeo en las colecciones inteligentes (grupo «Vídeo», ya existe vacío: cámara, objetivo, focal, duración, códec); miniatura de vídeo (fotograma, paso 4b de miniaturas; el 4a, marcador y duración, ya está entregado).
    - Después, cada módulo tendrá su restricción base por biblioteca. Que la biblioteca puesta a mano sobreviva a recrear el catálogo: **no por ahora** (decisión aconsejada; se añadiría una clave `library` en el `.arca.json` si hiciera falta).
-3. **Barra inferior** (decidido el 01/11/2026): bloque centrado con estrellas, color, selección rápida y marca (dos botones: marcar y rechazar), `slider_thumbnails` a la derecha y, más adelante, botones de vista a la izquierda; montada en el `.ui` (widget promocionado `OrganizeBar`). Pasos: ~~1, dibujo compartido (`card_marks.py`)~~ y ~~2-3, la barra (`OrganizeBar`), su distribución en el `.ui` y el estado de la selección siempre al día~~: entregados el 01/11/2026. Después: botones de tipo de vista a la izquierda (con la vista individual, A.5).
+- **Barra inferior** (antes A.3; decidido el 01/11/2026): bloque centrado con estrellas, color, selección rápida y marca (dos botones: marcar y rechazar), `slider_thumbnails` a la derecha y, más adelante, botones de vista a la izquierda; montada en el `.ui` (widget promocionado `OrganizeBar`). Pasos: ~~1, dibujo compartido (`card_marks.py`)~~ y ~~2-3, la barra (`OrganizeBar`), su distribución en el `.ui` y el estado de la selección siempre al día~~: entregados el 01/11/2026. ~~Después: botones de tipo de vista a la izquierda (con la vista individual, A.5)~~: *pasa a A.1*.
    - **Orden de la cuadrícula** (pasos 1 a 3 **verificados por el autor** el 07/11/2026; decidido el 07/11/2026, ver [DECISIONES.md](DECISIONES.md)): «Orden:», un desplegable de campos y un botón con flecha ↑/↓ en `frame_main_bottom`. Cada módulo ofrece sus campos y tiene su orden de partida (Catálogo: nombre; Imagen: hora de captura); el elegido se recuerda por módulo y por catálogo. Campos de la primera versión: «Hora de captura», «Nombre», «Extensión», «Tamaño», «Fecha de modificación» y «Fecha de importación» (`added_at`; los textos, como en las colecciones inteligentes). Pasos:
      1. ~~**core**: registro de campos de orden con dirección (`core/catalog/grid_orders.py`), en lugar de `GRID_ORDERS`~~: entregado el 07/11/2026.
      2. ~~**Módulos y `ModuleHost`**: `sort_fields()` / `default_order()` en `AppModule`, orden guardado por módulo y por catálogo y aplicado al cambiar de módulo (una sola recarga para origen y orden)~~: entregado el 07/11/2026.
      3. ~~**Widget de orden** en la barra inferior (`.ui` + `build_ui.py`) y su conexión~~: entregado el 07/11/2026 (`SortControl`, a la izquierda de la barra).
      4. Después: campos propios de cada biblioteca (duración, artista/álbum/pista, distancia...) con sus módulos; «Orden personalizado» en las colecciones estáticas (`collection_items.position`); un módulo sin cuadrícula oculta el deslizador (y el orden, si no ofrece campos).
-3a. **Tema oscuro y aspecto** (decidido el 02/11/2026, antes de la barra de filtros; referencias del autor: LightTable, darktable y digiKam, sin copiar ninguna). Solo oscuro, con los colores con nombre en `theme_colors.py` para poder añadir un tema claro sin rehacer nada. Acento `#4c8ee8`.
+- **Tema oscuro y aspecto** (antes A.3a; decidido el 02/11/2026, antes de la barra de filtros; referencias del autor: LightTable, darktable y digiKam, sin copiar ninguna). Solo oscuro, con los colores con nombre en `theme_colors.py` para poder añadir un tema claro sin rehacer nada. Acento `#4c8ee8` (ámbar `#eca531` desde el 07/11/2026).
    - ~~**T1**: colores con nombre y paleta oscura de Fusion~~ (entregado el 02/11/2026): todo pasa a oscuro sin cambiar todavía la forma de nada.
    - ~~**T1**~~ verificado por el autor (02/11/2026: «Me gusta»).
    - ~~**T2**: QSS de los componentes generales~~ (entregado el 02/11/2026, `theme_qss.py`): barras de desplazamiento finas, separadores de paneles, botones, campos, menús, barra de menús y de estado, barras de progreso, cabeceras de tabla, hover de las filas laterales y marcos de la zona central. Desplegables, casillas y campos con flechas se dejan a Fusion a propósito.
@@ -31,24 +43,24 @@ Plan de interfaz acordado el 29/10/2026 (ver [FLUJOS.md §11](FLUJOS.md) y [DECI
    - ~~**T4**: botones de opción y casillas visibles~~ (entregado el 05/11/2026, `theme_style.py`): borde gris claro y relleno del acento al marcarlos, también en las casillas del árbol de palabras clave.
    - ~~**T5**: grises de LightTable, zonas pegadas y toolbar con cajas~~ (entregado el 07/11/2026): toolbar `#1a1a1a`, paneles `#222222`, raya de 1 px (`divider`) entre zonas y botones de la toolbar en cajas redondeadas. La cuadrícula y las tarjetas, también en grises neutros (07/11/2026).
    - ~~Acento ámbar `#eca531` y toolbar sin acento al pasar el ratón~~ (entregado el 07/11/2026).
-   - **Después** (pedido por el autor el 05/11/2026): esquinas redondeadas en los menús.
+   - ~~**Después** (pedido por el autor el 05/11/2026): esquinas redondeadas en los menús~~: *pasa a «Pendientes de aspecto»*.
    - ~~**T3**: tarjetas y barra inferior~~ (entregado el 02/11/2026): `CardColors` en `theme_colors.py` (cuadrícula más hundida que las tarjetas; borde de la tarjeta bajo el ratón en gris claro en vez de amarillo), deslizador del tamaño en el acento. La ventana de opciones y los diálogos ya quedaron bien con T1 y T2 (captura del autor). Después, si el autor lo pide al verlo: opción en Opciones para que la etiqueta de color de la tarjeta sea una franja inferior en vez de teñir la tarjeta entera.
-3b. **Barra de filtros** encima de la cuadrícula (texto, atributos y metadatos), un `RuleSet` combinado con el `GridSource`; estado por módulo, indicador visible y atajo para quitarlo; «Guardar como colección inteligente».
-4. **Panel derecho (inspector)**, diseño del 30/10/2026 en la [FLUJOS.md §12](FLUJOS.md):
+- **Barra de filtros** (antes A.3b) encima de la cuadrícula (texto, atributos y metadatos), un `RuleSet` combinado con el `GridSource`; estado por módulo, indicador visible y atajo para quitarlo; «Guardar como colección inteligente». *Sustituido el 08/11/2026: pasa a A.3.*
+- **Panel derecho (inspector)** (antes A.4), diseño del 30/10/2026 en la [FLUJOS.md §12](FLUJOS.md):
    - ~~**A.4a**~~: entregado (panel, registro de secciones y sección «Selección» de solo lectura; resumen sin selección). **Verificado por el autor** (31/10/2026). Queda por mirar con calma: Ctrl+A en un catálogo grande, archivo ausente y disco desconectado.
-   - **Plan del inspector** (decidido el 02/11/2026; ver [DECISIONES.md](DECISIONES.md)):
-     - Selección de varias bibliotecas: solo «Selección».
-     - Todo de la biblioteca Imagen (fotos y vídeos del móvil): «Selección», **«Metadatos»** y, más adelante, **«Ubicación»** (el mapa).
-     - En el Catálogo, las secciones de contenido son de **solo lectura**; la edición llegará con cada módulo (Imagen, Vídeo, Música...), con las mismas secciones en modo edición.
+   - ~~**Plan del inspector** (decidido el 02/11/2026; ver [DECISIONES.md](DECISIONES.md))~~: *sustituido el 08/11/2026 (inspector único que edita en todos los módulos: A.2)*.
+     - ~~Selección de varias bibliotecas: solo «Selección».~~
+     - ~~Todo de la biblioteca Imagen (fotos y vídeos del móvil): «Selección», **«Metadatos»** y, más adelante, **«Ubicación»** (el mapa).~~
+     - ~~En el Catálogo, las secciones de contenido son de **solo lectura**; la edición llegará con cada módulo (Imagen, Vídeo, Música...), con las mismas secciones en modo edición.~~
    - **Sección «Metadatos»** (en curso):
      - **M1** ~~lectura de valores comunes (`core/catalog/selection_metadata.py`) y formatos (`ui_helpers/inspector/formatting.py` 1.1.0)~~: entregado el 02/11/2026.
      - **M2** ~~registro de campos y vistas (`ui_helpers/inspector/metadata_fields.py`)~~ (entregado el 02/11/2026): «Por defecto», «Ubicación» y «EXIF». Arriba en todas las vistas: dimensiones y recorte; fechas de captura, digitalización y modificación (estas dos, en la cabecera común desde el 02/11). EXIF añade, para los vídeos, duración, fps y códec.
      - **M3** ~~la sección~~ (entregada el 02/11/2026), con un desplegable en la cabecera (como Lightroom); la vista elegida se guarda en `settings.json`; siempre los mismos campos, con «Varios» o en blanco, para que la sección no cambie de alto.
      - ~~**R1-R2: dimensiones de recorte**~~ (entregado el 02/11/2026, migración 14): «Dimensiones actuales» de Lightroom calculadas con `crs:Crop*` (ver [METADATOS.md](METADATOS.md)). Verificar con una foto vertical, un RAW con sidecar y un HEIC.
-     - **Después**: vista «Personalizado» (el usuario elige los campos; se guarda en `settings.json`), vistas IPTC y DNG, sección «Ubicación» con mapa, y el visor de mapa de la vista principal.
-   - Ideas: «Abrir en su módulo» (menú contextual y atajo) para llegar a la edición; ~~recordar qué secciones están plegadas~~ (entregado el 02/11/2026); miniatura grande (480 px) arriba en los módulos específicos.
-5. **Módulo Imagen** (empezado el 03/11/2026 con el árbol de palabras clave, K3; «Carpetas» con imágenes el 04/11/2026; posible: unificar el árbol de carpetas del Catálogo y el de Imagen en un solo componente): barra con línea de tiempo (año → mes → día sobre `content_created_at`) y vista individual con la miniatura de 2560 px. Perfil de tarjeta (proporción, líneas de información como dimensiones o duración).
-6. **Palabras clave** (decidido el 03/11/2026, antes de la barra de filtros; ver [DECISIONES.md](DECISIONES.md) y [METADATOS.md](METADATOS.md)). Modelo genérico para todos los tipos; interfaz de edición primero en el módulo Imagen.
+     - **Después**: vista «Personalizado» (el usuario elige los campos; se guarda en `settings.json`), vistas IPTC y DNG. La sección «Ubicación» con mapa y el visor de mapa de la vista principal *pasan a A.5*.
+   - Ideas: ~~«Abrir en su módulo» (menú contextual y atajo) para llegar a la edición~~ (*sustituido el 08/11/2026: solo atajo de navegación, A.7*); ~~recordar qué secciones están plegadas~~ (entregado el 02/11/2026); miniatura grande (480 px) arriba cuando la selección es de una sola biblioteca.
+- **Módulo Imagen** (antes A.5; empezado el 03/11/2026 con el árbol de palabras clave, K3; «Carpetas» con imágenes el 04/11/2026; posible: unificar el árbol de carpetas del Catálogo y el de Imagen en un solo componente): barra con línea de tiempo (año → mes → día sobre `content_created_at`) y vista individual con la miniatura de 2560 px. Perfil de tarjeta (proporción, líneas de información como dimensiones o duración). *Pasa a A.1 (vista individual) y A.4 (línea de tiempo, perfil de tarjeta).*
+- **Palabras clave** (antes A.6; decidido el 03/11/2026, antes de la barra de filtros; ver [DECISIONES.md](DECISIONES.md) y [METADATOS.md](METADATOS.md)). Modelo genérico para todos los tipos; interfaz de edición primero en el módulo Imagen.
    - ~~**K1**: tablas y lectura de los archivos~~ (entregado el 03/11/2026, migración 15, `IMAGE_FIELDS_VERSION` 8).
    - ~~**K1**~~ visto funcionando por el autor (03/11/2026).
    - ~~**K2**: campo «Palabra clave» en las colecciones inteligentes y sección de solo lectura en el inspector~~ (entregado el 03/11/2026). Pendiente para K4: autocompletar el nombre en el editor de reglas.
@@ -62,11 +74,11 @@ Plan de interfaz acordado el 29/10/2026 (ver [FLUJOS.md §11](FLUJOS.md) y [DECI
    - ~~**K4c-3**: arrastrar fotos de la cuadrícula a una palabra del árbol izquierdo~~ (entregado el 04/11/2026; el mismo día pasa al árbol del inspector: la barra izquierda solo navega). Posible: arrastrar una palabra sobre otra para moverla.
    - **Después**: «Conjuntos de palabras clave» personalizables (como Lightroom), en otro desplegable junto a «Últimas palabras clave»; quitar una palabra de «Últimas» sin borrarla.
    - **Reconocimiento facial** (anotado el 03/11/2026, para más adelante): personas como palabras clave especiales (Lightroom las guarda en «[Personas]»). Si procede, **importar las regiones de caras de Lightroom** (`XMP-mwg-rs:RegionInfo`: nombre y rectángulo de cada cara, tipo `Face`), que ya están en los archivos que el autor ha etiquetado, para no empezar de cero. Por decidir: detección y agrupación propias (biblioteca local, sin nube), dónde se guardan las regiones (tabla nueva) y si se escriben de vuelta en el XMP.
-   - **K5**: palabras clave en los demás tipos: el almacenamiento en el `.arca.json` ya está (K4a); falta la interfaz en cada módulo.
+   - **K5**: palabras clave en los demás tipos: el almacenamiento en el `.arca.json` ya está (K4a); ~~falta la interfaz en cada módulo~~ (*sustituido el 08/11/2026: será la del inspector común, A.2*).
    - **Opcional**: importar el `.txt` de *Metadatos > Exportar palabras clave* de Lightroom (palabras sin usar, categorías entre corchetes → `include_on_export = 0`, sinónimos entre llaves); recolocar las sueltas. Mover, renombrar y fusionar palabras del árbol. Más adelante: importador de solo lectura del catálogo de Lightroom (`.lrcat`, SQLite) para traer palabras, valoraciones y colecciones de los vídeos. Conjuntos y sugerencias de palabras clave. Juntar los GPX de una ruta con sus fotos.
-7. **Vídeo, Audio, Ebooks y Tracks**, cada uno con su extractor (Vídeo además con descarga de fichas, p. ej. TMDb; Audio con vista de lista estilo Mp3tag). **GPX-c**: miniatura del track (dibujo del recorrido).
+- **Vídeo, Audio, Ebooks y Tracks** (antes A.7), cada uno con su extractor (Vídeo además con descarga de fichas, p. ej. TMDb; Audio con vista de lista estilo Mp3tag). **GPX-c**: miniatura del track (dibujo del recorrido). *Pasa a A.5 y A.6.*
 
-Pequeñas pendientes de módulos: ~~recordar el módulo activo entre sesiones~~ (entregado el 03/11/2026); conservar selección y desplazamiento de la cuadrícula por módulo (cuando haya un segundo módulo real).
+Pequeñas pendientes de módulos: ~~recordar el módulo activo entre sesiones~~ (entregado el 03/11/2026); conservar selección y desplazamiento de la cuadrícula por módulo (cuando haya un segundo módulo real; *va con A.1*).
 
 **B. Verificaciones pendientes**
 
@@ -77,8 +89,8 @@ Pequeñas pendientes de módulos: ~~recordar el módulo activo entre sesiones~~ 
 **C. Resto (orden sugerido)**
 
 1. **Seguir verificando con ExifTool real**: `inspect_cli --campos` con NEF, CR2/CR3, ARW, ORF, RW2, PEF, RAF y WebP; comparar con Lightroom (tamaño y orientación en especial; `DefaultCropSize` solo existe en los DNG). Hecho para JPEG, HEIC (horizontal y vertical) y DNG.
-2. **Resto del sidebar**: sección *Buscar* (los filtros rápidos de valoración, color y marca pasan a la barra de filtros, A.3). Vistas específicas por tipo (música como Mp3tag, películas como VisualDivX, imágenes como digiKam) llegan con sus módulos (A.5 y A.7). "Pendiente" no existe en XMP: se resolvería con una colección.
-   *Mejoras menores de la cuadrícula*: elegir el orden desde la interfaz (pasa a A.3, «Orden de la cuadrícula»), conservar la selección y el desplazamiento al recargar, comprobar el rendimiento con catálogos muy grandes.
+2. **Resto del sidebar**: sección *Buscar* (los filtros rápidos de valoración, color y marca pasan a la barra de filtros, A.3). Vistas específicas por tipo (música como Mp3tag, películas como VisualDivX, imágenes como digiKam) llegan con sus módulos (A.5 y A.6). "Pendiente" no existe en XMP: se resolvería con una colección.
+   *Mejoras menores de la cuadrícula*: elegir el orden desde la interfaz (pasa a la barra inferior, «Orden de la cuadrícula»), conservar la selección y el desplazamiento al recargar, comprobar el rendimiento con catálogos muy grandes.
    *Archivos ausentes*: «Sincronizar carpeta» y «Quitar archivos ausentes del catálogo» ya están en el árbol de carpetas. Falta: filtro "ocultar ausentes"; en la vista individual, "Archivo no encontrado" con "Localizar…".
 3. **Miniaturas, paso 4: vídeo y audio**:
    - ~~**4a**~~: entregado (marcador dibujado por tipo y duración en la tarjeta). Vídeos con marcador y duración **vistos por el autor** (31/10/2026). **Falta ver**: canciones y GPX con su marcador; duración en vídeos y audio; foto con miniatura fallida → paisaje; selección rápida, rechazada y no disponible sobre un marcador.
@@ -92,7 +104,7 @@ Pequeñas pendientes de módulos: ~~recordar el módulo activo entre sesiones~~ 
    - Lista de `scan_errors` de la fase `userdata` en la interfaz (hoy solo se avisa en la barra de estado y en el registro); no reintentar en cada pasada los que fallan siempre (solo lectura).
    - Favoritos, notas, **palabras clave** (tablas `tags` y `media_tags`) y **colecciones**: en el archivo de carpeta caben como claves nuevas (se conservan las desconocidas); en XMP, `dc:subject` para las palabras clave.
    - Opcional: escribir también las etiquetas nativas de audio (p. ej. `POPM` en MP3) como copia para otros programas; el destino principal seguiría siendo el archivo de carpeta.
-6. **Edición de `title`/`description` y otros metadatos descriptivos** (XMP/IPTC con ExifTool; desde el panel derecho, A.4): reutilizará `core/userdata/` (destino por formato, pendiente por campo, escritor que comprueba releyendo); con eso, lo editado sobrevive a releer.
+6. **Edición de `title`/`description` y otros metadatos descriptivos** (XMP/IPTC con ExifTool; desde el panel derecho, A.2): reutilizará `core/userdata/` (destino por formato, pendiente por campo, escritor que comprueba releyendo); con eso, lo editado sobrevive a releer.
 7. **Extractores de vídeo, audio y ebooks** con sus tablas de detalles; decidir si PDF y CBZ cuentan como ebook.
 8. **Hashes** (`hash_partial`, `hash_full`, `hash_verified_at`): duplicados y comprobación de integridad.
 9. **Archivos sueltos** (hoy solo carpetas completas) y **fusión de ubicaciones solapadas** (hoy se rechazan).

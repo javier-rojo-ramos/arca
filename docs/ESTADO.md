@@ -3,9 +3,9 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 07/11/2026.
+**Actualizado**: 08/11/2026.
 
-**En resumen**: el Catálogo funciona de punta a punta con imágenes (añadir carpetas, metadatos con ExifTool, miniaturas, cuadrícula con valoración/marca/color guardados también en los archivos, barra lateral con carpetas y colecciones, inspector con la sección «Selección»). Vídeo, audio, GPX y ebooks se catalogan y clasifican en bibliotecas, pero sus módulos (Imagen, Vídeo, Audio) aún son provisionales. En curso: la sección «Metadatos» del inspector ([PENDIENTE.md](PENDIENTE.md), A.4).
+**En resumen**: el Catálogo funciona de punta a punta con imágenes (añadir carpetas, metadatos con ExifTool, miniaturas, cuadrícula con valoración/marca/color guardados también en los archivos, barra lateral con carpetas y colecciones, inspector con la sección «Selección»). Vídeo, audio, GPX y ebooks se catalogan y clasifican en bibliotecas, pero sus módulos (Imagen, Vídeo, Audio) aún son provisionales. Siguiente: centro con varias vistas y vista individual de las fotos ([PENDIENTE.md](PENDIENTE.md), A.1).
 
 ## Pendiente de verificar en Windows (lo último entregado)
 
@@ -74,6 +74,7 @@
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 08/11/2026: nuevo planteamiento de la interfaz (inspector único que edita, qué es un módulo, vistas del centro, barra inferior, filtros) y hoja de ruta del apartado A reorganizada; solo documentación.
 - 07/11/2026: cuadrícula y tarjetas en grises neutros (fondo `#161616`).
 - 07/11/2026: acento ámbar `#eca531` (texto e iconos oscuros encima); los iconos de la toolbar solo se ponen en el acento en el módulo activo.
 - 07/11/2026: tema: grises neutros de LightTable, zonas pegadas con rayas de 1 px y botones de la toolbar en cajas redondeadas.
@@ -83,4 +84,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 06/11/2026: carpetas: «Quitar del catálogo...» en el menú de una carpeta o ubicación (como Lightroom); si la carpeta elegida desaparece, se elige su padre.
 - 05/11/2026: barra de estado: icono del mensaje teñido (verde «hecho», amarillo aviso, rojo error; el resto, claro).
 - 05/11/2026: «Añadir carpeta» se abre en la carpeta que contiene la última añadida; el círculo y la casilla bajan al dibujarlos (el ajuste anterior no se veía).
-- 05/11/2026: el círculo y la casilla, 1 px más abajo (alineados con el texto); botón «Cancelar» de los trabajos compacto, entero en la barra de estado.

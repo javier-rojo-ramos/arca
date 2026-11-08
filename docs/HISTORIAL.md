@@ -5,6 +5,7 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 08/11/2026: nuevo planteamiento de la interfaz en DECISIONES (seis entradas; revisadas las del 30/10 y 02/11 sobre la edición), PENDIENTE (apartado A reorganizado: A.1 a A.7) y FLUJOS §11 y §12 (intención de diseño); sin cambios de código
 - 07/11/2026: cuadrícula y tarjetas en grises neutros (`theme_colors` 1.5.0: `DARK_CARDS`, fondo `#161616`; varios valores tomados de `DARK`)
 - 07/11/2026: acento ámbar (`theme_colors` 1.4.0: `accent` `#eca531`, `text_on_accent` `#1a1a1a`; `theme_qss` 1.2.1: asa del deslizador; `ui_icons` 1.2.0: iconos en filas seleccionadas con `HighlightedText`; `mode_toolbar` 1.1.0 y botón de Opciones sin acento al pasar el ratón). Vista previa sin ventana: fila elegida con texto e icono oscuros
 - 07/11/2026: tema T5, con LightTable como referencia (`theme_colors` 1.3.0: grises neutros y color `divider`; `theme_qss` 1.2.0: `SPLITTER_WIDTH` = 1; `ui_theme` 1.6.0: rayas de 1 px y cajas en la toolbar, `TOOLBAR_BUTTON_RADIUS`; `.ui`: `layout_content` y `layout_central_area` sin márgenes ni espacios, iconos de la toolbar de 24 px y 4 px entre botones). Vista previa dibujada sin ventana (offscreen)
@@ -13,6 +14,7 @@
 - 07/11/2026: orden de la cuadrícula, paso 2 (`base` 1.3.0: `sort_fields` y `default_order`; `catalog_module` 1.1.0, nombre; `image_module` 1.8.0, hora de captura; `module_host` 1.4.0: `set_order`, `active_order`, `active_sort_fields`, señal `order_changed`, clave `orders` en `sidebar_state`; `media_grid_model` 1.10.0: `set_view` y `set_order(..., reload=False)`); `grid_orders` 1.0.1, textos «Extensión» y «Fecha de importación». Comprobado con un script sin ventana (cargas y recargas contadas)
 - 07/11/2026: orden de la cuadrícula, paso 1 (`core/catalog/grid_orders.py` 1.0.0: `SORT_FIELDS`, `GridOrder`, `order_by_sql`; `media_queries` 2.0.0 sin `GRID_ORDERS` ni `DEFAULT_ORDER`; `media_grid_model` 1.9.0); la cuadrícula parte de «Nombre»
 - 06/11/2026: carpetas, «Quitar del catálogo...» (`core/catalog/folder_removal.py` 1.0.0, `controllers/folder_actions.py` 1.0.0, `catalog_sidebar` 1.11.0: también la vuelta a la carpeta padre); entregas del 05/11 verificadas por el autor
+- 05/11/2026: el círculo y la casilla, 1 px más abajo (alineados con el texto); botón «Cancelar» de los trabajos compacto, entero en la barra de estado.
 - 05/11/2026: el icono de la barra de estado seguía sin teñir (gris #1f1f1f, el del SVG): `ui_status` 1.1.1 lo tiñe con `tinted_pixmap` (`ui_icons` 1.1.0), directo y a la escala de la pantalla
 - 05/11/2026: barra de estado con el icono teñido (`ui_status` 1.1.0 con `tinted_icon`; `theme_colors` 1.2.0: `success` y `warning` amarillo)
 - 05/11/2026: «Añadir carpeta» se abre en la carpeta de la última añadida (`last_add_folder_parent`, `app_config_manager` 1.09); `theme_style` 1.2.0 (el desplazamiento del indicador, al dibujar)
