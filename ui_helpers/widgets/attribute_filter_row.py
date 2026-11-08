@@ -11,8 +11,9 @@ las mismas funciones que la tarjeta y la barra inferior ('card_marks', 'card_gly
 Cada icono es un interruptor: encendido, a plena intensidad; apagado, atenuado. Dentro de
 un grupo se pueden encender varios (marcadas O sin marca; rojo O verde). Las estrellas no
 son interruptores: pulsar la tercera es «3 estrellas» (con el operador del desplegable:
-≥, ≤ o =) y pulsarla otra vez las apaga, como en la barra inferior. Sin estrellas, «=» y
-«≤» filtran lo que no tiene valoración; «≥», nada (lo decide 'AttributeFilter').
+≥, ≤ o =) y pulsarla otra vez las apaga, como en la barra inferior. Sin estrellas, solo
+«=» filtra (lo que no tiene valoración; lo decide 'AttributeFilter'): lo explica el texto
+emergente del desplegable.
 
 Solo muestra y avisa: cada clic emite 'attribute_filter_changed(AttributeFilter)' (de
 'core/catalog/grid_filter.py') en el acto, sin pausa; lo que se ve lo pone 'set_filter'
@@ -24,7 +25,8 @@ Uso (lo crea el controlador principal y se lo pasa al 'FilterController'):
     row.set_media_types(("photo", "video"))
     row.attribute_filter_changed.connect(...)
 
-1.0.1 Cabecera: «=» o «≤» sin estrellas es «sin valoración» (lo decide el motor).
+1.0.1 «Sin valoración» = «=» sin estrellas (lo decide el motor); texto emergente del
+      desplegable que lo explica.
 1.0.0 Primera versión (paso A.3, «Atributos», subpaso 2).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
@@ -32,7 +34,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
 """
 
 __version__ = "1.0.1"
-__all__ = ["OPERATOR_TEXTS", "TYPE_TEXTS", "AttributeFilterRow"]
+__all__ = ["OPERATOR_TEXTS", "OPERATOR_TOOLTIP", "TYPE_TEXTS", "AttributeFilterRow"]
 
 # Librerías estándar
 from collections.abc import Callable, Sequence
@@ -60,6 +62,7 @@ _FLAG_TEXTS: dict[int, str] = {
 }
 _NO_COLOR_TEXT = "Sin color"
 _QUICK_TEXT = "En la selección rápida"
+OPERATOR_TOOLTIP = "Para filtrar sin valoración: = sin estrellas"
 TYPE_TEXTS: dict[str, str] = {
     "photo": "Fotos",
     "video": "Vídeos",
@@ -207,6 +210,7 @@ class AttributeFilterRow(QWidget):
         self._operator = QComboBox(self)
         self._operator.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._operator.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self._operator.setToolTip(OPERATOR_TOOLTIP)
         for key in RATING_OPERATORS:
             self._operator.addItem(OPERATOR_TEXTS[key], key)
         self._rest = _ZoneStrip(self._paint_rest, self)
@@ -387,6 +391,7 @@ if __name__ == "__main__":
     assert [k for k in row._rest._zones if k.startswith("type:")] == ["type:photo", "type:video"]
     assert [row._operator.itemText(i) for i in range(row._operator.count())] == ["≥", "≤", "="]
     assert row._operator.focusPolicy() == Qt.FocusPolicy.NoFocus
+    assert row._operator.toolTip() == "Para filtrar sin valoración: = sin estrellas"
 
     # Marca: interruptores que se combinan
     click(row._flags, "flag:1")

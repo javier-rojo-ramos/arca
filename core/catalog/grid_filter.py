@@ -24,8 +24,8 @@ Qué guarda un 'GridFilter':
 «Atributos»: cada GRUPO con algo elegido aporta su propio 'RuleSet' (AND entre grupos).
 Dentro de un grupo, lo elegido vale con «alguna» (MATCH_ANY): marcadas O sin marca, rojo O
 verde, fotos O vídeos. «Sin color» es 'color_label' vacío ('COLOR_NONE'). Valoración:
-«≥ / ≤ / =» y de 1 a 5 estrellas; SIN estrellas, «=» y «≤» son «sin valoración» (0) y
-«≥» no filtra (como Lightroom; decidido por el autor el 08/11/2026).
+«≥ / ≤ / =» y de 1 a 5 estrellas; SIN estrellas, solo «=» filtra («sin valoración», la
+valoración 0); «≥» y «≤» sin estrellas no filtran (decidido por el autor el 08/11/2026).
 
 Ejemplo:
 
@@ -40,7 +40,7 @@ de «no contiene»); con los demás operadores, «alguno» (MATCH_ANY).
 Todo es inmutable ('frozen'): un filtro se compara con '==' y se cambia creando otro
 ('with_panel', 'cleared', 'toggled', 'dataclasses.replace').
 
-1.2.0 «Sin valoración»: «=» o «≤» sin estrellas filtra la valoración 0.
+1.2.0 «Sin valoración»: «=» sin estrellas filtra la valoración 0.
 1.1.0 Fila de «Atributos» ('AttributeFilter', 'GridFilter.attributes'); paso A.3.
 1.0.0 Primera versión (paso A.3, subpaso 1): pestañas, candado y fila de «Texto».
 
@@ -138,8 +138,8 @@ class AttributeFilter:
     Attributes:
         flags: Marcas elegidas (1 marcada, 0 sin marca, -1 rechazada).
         rating: Estrellas (0 a 5).
-        rating_operator: Clave de 'RATING_OPERATORS' (≥, ≤ o =). Con 0 estrellas, «=» y
-            «≤» son «sin valoración»; «≥» no filtra (≥ 0 es todo).
+        rating_operator: Clave de 'RATING_OPERATORS' (≥, ≤ o =). Con 0 estrellas, solo
+            «=» filtra («sin valoración»); «≥» y «≤», no.
         colors: Colores elegidos (nombres de 'COLOR_LABELS' y 'COLOR_NONE').
         quick: Solo lo de la selección rápida.
         media_types: Tipos elegidos (valores de 'MediaType').
@@ -176,10 +176,11 @@ class AttributeFilter:
 
     def _rating_filters(self) -> bool:
         """Si la valoración filtra: de 1 a 5 estrellas con cualquier operador, o ninguna
-        con «=» o «≤» (sin valoración). «≥ 0» sería todo."""
+        con «=» (sin valoración). Sin estrellas, «≥» y «≤» no filtran: solo hay una forma
+        de pedir «sin valoración», la que explica el texto emergente del desplegable."""
         if self.rating_operator not in RATING_OPERATORS or not 0 <= self.rating <= 5:
             return False
-        return self.rating > 0 or self.rating_operator != "gte"
+        return self.rating > 0 or self.rating_operator == "eq"
 
 
 # La fila de «Atributos» sin nada elegido
@@ -401,10 +402,10 @@ if __name__ == "__main__":
     for rule_set in sets:
         rules_to_sql(rule_set)  # todas son reglas válidas
     assert NO_ATTRIBUTES.rule_sets() == () and AttributeFilter(rating=9).rule_sets() == ()
-    # Sin estrellas: «=» y «≤» son «sin valoración»; «≥», nada
+    # Sin estrellas: solo «=» es «sin valoración»; «≥» y «≤», nada
     unrated = RuleSet(rules=(Rule("rating", "eq", 0),))
     assert AttributeFilter(rating_operator="eq").rule_sets() == (unrated,)
-    assert AttributeFilter(rating_operator="lte").rule_sets()[0].rules[0] == Rule("rating", "lte", 0)
+    assert AttributeFilter(rating_operator="lte").rule_sets() == ()
     assert AttributeFilter(rating_operator="gte").rule_sets() == ()
     rules_to_sql(unrated)
     # Solo filtran con la pestaña encendida, y se suman al texto
