@@ -39,6 +39,8 @@ Cómo añadir un campo:
 Cómo añadir un grupo (p. ej. vídeo, cuando exista 'video_details'): una línea en
 'GROUPS' con sus 'media_types'; sus campos, con 'group=' su clave.
 
+1.3.0 «empieza con» y «termina con» (antes «empieza por» y «termina en»; mismos textos que
+      la barra de filtros) y «termina con» también en «Palabra clave» (paso A.3).
 1.2.0 Campo «Palabra clave» (KIND_KEYWORD): «es» con o sin sus hijas, «contiene»...
 1.1.1 Las opciones del campo «Biblioteca» usan los nombres de 'LIBRARY_NAMES'.
 1.1.0 Campo «Biblioteca» ('media_items.library'; «está vacío» = sin clasificar).
@@ -47,7 +49,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.smart_fields
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 # ruff: noqa: RUF022
 __all__ = [
     "KIND_BOOL",
@@ -80,7 +82,7 @@ from core.catalog.media_types import MediaType
 # Tipos de valor (cada uno tiene sus operadores y su editor en la interfaz)
 # -----------------------------------------------------------------------------
 
-KIND_TEXT = "text"  # texto: contiene, empieza por... (sin distinguir mayúsculas ni acentos)
+KIND_TEXT = "text"  # texto: contiene, empieza con... (sin distinguir mayúsculas ni acentos)
 KIND_NUMBER = "number"  # número (entero o decimal), con unidad opcional
 KIND_DATE = "date"  # fecha (las columnas guardan 'YYYY-MM-DD HH:MM:SS')
 KIND_ENUM = "enum"  # uno de una lista cerrada de valores ('choices')
@@ -114,8 +116,8 @@ OPERATORS: dict[str, Operator] = {
         Operator("ne", "no es"),
         Operator("contains", "contiene"),
         Operator("not_contains", "no contiene"),
-        Operator("starts_with", "empieza por"),
-        Operator("ends_with", "termina en"),
+        Operator("starts_with", "empieza con"),
+        Operator("ends_with", "termina con"),
         Operator("gt", "es mayor que"),
         Operator("gte", "es mayor o igual que"),
         Operator("lt", "es menor que"),
@@ -145,11 +147,11 @@ OPERATORS_BY_KIND: dict[str, tuple[str, ...]] = {
     KIND_ENUM: ("eq", "ne"),
     KIND_RATING: ("eq", "ne", "gt", "gte", "lt", "lte"),
     KIND_BOOL: ("is_true", "is_false"),
-    # "contiene", "no contiene" y "empieza por" también miran las hijas: «contiene coche»
-    # incluye las fotos con solo «Toyota Corolla» (dentro de «Coche»)
+    # "contiene", "no contiene", "empieza con" y "termina con" también miran las hijas:
+    # «contiene coche» incluye las fotos con solo «Toyota Corolla» (dentro de «Coche»)
     KIND_KEYWORD: (
         "kw_is", "kw_is_only", "kw_is_not", "contains", "not_contains", "starts_with",
-        "is_set", "is_not_set",
+        "ends_with", "is_set", "is_not_set",
     ),
 }
 

@@ -127,6 +127,7 @@ core/
     keywords.py                        Palabras clave en el catálogo: ensure_keyword_path, resolve_flat_keyword (sueltas), set_media_keywords (manda el archivo), keyword_tree, fetch_keyword_tree, filter_keyword_tree; edición: assign_keyword, remove_keyword, diff_keyword_text, apply_keyword_changes; sin Qt
     selection_metadata.py              Valores comunes de unos campos en la selección (común / «Varios» / vacío); FieldSource dice de qué columnas sale cada campo por tipo de medio
     grid_source.py                     GridSource (ALL / FOLDER / SMART / COLLECTION / QUICK): qué muestra la cuadrícula; inmutable. UNCLASSIFIED = «Sin clasificar»
+    grid_filter.py                   ► FILTRO de la barra de filtros: GridFilter (pestañas encendidas, candado, fila de Texto) -> rule_sets() (conjuntos de reglas con AND, que se suman al origen); filter_to_dict / filter_from_dict; sin Qt
     grid_orders.py                   ► ÓRDENES de la cuadrícula: SORT_FIELDS (campos del desplegable), GridOrder (campo + dirección; to_state / from_state), order_by_sql (NULL al final, desempate por nombre e id); sin Qt
     smart_fields.py                  ► CAMPOS de las colecciones inteligentes (grupos, secciones, tipo, columna SQL, unidades)
     smart_rules.py                     Rule, RuleSet: validación, rules_to_sql, JSON (rules_to_json / rules_from_json) y describe_rule

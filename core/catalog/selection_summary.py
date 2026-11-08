@@ -5,9 +5,10 @@ seleccionado: nombre o número de archivos, carpeta, tamaño, fecha, biblioteca 
 Este módulo calcula ese resumen en la base de datos, sin Qt:
 
     - 'fetch_selection_summary(conn, ids)': de los elementos seleccionados (uno o varios).
-    - 'fetch_source_summary(conn, source)': de un origen entero (sin selección: lo que se
-      está viendo, p. ej. una carpeta o una colección). Usa la MISMA condición que la
-      cuadrícula ('media_queries.source_condition'), así que cuenta lo mismo que se ve.
+    - 'fetch_source_summary(conn, source, filters)': de un origen entero (sin selección:
+      lo que se está viendo, p. ej. una carpeta o una colección), con el filtro de la barra
+      de filtros si lo hay. Usa la MISMA condición que la cuadrícula
+      ('media_queries.source_condition'), así que cuenta lo mismo que se ve.
 
 Las dos devuelven un 'SelectionSummary'. Como el resto de 'core/catalog', reciben la
 conexión como primer parámetro y se lanzan con 'CatalogDatabaseManager.execute_async'.
@@ -21,6 +22,7 @@ Cómo se calcula (rápido aunque se seleccionen decenas de miles de archivos):
     - Si es un solo elemento, una consulta más con sus datos propios (nombre, ruta, origen y
       zona horaria de la fecha).
 
+1.2.0 'fetch_source_summary' con el filtro de la barra de filtros ('filters'; paso A.3).
 1.1.0 'single_library': la biblioteca común de lo resumido (el inspector decide con ella
       qué secciones aparecen; paso A.2).
 
@@ -28,7 +30,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.selection_summary
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "SelectionItem",
     "SelectionSummary",
@@ -46,6 +48,7 @@ from typing import Any
 # Módulos del proyecto
 from core.catalog.grid_source import GridSource
 from core.catalog.media_queries import source_condition
+from core.catalog.smart_rules import RuleSet
 
 # Tamaño de cada trozo de 'id' en una consulta (por debajo del límite de parámetros de
 # SQLite, que en versiones antiguas es 999)
@@ -214,13 +217,22 @@ def fetch_selection_summary(
     return _build("selection", conn, totals, item)
 
 
-def fetch_source_summary(conn: sqlite3.Connection, source: GridSource) -> SelectionSummary:
+def fetch_source_summary(
+    conn: sqlite3.Connection, source: GridSource, filters: Sequence[RuleSet] = ()
+) -> SelectionSummary:
     """Resumen de un origen entero (lo que muestra la cuadrícula cuando no hay selección).
 
+    Args:
+        conn: Conexión (la pone el gestor de la base de datos).
+        source: El origen que se ve.
+        filters: Filtro de la barra de filtros ('GridFilter.rule_sets()'; vacío = sin
+            filtro): se resume solo lo filtrado, lo mismo que muestra la cuadrícula.
+
     Raises:
-        ValueError: Si el origen no se conoce (como en la cuadrícula).
+        ValueError: Si el origen no se conoce o una regla no es válida (como en la
+            cuadrícula).
     """
-    where_sql, where_params = source_condition(source)
+    where_sql, where_params = source_condition(source, filters)
     totals = _Totals()
     # 'where_sql' sale de 'source_condition' (listas cerradas); los valores van en los
     # parámetros
@@ -392,6 +404,12 @@ if __name__ == "__main__":
     assert trip.count == 2 and trip.folder == Path("/fotos/2024/viaje")
     single = fetch_source_summary(db, folder_source(2, "musica", include_subfolders=True))
     assert single.count == 1 and single.item is not None and single.item.file_name == "d.mp3"
+    # Con el filtro de la barra: solo lo filtrado (aquí, los nombres que empiezan por «b»)
+    from core.catalog.smart_rules import Rule
+
+    only_b = (RuleSet(rules=(Rule("file_name", "starts_with", "b"),)),)
+    filtered = fetch_source_summary(db, ALL_ITEMS, only_b)
+    assert filtered.count == 1 and filtered.item is not None and filtered.item.file_name == "b.mov"
 
     # 7. Carpeta común: casos límite
     assert _common_folder("a/b/x.jpg", "a/bc/y.jpg") == "a"

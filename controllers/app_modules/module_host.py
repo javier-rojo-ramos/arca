@@ -32,6 +32,8 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.7.1 'show_source' recarga si, tras atender la petición, la cuadrícula sigue con el mismo
+      origen (la flecha pide la palabra sin biblioteca y Imagen se la pone).
 1.7.0 'save_state(..., extra)' y 'saved_entry': otros (el inspector) guardan lo suyo en la
       entrada del catálogo.
 1.6.0 Vista del centro por módulo: 'set_view', 'active_view', 'active_views', señal
@@ -49,7 +51,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.7.0"
+__version__ = "1.7.1"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -261,16 +263,18 @@ class ModuleHost(QObject):
         """Muestra un origen pedido desde fuera de la barra (p. ej. la flecha «ver sus
         fotos» del inspector): lo hace el módulo activo, eligiéndolo en su barra.
 
-        Si la cuadrícula ya muestra ese origen, se RECARGA: es una petición expresa de
+        Si la cuadrícula ya mostraba ese origen, se RECARGA: es una petición expresa de
         verlo, y lo mostrado puede haber cambiado (p. ej. se quitó la palabra a una foto,
         y la cuadrícula no se recarga sola tras los cambios del usuario). 'set_source' no
-        recargaría lo mismo, así que se hace aquí.
+        recargaría lo mismo, así que se hace aquí. Se mira DESPUÉS de atender la petición
+        (si el origen no ha cambiado, ya se veía): el módulo puede completarlo (Imagen pone
+        su biblioteca a una palabra pedida sin ella).
         """
         if self._active is None or not self._attached:
             return
-        already_shown = self._grid_model.source == source
+        before = self._grid_model.source
         self._active.show_source(source)
-        if already_shown:
+        if self._grid_model.source == before:
             self._grid_model.reload()
 
     def set_active(self, key: str) -> None:

@@ -13,6 +13,8 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'restore_state'; el 'ModuleHost' los escribe en settings.json). Lo desplegado del
       árbol con casillas del inspector ya no es de este módulo: lo guarda el inspector.
 
+1.10.0 'show_source': una palabra clave pedida sin biblioteca se limita a Imagen (la
+       flecha del inspector la pide sin biblioteca; paso A.2).
 1.9.0 Lo desplegado del árbol del inspector lo guarda 'InspectorController' (el inspector
       es común a todos los módulos).
 1.8.0 'sort_fields' y 'default_order' (orden de partida: «Hora de captura»).
@@ -27,7 +29,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 __all__ = ["ImageModule"]
 
 # Librerías estándar
@@ -47,8 +49,9 @@ from config.app_constants import SETTING_SHOW_SUBFOLDER_ITEMS, AppIcons
 from controllers.app_modules.base import AppModule, ModuleContext
 from core.catalog.folder_tree import fetch_folder_tree
 from core.catalog.grid_orders import CAPTURE_TIME_ORDER, SORT_FIELDS, GridOrder
-from core.catalog.grid_source import GridSource
+from core.catalog.grid_source import GridSource, SourceKind, keyword_source
 from core.catalog.keywords import fetch_keyword_tree
+from core.catalog.libraries import Library
 from core.catalog.media_queries import count_grid_items
 from ui_helpers.helpers.mode_toolbar import MODE_IMAGE
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME, reveal_in_file_manager
@@ -116,7 +119,10 @@ class ImageModule(AppModule):
 
     def show_source(self, source: GridSource) -> None:
         """Lo pide el inspector (flecha «ver sus fotos»): se elige en la barra, que lo
-        muestra en la cuadrícula ('source_selected') y lo deja marcado."""
+        muestra en la cuadrícula ('source_selected') y lo deja marcado. Una palabra pedida
+        sin biblioteca se limita a Imagen (así es la fila de la barra)."""
+        if source.kind == SourceKind.KEYWORD and source.keyword_id is not None and source.library is None:
+            source = keyword_source(source.keyword_id, Library.IMAGE.value)
         self.sidebar.show_source(source)
 
     # -------------------------------------------------------------------------

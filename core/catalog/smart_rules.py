@@ -40,6 +40,8 @@ registra 'catalog_schema.configure_connection' en cada conexión.
 Todo es inmutable ('frozen' y tuplas), así que un 'RuleSet' se puede comparar con '==' y
 usar como clave de un diccionario (lo necesita 'GridSource').
 
+2.2.0 «termina con» en las reglas de palabras clave (la barra de filtros busca con él en
+      «Todos los campos disponibles»; paso A.3).
 2.1.1 Comentarios con el nombre nuevo de la función SQL ('arca_fold').
 2.1.0 Reglas de palabras clave (KIND_KEYWORD): árbol recorrido con una CTE recursiva.
 2.0.0 Campos en 'smart_fields.py' (texto, números, fechas, listas, sí/no), grupo por tipo
@@ -49,7 +51,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.smart_rules
 """
 
-__version__ = "2.1.1"
+__version__ = "2.2.0"
 # ruff: noqa: RUF022
 __all__ = [
     "FIELDS",
@@ -281,7 +283,12 @@ def _keyword_condition(op: str, value: Any) -> tuple[str, tuple[Any, ...]]:
     if op in ("kw_is", "kw_is_not"):
         base, params = "name_folded = ?", (fold_text(value),)
     else:
-        prefix, suffix = {"contains": (True, True), "not_contains": (True, True), "starts_with": (False, True)}[op]
+        prefix, suffix = {
+            "contains": (True, True),
+            "not_contains": (True, True),
+            "starts_with": (False, True),
+            "ends_with": (True, False),
+        }[op]
         base, params = "name_folded LIKE ? ESCAPE '\\'", (_like_pattern(value, prefix=prefix, suffix=suffix),)
     negate = "NOT " if op in ("kw_is_not", "not_contains") else ""
     return f"m.id {negate}IN ({_KEYWORD_WITH_CHILDREN.format(base=base)})", params
@@ -527,6 +534,8 @@ if __name__ == "__main__":
     assert ids(Rule("keyword", "contains", "corol")) == [1]
     assert ids(Rule("keyword", "not_contains", "o")) == [3, 4, 5]  # ni «Coche» ni sus hijas
     assert ids(Rule("keyword", "starts_with", "toy")) == [1]
+    assert ids(Rule("keyword", "ends_with", "OLLA")) == [1]  # «Toyota Corolla»
+    assert ids(Rule("keyword", "ends_with", "che")) == [1, 2]  # «Coche», con sus hijas
     assert ids(Rule("keyword", "is_set")) == [1, 2, 4] and ids(Rule("keyword", "is_not_set")) == [3, 5]
     assert ids(Rule("keyword", "contains", "%")) == []  # comodín literal
     assert describe_rule(Rule("keyword", "kw_is", "Coche")) == "Palabra clave es (con sus hijas) «Coche»"

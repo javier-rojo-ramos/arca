@@ -10,7 +10,8 @@
 Como la «Lista de palabras clave» de Lightroom: TODAS las palabras del catálogo, con una
 casilla que dice si las tiene lo seleccionado (marcada: todos; intermedia: algunos;
 vacía: ninguno). Pulsar una casilla asigna la palabra a todos o la quita de todos (ver
-'ui_helpers/widgets/keyword_checklist.py'). El número es el de la biblioteca Imagen.
+'ui_helpers/widgets/keyword_checklist.py'). El número es el de la biblioteca de lo
+resumido (la selección; sin ella, lo que se ve) o, si son de varias, el de todas.
 
 Aparece también SIN selección (04/11/2026): con las casillas vacías y sin poder pulsarlas,
 pero con el menú, soltar tarjetas y la flecha «ver sus fotos», que pide a la barra
@@ -26,7 +27,8 @@ La sección no toca la base de datos: lee con 'data_request'
 ('keywords.apply_keyword_changes'), que atiende el controlador del inspector.
 
 1.5.0 En todos los módulos, siempre (también sin selección: para navegar con la flecha o
-      soltar tarjetas); paso A.2.
+      soltar tarjetas); recuentos de la biblioteca de lo resumido o de todas; la flecha
+      pide la palabra SIN biblioteca: la limita el módulo que la muestra (paso A.2).
 1.4.0 Flecha «ver sus fotos» ('navigate_requested') y visible también sin selección.
 1.3.0 Soltar tarjetas de la cuadrícula sobre una palabra se la asigna (antes, en la barra
       izquierda: la barra es para navegar y el inspector para editar).
@@ -52,14 +54,11 @@ from core.catalog.keywords import (
     fetch_keyword_editor_data,
 )
 from core.catalog.grid_source import keyword_source
-from core.catalog.libraries import Library
 from core.catalog.selection_summary import SelectionSummary
 from ui_helpers.inspector.base_section import InspectorSection
 from ui_helpers.models.media_mime import MediaDrag
 from ui_helpers.widgets.keyword_checklist import KeywordChecklist
 
-# Biblioteca de los recuentos del árbol (la del módulo Imagen)
-LIBRARY = Library.IMAGE.value
 
 
 class KeywordListSection(InspectorSection):
@@ -83,9 +82,10 @@ class KeywordListSection(InspectorSection):
         self._checklist.operation_requested.connect(self.edit_requested)
         # Tarjetas soltadas sobre una palabra: se les asigna (a ellas, no a la selección)
         self._checklist.media_dropped.connect(self._on_media_dropped)
-        # Flecha «ver sus fotos»: la cuadrícula muestra la palabra (la elige la barra)
+        # Flecha «ver sus fotos»: la cuadrícula muestra la palabra. Sin biblioteca: la pone
+        # el módulo activo (Imagen, la suya; el Catálogo, todas), que no cambia
         self._checklist.show_keyword_requested.connect(
-            lambda keyword_id: self.navigate_requested.emit(keyword_source(keyword_id, LIBRARY))
+            lambda keyword_id: self.navigate_requested.emit(keyword_source(keyword_id))
         )
         layout.addWidget(self._checklist)
 
@@ -103,10 +103,10 @@ class KeywordListSection(InspectorSection):
     def data_request(
         self, summary: SelectionSummary, ids: Sequence[int]
     ) -> tuple[Callable[..., Any], tuple[Any, ...]] | None:
-        """Palabras de los seleccionados (ninguna sin selección) y el árbol (con los
-        recuentos de Imagen)."""
+        """Palabras de los seleccionados (ninguna sin selección) y el árbol, con los
+        recuentos de la biblioteca de lo resumido o, si son de varias, de todas."""
         self._pending_ids = tuple(ids)
-        return fetch_keyword_editor_data, (list(ids), LIBRARY)
+        return fetch_keyword_editor_data, (list(ids), summary.single_library)
 
     def show_data(self, result: Any) -> None:
         """Rehace el árbol con las casillas de la selección."""

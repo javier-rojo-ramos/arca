@@ -21,10 +21,12 @@ el controlador principal, que conecta esas señales de 'CatalogSidebar' directam
 Orden de la cuadrícula: todos los campos de 'grid_orders.py'; parte de «Nombre» (con tipos
 mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 
+1.2.0 'show_source': la flecha «ver sus fotos» del inspector muestra la palabra en la
+      cuadrícula del Catálogo, de todas las bibliotecas, sin fila marcada (paso A.2).
 1.1.0 'sort_fields' y 'default_order' (orden de partida: «Nombre»).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["CatalogModule"]
 
 # Librerías estándar
@@ -124,6 +126,12 @@ class CatalogModule(AppModule):
         if source.kind == SourceKind.SMART and source.rules is None:
             return None
         return source
+
+    def show_source(self, source: GridSource) -> None:
+        """Lo pide el inspector (flecha «ver sus fotos»): la cuadrícula lo muestra; si la
+        barra no tiene esa fila (una palabra clave), se queda sin fila marcada. Una palabra
+        llega sin biblioteca: el Catálogo las abarca todas (decidido el 08/11/2026)."""
+        self.sidebar.show_source(source)
 
     def sort_fields(self) -> tuple[str, ...]:
         """Todos los campos de orden (sirven para cualquier tipo de archivo)."""

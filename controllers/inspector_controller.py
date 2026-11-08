@@ -15,7 +15,8 @@ Los avisos seguidos se juntan en uno (temporizador de 'DEBOUNCE_MS'): selecciona
 ratón arrastrando o con Mayús + flechas no lanza una consulta por cada paso. Las respuestas
 que llegan tarde (se pidió otra después) se descartan con un contador de generación.
 
-Sin selección, el resumen es el del origen que se está viendo ('fetch_source_summary').
+Sin selección, el resumen es el del origen que se está viendo ('fetch_source_summary'),
+con el filtro de la barra de filtros (lo mismo que muestra la cuadrícula).
 
 Datos propios de las secciones (p. ej. «Metadatos»): después de mostrar el resumen, se
 preguntan al panel ('data_requests') y cada función se ejecuta también en segundo plano;
@@ -37,6 +38,7 @@ adelantan entre sí). Si cambian algo, se avisa con 'user_data_changed' (el cont
 principal programa la escritura en los archivos y refresca la barra lateral) y el
 inspector se recalcula.
 
+1.8.0 Sin selección, el resumen lleva el filtro de la barra de filtros (paso A.3).
 1.7.0 Fuera 'set_module': las secciones dependen de la selección, no del módulo (A.2).
 1.6.0 Guarda y recupera lo desplegado del árbol de palabras clave ('save_state',
       'restore_state'; antes lo hacía el módulo Imagen) y lo olvida al cerrar el catálogo.
@@ -54,7 +56,7 @@ inspector se recalcula.
 Acciones del panel: «Mostrar en el Explorador» (botón de la carpeta) se atiende aquí.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = ["STATE_KEY", "InspectorController"]
 
 # Librerías estándar
@@ -230,13 +232,17 @@ class InspectorController(QObject):
         self._generation += 1
         generation = self._generation
         ids = self._selected_ids()
+        arguments: tuple[Any, ...]
         if ids:
-            function, argument = fetch_selection_summary, ids
+            function, arguments = fetch_selection_summary, (ids,)
         else:
-            function, argument = fetch_source_summary, self._model.source
+            # Lo que se ve: el origen con el filtro (al cambiar el filtro, la cuadrícula se
+            # recarga y 'modelReset' vuelve a pedir el resumen)
+            function = fetch_source_summary
+            arguments = (self._model.source, self._model.filter_rules)
         self._db.execute_async(
             function,
-            argument,
+            *arguments,
             on_result=lambda summary: self._on_summary(generation, summary, ids),
             on_error=lambda error: self._on_error(generation, error),
         )

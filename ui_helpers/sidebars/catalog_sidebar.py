@@ -52,6 +52,8 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.12.0 'show_source': un origen pedido desde el inspector; si no tiene fila (una palabra
+       clave), se muestra sin fila marcada (paso A.2).
 1.11.0 Menú de las carpetas: "Quitar del catálogo..." (también con el disco desconectado).
        Si la carpeta elegida desaparece del árbol, se elige su carpeta padre (antes,
        "Todos los archivos").
@@ -83,7 +85,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -832,6 +834,19 @@ class CatalogSidebar(QWidget):
         source = self._collection_sources.get(collection_id)
         if source is not None:
             self.select_source(source, emit=emit)
+
+    def show_source(self, source: GridSource) -> None:
+        """Muestra un origen pedido desde fuera de la barra (la flecha «ver sus fotos» del
+        inspector). Si tiene fila, se elige; si no (una palabra clave), la cuadrícula lo
+        muestra y la barra se queda SIN fila marcada: pulsar cualquier fila, también la que
+        estaba elegida, vuelve a ella. Se recuerda al cerrar el catálogo, como una fila."""
+        if source in self._items or source in self._folder_items or source in self._collection_items:
+            self.select_source(source, emit=True)
+            return
+        self._clear_other_selections(None)
+        self._current = source
+        self._update_unclassified_row()  # «Sin clasificar» deja de estar elegida
+        self.source_selected.emit(source)
 
     def select_source(self, source: GridSource, *, emit: bool = True) -> None:
         """Selecciona la fila de un origen (p. ej. al abrir un catálogo).

@@ -50,7 +50,8 @@ Solo aparece en el módulo Imagen ('modules'); en los demás está la de solo le
 ('keywords_section.py').
 
 1.3.0 En todos los módulos, también el Catálogo, y con selecciones de varias bibliotecas
-      (paso A.2): las palabras clave son comunes a todos los tipos.
+      (paso A.2): las palabras clave son comunes a todos los tipos. El árbol de las
+      sugerencias, con los recuentos de la biblioteca de la selección (o de todas).
 1.2.0 «Últimas palabras clave» bajo la caja (paso K4c); datos con 'KeywordEditorData'.
 1.1.0 Arreglos tras verlo el autor: teclas en una subclase (Intro con la lista abierta ya
       no mete un salto de línea ni deja la lista a la vista); al abrirse la lista no se
@@ -89,15 +90,12 @@ from core.catalog.keywords import (
     fetch_keyword_editor_data,
     keyword_tokens,
 )
-from core.catalog.libraries import Library
 from core.catalog.selection_summary import SelectionSummary
 from ui_helpers.inspector.base_section import InspectorSection
 from ui_helpers.widgets.recent_keywords import RecentKeywords
 
 # Atajo para ir a la caja de texto (el de Lightroom para «Añadir palabras clave»)
 FOCUS_SHORTCUT = "Ctrl+K"
-# Biblioteca de los recuentos del árbol (la del módulo Imagen)
-LIBRARY = Library.IMAGE.value
 # Líneas de alto de la caja (crece hasta 'MAX_LINES' si hay muchas palabras)
 MIN_LINES = 2
 MAX_LINES = 6
@@ -271,11 +269,12 @@ class KeywordEditorSection(InspectorSection):
     def data_request(
         self, summary: SelectionSummary, ids: Sequence[int]
     ) -> tuple[Callable[..., Any], tuple[Any, ...]] | None:
-        """Palabras de los seleccionados y el árbol (para las sugerencias)."""
+        """Palabras de los seleccionados y el árbol (para las sugerencias), con los recuentos
+        de su biblioteca o, si son de varias, de todas."""
         if not ids:
             return None
         self._pending_ids = tuple(ids)
-        return fetch_keyword_editor_data, (list(ids), LIBRARY)
+        return fetch_keyword_editor_data, (list(ids), summary.single_library)
 
     def show_data(self, result: Any) -> None:
         """Pone el texto. Si el usuario está escribiendo para ESTOS mismos seleccionados,

@@ -8,7 +8,9 @@ Tres responsabilidades:
     1. 'fetch_grid_rows': qué filas muestra la cuadrícula y en qué orden (un 'GridOrder' de
        core/catalog/grid_orders.py; por defecto, por nombre). QUÉ filas lo decide un 'GridSource' (core/catalog/grid_source.py):
        todo el catálogo, una carpeta, una colección... Es el único sitio con el SQL de la
-       cuadrícula: '_source_condition' traduce cada origen a una condición WHERE.
+       cuadrícula: '_source_condition' traduce cada origen a una condición WHERE. El
+       FILTRO de la barra de filtros (conjuntos de reglas de 'grid_filter.py') se añade con
+       un AND ('source_condition(origen, filtros)').
     2. 'count_grid_items': cuántos elementos tiene cada origen (los contadores de la barra
        lateral). Usa la MISMA condición que 'fetch_grid_rows', así que el número que se ve
        en la barra lateral siempre coincide con lo que muestra la cuadrícula.
@@ -23,6 +25,8 @@ solo la mitad del trabajo: 'update_user_field' deja además el elemento PENDIENT
 archivo, en su sidecar XMP o en el archivo de carpeta, para que sobreviva a recrear el
 catálogo.
 
+2.1.0 Filtro de la barra de filtros: 'fetch_grid_rows(..., filters)' y
+      'source_condition(source, filters)' (paso A.3).
 2.0.0 El orden es un 'GridOrder' (campo y dirección, de 'grid_orders.py'); se quitan
       'GRID_ORDERS', 'DEFAULT_ORDER' y el orden por 'file_created_at'. Por defecto, por nombre.
 1.13.1 Comentarios sin números de migración (esquema consolidado en la v1).
@@ -45,7 +49,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_queries
 """
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 # ruff: noqa: RUF022
 __all__ = [
     "AVAILABLE",
@@ -74,7 +78,7 @@ from core.catalog.color_labels import is_valid_color_label
 from core.catalog.grid_orders import NAME_ORDER, GridOrder, order_by_sql
 from core.catalog.grid_source import ALL_ITEMS, GridSource, SourceKind
 from core.catalog.keywords import KEYWORD_MEDIA_SQL
-from core.catalog.smart_rules import rules_to_sql
+from core.catalog.smart_rules import RuleSet, rules_to_sql
 
 # Valores de 'media_items.flag' (mismos que Lightroom: marcada / sin marca / rechazada)
 FLAG_REJECTED = -1
@@ -153,13 +157,32 @@ def _source_condition(source: GridSource) -> tuple[str, tuple[Any, ...]]:
             raise ValueError(f"Origen de la cuadrícula desconocido: {source!r}")
 
 
-def source_condition(source: GridSource) -> tuple[str, tuple[Any, ...]]:
-    """Versión pública de '_source_condition' (para otras consultas sobre un origen).
+def source_condition(
+    source: GridSource, filters: Sequence[RuleSet] = ()
+) -> tuple[str, tuple[Any, ...]]:
+    """Condición WHERE de un origen y, si lo hay, del filtro de la barra de filtros.
 
-    La usa 'selection_summary.fetch_source_summary' (el inspector sin selección): así el
-    resumen cuenta exactamente lo que muestra la cuadrícula.
+    La usan la cuadrícula ('fetch_grid_rows') y 'selection_summary.fetch_source_summary'
+    (el inspector sin selección): así el resumen cuenta exactamente lo que se ve. Los
+    contadores de la barra lateral NO llevan filtro (como en Lightroom).
+
+    Args:
+        source: El origen elegido a la izquierda.
+        filters: Conjuntos de reglas del filtro ('GridFilter.rule_sets()'), con AND entre
+            ellos y con el origen. Vacío = solo el origen.
+
+    Raises:
+        ValueError: Si el origen no se conoce o una regla no es válida.
     """
-    return _source_condition(source)
+    sql, params = _source_condition(source)
+    if not filters:
+        return sql, params
+    parts, all_params = [f"({sql})"], list(params)
+    for rule_set in filters:
+        rule_sql, rule_params = rules_to_sql(rule_set)  # valida campos, operadores y valores
+        parts.append(f"({rule_sql})")
+        all_params.extend(rule_params)
+    return " AND ".join(parts), tuple(all_params)
 
 
 def _folder_condition(source: GridSource) -> tuple[str, tuple[Any, ...]]:
@@ -199,6 +222,7 @@ def fetch_grid_rows(
     conn: sqlite3.Connection,
     order: GridOrder = NAME_ORDER,
     source: GridSource = ALL_ITEMS,
+    filters: Sequence[RuleSet] = (),
 ) -> list[dict[str, Any]]:
     """Devuelve las filas que muestra la cuadrícula para un origen.
 
@@ -216,15 +240,17 @@ def fetch_grid_rows(
         order: Orden (campo y dirección; ver 'grid_orders.py'). Va en segundo lugar (antes que 'source') para
             no romper las llamadas que ya pasaban el orden como argumento posicional.
         source: Qué elementos mostrar (por defecto, todo el catálogo).
+        filters: Filtro de la barra de filtros ('GridFilter.rule_sets()'; vacío = sin
+            filtro): solo las filas del origen que cumplen TODOS los conjuntos.
 
     Raises:
         TypeError: Si 'order' no es un 'GridOrder' (su campo ya se validó al crearlo:
             así nunca se interpola en el SQL un texto que venga de fuera).
-        ValueError: Si 'source' no es conocido.
+        ValueError: Si 'source' no es conocido o alguna regla del filtro no es válida.
     """
     if not isinstance(order, GridOrder):
         raise TypeError(f"Orden no válido: {order!r} (se espera un GridOrder)")
-    where_sql, where_params = _source_condition(source)
+    where_sql, where_params = source_condition(source, filters)
 
     rows = conn.execute(
         f"""SELECT m.id, m.media_type, m.file_name, m.rating, m.flag, m.color_label,
@@ -567,4 +593,32 @@ if __name__ == "__main__":
         raise AssertionError("el CHECK debía rechazar un valor distinto de 0 y 1")
     except sqlite3.IntegrityError:
         pass
+
+    # Filtro de la barra de filtros: se suma al origen con AND; los contadores no lo llevan
+    from dataclasses import replace
+
+    from core.catalog.grid_filter import (
+        FILTER_TEXT,
+        NO_FILTER,
+        TEXT_ALL_FIELDS,
+        TEXT_FILE_NAME,
+        TextFilter,
+    )
+
+    def filtered(source: GridSource, field: str, operator: str, text: str) -> list[str]:
+        grid_filter = replace(NO_FILTER, active=frozenset({FILTER_TEXT}),
+                              text=TextFilter(field, operator, text))  # fmt: skip
+        rows = fetch_grid_rows(db, NAME_ORDER, source, grid_filter.rule_sets())
+        return sorted(r["file_name"] for r in rows)
+
+    db.execute("UPDATE media_items SET description = 'Boda de Ana' WHERE file_name = 'c.jpg'")
+    assert filtered(ALL_ITEMS, TEXT_FILE_NAME, "starts_with", "B") == ["B2.jpg", "b.jpg"]
+    assert filtered(ALL_ITEMS, TEXT_FILE_NAME, "contains", "boda") == []  # solo el nombre
+    assert filtered(ALL_ITEMS, TEXT_ALL_FIELDS, "contains", "BODA") == ["c.jpg"]  # descripción
+    assert filtered(ALL_ITEMS, TEXT_ALL_FIELDS, "not_contains", "boda") == [
+        "B2.jpg", "a.jpg", "b.jpg", "gone.jpg"
+    ]  # fmt: skip
+    assert filtered(QUICK_SELECTION, TEXT_FILE_NAME, "contains", "jpg") == []  # origen vacío
+    assert fetch_grid_rows(db, NAME_ORDER, ALL_ITEMS, NO_FILTER.rule_sets()) == fetch_grid_rows(db)
+    assert source_condition(ALL_ITEMS) == ("1 = 1", ())
     print("Autoprueba finalizada correctamente.")

@@ -5,7 +5,8 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
     - Pide a la base de datos (en un hilo secundario) las filas a mostrar
       ('core.catalog.media_queries.fetch_grid_rows') y las guarda en una lista ligera.
       QUÉ filas lo decide el origen ('GridSource') que elige la barra lateral del
-      catálogo: todo el catálogo, una carpeta, una colección... ('set_source').
+      catálogo: todo el catálogo, una carpeta, una colección... ('set_source'). La barra
+      de filtros lo acota sin cambiarlo ('set_filter', un 'GridFilter').
     - Entrega al delegado, por roles, lo necesario para pintar: nombre, miniatura,
       estrellas, marca, etiqueta de color y si el archivo está disponible en disco
       (ausente o en una ubicación desconectada: se sigue mostrando, con su miniatura).
@@ -22,6 +23,9 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.13.0 Filtro de la barra de filtros: 'set_filter', propiedades 'grid_filter' y
+       'filter_rules' (las reglas que aplican; las usa también el inspector). Solo recarga
+       si cambian las reglas (el candado o un texto con su pestaña apagada, no). Paso A.3.
 1.12.0 'row_of_id': fila de un elemento (la vista individual vuelve a él tras recargar).
 1.11.0 Para la vista individual: propiedad 'thumbnail_cache' y señales
        'thumbnails_refreshed' (miniaturas regeneradas) y 'missing_retried'.
@@ -45,7 +49,7 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.12.0"
+__version__ = "1.13.0"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
@@ -69,6 +73,7 @@ from qtpy.QtGui import QImage, QImageReader, QPixmap
 
 # Módulos del proyecto
 from core.catalog.color_labels import is_valid_color_label, normalize_color_label
+from core.catalog.grid_filter import NO_FILTER, GridFilter
 from core.catalog.grid_orders import NAME_ORDER, GridOrder
 from core.catalog.grid_source import ALL_ITEMS, GridSource
 from core.catalog.media_queries import (
@@ -78,6 +83,7 @@ from core.catalog.media_queries import (
     FLAG_REJECTED,
     fetch_grid_rows,
 )
+from core.catalog.smart_rules import RuleSet
 from core.thumbnails.cache import ThumbnailCache
 from core.thumbnails.sizes import ThumbnailSize, smallest_covering
 from ui_helpers.models.media_mime import MEDIA_IDS_MIME, encode_media_ids
@@ -197,6 +203,10 @@ class MediaGridModel(QAbstractListModel):
         self._order: GridOrder = NAME_ORDER
         # Qué elementos se muestran (todo el catálogo, una carpeta, una colección...)
         self._source: GridSource = ALL_ITEMS
+        # Filtro de la barra de filtros (lo decide el módulo activo) y sus reglas, que son
+        # lo que va a la consulta
+        self._filter: GridFilter = NO_FILTER
+        self._filter_rules: tuple[RuleSet, ...] = ()
         self._wanted: ThumbnailSize = ThumbnailSize.THUMBNAIL
 
         # Las lecturas de una generación anterior (otra carga o un cierre) se descartan
@@ -233,6 +243,7 @@ class MediaGridModel(QAbstractListModel):
         self._pixmaps.clear()
         self._no_thumb.clear()
         self._source = ALL_ITEMS  # el próximo catálogo empieza mostrando todo
+        self._filter, self._filter_rules = NO_FILTER, ()  # y sin filtro
 
     def shutdown(self) -> None:
         """Para las lecturas y espera a las que están en curso (al cerrar la aplicación)."""
@@ -290,17 +301,47 @@ class MediaGridModel(QAbstractListModel):
         self._source = source
         self.reload()
 
+    @property
+    def grid_filter(self) -> GridFilter:
+        """Filtro de la barra de filtros que se usa ahora (con lo escrito aunque no aplique)."""
+        return self._filter
+
+    @property
+    def filter_rules(self) -> tuple[RuleSet, ...]:
+        """Las reglas del filtro que aplican ahora (vacío = sin filtro). El inspector las usa
+        para resumir lo mismo que se ve."""
+        return self._filter_rules
+
+    def set_filter(self, grid_filter: GridFilter, *, reload: bool = True) -> None:
+        """Cambia el filtro de la barra de filtros y, si cambian sus reglas, vuelve a cargar.
+
+        Cambiar algo que no filtra (el candado, o el texto con su pestaña apagada) solo se
+        apunta: la cuadrícula no se recarga.
+
+        Args:
+            grid_filter: Filtro nuevo.
+            reload: False = solo lo apunta, sin cargar (como en 'set_order').
+        """
+        self._filter = grid_filter
+        rules = grid_filter.rule_sets()
+        if rules == self._filter_rules:
+            return
+        self._filter_rules = rules
+        if reload:
+            self.reload()
+
     def reload(self) -> None:
         """Vuelve a leer de la base de datos la lista de elementos (asíncrono)."""
         if self._db is None:
             return
         self._query_token += 1
         token = self._query_token
-        # 'fetch_grid_rows(conn, order, source)': la conexión la pone el gestor
+        # 'fetch_grid_rows(conn, order, source, filters)': la conexión la pone el gestor
         self._db.execute_async(
             fetch_grid_rows,
             self._order,
             self._source,
+            self._filter_rules,
             on_result=partial(self._on_rows, token),
             on_error=partial(self._on_rows_error, token),
         )
