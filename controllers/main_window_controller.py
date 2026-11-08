@@ -24,7 +24,13 @@ from qtpy.QtGui import (
     QMoveEvent,
     QShowEvent,
 )
-from qtpy.QtWidgets import QAbstractItemView, QListView, QMainWindow, QToolButton
+from qtpy.QtWidgets import (
+    QAbstractItemView,
+    QListView,
+    QMainWindow,
+    QToolButton,
+    QWidget,
+)
 
 # Módulos del proyecto
 from config import app_paths
@@ -45,6 +51,7 @@ from controllers.app_modules.center_views import CenterView
 from controllers.app_modules.module_host import ModuleHost
 from controllers.app_modules.registry import create_modules
 from controllers.center_view_controller import CenterViewController
+from controllers.filter_controller import FilterController
 from controllers.folder_actions import FolderActions
 from controllers.inspector_controller import InspectorController
 from core.catalog.availability import AvailabilityCheck, check_availability
@@ -52,6 +59,7 @@ from core.catalog.catalog_builder import CatalogBuilder, CatalogError
 from core.catalog.catalog_opener import open_catalog
 from core.catalog.folder_importer import AddFolderProgress, AddFolderResult, add_folder
 from core.catalog.folder_scanner import ScanError
+from core.catalog.grid_filter import FILTER_TEXT
 from core.catalog.grid_source import ALL_ITEMS, SourceKind
 from core.catalog.libraries import (
     FOLDER_AUTO,
@@ -99,6 +107,7 @@ from ui_helpers.helpers.ui_theme import TOOLBAR_MARGIN
 from ui_helpers.inspector.inspector_panel import InspectorPanel
 from ui_helpers.mixins.window_snap import WindowSnapMixin
 from ui_helpers.models.media_grid_model import QUICK_SELECTION_FIELD, MediaGridModel
+from ui_helpers.widgets.filter_bar import HEADER_HEIGHT as FILTER_HEADER_HEIGHT
 from ui_helpers.widgets.job_progress_widget import JobProgressWidget
 
 # Nombres de los trabajos en segundo plano y texto con el que se muestran
@@ -813,6 +822,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         )
         self._conectar_orden()
         self._conectar_vistas()
+        self._conectar_filtros()
         self._configurar_inspector()
 
     def _conectar_vistas(self) -> None:
@@ -841,6 +851,27 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         )
         # Los atajos de clasificación (estrellas, color, marca, B, Supr), también en ella
         self.grid_actions.watch(single_view)
+
+    def _conectar_filtros(self) -> None:
+        """Barra de filtros de la franja superior (ver 'FilterController')."""
+        bar = getattr(self, "widget_filter_bar", None)
+        if bar is None or self.module_host is None:
+            logger.warning(
+                "Falta 'widget_filter_bar' en la ventana: ejecuta scripts/build_ui.py para "
+                "regenerar ui/main_window.py desde el .ui."
+            )
+            return
+        # Panel de «Texto» provisional y vacío (la fila de verdad llega en el subpaso 4)
+        text_panel = QWidget(bar)
+        text_panel.setFixedHeight(FILTER_HEADER_HEIGHT)
+        self.filters = FilterController(
+            self.module_host,
+            bar=bar,
+            frame=self.frame_main_top,
+            window=self,
+            panels={FILTER_TEXT: text_panel},
+            parent=self,
+        )
 
     def _conectar_orden(self) -> None:
         """Conecta el control «Orden:» de la barra inferior con el orden del módulo activo.

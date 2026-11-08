@@ -52,6 +52,7 @@ controllers/
   inspector_controller.py            InspectorController: selección de la cuadrícula -> resumen en segundo plano -> inspector; módulo activo (set_module); cambios de las secciones en cola (edit_requested -> user_data_changed); «Mostrar en el Explorador»
   folder_actions.py                  FolderActions: «Quitar del catálogo...» de una carpeta de la barra lateral (cuenta, pregunta y pide al controlador el trabajo JOB_REMOVE)
   collection_actions.py              CollectionActions: une barra lateral + menú de la cuadrícula + BD para las colecciones del usuario (crear, renombrar, borrar, soltar, añadir, quitar); lo crea CatalogModule
+  filter_controller.py               FilterController: barra de filtros <-> filtro del módulo activo (ModuleHost.set_filter / filter_changed); Ctrl+L; oculta la franja en la vista individual
   center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula) y navegación (doble clic / Intro, Esc / G, flechas, Inicio, Fin; un solo archivo seleccionado en la vista individual)
   app_modules/                       ── Módulos de la aplicación (Catálogo, Imagen, Vídeo, Audio) ── ([FLUJOS.md §11](FLUJOS.md))
     base.py                            AppModule (clase base: barra izquierda, panel derecho, qué muestra la cuadrícula, ciclo de vida) y ModuleContext
@@ -101,6 +102,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   widgets/elided_label.py            ElidedLabel: etiqueta de una línea que recorta con «…» (por la derecha, la izquierda o el centro)
   widgets/organize_bar.py            OrganizeBar: barra inferior para clasificar la selección (marcar, rechazar, estrellas, colores, selección rápida); attach(vista, modelo)
   widgets/sort_control.py            SortControl: «Orden: [campo] [↑]» a la izquierda de la barra inferior; set_options(campos, orden) y señal order_requested (no sabe nada de los módulos)
+  widgets/filter_bar.py              FilterBar: barra de filtros de la franja superior («Filtro activo:», pestañas, «Ninguno», candado; paneles debajo); solo muestra y avisa
   widgets/view_buttons.py            ViewButtons: botones de vista de la barra inferior (uno por vista del módulo activo); set_views y señal view_requested (no sabe qué es una vista)
   widgets/single_media_view.py       SingleMediaView: vista individual (archivo actual de la cuadrícula, mismo modelo y selección): imagen ajustada y nítida, marcador sin miniatura, aviso de no disponible, «No hay archivos»
   inspector/                         ── Inspector: el panel DERECHO ── ([FLUJOS.md §12](FLUJOS.md))

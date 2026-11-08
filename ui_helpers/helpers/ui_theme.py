@@ -18,6 +18,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.8.0 Barra de filtros ('#widget_filter_bar'): pestañas de texto en gris, la encendida en
+      el acento; candado en caja como los botones de vista; raya sobre los paneles (A.3).
 1.7.0 Botones de vista de la barra inferior ('#widget_view_buttons', como los de la toolbar)
       y su raya de separación ('#line_bottom_views'); paso A.1.
 1.6.0 Zonas pegadas, separadas por rayas de 1 px ('divider'): toolbar, franja de filtros,
@@ -36,7 +38,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -112,6 +114,42 @@ QFrame#frame_main_top {{
     background-color: {COLORS.bg_panel};
     border: none;
     border-bottom: 1px solid {COLORS.divider};
+}}
+
+/* Barra de filtros (ui_helpers/widgets/filter_bar.py), dentro de la franja de arriba:
+   «Filtro activo:» y las pestañas son texto, sin caja. Las pestañas, en gris; con el
+   ratón, más claras; las encendidas (o «Ninguno»), en el acento; las que aún no tienen
+   panel, apagadas. El candado, en una caja como los botones de vista (el icono del
+   cerrado, en el acento: lo pone 'tinted_icon'). Los paneles, debajo de una raya */
+QLabel#lbl_filter_title {{
+    color: {COLORS.text_dim};
+}}
+QToolButton#btn_filter_tab {{
+    border: none;
+    background: transparent;
+    color: {COLORS.text_dim};
+    padding: 2px 2px;
+}}
+QToolButton#btn_filter_tab:hover {{
+    color: {COLORS.text};
+}}
+QToolButton#btn_filter_tab:checked {{
+    color: {COLORS.accent};
+}}
+QToolButton#btn_filter_tab:disabled {{
+    color: {COLORS.text_disabled};
+}}
+QToolButton#btn_filter_lock {{
+    border: 1px solid {COLORS.divider};
+    border-radius: {VIEW_BUTTON_RADIUS}px;
+    background: transparent;
+}}
+QToolButton#btn_filter_lock:hover {{
+    border-color: {COLORS.line};
+    background: {COLORS.bg_raised};
+}}
+QWidget#widget_filter_panels {{
+    border-top: 1px solid {COLORS.divider};
 }}
 
 /* Línea encima de la barra de estado: la raya de 1 px entre zonas, no el relieve de Fusion */

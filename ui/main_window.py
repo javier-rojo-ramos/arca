@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QHeaderView,
     QVBoxLayout, QWidget)
 
 from ui_helpers.sidebars.catalog_sidebar import CatalogSidebar
+from ui_helpers.widgets.filter_bar import FilterBar
 from ui_helpers.widgets.media_grid_view import MediaGridView
 from ui_helpers.widgets.organize_bar import OrganizeBar
 from ui_helpers.widgets.single_media_view import SingleMediaView
@@ -160,18 +161,15 @@ class Ui_MainWindow(object):
         self.layout_central_area.setContentsMargins(0, 0, 0, 0)
         self.frame_main_top = QFrame(self.widget_central_area)
         self.frame_main_top.setObjectName(u"frame_main_top")
-        self.frame_main_top.setMinimumSize(QSize(0, 40))
         self.frame_main_top.setFrameShape(QFrame.StyledPanel)
         self.layout_main_top = QHBoxLayout(self.frame_main_top)
+        self.layout_main_top.setSpacing(0)
         self.layout_main_top.setObjectName(u"layout_main_top")
-        self.lbl_filters_placeholder = QLabel(self.frame_main_top)
-        self.lbl_filters_placeholder.setObjectName(u"lbl_filters_placeholder")
+        self.layout_main_top.setContentsMargins(0, 0, 0, 0)
+        self.widget_filter_bar = FilterBar(self.frame_main_top)
+        self.widget_filter_bar.setObjectName(u"widget_filter_bar")
 
-        self.layout_main_top.addWidget(self.lbl_filters_placeholder)
-
-        self.spacer_main_top_horizontal = QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.layout_main_top.addItem(self.spacer_main_top_horizontal)
+        self.layout_main_top.addWidget(self.widget_filter_bar)
 
 
         self.layout_central_area.addWidget(self.frame_main_top)
@@ -396,7 +394,6 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(tooltip)
         self.btn_settings.setToolTip(QCoreApplication.translate("MainWindow", u"Ajustes", None))
 #endif // QT_CONFIG(tooltip)
-        self.lbl_filters_placeholder.setText(QCoreApplication.translate("MainWindow", u"Filtros y Vistas (Modo Imagen, Audio, etc.)", None))
         self.lbl_metadata_placeholder.setText(QCoreApplication.translate("MainWindow", u"Metadata sidebar...", None))
         self.menu_file.setTitle(QCoreApplication.translate("MainWindow", u"Archivo", None))
         self.menu_help.setTitle(QCoreApplication.translate("MainWindow", u"Ayuda", None))

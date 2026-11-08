@@ -39,6 +39,8 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.8.1 Propiedad 'attached' (hay un catálogo abierto) y 'filter_changed' también en
+      'attach' (la barra de filtros se activa al abrir el catálogo).
 1.8.0 Filtro de la barra de filtros por módulo: 'set_filter', 'active_filter', señal
       'filter_changed'; se guarda por catálogo ('filters'); vuelta a «Ninguno» al cambiar
       de origen con el candado abierto (paso A.3).
@@ -61,7 +63,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.8.0"
+__version__ = "1.8.1"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -106,8 +108,8 @@ class ModuleHost(QObject):
         view_changed(object): ha cambiado la vista del centro del módulo activo (un
             'CenterView'). Se emite en los mismos momentos que 'order_changed'.
         filter_changed(object): ha cambiado el filtro del módulo activo (un 'GridFilter').
-            Se emite en los mismos momentos que 'order_changed' y cuando el filtro vuelve
-            a «Ninguno» al cambiar de origen (no al llamar a 'set_filter': lo pide quien
+            Se emite en los mismos momentos que 'order_changed', en 'attach' y cuando el
+            filtro vuelve a «Ninguno» al cambiar de origen (no al llamar a 'set_filter': lo pide quien
             ya lo sabe).
     """
 
@@ -217,6 +219,11 @@ class ModuleHost(QObject):
     # -------------------------------------------------------------------------
     # Consultas
     # -------------------------------------------------------------------------
+
+    @property
+    def attached(self) -> bool:
+        """True mientras hay un catálogo abierto (entre 'attach' y 'detach')."""
+        return self._attached
 
     @property
     def active_module(self) -> AppModule | None:
@@ -341,6 +348,8 @@ class ModuleHost(QObject):
         # es lo que se muestra
         if self._active is not None:
             self._apply_view(self._active)
+        # La barra de filtros se activa ahora (con el catálogo ya abierto)
+        self.filter_changed.emit(self.active_filter)
 
     def detach(self) -> None:
         """El catálogo se ha cerrado: cada módulo olvida lo suyo (llamar tras 'save_state')."""
