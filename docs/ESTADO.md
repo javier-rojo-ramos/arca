@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **«Metadatos», subpaso 3: el panel, sin conectar** (09/11; `metadata_filter_panel` 1.0.0, nuevo) | En la aplicación no cambia nada. El panel se ve con `.venv\Scripts\python -m ui_helpers.widgets.metadata_filter_panel --ventana`: un catálogo inventado de 9 fotos con País, Región y Ciudad, y la cascada funcionando (la consola dice cuántas fotos mostraría la cuadrícula). Comprobar: las columnas se reparten el ancho, con la raya entre ellas; al elegir un país, las regiones y ciudades se reducen a las suyas; una ciudad elegida que deja de estar (al cambiar de país) sale con 0, atenuada; «Añadir columna» la pone a la derecha con el primer campo que no está en otra; «Quitar esta columna»; con 6 no se puede añadir y con 1 no se puede quitar; otro campo en una columna; el borde inferior: el cursor cambia, se ve una raya en el acento y al arrastrar cambia el alto (entre unas 4 filas y la mitad de la ventana) |
 | **«Lugar» en todas partes** (09/11; `smart_fields` 1.5.1, `metadata_fields` 1.3.1) | En el editor de colecciones inteligentes, Estándar › Ubicación › «Lugar» (antes «Ubicación secundaria»); una colección que ya lo usaba lo describe como «Lugar…» y sigue filtrando igual. En el inspector, el texto emergente de la etiqueta «Lugar» dice «Lugar» |
 | **«Metadatos», subpaso 2: la columna, sin conectar** (09/11; `metadata_column` 1.1.0, nuevo; `ui_theme` 1.9.1; `formatting` 1.4.0) | En la aplicación no cambia nada (el inspector sigue mostrando el tiempo de exposición redondeado). La columna se ve con `.venv\Scripts\python -m ui_helpers.widgets.metadata_column --ventana` (tres columnas de ejemplo; lo que piden sale por la consola): cabecera con el campo y «▾» a la izquierda y el engranaje a la derecha; «Todo (N)» y los recuentos a la derecha; «Pau» (0) atenuado; las fechas en árbol, con «Junio» y «20 - jueves»; clic, Ctrl+clic, Mayús+clic y clic en «Todo»; lo elegido con el color de selección, como en las barras laterales; el menú de campos (Estándar e Imagen, por secciones, el actual marcado) y el del engranaje. Después de verla el autor (09/11): una raya fina entre columnas y el engranaje en el acento al pasar el ratón |
 | **«Metadatos», subpaso 1: motor** (09/11; `grid_filter` 1.3.0, `smart_fields` 1.5.0, `metadata_values` 1.0.0, nuevo) | Sin cambio visible: la barra de filtros, «Texto» y «Atributos» funcionan como antes, y el editor de colecciones inteligentes sigue igual. Al cerrar, en `settings.json` cada filtro guardado lleva `"metadata": {"columns": []}` |
@@ -80,6 +81,7 @@
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 09/11/2026: «Metadatos», subpaso 3: el panel de «Metadatos» (de 1 a 6 columnas del mismo ancho, añadir y quitar, borde para el alto), aún sin conectar.
 - 09/11/2026: raya fina entre las columnas de «Metadatos» y engranaje en el acento con el ratón; el campo `sublocation` se llama «Lugar» en todas partes.
 - 09/11/2026: «Metadatos», subpaso 2: la columna de «Metadatos» (cabecera con el campo y el engranaje, valores con recuentos, fechas en árbol, selección), aún sin conectar.
 - 09/11/2026: «Metadatos», subpaso 1: motor de las columnas de «Metadatos» (29 campos; valores con recuentos en cascada; fechas por año, mes y día); sin cambio visible.
@@ -89,4 +91,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 08/11/2026: «Atributos», subpaso 1: motor de la fila de «Atributos» (marca, valoración, color, selección rápida y tipo) y campo «Selección rápida» en las colecciones inteligentes.
 - 08/11/2026: alturas: la fila de «Texto» de la barra de filtros, de 30 px como la de las pestañas (la raya ya no la tapa), y la barra inferior, 1 px más baja, con todo centrado.
 - 08/11/2026: A.3, subpaso 4: la fila de «Texto» de la barra de filtros (campo, operador y caja; filtra al escribir) y Ctrl+F; la franja, con el fondo de la barra inferior.
-- 08/11/2026: A.3, subpaso 3: la barra de filtros en la franja de arriba («Filtro activo:», pestañas, «Ninguno», candado, Ctrl+L); el panel de «Texto», todavía vacío.

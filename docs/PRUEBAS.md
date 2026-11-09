@@ -47,6 +47,7 @@ python -m controllers.filter_controller      (barra <-> filtro con un host de me
 python -m ui_helpers.widgets.text_filter_row (opciones, pausa al escribir, la «×», set_filter; sin ventana, tarda ~1 s)
 python -m ui_helpers.widgets.attribute_filter_row (clics en marcas, estrellas, colores, selección rápida y tipos; operador; dibujo; sin ventana)
 python -m ui_helpers.widgets.metadata_column (textos, selección, fechas, menú de campos y engranaje; sin ventana. Con --ventana, tres columnas de ejemplo en una ventana)
+python -m ui_helpers.widgets.metadata_filter_panel (columnas, añadir y quitar, qué recontar, alto y arrastre; sin ventana. Con --ventana, el panel sobre un catálogo de ejemplo en memoria, con la cascada)
 python -m controllers.center_view_controller (página, botones, deslizador y navegación con teclas, con un host de mentira; sin ventana)
 python -m ui_helpers.models.full_image_loader   (caché temporal: la mayor miniatura, sin miniatura, memoria; sin ventana)
 python -m ui_helpers.widgets.single_media_view  (dibuja en una imagen con un modelo de mentira; sin ventana)
