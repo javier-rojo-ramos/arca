@@ -17,7 +17,9 @@ guarda un ajuste, cuál coincide, cómo se elige o se restaura) está en
       cambia).
     - «Restaurar…»  -> 'filter_requested(reset_filter(filtro))'.
     - Un ajuste     -> 'filter_requested(applied_preset(ajuste, filtro))'.
-    - «Gestionar…»  -> aún desactivado (subpaso 3: la ventana de gestión).
+    - «Gestionar…»  -> la ventana «Gestionar ajustes personalizados» con TODOS los ajustes
+                       ('FilterPresetsDialog'). Al aceptar, se guarda la lista nueva y, si
+                       se ha renombrado el último elegido en un módulo, se sigue su nombre.
 
 Qué ajuste coincide: en «Metadatos» basta con las mismas columnas, aunque lo elegido en
 ellas sea otro ('matching_preset'). Si varios tienen las mismas columnas, el último que se
@@ -34,6 +36,8 @@ Uso (en el controlador principal, solo la conexión):
                                      config=self.config, window=self, parent=self)
     FilterController(..., presets=presets, ...)
 
+1.3.0 «Gestionar…»: abre la ventana de gestión y guarda lo que devuelve (paso A.3,
+      filtros personalizados, subpaso 3).
 1.2.0 Pasa al botón si hay algo encendido ('filtering'): sin ajuste que coincida, dice
       «Personalizado» o, con «Ninguno», «Sin filtro» (el autor, 09/11/2026).
 1.1.0 Recuerda el último ajuste elegido en cada módulo ('preferred' de
@@ -45,7 +49,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m controllers.filter_preset_controller
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "REPLACE_BUTTONS",
     "SAVE_LABEL",
@@ -81,6 +85,7 @@ from core.catalog.filter_presets import (
     with_preset_saved,
 )
 from core.catalog.grid_filter import GridFilter
+from ui_helpers.dialogs.filter_presets_dialog import FilterPresetsDialog
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.widgets.filter_preset_button import FilterPresetButton
 
@@ -162,10 +167,15 @@ class FilterPresetController(QObject):
         # Las preguntas (se cambian en las pruebas: así no se abre ninguna ventana)
         self.ask_name: Callable[[QWidget], str | None] = ask_preset_name
         self.confirm_replace: Callable[[QWidget, str], bool] = confirm_replace
+        # La ventana de gestión: (ventana, ajustes) -> (lista nueva, renombrados) o None
+        self.manage: Callable[
+            [QWidget, list[FilterPreset]], tuple[list[FilterPreset], dict[str, str]] | None
+        ] = FilterPresetsDialog.ask
 
         button.save_requested.connect(self._on_save)
         button.reset_requested.connect(self._on_reset)
         button.preset_chosen.connect(self._on_chosen)
+        button.manage_requested.connect(self._on_manage)
 
     # -------------------------------------------------------------------------
     # Interfaz pública
@@ -197,7 +207,7 @@ class FilterPresetController(QObject):
             filtering=not grid_filter.is_none,
             can_save=self._enabled and not grid_filter.is_none,
             can_reset=self._enabled and not is_reset(grid_filter, fields),
-            can_manage=False,  # la ventana de gestión llega en el subpaso 3
+            can_manage=self._enabled,  # también sin ajustes: para restaurar los de fábrica
         )
 
     # -------------------------------------------------------------------------
@@ -241,6 +251,21 @@ class FilterPresetController(QObject):
         """«Restaurar filtro activo a sus valores por defecto»."""
         if self._enabled:
             self.filter_requested.emit(reset_filter(self._host.active_filter))
+
+    def _on_manage(self) -> None:
+        """«Gestionar ajustes personalizados…»: la ventana con todos los ajustes."""
+        if not self._enabled:
+            return
+        result = self.manage(self._window, list(self._presets))
+        if result is None:
+            return  # «Cancelar»
+        presets, renamed = result
+        # El último elegido en cada módulo sigue siéndolo aunque cambie de nombre
+        for key, name in self._last_chosen.items():
+            self._last_chosen[key] = renamed.get(name, name)
+        if presets != self._presets:
+            self._set_presets(presets)
+        self.show_filter(self._host.active_filter, enabled=self._enabled)
 
     def _on_chosen(self, index: int) -> None:
         """Un ajuste de la lista (su posición entre los del módulo)."""
@@ -327,12 +352,14 @@ if __name__ == "__main__":
         controller.show_filter(grid_filter, enabled=True)
 
     # 1. «Ninguno» en Imagen: los cinco de fábrica, «Sin filtro», sin guardar ni restaurar
+    # (gestionar, sí)
     apply(NO_FILTER)
     assert button.text() == "Sin filtro ▾"
     assert preset_names() == [
         "Columnas de partida", "Ubicación", "Datos de exposición", "Valoradas", "Marcadas",
     ]
-    assert not any(v for k, v in actions().items() if k.startswith(COMMANDS))
+    enabled = [k for k, v in actions().items() if v and k.startswith(COMMANDS)]
+    assert enabled == ["Gestionar ajustes personalizados…"], enabled
 
     # 2. Encender «Metadatos» sin tocar nada: coincide con «Columnas de partida»
     apply(NO_FILTER.with_panel(FILTER_METADATA, True))
@@ -421,6 +448,31 @@ if __name__ == "__main__":
     button.preset_chosen.emit(2)
     assert requested[0].attributes == AttributeFilter(rating=1)
 
+    # 7b. «Gestionar…»: la ventana recibe TODOS (también los que aquí no valen);
+    # «Cancelar» no cambia nada
+    assert actions()["Gestionar ajustes personalizados…"]
+    seen: list[list[FilterPreset]] = []
+    controller.manage = lambda _w, presets: seen.append(presets) or None
+    button.manage_requested.emit()
+    assert len(seen[0]) == 7 and "Datos de exposición" in [p.name for p in seen[0]]
+    assert config.writes == 3
+    # «Aceptar»: se guarda la lista nueva; el último elegido renombrado sigue siéndolo
+    button.preset_chosen.emit(preset_names().index("Mi país"))
+    apply(requested[-1])
+
+    def _manage(_window: QWidget, presets: list[FilterPreset]) -> tuple[list, dict]:
+        kept = [p for p in presets if p.name != "Columnas de partida"]
+        kept = [replace(p, name="Mi tierra") if p.name == "Mi país" else p for p in kept]
+        return kept, {"Mi país": "Mi tierra"}
+
+    controller.manage = _manage
+    button.manage_requested.emit()
+    stored = [p["name"] for p in config.data[SETTING_FILTER_PRESETS]]
+    assert config.writes == 4 and "Columnas de partida" not in stored and "Mi tierra" in stored
+    assert button.text() == "Mi tierra ▾" and "Columnas de partida" not in preset_names()
+    apply(france)  # otro valor: «Mi tierra» (el último elegido), no «Ubicación»
+    assert button.text() == "Mi tierra ▾", button.text()
+
     # 8. Barra desactivada (sin catálogo): nada se puede pulsar ni pedir (el nombre, sí)
     controller.show_filter(chosen, enabled=False)
     assert not any(v for k, v in actions().items() if k.startswith(COMMANDS))
@@ -428,7 +480,8 @@ if __name__ == "__main__":
     button.preset_chosen.emit(0)
     button.reset_requested.emit()
     button.save_requested.emit()
-    assert requested == [] and config.writes == 3  # los tres guardados de antes
+    button.manage_requested.emit()
+    assert requested == [] and config.writes == 4  # los guardados de antes
 
     # 9. Al volver a crear el controlador, la lista guardada
     again = FilterPresetController(host, button=FilterPresetButton(holder), config=config,
