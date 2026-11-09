@@ -18,6 +18,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.14.0 'MARK_COLORS' (marcas de clasificación, de 'theme_colors.py') junto a 'COLORS' y
+       'CARD_COLORS'; la sombra de la paleta, del tema ('shadow').
 1.13.0 Raya a la izquierda de un grupo de reglas de las colecciones inteligentes
        ('#frame_rule_group').
 1.12.0 Textos de las ventanas: aviso en el color de aviso ('#lbl_dialog_warning') y texto
@@ -53,10 +55,11 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.13.0"
+__version__ = "1.14.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
+    "MARK_COLORS",
     "ACCENT_COLOR",
     "GRID_BG",
     "GRID_LINE",
@@ -76,14 +79,24 @@ from qtpy.QtGui import QColor, QGuiApplication, QPalette
 from qtpy.QtWidgets import QApplication, QToolTip
 
 # Módulos del proyecto
-from ui_helpers.helpers.theme_colors import DARK, DARK_CARDS, CardColors, ThemeColors
+from ui_helpers.helpers.theme_colors import (
+    DARK,
+    DARK_CARDS,
+    DARK_MARKS,
+    CardColors,
+    MarkColors,
+    ThemeColors,
+)
 from ui_helpers.helpers.theme_qss import general_stylesheet
 from ui_helpers.helpers.theme_style import ThemeStyle
 
 # Tema en uso (de momento solo hay uno, el oscuro: ver 'theme_colors.py')
 COLORS: ThemeColors = DARK
-# Colores de la cuadrícula y de las tarjetas ('ThumbnailsDelegate')
+# Colores de la cuadrícula y de las tarjetas, también lo que va encima de la imagen
+# ('ThumbnailsDelegate', vista individual, arrastre)
 CARD_COLORS: CardColors = DARK_CARDS
+# Colores de las marcas de clasificación ('card_marks.py' y las etiquetas de color)
+MARK_COLORS: MarkColors = DARK_MARKS
 
 # Color de acento de la aplicación (hover de iconos, elementos activos...). Es el del
 # tema; se mantiene el nombre porque lo importan varios módulos.
@@ -526,7 +539,7 @@ def build_palette(colors: ThemeColors) -> QPalette:
     put(QPalette.ColorRole.Midlight, colors.bg_raised)
     put(QPalette.ColorRole.Mid, colors.line)
     put(QPalette.ColorRole.Dark, colors.line_dark)
-    put(QPalette.ColorRole.Shadow, "#000000")
+    put(QPalette.ColorRole.Shadow, colors.shadow)
     # Qt 6.6+: color de acento propio (algunos estilos lo usan en vez de Highlight)
     accent_role = getattr(QPalette.ColorRole, "Accent", None)
     if accent_role is not None:

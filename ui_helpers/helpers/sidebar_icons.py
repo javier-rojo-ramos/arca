@@ -12,11 +12,17 @@ Cada icono tiene además una variante "<clave>:open", en 'SIDEBAR_ICON_OPEN_COLO
 cuando su fila está DESPLEGADA (la de la carpeta es la carpeta abierta): la barra la pone y
 la quita al desplegar y plegar.
 
+Y otra, "<clave>:menu", para las opciones de los menús (p. ej. «Editar colección
+inteligente…»): en la opción resaltada toma el color del texto sobre el acento
+('ui_icons.menu_icon').
+
 Si un SVG todavía no está en los recursos (.qrc), se usa el icono estándar del sistema,
 para que la barra nunca se quede sin iconos.
+
+1.1.0 Variante "<clave>:menu" para los menús (con 'menu_icon').
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["load_sidebar_icons"]
 
 # Librerías de terceros (Qt)
@@ -26,13 +32,14 @@ from qtpy.QtWidgets import QStyle, QWidget
 
 # Módulos del proyecto
 from config.app_constants import AppIcons
-from ui_helpers.helpers.ui_icons import tinted_icon
+from ui_helpers.helpers.ui_icons import menu_icon, tinted_icon
 from ui_helpers.helpers.ui_theme import SIDEBAR_ICON_COLOR, SIDEBAR_ICON_OPEN_COLOR
 
 
 def load_sidebar_icons(widget: QWidget) -> dict[str, QIcon]:
-    """Iconos por clave ('drive', 'folder', 'set', 'collection', 'smart') y su variante
-    ':open'. 'widget' da el estilo (iconos de reserva) y la paleta."""
+    """Iconos por clave ('drive', 'folder', 'set', 'collection', 'smart') y sus variantes
+    ':open' (fila desplegada) y ':menu' (opción de un menú). 'widget' da el estilo (iconos de
+    reserva) y la paleta."""
     style = widget.style()
     palette = widget.palette()
     normal = QColor(SIDEBAR_ICON_COLOR) if SIDEBAR_ICON_COLOR else palette.color(QPalette.ColorRole.ButtonText)
@@ -59,6 +66,7 @@ def load_sidebar_icons(widget: QWidget) -> dict[str, QIcon]:
             icons[f"{key}:open"] = tinted_icon(
                 open_path if open_path and QFile.exists(open_path) else path, opened
             )
+            icons[f"{key}:menu"] = menu_icon(path, normal)
         else:
-            icons[key] = icons[f"{key}:open"] = style.standardIcon(fallback)
+            icons[key] = icons[f"{key}:open"] = icons[f"{key}:menu"] = style.standardIcon(fallback)
     return icons

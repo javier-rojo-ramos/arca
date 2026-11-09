@@ -22,6 +22,8 @@ Solo carga imágenes cuando se dibuja: oculta (en la cuadrícula) no lee nada.
 Uso (en el .ui es un widget promocionado, 'widget_single_view', dentro de 'page_single'):
     self.widget_single_view.attach(self.list_view_grid, self.mosaico_model)
 
+1.0.1 El velo y el fondo del aviso, con los colores del tema ('CARD_COLORS'; los mismos
+      valores que antes).
 1.0.0 Primera versión (paso A.1, subpaso 4). Entrar, salir y navegar con el teclado
       llegan en el subpaso 5.
 
@@ -29,7 +31,7 @@ Prueba rápida (desde la raíz del proyecto; dibuja en una imagen, no abre venta
     python -m ui_helpers.widgets.single_media_view
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["SingleMediaView"]
 
 # Librerías estándar
@@ -78,7 +80,7 @@ _NAME_GAP = 10  # entre el marcador y el nombre
 _UNAVAILABLE_DIM = ThumbnailsDelegate.UNAVAILABLE_DIM
 # Fondo del texto del aviso: negro translúcido, se lee sobre cualquier imagen (como la
 # insignia de duración de la tarjeta)
-_LABEL_BG = QColor(0, 0, 0, 165)
+_LABEL_BG = QColor(CARD_COLORS.overlay_bg)
 # Espera (ms) desde el último cambio de tamaño hasta reescalar en alta calidad
 _HQ_DELAY_MS = 120
 
@@ -274,7 +276,7 @@ class SingleMediaView(QWidget):
         """Velo oscuro (como la tarjeta), indicador y su explicación en la esquina."""
         painter.save()
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(0, 0, 0, round(255 * _UNAVAILABLE_DIM)))
+        painter.setBrush(card_glyphs.veil(CARD_COLORS.unavailable_dim, _UNAVAILABLE_DIM))
         painter.drawRect(target)
         badge = QRectF(target.left() + _BADGE_MARGIN, target.top() + _BADGE_MARGIN, _BADGE_SIZE, _BADGE_SIZE)
         card_glyphs.draw_availability_badge(painter, badge, availability)

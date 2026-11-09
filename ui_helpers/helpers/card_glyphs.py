@@ -15,10 +15,17 @@ que se vean idénticos en los dos sitios. Se dibujan con QPainter: no necesitan 
         Indicador de archivo no disponible, dentro del rectángulo 'badge':
             ausente       (MISSING) -> círculo naranja con «!»
             sin conexión  (OFFLINE) -> círculo gris con un disco tachado
+    veil(color, amount)
+        Color de un velo sobre la imagen (el de rechazada o el de no disponible) con su
+        opacidad (0 a 1).
 
 Quien llama decide el tamaño y la posición (la tarjeta, 16 px en la esquina; la vista
 individual, más grande).
 
+Los colores salen del tema: el del aviso, de 'COLORS' ('missing', 'offline', los mismos
+que la fila «Estado» del inspector); el borde y el dibujo blanco, de 'CARD_COLORS'.
+
+1.2.0 Colores del tema, no sueltos (los mismos valores); 'veil' para los velos.
 1.1.0 'draw_type_glyph': el dibujo del tipo sin el fondo del marcador (paso A.3,
       «Atributos»). El marcador de las tarjetas no cambia.
 1.0.0 Sacado de 'thumbnails_delegate.py' (2.12.0) sin cambios en el dibujo, para la vista
@@ -28,7 +35,7 @@ Prueba rápida (dibuja en una imagen; no abre ninguna ventana):
     python -m ui_helpers.helpers.card_glyphs
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "AVAILABLE",
     "MISSING",
@@ -38,6 +45,7 @@ __all__ = [
     "draw_availability_badge",
     "draw_placeholder",
     "draw_type_glyph",
+    "veil",
 ]
 
 # Librerías estándar
@@ -48,15 +56,15 @@ from qtpy.QtCore import QPointF, QRect, QRectF, Qt
 from qtpy.QtGui import QColor, QPainter, QPainterPath, QPen, QPolygonF
 
 # Módulos del proyecto
-from ui_helpers.helpers.ui_theme import CARD_COLORS
+from ui_helpers.helpers.ui_theme import CARD_COLORS, COLORS
 
 # Disponibilidad del archivo (los mismos valores que AVAILABLE, MISSING y OFFLINE de
 # 'core.catalog.media_queries'; no se importa 'core' para no depender de la base de datos)
 AVAILABLE, MISSING, OFFLINE = 0, 1, 2
 
-# Colores del indicador de no disponible (los mismos que el inspector, 'selection_section')
-MISSING_COLOR = "#e8833a"  # ausente: naranja (hay que hacer algo)
-OFFLINE_COLOR = "#7d7d7d"  # sin conexión: gris (volverá al conectar el disco)
+# Colores del indicador de no disponible (del tema; los mismos que el inspector)
+MISSING_COLOR = COLORS.missing  # ausente: naranja (hay que hacer algo)
+OFFLINE_COLOR = COLORS.offline  # sin conexión: gris (volverá al conectar el disco)
 
 # Tamaño del dibujo del marcador respecto al lado corto del marcador
 DEFAULT_GLYPH_SCALE = 0.36
@@ -68,6 +76,14 @@ _VIDEO, _AUDIO, _EBOOK, _TRACK = "video", "audio", "ebook", "track"
 # -----------------------------------------------------------------------------
 # Indicador de archivo no disponible
 # -----------------------------------------------------------------------------
+
+
+def veil(color: str, amount: float) -> QColor:
+    """Color de un velo sobre la imagen: 'color' (de 'CARD_COLORS': 'rejected_wash' o
+    'unavailable_dim') con una opacidad de 'amount' (0 = nada, 1 = lo tapa del todo)."""
+    result = QColor(color)
+    result.setAlpha(round(255 * amount))
+    return result
 
 
 def draw_availability_badge(painter: QPainter, badge: QRectF, availability: int) -> None:
@@ -82,12 +98,13 @@ def draw_availability_badge(painter: QPainter, badge: QRectF, availability: int)
 
     painter.save()
     # Círculo con un borde oscuro fino: se distingue sobre cualquier miniatura
-    painter.setPen(QPen(QColor(0, 0, 0, 140), 1.0))
+    painter.setPen(QPen(QColor(CARD_COLORS.overlay_border), 1.0))
     painter.setBrush(QColor(color))
     painter.drawEllipse(badge)
 
     center = badge.center()
-    white = QPen(QColor("#ffffff"), size * 0.13, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+    glyph = QColor(CARD_COLORS.overlay_text)
+    white = QPen(glyph, size * 0.13, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
     painter.setPen(white)
     painter.setBrush(Qt.BrushStyle.NoBrush)
     if availability == MISSING:
@@ -96,7 +113,7 @@ def draw_availability_badge(painter: QPainter, badge: QRectF, availability: int)
             QPointF(center.x(), badge.top() + size * 0.24),
             QPointF(center.x(), badge.top() + size * 0.58),
         )
-        painter.setBrush(QColor("#ffffff"))
+        painter.setBrush(glyph)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(QPointF(center.x(), badge.top() + size * 0.76), size * 0.07, size * 0.07)
     else:

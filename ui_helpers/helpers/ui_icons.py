@@ -18,18 +18,27 @@ Uso:
     from ui_helpers.helpers.ui_icons import tinted_icon
 
     boton.setIcon(tinted_icon(AppIcons.SETTINGS))             # sigue la paleta
-    boton.setIcon(tinted_icon(AppIcons.ERROR, "#d32f2f"))     # color fijo
-    boton.setIcon(tinted_icon(AppIcons.SETTINGS, hover_color="#2F6FED"))  # acento al pasar el ratón
+    boton.setIcon(tinted_icon(AppIcons.ERROR, COLORS.error))   # color fijo (del tema)
+    boton.setIcon(tinted_icon(AppIcons.SETTINGS, hover_color=COLORS.accent))  # acento con el ratón
 
 Para un QLabel (que muestra un QPixmap, no un QIcon) está 'tinted_pixmap': tiñe el SVG
 directamente al tamaño en píxeles físicos de la pantalla, sin pasar por QIcon.
 
     ratio = label.devicePixelRatioF()
-    label.setPixmap(tinted_pixmap(AppIcons.WARNING, "#e8b830", 16, ratio))
+    label.setPixmap(tinted_pixmap(AppIcons.WARNING, COLORS.warning, 16, ratio))
+
+En una opción de MENÚ, el icono va con 'menu_icon': Qt pide el icono de la opción
+resaltada en modo 'Active' (el mismo que el del ratón encima de un botón), y ahí tiene que
+tomar el color del texto sobre el acento, como el texto de la opción.
+
+    action = menu.addAction(menu_icon(AppIcons.COLLECTION_SMART), "Editar...")
 
 Nota: los iconos a todo color (logo, etc.) NO deben pasar por aquí; para ellos
 se sigue usando QIcon(ruta) normal, porque el teñido borraría sus colores.
 
+1.3.0 'menu_icon': en la opción resaltada de un menú, el icono toma el color del texto
+      sobre el acento (antes se quedaba claro sobre el ámbar).
+1.2.1 Los ejemplos de esta cabecera usan colores del tema, no «#rrggbb» sueltos.
 1.2.0 Un icono en una fila SELECCIONADA (modo 'Selected') toma 'HighlightedText', el texto
       sobre el acento, aunque tenga color fijo: con el acento ámbar, los iconos claros de la
       barra lateral no se veían sobre la fila elegida, y la carpeta abierta (en el acento),
@@ -37,8 +46,8 @@ se sigue usando QIcon(ruta) normal, porque el teñido borraría sus colores.
 1.1.0 'tinted_pixmap' para los QLabel (el icono de la barra de estado).
 """
 
-__version__ = "1.2.0"
-__all__ = ["tinted_icon", "tinted_pixmap"]
+__version__ = "1.3.0"
+__all__ = ["menu_icon", "tinted_icon", "tinted_pixmap"]
 
 # Librerías estándar
 from functools import lru_cache
@@ -102,19 +111,28 @@ class _TintedSvgEngine(QIconEngine):
         path: str,
         color: QColor | None = None,
         hover_color: QColor | None = None,
+        *,
+        in_menu: bool = False,
     ) -> None:
         super().__init__()
         self._path = path
         self._color = color  # None -> se usa la paleta de la aplicación
         self._hover_color = hover_color  # None -> el hover no cambia el color
+        # En un menú, 'Active' es la opción resaltada (sobre el acento), no el ratón encima
+        self._in_menu = in_menu
 
     def clone(self) -> QIconEngine:
         """Qt copia los iconos internamente; cada copia necesita su propio motor."""
-        return _TintedSvgEngine(self._path, self._color, self._hover_color)
+        return _TintedSvgEngine(self._path, self._color, self._hover_color, in_menu=self._in_menu)
 
     def _resolve_color(self, mode: QIcon.Mode, state: QIcon.State) -> QColor:
         """Elige el color según el modo (activo/desactivado) y estado (marcado)."""
         palette = QGuiApplication.palette()
+
+        # Opción resaltada de un menú (modo 'Active'): el color de su texto, el del texto
+        # sobre el acento (si no, un icono claro se pierde sobre el ámbar)
+        if mode == QIcon.Mode.Active and self._in_menu:
+            return palette.color(QPalette.ColorRole.HighlightedText)
 
         # Ratón encima: Qt pide el icono en modo 'Active' (los QToolButton con
         # autoRaise=True lo hacen). Si se definió un color de hover, se usa ese.
@@ -172,8 +190,8 @@ def tinted_icon(
 
     Args:
         path: ruta del SVG (normalmente una constante de AppIcons, ":/img/xxx.svg").
-        color: color fijo (QColor o texto tipo "#d32f2f"). Si es None, el icono
-            sigue la paleta de la aplicación (claro/oscuro/acento).
+        color: color fijo (QColor o texto "#rrggbb"; del tema, p. ej. 'COLORS.error'). Si
+            es None, el icono sigue la paleta de la aplicación (claro/oscuro/acento).
         hover_color: color que toma el icono mientras el ratón está encima.
             Solo se nota en botones con autoRaise=True (como los de la toolbar).
             Si es None, el icono no cambia al pasar el ratón.
@@ -181,6 +199,18 @@ def tinted_icon(
     fixed = QColor(color) if color is not None else None
     hover = QColor(hover_color) if hover_color is not None else None
     return QIcon(_TintedSvgEngine(path, fixed, hover))
+
+
+def menu_icon(path: str, color: QColor | str | None = None) -> QIcon:
+    """Icono para una opción de menú: como 'tinted_icon', pero en la opción resaltada toma
+    el color del texto sobre el acento ('HighlightedText'), como el texto de la opción.
+
+    Args:
+        path: ruta del SVG (normalmente una constante de AppIcons, ":/img/xxx.svg").
+        color: color fijo en reposo (QColor o "#rrggbb" del tema); None = el de la paleta.
+    """
+    fixed = QColor(color) if color is not None else None
+    return QIcon(_TintedSvgEngine(path, fixed, None, in_menu=True))
 
 
 def tinted_pixmap(
@@ -194,7 +224,7 @@ def tinted_pixmap(
 
     Args:
         path: ruta del SVG (normalmente una constante de AppIcons, ":/img/xxx.svg").
-        color: color del icono (QColor o texto tipo "#2e7d32").
+        color: color del icono (QColor o texto "#rrggbb"; del tema, p. ej. 'COLORS.success').
         size: lado del icono en píxeles lógicos.
         device_pixel_ratio: el de la pantalla del widget ('widget.devicePixelRatioF()').
     """

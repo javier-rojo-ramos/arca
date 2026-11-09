@@ -3,10 +3,12 @@
 Los nombres canónicos ('red', 'blue'...) y su equivalencia con Lightroom están en
 'core/catalog/color_labels.py' (sin Qt). Aquí solo está el aspecto: los colores son
 parecidos a los de Lightroom Classic, ajustados para que se distingan sobre el fondo
-oscuro de la cuadrícula.
+oscuro de la cuadrícula. Los valores están en el tema ('MARK_COLORS', theme_colors.py).
+
+1.1.0 Los colores de las etiquetas salen del tema (los mismos valores).
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 # ruff: noqa: RUF022
 __all__ = ["LABEL_TEXTS", "blend", "label_color", "label_icon"]
 
@@ -14,15 +16,11 @@ __all__ = ["LABEL_TEXTS", "blend", "label_color", "label_icon"]
 from qtpy.QtGui import QColor, QIcon, QPixmap
 
 from core.catalog.color_labels import COLOR_LABELS
+from ui_helpers.helpers.ui_theme import COLORS, MARK_COLORS
 
-# Color (vivo) de cada etiqueta: se usa para el marco alrededor de la miniatura
-_LABEL_COLORS: dict[str, str] = {
-    "red": "#e0453f",
-    "yellow": "#e8c53a",
-    "green": "#4cae4f",
-    "blue": "#3d8fe0",
-    "purple": "#9a5fc4",
-}
+# Color (vivo) de cada etiqueta, del tema ('label_red'...): tiñe el fondo de la tarjeta y
+# rellena los cuadraditos de la barra inferior, la fila «Atributos» y los menús
+_LABEL_COLORS: dict[str, str] = {name: getattr(MARK_COLORS, f"label_{name}") for name in COLOR_LABELS}
 
 # Texto de cada etiqueta en los menús
 LABEL_TEXTS: dict[str, str] = {
@@ -55,5 +53,5 @@ def blend(base: QColor, tint: QColor, amount: float) -> QColor:
 def label_icon(name: str, size: int = 12) -> QIcon:
     """Cuadradito del color de la etiqueta, para los menús."""
     pixmap = QPixmap(size, size)
-    pixmap.fill(label_color(name) or QColor("#888888"))
+    pixmap.fill(label_color(name) or QColor(COLORS.text_dim))
     return QIcon(pixmap)

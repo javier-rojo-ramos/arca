@@ -51,6 +51,8 @@ Si la tarjeta pulsada forma parte de una selección de VARIAS, el cambio se apli
 las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
 seleccionada, solo cambia ella.
 
+2.14.0 Lo que va encima de la imagen (insignia de la duración, velos de rechazada y de no
+       disponible) toma sus colores de 'CARD_COLORS', no sueltos (los mismos valores).
 2.13.0 El marcador de tipo y el indicador de no disponible se dibujan con
        'ui_helpers/helpers/card_glyphs.py' (compartido con la vista individual). Sin cambio
        visible.
@@ -73,7 +75,7 @@ seleccionada, solo cambia ella.
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.13.0"
+__version__ = "2.14.0"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -166,7 +168,7 @@ class ThumbnailsDelegate(QStyledItemDelegate):
     DURATION_HEIGHT = 15  # alto de la insignia (px lógicos)
     DURATION_PAD_X = 4  # margen horizontal del texto dentro de la insignia
     DURATION_MARGIN = 4  # distancia a la esquina inferior derecha de la imagen
-    DURATION_BG = QColor(0, 0, 0, 165)  # negro translúcido: se lee sobre cualquier imagen
+    DURATION_BG = QColor(CARD_COLORS.overlay_bg)  # negro translúcido: se lee sobre cualquier imagen
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -403,7 +405,7 @@ class ThumbnailsDelegate(QStyledItemDelegate):
                 # Velo blanco translúcido solo sobre la imagen: la miniatura queda blanquecina
                 # y destaca sobre el fondo oscuro, sin tocar el color de fondo de la tarjeta
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QColor(255, 255, 255, round(255 * self.REJECTED_WASH)))
+                painter.setBrush(card_glyphs.veil(cards.rejected_wash, self.REJECTED_WASH))
                 painter.drawRect(target)
         else:
             painter.setPen(Qt.PenStyle.NoPen)
@@ -414,7 +416,7 @@ class ThumbnailsDelegate(QStyledItemDelegate):
             # Archivo no disponible: velo negro translúcido sobre la imagen (va encima del
             # blanco de la rechazada: este estado manda) y su indicador en la esquina
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor(0, 0, 0, round(255 * self.UNAVAILABLE_DIM)))
+            painter.setBrush(card_glyphs.veil(cards.unavailable_dim, self.UNAVAILABLE_DIM))
             painter.drawRect(target)
             self._draw_availability_badge(painter, target, availability)
 
@@ -509,7 +511,7 @@ class ThumbnailsDelegate(QStyledItemDelegate):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self.DURATION_BG)
             painter.drawRoundedRect(badge, 3, 3)
-            painter.setPen(QColor("#ffffff"))
+            painter.setPen(QColor(CARD_COLORS.overlay_text))
             painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, text)
         painter.restore()
 

@@ -9,10 +9,10 @@
 
 ## Pendiente de verificar en Windows (lo último entregado)
 
-Nada: todo lo entregado hasta el 09/11/2026 está verificado por el autor.
-
 | Entrega | Qué comprobar |
 |---|---|
+| **Iconos de los menús** (09/11; `theme_qss` 1.3.0, `ui_icons` 1.3.0, `sidebar_icons` 1.1.0, `catalog_sidebar` 1.12.1) | Clic derecho en una colección inteligente: el icono de «Editar colección inteligente…» ya no va pegado al borde izquierdo, y con la opción resaltada (ámbar) es oscuro, como el texto. Igual en el «+» de Colecciones (crear conjunto, colección o colección inteligente) y en los cuadraditos del submenú de etiquetas de la cuadrícula (solo la posición) |
+| **Colores, todos del tema** (09/11; `theme_colors` 1.6.0, `ui_theme` 1.14.0, `card_marks` 1.1.0, `card_glyphs` 1.2.0, `ui_color_labels` 1.1.0, `thumbnails_delegate` 2.14.0, `single_media_view` 1.0.1, `media_grid_view` 1.2.0, `organize_bar` 1.1.0, `selection_section` 1.3.2, `ui_icons` 1.2.1) | Todo se ve igual que antes (comprobado sin ventana, píxel a píxel: tarjetas en nueve estados, marcas, etiquetas, círculos de «Estado» del inspector, fila «Atributos» y vista individual), salvo dos cosas: **arrastrar tarjetas**, el número de la insignia ámbar es ahora oscuro (antes blanco); **barra inferior**, al pasar el ratón por una zona el fondo es algo más claro, y el anillo del color activo, gris claro en vez de blanco (los mismos que la fila «Atributos» de la barra de filtros) |
 
 ## Comprobaciones sueltas
 
@@ -62,6 +62,8 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 09/11/2026: los iconos de los menús ya no van pegados al borde izquierdo y, en la opción resaltada, son oscuros como el texto.
+- 09/11/2026: todos los colores de la interfaz salen del tema (`theme_colors.py`): las marcas de clasificación, las etiquetas, lo que va encima de la imagen y el estado de los archivos; la barra inferior, con el mismo fondo y anillo que «Atributos»; el número del arrastre, oscuro sobre el ámbar.
 - 09/11/2026: revisión de la documentación: quitados los pasos hechos y las decisiones sustituidas; lo entregado hasta el 07/11 pasa a «Verificado» y sus detalles sin mirar, a «Comprobaciones sueltas».
 - 09/11/2026: colecciones inteligentes con grupos, subpaso 3: «+ Añadir grupo» en el editor; cada grupo con su «todas / alguna de», sus reglas y su «+ Añadir regla»; la lista baja hasta lo añadido.
 - 09/11/2026: colecciones inteligentes con grupos, subpaso 2: las filas de reglas del editor pasan a su propio archivo (sin cambios de comportamiento); los colores del editor salen del tema.
@@ -70,5 +72,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 09/11/2026: filtros personalizados, subpaso 2: desplegable de ajustes personalizados antes del candado (guardar con nombre, restaurar, elegir uno de la lista; cinco de fábrica), sin la ventana de gestión todavía.
 - 09/11/2026: filtros personalizados, subpaso 1: motor de los ajustes personalizados de la barra de filtros (guardar, elegir, restaurar, cuál coincide, los de fábrica), aún sin desplegable.
 - 09/11/2026: la franja de filtros con «Metadatos» ya no deja hueco encima y debajo del panel; raya gris entre dos paneles encendidos.
-- 09/11/2026: «Metadatos», subpaso 4: la pestaña «Metadatos» funciona (columnas de partida de cada módulo, recuentos en segundo plano con la cascada, alto guardado).
-- 09/11/2026: «Metadatos», subpaso 3: el panel de «Metadatos» (de 1 a 6 columnas del mismo ancho, añadir y quitar, borde para el alto), aún sin conectar.

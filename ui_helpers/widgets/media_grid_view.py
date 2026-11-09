@@ -22,9 +22,13 @@ varias). Ahora la selección se conserva y el valor se aplica a todas.
 Lo que se arrastra (los 'id' de las tarjetas) no cambia: lo sigue preparando el modelo
 ('MediaGridModel.mimeData'). Se promociona en el .ui: 'list_view_grid' es un
 'MediaGridView' (cabecera 'ui_helpers/widgets/media_grid_view.h').
+
+1.2.0 Colores del tema: el borde de la imagen arrastrada ('CARD_COLORS.drag_border') y el
+      número de la insignia, oscuro sobre el acento ('text_on_accent'; antes blanco, que
+      sobre el ámbar no se leía).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["MediaGridView"]
 
 # Librerías de terceros (Qt)
@@ -34,7 +38,7 @@ from loguru import logger
 from qtpy.QtWidgets import QListView, QWidget
 
 # Módulos del proyecto
-from ui_helpers.helpers.ui_theme import ACCENT_COLOR, GRID_BG
+from ui_helpers.helpers.ui_theme import ACCENT_COLOR, CARD_COLORS, COLORS, GRID_BG
 
 # Lado máximo de la miniatura arrastrada (píxeles lógicos)
 DRAG_THUMB_SIDE = 72
@@ -197,7 +201,7 @@ class MediaGridView(QListView):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.setOpacity(DRAG_OPACITY)
-        border = QPen(QColor(255, 255, 255, 200), 1)
+        border = QPen(QColor(CARD_COLORS.drag_border), 1)
 
         # Pila: tarjetas grises detrás (de la más lejana a la más cercana)
         for step in range(stack, 0, -1):
@@ -229,7 +233,7 @@ class MediaGridView(QListView):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(ACCENT_COLOR))
             painter.drawRoundedRect(badge, badge_h / 2, badge_h / 2)
-            painter.setPen(QColor("white"))
+            painter.setPen(QColor(COLORS.text_on_accent))  # oscuro: el blanco no se lee
             painter.setFont(badge_font)
             painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, badge_text)
 

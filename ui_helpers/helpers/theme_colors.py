@@ -20,11 +20,24 @@ de 1 px ('divider'), algo MÁS CLARA que los paneles (como en LightTable).
 
 Las tarjetas de la cuadrícula tienen su propio juego ('CardColors'), porque se pintan a
 mano en el delegado y necesitan más matices (reposo, ratón encima, seleccionada,
-rechazada, no disponible).
+rechazada, no disponible). Incluye lo que se dibuja ENCIMA de la imagen (insignias,
+velos, el círculo de la selección rápida), que usan también la vista individual y la
+imagen del arrastre.
+
+Las marcas de clasificación (estrellas, marca, rechazo y los colores de las etiquetas)
+tienen el suyo ('MarkColors'): son las mismas en la tarjeta, la barra inferior y la fila
+«Atributos» de la barra de filtros.
+
+Formato: "#rrggbb"; los translúcidos, "#aarrggbb" (el de Qt: primero la opacidad, de 00
+a ff), p. ej. "#a5000000" = negro con opacidad 165.
 
 Este módulo NO depende de Qt: solo define valores. 'ui_theme.py' los convierte en la
-paleta de Qt (QPalette) y en la hoja de estilos (QSS).
+paleta de Qt (QPalette) y en la hoja de estilos (QSS), y da a los demás el juego activo
+('COLORS', 'CARD_COLORS', 'MARK_COLORS').
 
+1.6.0 Todos los colores de la interfaz, aquí (antes sueltos en el código): 'missing',
+      'offline' y 'shadow' en 'ThemeColors'; lo que va encima de la imagen en 'CardColors';
+      'MarkColors' nuevo (estrellas, marca, rechazo y etiquetas de color).
 1.5.0 Tarjetas y cuadrícula también en grises neutros (cuadrícula #161616, más hundida que
       la toolbar y los paneles); decidido por el autor el 07/11/2026.
 1.4.0 Acento ámbar #eca531 (antes azul #4c8ee8; el autor, 07/11/2026) y texto OSCURO sobre
@@ -39,8 +52,8 @@ Prueba rápida (contraste del texto sobre cada fondo):
     python -m ui_helpers.helpers.theme_colors
 """
 
-__version__ = "1.5.0"
-__all__ = ["DARK", "DARK_CARDS", "CardColors", "ThemeColors", "contrast_ratio"]
+__version__ = "1.6.0"
+__all__ = ["DARK", "DARK_CARDS", "DARK_MARKS", "CardColors", "MarkColors", "ThemeColors", "contrast_ratio"]
 
 # Librerías estándar
 from dataclasses import dataclass
@@ -70,6 +83,10 @@ class ThemeColors:
         success: Acciones terminadas bien (icono de la barra de estado).
         warning: Avisos (icono de la barra de estado; p. ej. archivo ausente).
         error: Errores.
+        missing: Archivo ausente (la unidad está y el archivo no: hay que hacer algo):
+            indicador de la tarjeta, de la vista individual y de «Estado» en el inspector.
+        offline: Archivo sin conexión (su disco no está conectado: volverá).
+        shadow: Sombra de la paleta de Qt (relieves de Fusion).
     """
 
     bg_base: str
@@ -90,6 +107,9 @@ class ThemeColors:
     success: str
     warning: str
     error: str
+    missing: str
+    offline: str
+    shadow: str
 
 
 # Tema oscuro: grises neutros (R = G = B), tomados de LightTable, y un acento ámbar
@@ -111,17 +131,25 @@ DARK = ThemeColors(
     accent="#eca531",
     link="#6ea4ef",
     success="#2e7d32",  # verde elegido por el autor (05/11/2026)
-    warning="#e8b830",  # amarillo (antes naranja, #e8833a; no se usaba en ningún sitio)
+    warning="#e8b830",  # amarillo
     error="#e05050",
+    missing="#e8833a",  # naranja: distinto del aviso amarillo (es un estado, no un mensaje)
+    offline="#7d7d7d",
+    shadow="#000000",
 )
 
 
 @dataclass(frozen=True, slots=True)
 class CardColors:
-    """Colores de la cuadrícula y de sus tarjetas ('ThumbnailsDelegate'). Formato "#rrggbb".
+    """Colores de la cuadrícula y de sus tarjetas ('ThumbnailsDelegate').
 
     Las etiquetas de color tiñen 'bg' (el marco de la imagen); la banda inferior (nombre,
     estrellas y marca) no se tiñe, para que el texto siempre se lea.
+
+    Lo que va ENCIMA de la imagen tiene que verse sobre cualquier foto (clara u oscura): por
+    eso es blanco o negro, a veces translúcido ("#aarrggbb"), con un borde del contrario.
+    Los velos son un color sin opacidad: cuánto tapan lo decide quien los dibuja
+    ('REJECTED_WASH', 'UNAVAILABLE_DIM' del delegado).
 
     Attributes:
         grid_bg: Fondo de la cuadrícula (y de la barra inferior: forman un bloque).
@@ -133,6 +161,16 @@ class CardColors:
         text, text_highlighted: Nombre en reposo y con ratón o selección.
         text_rejected, text_rejected_highlighted: Nombre de una rechazada (apagado).
         text_unavailable, text_unavailable_highlighted: Nombre de un archivo no disponible.
+        overlay_text: Texto y dibujos sobre la imagen (duración, «!» del ausente...).
+        overlay_bg: Fondo translúcido de las insignias sobre la imagen (duración; textos de
+            la vista individual).
+        overlay_border: Borde fino de los círculos sobre la imagen (aviso de no disponible,
+            selección rápida): se ven sobre imágenes claras.
+        quick_on: Círculo de la selección rápida de lo que está dentro.
+        quick_hover: Círculo de lo que no está dentro, con el ratón encima (translúcido).
+        rejected_wash: Velo de una rechazada (la miniatura queda blanquecina).
+        unavailable_dim: Velo de un archivo no disponible (la miniatura se oscurece).
+        drag_border: Borde de la imagen que se arrastra (translúcido).
     """
 
     grid_bg: str
@@ -153,6 +191,14 @@ class CardColors:
     text_rejected_highlighted: str
     text_unavailable: str
     text_unavailable_highlighted: str
+    overlay_text: str
+    overlay_bg: str
+    overlay_border: str
+    quick_on: str
+    quick_hover: str
+    rejected_wash: str
+    unavailable_dim: str
+    drag_border: str
 
 
 # Tarjetas del tema oscuro, en los mismos grises neutros que el resto: la cuadrícula más
@@ -178,6 +224,61 @@ DARK_CARDS = CardColors(
     text_rejected_highlighted="#aaaaaa",
     text_unavailable="#707070",
     text_unavailable_highlighted=DARK.text_dim,
+    # Encima de la imagen (iguales en cualquier tema: van sobre la foto, no sobre la ventana)
+    overlay_text="#ffffff",
+    overlay_bg="#a5000000",  # negro, opacidad 165
+    overlay_border="#8c000000",  # negro, opacidad 140
+    quick_on="#ffffff",
+    quick_hover="#aad7d7d7",  # gris claro, opacidad 170
+    rejected_wash="#ffffff",
+    unavailable_dim="#000000",
+    drag_border="#c8ffffff",  # blanco, opacidad 200
+)
+
+
+@dataclass(frozen=True, slots=True)
+class MarkColors:
+    """Colores de las marcas de clasificación: los mismos en la tarjeta, la barra inferior
+    ('OrganizeBar') y la fila «Atributos» de la barra de filtros. Los dibuja 'card_marks.py'.
+
+    Attributes:
+        star: Estrellas rellenas.
+        star_rejected: Estrellas rellenas de una rechazada (apagadas).
+        star_empty: Estrellas vacías (al pasar el ratón; visibles sobre la banda gris).
+        flag_picked: Recuadro de «marcada».
+        flag_outline: Contorno de «sin marca» (con el ratón encima).
+        reject: X de «rechazada».
+        label_red, label_yellow, label_green, label_blue, label_purple: Las cinco
+            etiquetas de color (parecidas a las de Lightroom Classic, ajustadas para que se
+            distingan sobre el fondo oscuro). Las claves son las de 'COLOR_LABELS'.
+    """
+
+    star: str
+    star_rejected: str
+    star_empty: str
+    flag_picked: str
+    flag_outline: str
+    reject: str
+    label_red: str
+    label_yellow: str
+    label_green: str
+    label_blue: str
+    label_purple: str
+
+
+# Marcas del tema oscuro
+DARK_MARKS = MarkColors(
+    star="#ffcc00",
+    star_rejected="#8a7a30",
+    star_empty="#9a9a9a",
+    flag_picked="#ffffff",
+    flag_outline="#9a9a9a",
+    reject="#a0a0a0",
+    label_red="#e0453f",
+    label_yellow="#e8c53a",
+    label_green="#4cae4f",
+    label_blue="#3d8fe0",
+    label_purple="#9a5fc4",
 )
 
 
@@ -227,12 +328,27 @@ if __name__ == "__main__":
             assert ratio >= 3, (name, background, ratio)
     # Texto sobre el acento (fila seleccionada): legible como texto normal (WCAG, 4,5)
     assert contrast_ratio(theme.text_on_accent, theme.accent) >= 4.5, "texto sobre el acento"
-    # Todos los valores tienen formato "#rrggbb"
-    for colors in (theme, DARK_CARDS):
+    # Todos los valores tienen formato "#rrggbb" o, los translúcidos, "#aarrggbb"
+    translucent = {"overlay_bg", "overlay_border", "quick_hover", "drag_border"}
+    for colors in (theme, DARK_CARDS, DARK_MARKS):
         for name in type(colors).__dataclass_fields__:
             value = getattr(colors, name)
-            assert len(value) == 7 and value.startswith("#"), (name, value)
+            size = 9 if name in translucent else 7
+            assert len(value) == size and value.startswith("#"), (name, value)
             int(value[1:], 16)
+    # Estados de los archivos: se ven sobre los paneles y no se confunden con el aviso
+    for name in ("missing", "offline"):
+        assert contrast_ratio(getattr(theme, name), theme.bg_panel) >= 3, name
+    assert theme.missing != theme.warning
+    # Marcas: las estrellas y la marca se ven sobre la banda de la tarjeta (WCAG, 3); las
+    # cinco etiquetas, distintas entre sí
+    marks = DARK_MARKS
+    for name in ("star", "star_empty", "flag_picked", "flag_outline", "reject"):
+        for band in (DARK_CARDS.band, DARK_CARDS.band_selected):
+            assert contrast_ratio(getattr(marks, name), band) >= 3, (name, band)
+    labels = [marks.label_red, marks.label_yellow, marks.label_green, marks.label_blue, marks.label_purple]
+    assert len(set(labels)) == 5, labels
+    print("Marcas: estrellas y marca legibles sobre la banda; cinco etiquetas distintas")
     # Tarjetas: el nombre se lee sobre la banda en todos los estados; la tarjeta destaca
     # sobre la cuadrícula y la seleccionada sobre la de reposo
     cards = DARK_CARDS

@@ -16,6 +16,8 @@ QSS con bordes obliga a Qt a redibujar el control entero (y se pierden sus flech
       (aquí no puede haber reglas '::indicator', o Qt dejaría de pasárselos).
     - QToolTip: va por la paleta ('ui_theme.apply_tooltip_style').
 
+1.3.0 Icono de las opciones de los menús, separado del borde izquierdo ('MENU_ICON_LEFT';
+      antes, pegado al borde).
 1.2.1 Asa del deslizador con el ratón: en el acento (con el texto sobre el acento ya
       oscuro, se perdía sobre el carril).
 1.2.0 Separadores de paneles: una raya de 1 px ('divider'), en azul al pasar el ratón; las
@@ -25,8 +27,8 @@ Prueba rápida (que la hoja se construye y que todas las llaves están cerradas)
     python -m ui_helpers.helpers.theme_qss
 """
 
-__version__ = "1.2.1"
-__all__ = ["CONTROL_RADIUS", "SCROLLBAR_WIDTH", "SPLITTER_WIDTH", "general_stylesheet"]
+__version__ = "1.3.0"
+__all__ = ["CONTROL_RADIUS", "MENU_ICON_LEFT", "SCROLLBAR_WIDTH", "SPLITTER_WIDTH", "general_stylesheet"]
 
 # Módulos del proyecto
 from ui_helpers.helpers.theme_colors import ThemeColors
@@ -34,6 +36,9 @@ from ui_helpers.helpers.theme_colors import ThemeColors
 # Medidas comunes (px lógicos)
 CONTROL_RADIUS = 3  # esquinas de botones, campos y menús
 SCROLLBAR_WIDTH = 10  # grosor de las barras de desplazamiento
+# Distancia del icono de una opción de menú a su borde izquierdo: el texto empieza hacia los
+# 46 px, así que el icono (16 px) queda más o menos centrado en el hueco de delante
+MENU_ICON_LEFT = 12
 # Separador entre las barras laterales y la zona central: una raya de 1 px, como la que
 # separa la franja de filtros, la cuadrícula y la barra inferior. Con 1 px, Qt amplía él
 # solo la zona donde se puede coger a 5 px ("tiny mode" de QSplitterHandle): se sigue
@@ -170,6 +175,13 @@ QMenu::item:selected {{
 }}
 QMenu::item:disabled {{
     color: {c.text_disabled};
+}}
+/* El icono de una opción: con el 'padding' de QMenu::item, Qt lo deja pegado al borde
+   izquierdo (el padding solo aparta el texto). Así queda en el hueco que el menú reserva
+   delante del texto, más o menos centrado */
+QMenu::icon {{
+    position: absolute;
+    left: {MENU_ICON_LEFT}px;
 }}
 QMenu::separator {{
     height: 1px;

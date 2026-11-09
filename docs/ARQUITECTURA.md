@@ -72,7 +72,7 @@ ui/main_window.ui, main_window.py    Interfaz de Qt Designer (main_window.py se 
                                      widget_organize_bar (OrganizeBar)
 ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_message), barra de estado (ui_status),
                                      iconos, tema, widgets/job_progress_widget.py
-  helpers/ui_icons.py                tinted_icon: SVG monocromos del .qrc teñidos al dibujarse (paleta, color fijo o hover)
+  helpers/ui_icons.py                tinted_icon: SVG monocromos del .qrc teñidos al dibujarse (paleta, color fijo o hover); menu_icon, para las opciones de los menús
   helpers/ui_info.py                 show_info_window: ventana de información con HTML (QTextBrowser)
   mixins/window_snap.py              WindowSnapMixin: ajuste magnético de la ventana a los bordes (desactivado en macOS)
   delegates/thumbnails_delegate.py   ThumbnailsDelegate: dibuja la tarjeta (miniatura o marcador por tipo, duración, nombre, estrellas, marca, fondo de color, aviso de no disponible y círculo de la selección rápida)
@@ -80,13 +80,13 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   models/media_grid_model.py         MediaGridModel: lista desde la BD + miniaturas desde la caché + edición del usuario
   models/full_image_loader.py        FullImageLoader: miniatura grande (2560 px o la mayor que haya) de la caché en un hilo propio, con memoria de 5 imágenes y precarga; para la vista individual
   helpers/grid_actions.py            GridActions: atajos de teclado (estilo Lightroom) y menú contextual de la cuadrícula
-  helpers/ui_color_labels.py         Colores y textos de las etiquetas de color en la interfaz
+  helpers/ui_color_labels.py         Etiquetas de color en la interfaz: su color (del tema, MARK_COLORS), textos, mezcla (blend) e icono de menú
   helpers/card_marks.py              Dibujo de estrellas, marca (recuadro / X) y círculo de la selección rápida: lo comparten la tarjeta y la barra inferior
-  helpers/card_glyphs.py             Dibujo del marcador de tipo (sin miniatura; draw_type_glyph, solo el dibujo, para la fila «Atributos») y del indicador de no disponible: lo comparten la tarjeta y la vista individual
-  helpers/theme_colors.py            Colores del tema con nombre por función (ThemeColors; DARK) y de las tarjetas (CardColors; DARK_CARDS), sin Qt: el ÚNICO sitio de los colores de la interfaz
+  helpers/card_glyphs.py             Dibujo del marcador de tipo (sin miniatura; draw_type_glyph, solo el dibujo, para la fila «Atributos») y del indicador de no disponible, y el velo de rechazada o no disponible (veil): lo comparten la tarjeta y la vista individual
+  helpers/theme_colors.py            Colores del tema con nombre por función (ThemeColors; DARK), de las tarjetas y lo que va encima de la imagen (CardColors; DARK_CARDS) y de las marcas de clasificación (MarkColors; DARK_MARKS), sin Qt: el ÚNICO sitio de los colores de la interfaz
   helpers/theme_qss.py               QSS de los componentes generales (barras de desplazamiento, separadores, botones, campos, menús...) a partir de un ThemeColors
   helpers/theme_style.py             ThemeStyle: QProxyStyle sobre Fusion que dibuja los botones de opción y las casillas (también las de listas y árboles) con los colores del tema
-  helpers/ui_theme.py                Tema: paleta oscura de Fusion (build_palette), hoja de estilos global (QSS: la general + las piezas propias), tooltips, colores compartidos de la cuadrícula (GRID_BG, GRID_LINE) y de los iconos (SIDEBAR_ICON_COLOR, SIDEBAR_ICON_OPEN_COLOR, TOOLBAR_ICON_ACCENT_COLOR; None = paleta), TOOLBAR_MARGIN
+  helpers/ui_theme.py                Tema: los juegos activos (COLORS, CARD_COLORS, MARK_COLORS), paleta oscura de Fusion (build_palette), hoja de estilos global (QSS: la general + las piezas propias), tooltips, colores compartidos de la cuadrícula (GRID_BG, GRID_LINE) y de los iconos (SIDEBAR_ICON_COLOR, SIDEBAR_ICON_OPEN_COLOR, TOOLBAR_ICON_ACCENT_COLOR; None = paleta), TOOLBAR_MARGIN
   helpers/mode_toolbar.py            ModeToolbar: botones de modo de la toolbar, exclusivos; icono en acento solo en el modo activo (al pasar el ratón cambia la caja); páginas provisionales (la crea ModuleHost)
   dialogs/settings_dialog.py         SettingsDialog: ventana de opciones (columna de secciones + páginas; PAGES = General, Catálogo, Metadatos)
   dialogs/collection_dialog.py       CollectionDialog: "Crear colección" / "Crear conjunto" (nombre, conjunto, incluir la selección)
@@ -96,7 +96,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   dialogs/remove_dialog.py           RemoveDialog: «Eliminar N archivos del catálogo», como Lightroom: explicación y botones «Eliminar del disco» / «Eliminar del catálogo» (por defecto) / «Cancelar»
   sidebars/catalog_sidebar.py        CatalogSidebar: barra lateral del catálogo (Catálogo, Carpetas, Colecciones); emite GridSource
   sidebars/image_sidebar.py          ImageSidebar: barra del módulo Imagen, solo para navegar (Biblioteca - Imagen, Carpetas con imágenes y Lista de palabras clave con su filtro)
-  helpers/sidebar_icons.py           load_sidebar_icons: iconos de unidades, carpetas y colecciones (barras del Catálogo e Imagen)
+  helpers/sidebar_icons.py           load_sidebar_icons: iconos de unidades, carpetas y colecciones (barras del Catálogo e Imagen), con sus variantes ':open' y ':menu'
   widgets/keyword_checklist.py       KeywordChecklist: filtro + árbol de palabras con casillas de tres estados (editor del inspector); padres de lo asignado resaltados; menú contextual y soltar tarjetas
   widgets/recent_keywords.py         RecentKeywords: «Últimas palabras clave», 6 botones de ancho fijo (asignar / quitar con un clic)
   helpers/signal_blocker.py          blocked_signals: bloquear las señales de varios objetos Qt en un 'with'

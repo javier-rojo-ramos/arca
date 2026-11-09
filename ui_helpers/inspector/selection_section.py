@@ -20,9 +20,11 @@ fecha y su zona horaria (Fecha), y la lista completa si no cabe.
 
 La extensión y los iconos van pegados al borde derecho, alineados entre sí.
 
-Aquí NO se edita nada: la fecha y el resto de metadatos se editan en el módulo de cada tipo
-(decisión del 30/10/2026: «el Catálogo ve y organiza; los módulos editan el contenido»).
+Aquí NO se edita nada: la fecha y el resto de metadatos se editarán en secciones propias
+(ver «Inspector único, que edita en todos los módulos» en docs/DECISIONES.md).
 
+1.3.2 Colores del círculo de «Estado», del tema ('COLORS.missing' y 'offline'; los mismos
+      valores que antes, compartidos con el aviso de la tarjeta).
 1.3.1 Vista actual vacía: título «Selección (vacío)» y filas en blanco (antes, «Ningún
       archivo» y las filas ocultas: la sección cambiaba de alto).
 1.3.0 Sin selección, el título dice «Selección (vista actual)» en lugar de la frase
@@ -34,7 +36,7 @@ Aquí NO se edita nada: la fecha y el resto de metadatos se editan en el módulo
       ('IconCell'); nombres de las bibliotecas desde 'LIBRARY_NAMES'.
 """
 
-__version__ = "1.3.1"
+__version__ = "1.3.2"
 __all__ = ["SelectionSection"]
 
 # Librerías estándar
@@ -51,7 +53,7 @@ from core.catalog.libraries import LIBRARY_NAMES, Library
 from core.catalog.selection_summary import SelectionSummary
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME
 from ui_helpers.helpers.ui_icons import tinted_icon
-from ui_helpers.helpers.ui_theme import ACCENT_COLOR
+from ui_helpers.helpers.ui_theme import ACCENT_COLOR, COLORS
 from ui_helpers.inspector.base_section import (
     ICON_SIZE,
     IconCell,
@@ -68,11 +70,6 @@ from ui_helpers.inspector.formatting import (
     format_size,
 )
 from ui_helpers.widgets.elided_label import ElidedLabel
-
-# Colores del indicador de estado: los mismos que el aviso de la tarjeta
-# (ThumbnailsDelegate.MISSING_COLOR y OFFLINE_COLOR)
-MISSING_COLOR = "#e8833a"  # ausente: naranja (hay que hacer algo)
-OFFLINE_COLOR = "#7d7d7d"  # sin conexión: gris (volverá al conectar el disco)
 
 # Icono de cada biblioteca: el del botón de su módulo en la toolbar. Si el SVG aún no
 # existe en 'AppIcons', se muestra la inicial, como hace la toolbar
@@ -312,7 +309,7 @@ class SelectionSection(InspectorSection):
             tooltip = ""
         self._status.value.set_full_text(text, tooltip)
         # Naranja si hay algo ausente (requiere actuar); gris si solo está desconectado
-        color = MISSING_COLOR if missing else OFFLINE_COLOR
+        color = COLORS.missing if missing else COLORS.offline
         self._status_icon.set_pixmap(_dot_pixmap(color, self.devicePixelRatioF()))
 
     # -------------------------------------------------------------------------

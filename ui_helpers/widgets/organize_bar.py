@@ -29,10 +29,14 @@ Comportamiento (el mismo que los atajos de teclado):
 Uso (en el .ui es un widget promocionado, 'widget_organize_bar'):
     self.widget_organize_bar.attach(self.list_view_grid, self.mosaico_model)
 
+1.1.0 El fondo bajo el ratón y el anillo del color activo, los mismos que la fila
+      «Atributos» de la barra de filtros (del tema: 'bg_hover' y 'text'; antes, blanco
+      translúcido y blanco, que en un tema claro no se verían). Decidido por el autor el
+      09/11/2026.
 1.0.0 Primera versión (barra inferior, paso 2).
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = ["MIXED", "OrganizeBar", "common_value", "toggled_value"]
 
 # Librerías estándar
@@ -73,8 +77,8 @@ _HIT_PAD = 3  # margen extra alrededor de cada zona para acertar con el clic
 
 # --- Colores propios de la barra (los de las marcas, en 'card_marks') ---
 _INACTIVE_CROSS = COLORS.text_disabled  # X de "rechazar" cuando no está activa (tema)
-_HOVER_BG = QColor(255, 255, 255, 22)  # fondo de la zona bajo el ratón
-_RING_COLOR = "#ffffff"  # anillo del color activo
+_HOVER_BG = COLORS.bg_hover  # fondo de la zona bajo el ratón (como «Atributos»)
+_RING_COLOR = COLORS.text  # anillo del color activo (como «Atributos»)
 _DISABLED_OPACITY = 0.35  # sin selección
 
 # Teclas de cada color, para los textos emergentes (la púrpura no tiene)
@@ -252,7 +256,7 @@ class OrganizeBar(QWidget):
                 rect.setTop(2)
                 rect.setBottom(_HEIGHT - 3)
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(_HOVER_BG)
+            painter.setBrush(QColor(_HOVER_BG))
             painter.drawRoundedRect(QRectF(rect), 3, 3)
 
         flag = self._state.get("flag")

@@ -52,6 +52,8 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.12.1 Iconos de los menús de colecciones con su variante ':menu' (en la opción
+       resaltada, oscuros sobre el acento, como el texto).
 1.12.0 'show_source': un origen pedido desde el inspector; si no tiene fila (una palabra
        clave), se muestra sin fila marcada (paso A.2).
 1.11.0 Menú de las carpetas: "Quitar del catálogo..." (también con el disco desconectado).
@@ -85,7 +87,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.12.0"
+__version__ = "1.12.1"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -461,7 +463,7 @@ class CatalogSidebar(QWidget):
         icons = {KIND_SET: "set", KIND_STATIC: "collection", KIND_SMART: "smart"}
         actions = _CREATE_ACTIONS if parent_id is None else _CREATE_HERE_ACTIONS
         for kind, text in actions:
-            action = menu.addAction(self._icons[icons[kind]], text)
+            action = menu.addAction(self._icons[f"{icons[kind]}:menu"], text)
             action.triggered.connect(
                 lambda _checked=False, k=kind: self.create_collection_requested.emit(k, parent_id)
             )
@@ -1084,7 +1086,7 @@ class CatalogSidebar(QWidget):
                 self._add_create_actions(menu, collection_id)
                 menu.addSeparator()
             elif kind == KIND_SMART:
-                edit_action = menu.addAction(self._icons["smart"], "Editar colección inteligente...")
+                edit_action = menu.addAction(self._icons["smart:menu"], "Editar colección inteligente...")
                 edit_action.triggered.connect(
                     lambda _checked=False: self.edit_smart_collection_requested.emit(collection_id)
                 )

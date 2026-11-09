@@ -20,10 +20,15 @@ resultado que antes de sacarlas a este módulo.
 Las funciones guardan y restauran el estado del 'painter' cuando cambian el pincel o la
 pluma (salvo 'draw_stars', que respeta la fuente que haya puesto quien llama).
 
+Los colores salen del tema ('MARK_COLORS' y, los del círculo, que va sobre la imagen,
+'CARD_COLORS'; ver 'theme_colors.py'). Las constantes '*_COLOR' de aquí son sus nombres de
+siempre, para quien ya las usa.
+
+1.1.0 Colores del tema, no sueltos (los mismos valores).
 1.0.0 Sacado de 'ThumbnailsDelegate' para compartirlo con la barra inferior.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "FLAG_NONE",
     "FLAG_OUTLINE_COLOR",
@@ -47,28 +52,31 @@ __all__ = [
 from qtpy.QtCore import QPoint, QRect, QRectF, Qt
 from qtpy.QtGui import QColor, QPainter, QPen
 
+# Módulos del proyecto
+from ui_helpers.helpers.ui_theme import CARD_COLORS, MARK_COLORS
+
 # Valores de la marca (los mismos que 'core.catalog.media_queries.FLAG_*'; aquí no se
 # importa 'core' para que el dibujo no dependa de la base de datos)
 FLAG_REJECTED, FLAG_NONE, FLAG_PICKED = -1, 0, 1
 
 # --- Estrellas ---
-STAR_COLOR = "#ffcc00"  # rellenas
-STAR_REJECTED_COLOR = "#8a7a30"  # rellenas de una rechazada (apagadas)
-STAR_EMPTY_COLOR = "#9a9a9a"  # vacías (visibles sobre la banda gris)
+STAR_COLOR = MARK_COLORS.star  # rellenas
+STAR_REJECTED_COLOR = MARK_COLORS.star_rejected  # rellenas de una rechazada (apagadas)
+STAR_EMPTY_COLOR = MARK_COLORS.star_empty  # vacías (visibles sobre la banda gris)
 _STAR_FULL, _STAR_EMPTY = "★", "☆"
 
 # --- Marca ---
-FLAG_PICKED_COLOR = "#ffffff"  # recuadro de "marcada"
-FLAG_OUTLINE_COLOR = "#9a9a9a"  # contorno de "sin marca" (con el ratón encima)
-REJECT_COLOR = "#a0a0a0"  # X de "rechazada"
+FLAG_PICKED_COLOR = MARK_COLORS.flag_picked  # recuadro de "marcada"
+FLAG_OUTLINE_COLOR = MARK_COLORS.flag_outline  # contorno de "sin marca" (con el ratón encima)
+REJECT_COLOR = MARK_COLORS.reject  # X de "rechazada"
 # Grosor de la X para una X de 8 px (la de la tarjeta); a otros tamaños, proporcional
 _REJECT_PEN_WIDTH = 1.6
 _REJECT_REFERENCE_SIZE = 8
 
 # --- Selección rápida ---
-QUICK_ON_COLOR = "#ffffff"  # dentro: blanco, como la marca
-QUICK_HOVER_COLOR = QColor(215, 215, 215, 170)  # fuera, con el ratón encima: gris claro translúcido
-QUICK_BORDER_COLOR = QColor(0, 0, 0, 140)  # borde oscuro fino: se ve sobre imágenes claras
+QUICK_ON_COLOR = CARD_COLORS.quick_on  # dentro: blanco, como la marca
+QUICK_HOVER_COLOR = QColor(CARD_COLORS.quick_hover)  # fuera, con el ratón: gris claro translúcido
+QUICK_BORDER_COLOR = QColor(CARD_COLORS.overlay_border)  # borde fino: se ve sobre imágenes claras
 
 
 def draw_stars(
