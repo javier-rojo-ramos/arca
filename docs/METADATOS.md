@@ -30,7 +30,7 @@
 | `intellectual_genre` | `XMP-iptcCore:IntellectualGenre` → `IPTC:ObjectAttributeReference` | — | — | — | — |
 | `scene` | `XMP-iptcCore:Scene` | — | — | — | — |
 | `iptc_created_at` | `XMP-photoshop:DateCreated` → `Composite:DateTimeCreated` → `IPTC:DateCreated` | — | — | — | — |
-| `sublocation` | `XMP-iptcCore:Location` → `IPTC:Sub-location` | — | «Lugar» (Por defecto, Ubicación) | Ubicación secundaria | — |
+| `sublocation` | `XMP-iptcCore:Location` → `IPTC:Sub-location` | — | «Lugar» (Por defecto, Ubicación) | Lugar | — |
 | `city` | `XMP-photoshop:City` → `IPTC:City` | — | «Ciudad» (Por defecto, Ubicación) | Ciudad | — |
 | `region` | `XMP-photoshop:State` → `IPTC:Province-State` | — | «Región» (Por defecto, Ubicación) | Región o provincia | — |
 | `country` | `XMP-photoshop:Country` → `IPTC:Country-PrimaryLocationName` | — | «País» (Por defecto, Ubicación) | País | — |

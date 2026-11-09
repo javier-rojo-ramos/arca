@@ -35,11 +35,14 @@ Cómo añadir:
     - La vista personalizada (más adelante): una lista de claves guardada en
       'settings.json'; 'preset_rows' ya acepta cualquier lista de claves.
 
+1.3.1 «Lugar» también como nombre completo de 'sublocation' (antes «Ubicación
+      secundaria»): el mismo en todas partes (decidido por el autor el 09/11/2026).
+
 Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.metadata_fields
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = [
     "COMMON_HEAD",
     "DEFAULT_PRESET",
@@ -213,7 +216,7 @@ _FIELD_LIST: tuple[InspectorField, ...] = (
                    {"photo": ("photo.metering_mode",)}, _code_text(METERING_MODES)),
 
     # --- Ubicación (IPTC) ---
-    InspectorField("sublocation", "Lugar", "Ubicación secundaria", {_ANY: ("m.sublocation",)}, _plain),
+    InspectorField("sublocation", "Lugar", "Lugar", {_ANY: ("m.sublocation",)}, _plain),
     InspectorField("city", "Ciudad", "Ciudad", {_ANY: ("m.city",)}, _plain),
     InspectorField("region", "Región", "Estado / región", {_ANY: ("m.region",)}, _plain),
     InspectorField("country", "País", "País / región", {_ANY: ("m.country",)}, _plain),

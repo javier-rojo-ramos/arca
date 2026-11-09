@@ -18,6 +18,7 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.9.1 Raya fina entre las columnas de «Metadatos» ('#line_metadata_separator').
 1.9.0 Columnas de «Metadatos» de la barra de filtros ('#widget_metadata_column'): cabecera
       con el campo en texto y el engranaje; lista sin marco sobre el fondo de la franja.
 1.8.1 La franja de la barra de filtros, con el fondo de la barra inferior y de la
@@ -42,7 +43,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.9.0"
+__version__ = "1.9.1"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -199,6 +200,11 @@ QTreeWidget#tree_metadata_values::item:selected:!active {{
 }}
 QTreeWidget#tree_metadata_values::item:hover:!selected {{
     background-color: {COLORS.bg_hover};
+}}
+/* Raya entre dos columnas: la de 1 px entre zonas */
+QFrame#line_metadata_separator {{
+    background-color: {COLORS.divider};
+    border: none;
 }}
 
 /* Línea encima de la barra de estado: la raya de 1 px entre zonas, no el relieve de Fusion */

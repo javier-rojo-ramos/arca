@@ -13,7 +13,7 @@ Organización (lo que ve el usuario en el menú "campo" del editor):
         Fechas          Fecha de captura, Fecha de importación
         Clasificación   Valoración, Marca, Etiqueta de color, Selección rápida
         Descripción     Título, Descripción, Autor, Copyright
-        Ubicación       Ciudad, Región, País, Coordenadas GPS
+        Ubicación       Ciudad, Región, País, Lugar, Coordenadas GPS
         Palabras clave  Palabra clave (cualquier tipo de archivo)
     Imagen ▸          solo fotos (cámara, objetivo, ISO...)
     Vídeo ▸           (previsto)
@@ -41,6 +41,8 @@ Cómo añadir un campo:
 Cómo añadir un grupo (p. ej. vídeo, cuando exista 'video_details'): una línea en
 'GROUPS' con sus 'media_types'; sus campos, con 'group=' su clave.
 
+1.5.1 «Lugar» (antes «Ubicación secundaria»): el mismo nombre que en el inspector
+      (decidido por el autor el 09/11/2026; la clave 'sublocation' no cambia).
 1.5.0 'SmartField.browse' y 'browse_fields()': los 29 campos que se ofrecen como columnas
       en «Metadatos» de la barra de filtros (paso A.3, «Metadatos»).
 1.4.0 Campo «Selección rápida» (sí / no; 'media_items.in_quick_selection'): lo usa la
@@ -55,7 +57,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.smart_fields
 """
 
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 # ruff: noqa: RUF022
 __all__ = [
     "KIND_BOOL",
@@ -337,7 +339,7 @@ _FIELD_LIST: tuple[SmartField, ...] = (
     SmartField("region", "Región o provincia", "standard", "Ubicación", KIND_TEXT, "m.region",
                browse=True),
     SmartField("country", "País", "standard", "Ubicación", KIND_TEXT, "m.country", browse=True),
-    SmartField("sublocation", "Ubicación secundaria", "standard", "Ubicación", KIND_TEXT,
+    SmartField("sublocation", "Lugar", "standard", "Ubicación", KIND_TEXT,
                "m.sublocation", browse=True),
     SmartField("has_gps", "Tiene coordenadas GPS", "standard", "Ubicación", KIND_BOOL,
                "(m.latitude IS NOT NULL AND m.longitude IS NOT NULL)", browse=True),

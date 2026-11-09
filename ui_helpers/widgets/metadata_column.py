@@ -27,6 +27,8 @@ Solo muestra y avisa: no consulta la base de datos ni sabe qué es un filtro.
       el engranaje: 'add_requested()' y 'remove_requested()'.
 Nada coge el foco: el teclado sigue en la cuadrícula.
 
+Entre dos columnas va una raya fina ('column_separator'; la pone quien las coloca).
+
 Los textos de cada valor («Desconocido», «Sin color», «Junio», «f/2,8»...) salen de
 'value_text'.
 
@@ -37,6 +39,8 @@ Uso (lo crea el panel de «Metadatos»):
     column.set_values(fetch_metadata_values(...), chosen)
     column.values_changed.connect(...)
 
+1.1.0 'column_separator': raya fina entre columnas; el engranaje, en el acento con el
+      ratón (lo pidió el autor el 09/11/2026).
 1.0.0 Primera versión (paso A.3, «Metadatos», subpaso 2).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
@@ -45,13 +49,14 @@ Vista de ejemplo (abre una ventana y espera a que se cierre): tres columnas con 
     python -m ui_helpers.widgets.metadata_column --ventana
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "ADD_COLUMN_TEXT",
     "ALL_TEXT",
     "HEADER_HEIGHT",
     "REMOVE_COLUMN_TEXT",
     "MetadataColumnWidget",
+    "column_separator",
     "value_text",
 ]
 
@@ -65,6 +70,7 @@ from qtpy.QtCore import QFile, QItemSelection, QItemSelectionModel, QSize, Qt, S
 from qtpy.QtGui import QBrush, QColor, QFont
 from qtpy.QtWidgets import (
     QAbstractItemView,
+    QFrame,
     QHBoxLayout,
     QHeaderView,
     QMenu,
@@ -146,6 +152,7 @@ HEADER_OBJECT_NAME = "widget_metadata_header"
 FIELD_OBJECT_NAME = "btn_metadata_field"
 SETTINGS_OBJECT_NAME = "btn_metadata_settings"
 TREE_OBJECT_NAME = "tree_metadata_values"
+SEPARATOR_OBJECT_NAME = "line_metadata_separator"
 
 # Clave de la fila «Todo» en el dato de cada fila (las demás llevan su posición)
 _ALL_KEY = -1
@@ -184,6 +191,14 @@ def _date_text(value: str) -> str:
     if len(value) == 10:
         return f"{int(value[8:])} - {_WEEKDAYS[date.fromisoformat(value).weekday()]}"
     return value
+
+
+def column_separator(parent: QWidget) -> QFrame:
+    """Raya fina vertical entre dos columnas (su color lo pone el QSS de 'ui_theme.py')."""
+    line = QFrame(parent)
+    line.setObjectName(SEPARATOR_OBJECT_NAME)
+    line.setFixedWidth(1)
+    return line
 
 
 def _count_text(count: int) -> str:
@@ -246,6 +261,8 @@ class MetadataColumnWidget(QWidget):
         self._settings_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self._settings_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._settings_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Con 'autoRaise' el icono toma el color de 'hover_color' al pasar el ratón
+        self._settings_button.setAutoRaise(True)
         self._settings_button.setToolTip(_SETTINGS_TOOLTIP)
         self._settings_button.setFixedSize(_SETTINGS_BUTTON, _SETTINGS_BUTTON)
         self._settings_button.setIconSize(QSize(_SETTINGS_ICON, _SETTINGS_ICON))
@@ -600,7 +617,10 @@ if __name__ == "__main__":
     column._remove_action.trigger()
     assert requests[-2:] == ["add", "remove"]
 
-    # 7. Nada coge el foco
+    # 7. Nada coge el foco; el engranaje cambia de color con el ratón; la raya entre columnas
+    assert column._settings_button.autoRaise()
+    separator = column_separator(column)
+    assert separator.width() == 1 and separator.objectName() == SEPARATOR_OBJECT_NAME
     assert column._tree.focusPolicy() == Qt.FocusPolicy.NoFocus
     assert column._field_button.focusPolicy() == Qt.FocusPolicy.NoFocus
     column.deleteLater()
@@ -619,12 +639,14 @@ if __name__ == "__main__":
         window.setStyleSheet(f"QWidget#demo_metadata_columns {{ background-color: {GRID_BG}; }}")
         row = QHBoxLayout(window)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(1)
+        row.setSpacing(0)
         rating = MetadataValues("rating", 317, (
             MetadataValue(3, 20), MetadataValue(5, 4), MetadataValue(0, 293),
         ))  # fmt: skip
         for key, values, chosen in (("captured_at", dates, {"2024-06-20"}),
                                     ("city", city, {"Pau"}), ("rating", rating, set())):
+            if row.count():
+                row.addWidget(column_separator(window))
             demo = MetadataColumnWidget(window)
             demo.set_media_types(("photo", "video"))
             demo.set_field(key)
