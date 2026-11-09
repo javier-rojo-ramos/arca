@@ -20,12 +20,27 @@ Qué guarda un 'GridFilter':
       aunque la pestaña se apague: al volver a encenderla, sigue ahí.
     - 'attributes': lo elegido en la fila de «Atributos» ('AttributeFilter': marcas,
       valoración, colores, selección rápida y tipos). Se conserva igual que el texto.
+    - 'metadata': las columnas de «Metadatos» ('MetadataFilter': de 1 a 6, cada una con su
+      campo y los valores elegidos). Se conserva igual que el texto.
 
 «Atributos»: cada GRUPO con algo elegido aporta su propio 'RuleSet' (AND entre grupos).
 Dentro de un grupo, lo elegido vale con «alguna» (MATCH_ANY): marcadas O sin marca, rojo O
 verde, fotos O vídeos. «Sin color» es 'color_label' vacío ('COLOR_NONE'). Valoración:
 «≥ / ≤ / =» y de 1 a 5 estrellas; SIN estrellas, solo «=» filtra («sin valoración», la
 valoración 0); «≥» y «≤» sin estrellas no filtran (decidido por el autor el 08/11/2026).
+
+«Metadatos» (como el explorador de metadatos de Lightroom): cada COLUMNA con algo elegido
+aporta su 'RuleSet' (AND entre columnas); dentro de una columna, cualquiera de sus valores
+(MATCH_ANY). Los campos son los de 'smart_fields' con 'browse=True'. Cada columna cuenta
+sus valores sobre lo que le llega: el origen, «Texto», «Atributos» y las columnas de su
+izquierda ('metadata_column_filters'; los recuentos, en 'metadata_values.py'). El valor
+de una fila se traduce en una regla con 'metadata_rule':
+    None ('METADATA_UNKNOWN')   «Desconocido»: «está vacío» (si el campo lo admite)
+    texto                       «es» (sin mayúsculas ni acentos)
+    palabra clave               «es (sin sus hijas)»: la palabra tal como se asignó
+    número, lista, valoración   «es»
+    sí / no                     1 / 0: «sí» / «no»
+    fecha                       'AAAA', 'AAAA-MM' o 'AAAA-MM-DD': ese año, mes o día
 
 Ejemplo:
 
@@ -40,6 +55,8 @@ de «no contiene»); con los demás operadores, «alguno» (MATCH_ANY).
 Todo es inmutable ('frozen'): un filtro se compara con '==' y se cambia creando otro
 ('with_panel', 'cleared', 'toggled', 'dataclasses.replace').
 
+1.3.0 Columnas de «Metadatos» ('MetadataColumn', 'MetadataFilter', 'metadata_rule',
+      'GridFilter.metadata' y 'metadata_column_filters'; paso A.3, «Metadatos»).
 1.2.0 «Sin valoración»: «=» sin estrellas filtra la valoración 0.
 1.1.0 Fila de «Atributos» ('AttributeFilter', 'GridFilter.attributes'); paso A.3.
 1.0.0 Primera versión (paso A.3, subpaso 1): pestañas, candado y fila de «Texto».
@@ -48,14 +65,17 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.grid_filter
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "COLOR_NONE",
     "FILTER_ATTRIBUTES",
     "FILTER_METADATA",
     "FILTER_PANELS",
     "FILTER_TEXT",
+    "MAX_METADATA_COLUMNS",
     "MAX_TEXT_LENGTH",
+    "METADATA_UNKNOWN",
+    "MIN_METADATA_COLUMNS",
     "NO_ATTRIBUTES",
     "NO_FILTER",
     "RATING_OPERATORS",
@@ -65,19 +85,25 @@ __all__ = [
     "TEXT_OPERATORS",
     "AttributeFilter",
     "GridFilter",
+    "MetadataColumn",
+    "MetadataFilter",
     "TextFilter",
     "filter_from_dict",
     "filter_to_dict",
+    "metadata_rule",
 ]
 
 # Librerías estándar
+import calendar
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from typing import Any
 
 # Módulos del proyecto
 from core.catalog.color_labels import COLOR_LABELS
 from core.catalog.media_types import MediaType
-from core.catalog.smart_rules import MATCH_ALL, MATCH_ANY, Rule, RuleSet
+from core.catalog.smart_fields import FIELDS, KIND_BOOL, KIND_DATE, KIND_KEYWORD
+from core.catalog.smart_rules import MATCH_ALL, MATCH_ANY, Rule, RuleSet, validate_rule
 
 # Pestañas de la barra (claves estables: se guardan en settings.json)
 FILTER_TEXT = "text"
@@ -104,6 +130,11 @@ RATING_OPERATORS: tuple[str, ...] = ("gte", "lte", "eq")  # ≥, ≤, = (claves 
 COLOR_NONE = "none"  # «sin color» (junto a los nombres de 'COLOR_LABELS')
 _FLAGS = (1, 0, -1)  # marcada, sin marca, rechazada ('media_items.flag')
 _MEDIA_TYPES = tuple(t.value for t in MediaType)
+
+# Columnas de «Metadatos»
+MIN_METADATA_COLUMNS = 1
+MAX_METADATA_COLUMNS = 6
+METADATA_UNKNOWN = None  # valor de la fila «Desconocido» (archivos sin ese dato)
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +218,162 @@ class AttributeFilter:
 NO_ATTRIBUTES = AttributeFilter()
 
 
+def metadata_rule(field_key: str, value: Any) -> Rule | None:
+    """La regla de un valor de una columna de «Metadatos» (ver la cabecera), o None si el
+    campo no se ofrece como columna o el valor no vale para él. Así, lo que llega de fuera
+    (settings.json editado a mano) nunca produce una regla que el motor rechace."""
+    spec = FIELDS.get(field_key)
+    # Un booleano no vale como valor aunque en Python True == 1 (sí / no van con 1 / 0)
+    if spec is None or not spec.browse or isinstance(value, bool):
+        return None
+    try:
+        if value is METADATA_UNKNOWN:
+            rule = Rule(field_key, "is_not_set")  # lo rechaza quien no admite «está vacío»
+        elif spec.kind == KIND_BOOL:
+            if not isinstance(value, int) or value not in (0, 1):
+                return None
+            rule = Rule(field_key, "is_true" if value == 1 else "is_false")
+        elif spec.kind == KIND_KEYWORD:
+            rule = Rule(field_key, "kw_is_only", value)
+        elif spec.kind == KIND_DATE:
+            rule = _date_rule(field_key, value)
+        else:
+            rule = Rule(field_key, "eq", value)
+        return validate_rule(rule)
+    except ValueError:
+        return None
+
+
+def _date_rule(field_key: str, value: object) -> Rule:
+    """La regla de un año ('AAAA'), un mes ('AAAA-MM') o un día ('AAAA-MM-DD').
+
+    Raises:
+        ValueError: Si el valor no es ninguna de las tres cosas.
+    """
+    if isinstance(value, str) and len(value) == 10:
+        return Rule(field_key, "on", value)  # 'validate_rule' comprueba que es un día real
+    if isinstance(value, str) and len(value) == 7 and value[4] == "-":
+        year, month = value[:4], value[5:]
+        if year.isdigit() and month.isdigit() and 1 <= int(month) <= 12:
+            last = calendar.monthrange(int(year), int(month))[1]
+            return Rule(field_key, "between", (f"{value}-01", f"{value}-{last:02d}"))
+    if isinstance(value, str) and len(value) == 4 and value.isdigit():
+        return Rule(field_key, "between", (f"{value}-01-01", f"{value}-12-31"))
+    raise ValueError(f"Fecha no válida en una columna de «Metadatos»: {value!r}")
+
+
+def _value_order(value: Any) -> tuple[int, float, str]:
+    """Orden estable de unos valores de tipos mezclados (para guardar y para las reglas)."""
+    if value is None:
+        return (0, 0.0, "")
+    if isinstance(value, (int, float)):
+        return (1, float(value), "")
+    return (2, 0.0, str(value))
+
+
+def _is_plain_value(value: object) -> bool:
+    """Si un valor leído de settings.json puede ser de una columna (texto, número o None)."""
+    return value is None or (isinstance(value, (str, int, float)) and not isinstance(value, bool))
+
+
+@dataclass(frozen=True, slots=True)
+class MetadataColumn:
+    """Una columna de «Metadatos».
+
+    Attributes:
+        field: Clave de 'smart_fields.FIELDS' (uno con 'browse=True').
+        values: Valores elegidos (vacío = «Todo»: la columna no filtra).
+    """
+
+    field: str
+    values: frozenset[Any] = frozenset()
+
+    def rule_set(self) -> RuleSet | None:
+        """Las reglas de la columna (cualquiera de sus valores), o None si no filtra."""
+        rules = [metadata_rule(self.field, v) for v in sorted(self.values, key=_value_order)]
+        valid = tuple(rule for rule in rules if rule is not None)
+        return RuleSet(MATCH_ANY, valid) if valid else None
+
+
+@dataclass(frozen=True, slots=True)
+class MetadataFilter:
+    """Las columnas de «Metadatos», de izquierda a derecha (vacío = aún sin elegir: el
+    panel pone las de partida del módulo)."""
+
+    columns: tuple[MetadataColumn, ...] = ()
+
+    @staticmethod
+    def from_fields(field_keys: Iterable[str]) -> "MetadataFilter":
+        """Columnas sin nada elegido con esos campos (los que no valen se ignoran)."""
+        keys = [k for k in field_keys if k in FIELDS and FIELDS[k].browse]
+        return MetadataFilter(tuple(MetadataColumn(k) for k in keys[:MAX_METADATA_COLUMNS]))
+
+    def rule_sets(self, before: int | None = None) -> tuple[RuleSet, ...]:
+        """Un conjunto por columna con algo elegido, de izquierda a derecha; con 'before',
+        solo los de las columnas a la izquierda de esa (la cascada)."""
+        columns = self.columns if before is None else self.columns[: max(0, before)]
+        return tuple(s for s in (c.rule_set() for c in columns) if s is not None)
+
+    def with_field(self, index: int, field_key: str) -> "MetadataFilter":
+        """Cambia el campo de una columna (lo elegido en ella se vacía).
+
+        Raises:
+            ValueError: Si el campo no se ofrece como columna.
+            IndexError: Si la columna no existe.
+        """
+        _check_browse_field(field_key)
+        return self._replaced(index, MetadataColumn(field_key))
+
+    def with_values(self, index: int, values: Iterable[Any]) -> "MetadataFilter":
+        """Cambia lo elegido en una columna (los valores que no valen se ignoran).
+
+        Raises:
+            IndexError: Si la columna no existe.
+        """
+        column = self.columns[index]
+        valid = frozenset(v for v in values if metadata_rule(column.field, v) is not None)
+        return self._replaced(index, MetadataColumn(column.field, valid))
+
+    def with_column_added(self, after: int, field_key: str) -> "MetadataFilter":
+        """Añade una columna sin nada elegido a la derecha de la columna 'after' (-1 = la
+        primera por la izquierda).
+
+        Raises:
+            ValueError: Si ya hay 'MAX_METADATA_COLUMNS' o el campo no se ofrece.
+        """
+        _check_browse_field(field_key)
+        if len(self.columns) >= MAX_METADATA_COLUMNS:
+            raise ValueError(f"Como mucho, {MAX_METADATA_COLUMNS} columnas.")
+        position = min(max(after + 1, 0), len(self.columns))
+        columns = (*self.columns[:position], MetadataColumn(field_key), *self.columns[position:])
+        return MetadataFilter(columns)
+
+    def with_column_removed(self, index: int) -> "MetadataFilter":
+        """Quita una columna (y lo elegido en ella).
+
+        Raises:
+            ValueError: Si solo quedan 'MIN_METADATA_COLUMNS'.
+            IndexError: Si la columna no existe.
+        """
+        if len(self.columns) <= MIN_METADATA_COLUMNS:
+            raise ValueError(f"Al menos, {MIN_METADATA_COLUMNS} columna.")
+        columns = list(self.columns)
+        del columns[index]  # IndexError si no existe
+        return MetadataFilter(tuple(columns))
+
+    def _replaced(self, index: int, column: MetadataColumn) -> "MetadataFilter":
+        """Las mismas columnas con la de 'index' cambiada (IndexError si no existe)."""
+        columns = list(self.columns)
+        columns[index] = column  # IndexError si no existe
+        return MetadataFilter(tuple(columns))
+
+
+def _check_browse_field(field_key: str) -> None:
+    """ValueError si el campo no se ofrece como columna de «Metadatos»."""
+    if field_key not in FIELDS or not FIELDS[field_key].browse:
+        raise ValueError(f"Campo no disponible en «Metadatos»: {field_key!r}")
+
+
 @dataclass(frozen=True, slots=True)
 class GridFilter:
     """Estado de la barra de filtros de un módulo (ver la cabecera).
@@ -197,6 +384,7 @@ class GridFilter:
         locked: Candado cerrado: el filtro se mantiene al cambiar de origen.
         text: Fila de «Texto» (se conserva aunque su pestaña esté apagada).
         attributes: Fila de «Atributos» (igual).
+        metadata: Columnas de «Metadatos» (igual).
     """
 
     active: frozenset[str] = frozenset()
@@ -204,6 +392,7 @@ class GridFilter:
     locked: bool = False
     text: TextFilter = field(default_factory=TextFilter)
     attributes: AttributeFilter = field(default_factory=AttributeFilter)
+    metadata: MetadataFilter = field(default_factory=MetadataFilter)
 
     @property
     def is_none(self) -> bool:
@@ -213,6 +402,18 @@ class GridFilter:
     def rule_sets(self) -> tuple[RuleSet, ...]:
         """Los conjuntos de reglas que aplican AHORA (de las pestañas encendidas que tienen
         algo que filtrar), en el orden de las pestañas. Vacío = no filtra nada."""
+        if FILTER_METADATA not in self.active:
+            return self._row_sets()
+        return (*self._row_sets(), *self.metadata.rule_sets())
+
+    def metadata_column_filters(self, index: int) -> tuple[RuleSet, ...]:
+        """Lo que filtra ANTES de la columna 'index' de «Metadatos»: «Texto» y «Atributos»
+        (si están encendidas) y las columnas de su izquierda. Sobre eso se cuentan los
+        valores de la columna (la cascada; ver 'metadata_values.py')."""
+        return (*self._row_sets(), *self.metadata.rule_sets(before=index))
+
+    def _row_sets(self) -> tuple[RuleSet, ...]:
+        """Los conjuntos de las filas de «Texto» y «Atributos» encendidas."""
         sets: list[RuleSet] = []
         if FILTER_TEXT in self.active:
             text_rules = self.text.rule_set()
@@ -220,7 +421,6 @@ class GridFilter:
                 sets.append(text_rules)
         if FILTER_ATTRIBUTES in self.active:
             sets.extend(self.attributes.rule_sets())
-        # «Metadatos» aún no tiene panel (paso propio)
         return tuple(sets)
 
     def with_panel(self, panel: str, on: bool) -> "GridFilter":
@@ -264,6 +464,12 @@ def filter_to_dict(grid_filter: GridFilter) -> dict[str, Any]:
             "text": grid_filter.text.text,
         },
         "attributes": _attributes_to_dict(grid_filter.attributes),
+        "metadata": {
+            "columns": [
+                {"field": c.field, "values": sorted(c.values, key=_value_order)}
+                for c in grid_filter.metadata.columns
+            ]
+        },
     }
 
 
@@ -304,6 +510,26 @@ def _attributes_from_dict(data: object) -> AttributeFilter:
     )
 
 
+def _metadata_from_dict(data: object) -> MetadataFilter:
+    """Lee las columnas de «Metadatos» (las que no se entiendan se saltan; los valores que
+    no valgan para su campo, también)."""
+    columns_data = data.get("columns") if isinstance(data, dict) else None
+    if not isinstance(columns_data, list):
+        return MetadataFilter()
+    columns: list[MetadataColumn] = []
+    for item in columns_data:
+        key = item.get("field") if isinstance(item, dict) else None
+        if not isinstance(key, str) or key not in FIELDS or not FIELDS[key].browse:
+            continue
+        values = item.get("values")
+        chosen = frozenset(
+            v for v in (values if isinstance(values, list) else ())
+            if _is_plain_value(v) and metadata_rule(key, v) is not None
+        )
+        columns.append(MetadataColumn(key, chosen))
+    return MetadataFilter(tuple(columns[:MAX_METADATA_COLUMNS]))
+
+
 def filter_from_dict(data: object) -> GridFilter:
     """Lee un filtro guardado. Lo que no se entienda (otra versión, editado a mano) se
     ignora y se queda con su valor de partida: nunca falla."""
@@ -332,6 +558,7 @@ def filter_from_dict(data: object) -> GridFilter:
         locked=data.get("locked") is True,
         text=text,
         attributes=_attributes_from_dict(data.get("attributes")),
+        metadata=_metadata_from_dict(data.get("metadata")),
     )
 
 
@@ -359,8 +586,9 @@ if __name__ == "__main__":
     assert replace(on, text=TextFilter(text="   ")).rule_sets() == ()
     long_rules = replace(on, text=TextFilter(text="a" * 900)).rule_sets()[0]
     assert len(long_rules.rules[0].value) == MAX_TEXT_LENGTH
-    # Pestañas sin panel todavía: no filtran
+    # Pestañas encendidas sin nada elegido: no filtran
     assert NO_FILTER.with_panel(FILTER_ATTRIBUTES, True).rule_sets() == ()
+    assert NO_FILTER.with_panel(FILTER_METADATA, True).rule_sets() == ()
 
     # 3. «Ninguno» y Ctrl+L: recuerda las pestañas y lo escrito
     both = on.with_panel(FILTER_ATTRIBUTES, True)
@@ -422,4 +650,86 @@ if __name__ == "__main__":
         flags=frozenset({1}), colors=frozenset({"red"}), media_types=frozenset({"photo"})
     )
     assert broken.attributes == expected, broken.attributes
+
+    # 6. «Metadatos»: el valor de cada fila es una regla válida (o None si no vale)
+    assert metadata_rule("city", "Huesca") == Rule("city", "eq", "Huesca")
+    assert metadata_rule("keyword", "Coche") == Rule("keyword", "kw_is_only", "Coche")
+    assert metadata_rule("iso", 100) == Rule("iso", "eq", 100)
+    assert metadata_rule("rating", 0) == Rule("rating", "eq", 0)
+    assert metadata_rule("flag", -1) == Rule("flag", "eq", -1)
+    assert metadata_rule("has_gps", 1) == Rule("has_gps", "is_true")
+    assert metadata_rule("has_gps", 0) == Rule("has_gps", "is_false")
+    assert metadata_rule("captured_at", "2024") == Rule(
+        "captured_at", "between", ("2024-01-01", "2024-12-31"))
+    assert metadata_rule("captured_at", "2024-02") == Rule(
+        "captured_at", "between", ("2024-02-01", "2024-02-29"))  # bisiesto
+    assert metadata_rule("captured_at", "2024-06-15") == Rule("captured_at", "on", "2024-06-15")
+    # «Desconocido»: solo en los campos que admiten «está vacío»
+    assert metadata_rule("city", METADATA_UNKNOWN) == Rule("city", "is_not_set")
+    assert metadata_rule("keyword", None) == Rule("keyword", "is_not_set")
+    assert metadata_rule("captured_at", None) == Rule("captured_at", "is_not_set")
+    for key in ("flag", "rating", "media_type", "added_at", "has_gps", "orientation"):
+        assert metadata_rule(key, None) is None, key
+    # Lo que no vale: campo que no es columna, tipo equivocado, fecha imposible...
+    for key, bad in (("file_name", "a.jpg"), ("city", 3), ("city", "  "), ("has_gps", True),
+                     ("has_gps", 2), ("iso", float("nan")), ("iso", "100"), ("flag", 7),
+                     ("captured_at", "2024-13"), ("captured_at", "2024-02-30"),
+                     ("captured_at", "24"), ("captured_at", 2024), ("otro", 1)):
+        assert metadata_rule(key, bad) is None, (key, bad)
+
+    # 7. Columnas: añadir, quitar, cambiar de campo (se vacía) y elegir valores
+    meta = MetadataFilter.from_fields(["country", "file_name", "city", "keyword"])
+    assert [c.field for c in meta.columns] == ["country", "city", "keyword"]
+    meta = meta.with_values(0, ["España", 5]).with_values(1, ["Huesca", "Torla", None])
+    assert meta.columns[0].values == {"España"}  # el 5 no vale para un texto
+    sets = meta.rule_sets()
+    assert sets[0] == RuleSet(MATCH_ANY, (Rule("country", "eq", "España"),))
+    assert sets[1].rules == (Rule("city", "is_not_set"), Rule("city", "eq", "Huesca"),
+                             Rule("city", "eq", "Torla"))
+    assert meta.rule_sets(before=1) == sets[:1] and meta.rule_sets(before=0) == ()
+    assert meta.with_field(1, "region").columns[1] == MetadataColumn("region")
+    added = meta.with_column_added(0, "lens_model")
+    assert [c.field for c in added.columns] == ["country", "lens_model", "city", "keyword"]
+    assert added.with_column_added(-1, "iso").columns[0].field == "iso"
+    assert [c.field for c in meta.with_column_removed(0).columns] == ["city", "keyword"]
+    for bad_call in (lambda: meta.with_field(0, "file_name"),
+                     lambda: meta.with_column_added(0, "title"),
+                     lambda: MetadataFilter.from_fields(["city"]).with_column_removed(0),
+                     lambda: MetadataFilter.from_fields(["iso"] * 9).with_column_added(0, "iso")):
+        try:
+            bad_call()
+            raise AssertionError("debía rechazarlo")
+        except ValueError:
+            pass
+    assert len(MetadataFilter.from_fields(["iso"] * 9).columns) == MAX_METADATA_COLUMNS
+    try:
+        meta.with_values(7, ["x"])
+        raise AssertionError("debía rechazar una columna que no existe")
+    except IndexError:
+        pass
+    for rule_set in sets:
+        rules_to_sql(rule_set)
+
+    # 8. En el filtro: solo con «Metadatos» encendida; la cascada lleva texto y atributos
+    grid = replace(with_attrs, metadata=meta).with_panel(FILTER_ATTRIBUTES, True)
+    assert grid.rule_sets() == with_attrs.with_panel(FILTER_ATTRIBUTES, True).rule_sets()
+    grid = grid.with_panel(FILTER_METADATA, True)
+    assert grid.rule_sets()[-2:] == sets and len(grid.rule_sets()) == 8
+    assert grid.metadata_column_filters(1) == (*grid.rule_sets()[:6], sets[0])
+    assert grid.metadata_column_filters(0) == grid.rule_sets()[:6]
+    # Guardado: ida y vuelta; lo estropeado se salta
+    assert filter_from_dict(filter_to_dict(grid)) == grid
+    assert filter_to_dict(grid)["metadata"]["columns"][1]["values"] == [None, "Huesca", "Torla"]
+    broken = filter_from_dict({"metadata": {"columns": [
+        {"field": "city", "values": ["Huesca", True, [1], {"a": 1}, None, 3]},
+        {"field": "file_name", "values": []}, "x", {"values": []},
+        {"field": "captured_at", "values": ["2024-06", "2024-99", "2023"]},
+        *({"field": "iso"} for _ in range(9)),
+    ]}})  # fmt: skip
+    assert broken.metadata.columns[:2] == (
+        MetadataColumn("city", frozenset({"Huesca", None})),
+        MetadataColumn("captured_at", frozenset({"2024-06", "2023"})),
+    )
+    assert len(broken.metadata.columns) == MAX_METADATA_COLUMNS
+    assert filter_from_dict({"metadata": 3}).metadata == MetadataFilter()
     print("Autoprueba finalizada correctamente.")

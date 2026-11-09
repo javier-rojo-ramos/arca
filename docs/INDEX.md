@@ -37,7 +37,7 @@ Al cambiar una de estas versiones, actualizar esta tabla.
 | Lista de campos de vídeo | versión 2 (`VIDEO_FIELDS_VERSION`; con el objetivo; comprobada con vídeos de iPhone) |
 | Lector de GPX | versión 2 (`TRACK_EXTRACTOR_VERSION`; umbral de desnivel 8 m) |
 | Motor de miniaturas | versión 2 (`THUMBNAIL_VERSION`) |
-| Reglas de las colecciones inteligentes | versión 1 (`collections.rules_json`); 40 campos en `core/catalog/smart_fields.py` (23 Estándar, 11 Imagen, 6 Tracks GPS; grupos Vídeo, Audio y Ebooks aún vacíos) |
+| Reglas de las colecciones inteligentes | versión 1 (`collections.rules_json`); 40 campos en `core/catalog/smart_fields.py` (23 Estándar, 11 Imagen, 6 Tracks GPS; grupos Vídeo, Audio y Ebooks aún vacíos); 29 también como columnas de «Metadatos» (`browse`) |
 
 ## Al retomar el proyecto
 

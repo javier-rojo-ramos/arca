@@ -34,11 +34,15 @@ Cómo añadir un campo:
          column   expresión SQL sobre 'media_items' (alias 'm'). Para las tablas de
                   detalles, '_detail("photo_details", "iso")' (subconsulta por media_id)
        y, según el tipo: 'choices' (KIND_ENUM), 'unit' / 'scale' / 'decimals'
-       (KIND_NUMBER), 'clock' (KIND_DATE).
+       (KIND_NUMBER), 'clock' (KIND_DATE). Con 'browse=True' se ofrece además como
+       columna en «Metadatos» de la barra de filtros (solo campos con pocos valores y
+       muy repetidos: no el nombre de archivo ni un tamaño).
     2. Nada más: el motor, el editor y la descripción de la regla lo toman de aquí.
 Cómo añadir un grupo (p. ej. vídeo, cuando exista 'video_details'): una línea en
 'GROUPS' con sus 'media_types'; sus campos, con 'group=' su clave.
 
+1.5.0 'SmartField.browse' y 'browse_fields()': los 29 campos que se ofrecen como columnas
+      en «Metadatos» de la barra de filtros (paso A.3, «Metadatos»).
 1.4.0 Campo «Selección rápida» (sí / no; 'media_items.in_quick_selection'): lo usa la
       fila «Atributos» de la barra de filtros y también el editor (paso A.3).
 1.3.0 «empieza con» y «termina con» (antes «empieza por» y «termina en»; mismos textos que
@@ -51,7 +55,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.smart_fields
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 # ruff: noqa: RUF022
 __all__ = [
     "KIND_BOOL",
@@ -68,6 +72,7 @@ __all__ = [
     "FieldGroup",
     "Operator",
     "SmartField",
+    "browse_fields",
     "fields_in_group",
     "visible_groups",
 ]
@@ -211,6 +216,8 @@ class SmartField:
         clock: KIND_DATE: 'local' (hora local, como 'content_created_at') o 'utc' (como
             'added_at'); decide qué es "hoy" en "en los últimos N días".
         operators: Operadores admitidos (vacío = los de su tipo, 'OPERATORS_BY_KIND').
+        browse: Se ofrece como columna en «Metadatos» de la barra de filtros (lista de
+            sus valores con recuentos; ver 'grid_filter.metadata_rule').
     """
 
     key: str
@@ -225,6 +232,7 @@ class SmartField:
     decimals: int = 0
     clock: str = "local"
     operators: tuple[str, ...] = ()
+    browse: bool = False
 
     @property
     def allowed_operators(self) -> tuple[str, ...]:
@@ -285,67 +293,77 @@ _MB = 1024 * 1024  # bytes en un MB (como el Explorador de Windows)
 _FIELD_LIST: tuple[SmartField, ...] = (
     # --- Estándar ---------------------------------------------------------------------
     SmartField("file_name", "Nombre de archivo", "standard", "Archivo", KIND_TEXT, "m.file_name"),
-    SmartField("file_extension", "Extensión", "standard", "Archivo", KIND_TEXT, "m.file_extension"),
+    SmartField("file_extension", "Extensión", "standard", "Archivo", KIND_TEXT, "m.file_extension",
+               browse=True),
     SmartField("media_type", "Tipo de archivo", "standard", "Archivo", KIND_ENUM, "m.media_type",
-               choices=_MEDIA_TYPE_CHOICES),
+               choices=_MEDIA_TYPE_CHOICES, browse=True),
     # «está vacío» = sin clasificar (p. ej. vídeos de carpetas automáticas)
     SmartField("library", "Biblioteca", "standard", "Archivo", KIND_ENUM, "m.library",
-               choices=_LIBRARY_CHOICES, operators=("eq", "ne", "is_set", "is_not_set")),
+               choices=_LIBRARY_CHOICES, operators=("eq", "ne", "is_set", "is_not_set"),
+               browse=True),
     SmartField("folder", "Carpeta (ruta)", "standard", "Archivo", KIND_TEXT, "m.relative_path",
                operators=("contains", "not_contains", "starts_with")),
     SmartField("file_size", "Tamaño", "standard", "Archivo", KIND_NUMBER, "m.file_size",
                unit="MB", scale=_MB, decimals=1,
                operators=("gt", "gte", "lt", "lte", "between")),
-    SmartField("is_missing", "Archivo ausente", "standard", "Archivo", KIND_BOOL, "m.is_missing"),
+    SmartField("is_missing", "Archivo ausente", "standard", "Archivo", KIND_BOOL, "m.is_missing",
+               browse=True),
 
     SmartField("captured_at", "Fecha de captura", "standard", "Fechas", KIND_DATE,
-               "m.content_created_at", clock="local"),
+               "m.content_created_at", clock="local", browse=True),
     SmartField("added_at", "Fecha de importación", "standard", "Fechas", KIND_DATE,
                "m.added_at", clock="utc",
-               operators=("on", "before", "after", "between", "in_last")),
+               operators=("on", "before", "after", "between", "in_last"), browse=True),
 
-    SmartField("rating", "Valoración", "standard", "Clasificación", KIND_RATING, "m.rating"),
+    SmartField("rating", "Valoración", "standard", "Clasificación", KIND_RATING, "m.rating",
+               browse=True),
     SmartField("flag", "Marca", "standard", "Clasificación", KIND_ENUM, "m.flag",
-               choices=_FLAG_CHOICES),
+               choices=_FLAG_CHOICES, browse=True),
     SmartField("color_label", "Etiqueta de color", "standard", "Clasificación", KIND_ENUM,
                "m.color_label", choices=_COLOR_CHOICES,
-               operators=("eq", "ne", "is_set", "is_not_set")),
+               operators=("eq", "ne", "is_set", "is_not_set"), browse=True),
     # Solo vive en el catálogo (el círculo de la tarjeta): no se escribe en los archivos
     SmartField("in_quick_selection", "Selección rápida", "standard", "Clasificación", KIND_BOOL,
-               "m.in_quick_selection"),
+               "m.in_quick_selection", browse=True),
 
     SmartField("title", "Título", "standard", "Descripción", KIND_TEXT, "m.title"),
     SmartField("description", "Descripción", "standard", "Descripción", KIND_TEXT, "m.description"),
-    SmartField("creator", "Autor", "standard", "Descripción", KIND_TEXT, "m.creator"),
-    SmartField("copyright", "Copyright", "standard", "Descripción", KIND_TEXT, "m.copyright"),
+    SmartField("creator", "Autor", "standard", "Descripción", KIND_TEXT, "m.creator",
+               browse=True),
+    SmartField("copyright", "Copyright", "standard", "Descripción", KIND_TEXT, "m.copyright",
+               browse=True),
 
-    SmartField("city", "Ciudad", "standard", "Ubicación", KIND_TEXT, "m.city"),
-    SmartField("region", "Región o provincia", "standard", "Ubicación", KIND_TEXT, "m.region"),
-    SmartField("country", "País", "standard", "Ubicación", KIND_TEXT, "m.country"),
-    SmartField("sublocation", "Ubicación secundaria", "standard", "Ubicación", KIND_TEXT, "m.sublocation"),
+    SmartField("city", "Ciudad", "standard", "Ubicación", KIND_TEXT, "m.city", browse=True),
+    SmartField("region", "Región o provincia", "standard", "Ubicación", KIND_TEXT, "m.region",
+               browse=True),
+    SmartField("country", "País", "standard", "Ubicación", KIND_TEXT, "m.country", browse=True),
+    SmartField("sublocation", "Ubicación secundaria", "standard", "Ubicación", KIND_TEXT,
+               "m.sublocation", browse=True),
     SmartField("has_gps", "Tiene coordenadas GPS", "standard", "Ubicación", KIND_BOOL,
-               "(m.latitude IS NOT NULL AND m.longitude IS NOT NULL)"),
+               "(m.latitude IS NOT NULL AND m.longitude IS NOT NULL)", browse=True),
     # Palabras clave (cualquier tipo de archivo): 'column' no se usa (ver KIND_KEYWORD)
-    SmartField("keyword", "Palabra clave", "standard", "Palabras clave", KIND_KEYWORD, "m.id"),
+    SmartField("keyword", "Palabra clave", "standard", "Palabras clave", KIND_KEYWORD, "m.id",
+               browse=True),
 
     # --- Imagen (solo fotos) ------------------------------------------------------------
     SmartField("camera_make", "Marca de la cámara", "image", "Cámara", KIND_TEXT,
-               _detail("photo_details", "camera_make")),
+               _detail("photo_details", "camera_make"), browse=True),
     SmartField("camera_model", "Modelo de la cámara", "image", "Cámara", KIND_TEXT,
-               _detail("photo_details", "camera_model")),
+               _detail("photo_details", "camera_model"), browse=True),
     SmartField("lens_model", "Objetivo", "image", "Cámara", KIND_TEXT,
-               _detail("photo_details", "lens_model")),
-    SmartField("iso", "ISO", "image", "Exposición", KIND_NUMBER, _detail("photo_details", "iso")),
+               _detail("photo_details", "lens_model"), browse=True),
+    SmartField("iso", "ISO", "image", "Exposición", KIND_NUMBER, _detail("photo_details", "iso"),
+               browse=True),
     SmartField("f_number", "Apertura (f/)", "image", "Exposición", KIND_NUMBER,
-               _detail("photo_details", "f_number"), decimals=1),
+               _detail("photo_details", "f_number"), decimals=1, browse=True),
     SmartField("focal_length", "Distancia focal", "image", "Exposición", KIND_NUMBER,
-               _detail("photo_details", "focal_length_mm"), unit="mm"),
+               _detail("photo_details", "focal_length_mm"), unit="mm", browse=True),
     SmartField("exposure_time", "Tiempo de exposición", "image", "Exposición", KIND_NUMBER,
-               _detail("photo_details", "exposure_time_s"), unit="s", decimals=4),
+               _detail("photo_details", "exposure_time_s"), unit="s", decimals=4, browse=True),
     SmartField("flash_fired", "Flash disparado", "image", "Exposición", KIND_BOOL,
-               _detail("photo_details", "flash_fired")),
+               _detail("photo_details", "flash_fired"), browse=True),
     SmartField("orientation", "Orientación", "image", "Imagen", KIND_ENUM, _ORIENTATION_SQL,
-               choices=_ORIENTATION_CHOICES),
+               choices=_ORIENTATION_CHOICES, browse=True),
     SmartField("width", "Ancho", "image", "Imagen", KIND_NUMBER, "m.width", unit="px"),
     SmartField("height", "Alto", "image", "Imagen", KIND_NUMBER, "m.height", unit="px"),
 
@@ -359,9 +377,9 @@ _FIELD_LIST: tuple[SmartField, ...] = (
     SmartField("track_max_elevation", "Altitud máxima", "track", "Recorrido", KIND_NUMBER,
                _detail("track_details", "elevation_max_m"), unit="m"),
     SmartField("track_activity", "Actividad", "track", "Recorrido", KIND_TEXT,
-               _detail("track_details", "activity_type")),
+               _detail("track_details", "activity_type"), browse=True),
     SmartField("track_creator_app", "Creado con", "track", "Recorrido", KIND_TEXT,
-               _detail("track_details", "creator_app")),
+               _detail("track_details", "creator_app"), browse=True),
 )
 # fmt: on
 
@@ -372,6 +390,15 @@ FIELDS: dict[str, SmartField] = {field.key: field for field in _FIELD_LIST}
 def fields_in_group(group_key: str) -> list[SmartField]:
     """Campos de un grupo, en el orden del menú."""
     return [field for field in _FIELD_LIST if field.group == group_key]
+
+
+def browse_fields(group_key: str | None = None) -> list[SmartField]:
+    """Campos que se ofrecen como columnas en «Metadatos» (de un grupo o de todos), en el
+    orden del menú."""
+    return [
+        field for field in _FIELD_LIST
+        if field.browse and (group_key is None or field.group == group_key)
+    ]
 
 
 def visible_groups() -> list[FieldGroup]:
@@ -401,5 +428,12 @@ if __name__ == "__main__":
     assert FIELDS["rating"].media_types == ()
     assert FIELDS["flag"].choice_label(-1) == "Rechazada"
     assert FIELDS["keyword"].media_types == () and FIELDS["keyword"].allowed_operators[0] == "kw_is"
+    # Columnas de «Metadatos»: 29 campos; fuera los de casi un valor por archivo y los continuos
+    browse = {field.key for field in browse_fields()}
+    assert len(browse) == 29, len(browse)
+    assert not browse & {"file_name", "title", "description", "folder", "file_size", "width",
+                         "height", "track_distance", "track_gain", "track_loss",
+                         "track_max_elevation"}
+    assert [f.key for f in browse_fields("track")] == ["track_activity", "track_creator_app"]
     print(f"{len(FIELDS)} campos en {len(visible_groups())} grupos visibles.")
     print("Autoprueba finalizada correctamente.")
