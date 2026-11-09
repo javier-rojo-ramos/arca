@@ -14,6 +14,8 @@ Metadatos (sección «Metadatos»), como los muestra Lightroom pero con coma dec
     fotogramas    '29,97 fps'                  códec          'HEVC (H.265)'
     fecha         '19/10/2026 18:44:05'
 
+1.4.0 'format_shutter': el tiempo de exposición solo (nominal o exacto); lo usan las
+      columnas de «Metadatos» de la barra de filtros, que filtran por el valor exacto.
 1.1.1 Focal con hasta dos decimales y programa «Normal», como Lightroom.
 1.1.0 Formatos de los metadatos (sección «Metadatos»).
 
@@ -21,7 +23,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.formatting
 """
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 __all__ = [
     "DATE_SOURCE_TEXTS",
     "EXPOSURE_PROGRAMS",
@@ -45,6 +47,7 @@ __all__ = [
     "format_gps",
     "format_iso",
     "format_media_types",
+    "format_shutter",
     "format_size",
     "media_type_count",
 ]
@@ -281,6 +284,14 @@ def format_exposure(seconds: float | None, f_number: float | None) -> str:
     return " a ".join(parts)
 
 
+def format_shutter(seconds: float | None, *, nominal: bool = True) -> str:
+    """Solo el tiempo de exposición: '1/50 s' (nominal, como 'format_exposure') o, con
+    'nominal=False', el exacto del archivo ('1/54 s'). '' si no hay."""
+    if not seconds or seconds <= 0:
+        return ""
+    return _shutter_text(seconds, nominal=nominal)
+
+
 def format_exposure_exact(seconds: float | None, f_number: float | None = None) -> str:
     """Texto emergente de la exposición: el tiempo EXACTO del archivo, si se redondeó.
 
@@ -440,6 +451,8 @@ if __name__ == "__main__":
     assert format_exposure(1 / 8500, None) == "1/8000 s"
     # Más rápido que 1/8000: 1/8000, como Lightroom (iPhone con el sol: 1/17544)
     assert format_exposure(1 / 17544, 1.78) == "1/8000 s a f/1,8"
+    assert format_shutter(1 / 54) == "1/50 s" and format_shutter(1 / 54, nominal=False) == "1/54 s"
+    assert format_shutter(None) == "" and format_shutter(2.0, nominal=False) == "2 s"
     assert format_exposure_exact(1 / 17544) == "Tiempo exacto: 1/17544 s"
     assert format_focal_length(20.0) == "20 mm" and format_focal_length(4.2) == "4,2 mm"
     assert format_focal_length(2.22) == "2,22 mm" and format_focal_length(16.9) == "16,9 mm"

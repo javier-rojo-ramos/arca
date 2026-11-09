@@ -18,6 +18,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.9.0 Columnas de «Metadatos» de la barra de filtros ('#widget_metadata_column'): cabecera
+      con el campo en texto y el engranaje; lista sin marco sobre el fondo de la franja.
 1.8.1 La franja de la barra de filtros, con el fondo de la barra inferior y de la
       cuadrícula ('GRID_BG'); lo pidió el autor el 08/11/2026.
 1.8.0 Barra de filtros ('#widget_filter_bar'): pestañas de texto en gris, la encendida en
@@ -40,7 +42,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.8.1"
+__version__ = "1.9.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -153,6 +155,50 @@ QToolButton#btn_filter_lock:hover {{
 }}
 QWidget#widget_filter_panels {{
     border-top: 1px solid {COLORS.divider};
+}}
+
+/* Columnas de «Metadatos» (ui_helpers/widgets/metadata_column.py): la cabecera, con el
+   fondo de los paneles y una raya debajo; el campo, en texto (sin caja; con el ratón, en
+   el acento) y sin la flecha de Fusion (la lleva el texto: «Ciudad ▾»); la lista, sin
+   marco, sobre el fondo de la franja */
+QWidget#widget_metadata_header {{
+    background-color: {COLORS.bg_panel};
+    border-bottom: 1px solid {COLORS.divider};
+}}
+QToolButton#btn_metadata_field {{
+    border: none;
+    background: transparent;
+    color: {COLORS.text};
+    padding: 2px 2px;
+}}
+QToolButton#btn_metadata_field:hover {{
+    color: {COLORS.accent};
+}}
+QToolButton#btn_metadata_field::menu-indicator {{
+    image: none;
+    width: 0px;
+}}
+QToolButton#btn_metadata_settings {{
+    border: none;
+    background: transparent;
+}}
+QToolButton#btn_metadata_settings::menu-indicator {{
+    image: none;
+    width: 0px;
+}}
+QTreeWidget#tree_metadata_values {{
+    background: transparent;
+    border: none;
+}}
+/* Lo elegido, siempre con el color de selección (como en las barras laterales: la lista
+   nunca tiene el foco y, sin esto, la selección inactiva no se leería); bajo el ratón,
+   un gris un poco más claro */
+QTreeWidget#tree_metadata_values::item:selected,
+QTreeWidget#tree_metadata_values::item:selected:!active {{
+    background-color: palette(highlight);
+}}
+QTreeWidget#tree_metadata_values::item:hover:!selected {{
+    background-color: {COLORS.bg_hover};
 }}
 
 /* Línea encima de la barra de estado: la raya de 1 px entre zonas, no el relieve de Fusion */
