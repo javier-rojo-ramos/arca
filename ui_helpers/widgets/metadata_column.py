@@ -39,6 +39,8 @@ Uso (lo crea el panel de «Metadatos»):
     column.set_values(fetch_metadata_values(...), chosen)
     column.values_changed.connect(...)
 
+1.2.0 Al volver a poner los valores del mismo campo (un recuento nuevo), la lista se
+      queda donde estaba (no vuelve arriba).
 1.1.0 'column_separator': raya fina entre columnas; el engranaje, en el acento con el
       ratón (lo pidió el autor el 09/11/2026).
 1.0.0 Primera versión (paso A.3, «Metadatos», subpaso 2).
@@ -49,7 +51,7 @@ Vista de ejemplo (abre una ventana y espera a que se cierre): tres columnas con 
     python -m ui_helpers.widgets.metadata_column --ventana
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "ADD_COLUMN_TEXT",
     "ALL_TEXT",
@@ -346,7 +348,12 @@ class MetadataColumnWidget(QWidget):
         if values.field != self._field:
             return
         self._chosen = frozenset(chosen)
+        # Un recuento nuevo del mismo campo (tras elegir a la izquierda, tras un cambio del
+        # usuario...): la lista se queda donde estaba
+        scroll = self._tree.verticalScrollBar()
+        position = scroll.value()
         self._fill(values)
+        scroll.setValue(position)
 
     def set_can_add(self, can: bool) -> None:
         """Activa «Añadir columna» (no, con el máximo de columnas)."""

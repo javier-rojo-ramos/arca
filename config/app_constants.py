@@ -16,6 +16,7 @@ __all__ = [
     "AppIcons",
     "SETTING_INSPECTOR_METADATA_PRESET",
     "SETTING_INSPECTOR_SECTIONS",
+    "SETTING_FILTER_METADATA_HEIGHT",
     "SETTING_ACTIVE_MODULE",
     "SETTING_LAST_ADD_FOLDER_PARENT",
     "SETTING_MAIN_SPLITTER_STATE",
@@ -112,6 +113,10 @@ SETTING_INSPECTOR_METADATA_PRESET = "inspector_metadata_preset"
 # Secciones del inspector desplegadas o plegadas: {clave de la sección: True/False}.
 # Es común a todos los catálogos (la barra izquierda, en cambio, se guarda por catálogo)
 SETTING_INSPECTOR_SECTIONS = "inspector_sections"
+
+# Alto del panel «Metadatos» de la barra de filtros (px lógicos; se cambia arrastrando su
+# borde inferior). Uno para todos los módulos y catálogos. None = el de partida
+SETTING_FILTER_METADATA_HEIGHT = "filter_metadata_height"
 
 # Módulo activo al cerrar la aplicación ('catalog', 'image', 'video', 'audio'): se
 # vuelve a él al arrancar. Es común a todos los catálogos

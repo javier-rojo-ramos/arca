@@ -27,6 +27,8 @@ Uso (en el .ui es un widget promocionado, 'widget_filter_bar', dentro de 'frame_
     bar.set_available({"text"})
     bar.set_state(frozenset({"text"}), locked=False)
 
+1.1.0 Raya gris de 1 px entre dos paneles encendidos (p. ej. entre «Texto» y «Atributos»);
+      lo pidió el autor el 09/11/2026.
 1.0.1 Los paneles empiezan DEBAJO de su raya de 1 px (antes la raya tapaba su primera fila
       y medían 29 px en lugar de 30): misma altura que la fila de las pestañas.
 1.0.0 Primera versión (paso A.3, subpaso 3).
@@ -35,7 +37,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.filter_bar
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = ["LOCK_TOOLTIPS", "TAB_TEXTS", "TITLE_TEXT", "FilterBar"]
 
 # Librerías estándar
@@ -43,7 +45,14 @@ from collections.abc import Iterable
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QFile, QSize, Qt, Signal
-from qtpy.QtWidgets import QHBoxLayout, QLabel, QToolButton, QVBoxLayout, QWidget
+from qtpy.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 # Módulos del proyecto
 from config.app_constants import AppIcons
@@ -82,6 +91,7 @@ TAB_OBJECT_NAME = "btn_filter_tab"
 LOCK_OBJECT_NAME = "btn_filter_lock"
 TITLE_OBJECT_NAME = "lbl_filter_title"
 PANELS_OBJECT_NAME = "widget_filter_panels"
+PANEL_LINE_OBJECT_NAME = "line_filter_panel"  # raya entre dos paneles
 
 
 class FilterBar(QWidget):
@@ -103,6 +113,7 @@ class FilterBar(QWidget):
         self._locked = False
         self._available: frozenset[str] = frozenset(FILTER_PANELS)
         self._panels: dict[str, QWidget] = {}
+        self._panel_lines: dict[str, QFrame] = {}  # la raya de encima de cada panel
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -195,9 +206,15 @@ class FilterBar(QWidget):
         if key not in self._tabs or key in self._panels:
             raise ValueError(f"Pestaña desconocida o con panel: {key!r}")
         self._panels[key] = panel
-        # En el orden de las pestañas, aunque se añadan en otro
-        position = sum(1 for k in FILTER_PANELS[: FILTER_PANELS.index(key)] if k in self._panels)
-        self._panel_layout.insertWidget(position, panel)
+        # Encima de cada panel, su raya (solo se ve si hay otro panel encendido encima)
+        line = QFrame(self._panel_area)
+        line.setObjectName(PANEL_LINE_OBJECT_NAME)
+        line.setFixedHeight(_PANEL_LINE)
+        self._panel_lines[key] = line
+        # En el orden de las pestañas, aunque se añadan en otro (dos huecos por panel)
+        before = sum(1 for k in FILTER_PANELS[: FILTER_PANELS.index(key)] if k in self._panels)
+        self._panel_layout.insertWidget(2 * before, line)
+        self._panel_layout.insertWidget(2 * before + 1, panel)
         self._refresh()
 
     def set_available(self, keys: Iterable[str]) -> None:
@@ -244,9 +261,12 @@ class FilterBar(QWidget):
             self._lock.setText("🔒" if self._locked else "🔓")
         self._lock.setToolTip(LOCK_TOOLTIPS[int(self._locked)])
         shown = False
-        for key, panel in self._panels.items():
+        for key in FILTER_PANELS:  # en el orden de las pestañas (el de la columna de paneles)
+            if key not in self._panels:
+                continue
             visible = key in self._active
-            panel.setVisible(visible)
+            self._panels[key].setVisible(visible)
+            self._panel_lines[key].setVisible(visible and shown)  # entre dos paneles
             shown = shown or visible
         self._panel_area.setVisible(shown)
 
@@ -314,6 +334,17 @@ if __name__ == "__main__":
     assert bar._none.isChecked() and panel.isHidden() and bar._panel_area.isHidden()
     bar._none.click()
     assert nones == [True] and bar._none.isChecked()
+
+    # Raya entre dos paneles encendidos (no encima del primero)
+    second = QWidget(holder)
+    bar.add_panel(FILTER_ATTRIBUTES, second)
+    line_text, line_attributes = bar._panel_lines[FILTER_TEXT], bar._panel_lines[FILTER_ATTRIBUTES]
+    assert bar._panel_layout.indexOf(panel) < bar._panel_layout.indexOf(line_attributes)
+    bar.set_state({FILTER_TEXT, FILTER_ATTRIBUTES}, locked=False)
+    assert line_text.isHidden() and not line_attributes.isHidden()
+    bar.set_state({FILTER_ATTRIBUTES}, locked=False)
+    assert line_attributes.isHidden() and panel.isHidden()
+    bar.set_state((), locked=False)
 
     # Candado: se pide cerrarlo; cerrado cuando se confirma, con su texto emergente
     bar._lock.click()

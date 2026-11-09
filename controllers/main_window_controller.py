@@ -48,6 +48,7 @@ from controllers.center_view_controller import CenterViewController
 from controllers.filter_controller import FilterController
 from controllers.folder_actions import FolderActions
 from controllers.inspector_controller import InspectorController
+from controllers.metadata_filter_controller import MetadataFilterController
 from core.catalog.availability import AvailabilityCheck, check_availability
 from core.catalog.catalog_builder import CatalogBuilder, CatalogError
 from core.catalog.catalog_opener import open_catalog
@@ -102,6 +103,7 @@ from ui_helpers.mixins.window_snap import WindowSnapMixin
 from ui_helpers.models.media_grid_model import QUICK_SELECTION_FIELD, MediaGridModel
 from ui_helpers.widgets.attribute_filter_row import AttributeFilterRow
 from ui_helpers.widgets.job_progress_widget import JobProgressWidget
+from ui_helpers.widgets.metadata_filter_panel import MetadataFilterPanel
 from ui_helpers.widgets.text_filter_row import TextFilterRow
 
 # Nombres de los trabajos en segundo plano y texto con el que se muestran
@@ -227,6 +229,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.module_host: ModuleHost | None = None
         # Inspector (panel derecho): se crea en '_configurar_modulos'
         self.inspector: InspectorController | None = None
+        # Panel «Metadatos» de la barra de filtros (recuentos): se crea en '_conectar_filtros'
+        self.metadata_filters: MetadataFilterController | None = None
 
         self._configuracion_cargada = False
         self._crear_acciones_miniaturas()
@@ -855,6 +859,16 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
                 "regenerar ui/main_window.py desde el .ui."
             )
             return
+        # El panel «Metadatos» y sus recuentos en segundo plano (ver 'MetadataFilterController')
+        self.metadata_filters = MetadataFilterController(
+            self.module_host,
+            panel=MetadataFilterPanel(bar),
+            model=self.mosaico_model,
+            config=self.config,
+            parent=self,
+        )
+        # Tras los cambios del usuario (estrellas, palabras clave...), sus recuentos también
+        self._sidebar_refresh_timer.timeout.connect(self.metadata_filters.refresh_counts)
         self.filters = FilterController(
             self.module_host,
             bar=bar,
@@ -862,6 +876,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             window=self,
             text_row=TextFilterRow(bar),
             attribute_row=AttributeFilterRow(bar),
+            metadata=self.metadata_filters,
             parent=self,
         )
 
@@ -1121,6 +1136,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             self.module_host.attach(self.db, self.catalog_dir)
         if self.inspector is not None:
             self.inspector.attach(self.db)
+        if self.metadata_filters is not None:
+            self.metadata_filters.attach(self.db)
 
         # 4. Si no se restauró nada (o se espera a una colección inteligente), se carga el
         #    catálogo completo (en el orden del módulo activo, fijado en 'restore_state').
@@ -1260,6 +1277,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         inspector = getattr(self, "inspector", None)
         if inspector is not None:
             inspector.detach()  # se descartan los resúmenes pendientes y se vacía el panel
+        if self.metadata_filters is not None:
+            self.metadata_filters.detach()  # se descartan los recuentos pendientes
 
         if self.db is not None:
             # 'shutdown' espera a las tareas en curso (rápido, porque se han cancelado)

@@ -32,6 +32,12 @@ Uso (lo crea el controlador principal y se lo pasa al de los filtros):
     panel.set_column_values(0, fetch_metadata_values(...))
     panel.metadata_filter_changed.connect(...)
 
+1.0.2 Alto fijo también en su política de tamaño: sus columnas se estiran en vertical y,
+      sin esto, Qt daba por «estirable» toda la franja de filtros y le repartía parte del
+      sitio de la cuadrícula (hueco por encima y por debajo del panel; lo vio el autor).
+1.0.1 El límite de la mitad de la ventana solo se aplica con la ventana a la vista (al
+      arrancar aún no tiene su tamaño y recortaría el alto guardado); 'set_media_types'
+      no rehace los menús si los tipos no cambian (se llama en cada cambio del filtro).
 1.0.0 Primera versión (paso A.3, «Metadatos», subpaso 3).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
@@ -41,7 +47,7 @@ de ejemplo en memoria, con la cascada funcionando
     python -m ui_helpers.widgets.metadata_filter_panel --ventana
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.2"
 __all__ = [
     "DEFAULT_HEIGHT",
     "GRIP_HEIGHT",
@@ -57,7 +63,7 @@ from typing import Any
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QEvent, Qt, Signal
 from qtpy.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent
-from qtpy.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QFrame, QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 
 # Módulos del proyecto
 from core.catalog.grid_filter import (
@@ -158,6 +164,10 @@ class MetadataFilterPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName(PANEL_OBJECT_NAME)
+        # Alto FIJO (lo pone 'set_panel_height'). Las columnas piden estirarse en vertical y
+        # Qt pasa esa petición hacia arriba aunque el alto esté fijado: sin 'Fixed', la
+        # franja de filtros entera se estiraría y se llevaría parte del sitio de la cuadrícula
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self._filter = MetadataFilter()
         self._media_types: tuple[str, ...] = ()
         self._columns: list[MetadataColumnWidget] = []
@@ -189,7 +199,10 @@ class MetadataFilterPanel(QWidget):
 
     def set_media_types(self, media_types: Iterable[str]) -> None:
         """Tipos del módulo: qué grupos de campos ofrece cada columna."""
-        self._media_types = tuple(media_types)
+        media_types = tuple(media_types)
+        if media_types == self._media_types:
+            return
+        self._media_types = media_types
         for column in self._columns:
             column.set_media_types(self._media_types)
 
@@ -220,9 +233,10 @@ class MetadataFilterPanel(QWidget):
         self.setFixedHeight(max(MIN_HEIGHT, min(height, self._max_height())))
 
     def _max_height(self) -> int:
-        """La mitad del alto de la ventana (sin ventana todavía, sin límite)."""
+        """La mitad del alto de la ventana (sin ventana a la vista, sin límite: al
+        arrancar aún no tiene su tamaño y recortaría el alto guardado)."""
         window = self.window()
-        if window is self:
+        if window is self or not window.isVisible():
             return 10_000
         return max(MIN_HEIGHT, int(window.height() * MAX_HEIGHT_FRACTION))
 
@@ -386,6 +400,7 @@ if __name__ == "__main__":
     panel.set_filter(start)
     assert fields() == ["captured_at", "camera_model", "lens_model"] and len(panel._separators) == 2
     assert panel._row.count() == 5 and not changes
+    assert not panel.sizePolicy().expandingDirections() & Qt.Orientation.Vertical
     first_columns = list(panel._columns)
     panel.set_filter(start)  # el mismo filtro: no se vuelven a crear
     assert panel._columns == first_columns
@@ -435,6 +450,9 @@ if __name__ == "__main__":
     assert panel.panel_height == DEFAULT_HEIGHT
     panel.set_panel_height(20)
     assert panel.panel_height == MIN_HEIGHT
+    panel.set_panel_height(5000)
+    assert panel.panel_height == 5000  # sin la ventana a la vista, sin límite
+    holder.isVisible = lambda: True  # como si se viera (sin abrir ninguna ventana)
     panel.set_panel_height(5000)
     assert panel.panel_height == 400  # la mitad de la ventana (800)
     panel.set_panel_height(DEFAULT_HEIGHT)

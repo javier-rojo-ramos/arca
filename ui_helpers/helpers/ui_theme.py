@@ -18,6 +18,7 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.9.2 Raya entre dos paneles de la barra de filtros ('#line_filter_panel').
 1.9.1 Raya fina entre las columnas de «Metadatos» ('#line_metadata_separator').
 1.9.0 Columnas de «Metadatos» de la barra de filtros ('#widget_metadata_column'): cabecera
       con el campo en texto y el engranaje; lista sin marco sobre el fondo de la franja.
@@ -43,7 +44,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.9.1"
+__version__ = "1.9.2"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -156,6 +157,11 @@ QToolButton#btn_filter_lock:hover {{
 }}
 QWidget#widget_filter_panels {{
     border-top: 1px solid {COLORS.divider};
+}}
+/* Raya entre dos paneles encendidos (p. ej. entre «Texto» y «Atributos») */
+QFrame#line_filter_panel {{
+    background-color: {COLORS.divider};
+    border: none;
 }}
 
 /* Columnas de «Metadatos» (ui_helpers/widgets/metadata_column.py): la cabecera, con el

@@ -21,6 +21,8 @@ el controlador principal, que conecta esas señales de 'CatalogSidebar' directam
 Orden de la cuadrícula: todos los campos de 'grid_orders.py'; parte de «Nombre» (con tipos
 mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 
+1.4.0 'filter_metadata_fields': Tipo de archivo, Fecha de captura y Palabra clave
+      (decidido por el autor el 09/11/2026). Paso A.3.
 1.3.0 'filter_media_types': foto, vídeo, audio y track (los tipos que ya existen; el
       libro electrónico, cuando lo haya). Paso A.3.
 1.2.0 'show_source': la flecha «ver sus fotos» del inspector muestra la palabra en la
@@ -28,7 +30,7 @@ mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 1.1.0 'sort_fields' y 'default_order' (orden de partida: «Nombre»).
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["CatalogModule"]
 
 # Librerías estándar
@@ -139,6 +141,10 @@ class CatalogModule(AppModule):
     def filter_media_types(self) -> tuple[str, ...]:
         """Todos los tipos que ya maneja la aplicación (el libro electrónico, cuando lo haya)."""
         return (MediaType.PHOTO, MediaType.VIDEO, MediaType.AUDIO, MediaType.TRACK)
+
+    def filter_metadata_fields(self) -> tuple[str, ...]:
+        """Columnas de partida de «Metadatos»: las que valen para cualquier tipo."""
+        return ("media_type", "captured_at", "keyword")
 
     def sort_fields(self) -> tuple[str, ...]:
         """Todos los campos de orden (sirven para cualquier tipo de archivo)."""

@@ -16,6 +16,10 @@ la cuadrícula (ver 'module_host.py'). Aquí se traduce lo uno en lo otro:
     - Fila de «Atributos» ('AttributeFilterRow', su panel) -> el filtro con 'attributes'
       cambiado (en el acto). Al cambiar de módulo, la fila muestra lo elegido en ese
       módulo y sus tipos ('ModuleHost.active_filter_media_types').
+    - Panel de «Metadatos» (lo lleva su propio controlador, 'MetadataFilterController':
+      los recuentos en segundo plano) -> el filtro con 'metadata' cambiado. Cada vez que
+      la barra muestra un filtro, se lo pasa ('show_filter'): así cuenta lo que cambie
+      también al escribir en «Texto» o pulsar en «Atributos».
     - 'ModuleHost.filter_changed' (otro módulo, abrir o cerrar el catálogo, la vuelta a
       «Ninguno» al cambiar de origen) -> la barra.
     - 'ModuleHost.view_changed' -> la franja de la barra se oculta en la vista individual
@@ -25,16 +29,19 @@ La barra está desactivada sin catálogo y en los módulos que no deciden la cua
 provisionales: no ofrecen campos de orden).
 
 Paneles de las pestañas: las filas de «Texto» ('text_row') y de «Atributos»
-('attribute_row') y los de las demás que ya tengan uno ('panels') se pasan al crearlo;
-solo esas pestañas se pueden pulsar.
+('attribute_row'), el controlador de «Metadatos» ('metadata', con su panel) y los de las
+demás que ya tengan uno ('panels') se pasan al crearlo; solo esas pestañas se pueden pulsar.
 
 Uso (en el controlador principal, solo la conexión):
     self.filters = FilterController(module_host, bar=widget_filter_bar,
                                     frame=frame_main_top, window=self,
                                     text_row=TextFilterRow(widget_filter_bar),
                                     attribute_row=AttributeFilterRow(widget_filter_bar),
+                                    metadata=MetadataFilterController(...),
                                     parent=self)
 
+1.3.0 Panel de «Metadatos» ('metadata': su controlador, con los recuentos); la pestaña
+      «Metadatos» ya se puede pulsar (paso A.3).
 1.2.0 Fila de «Atributos» ('attribute_row'), con los tipos del módulo activo (paso A.3).
 1.1.0 Fila de «Texto» ('text_row') y Ctrl+F (paso A.3, subpaso 4).
 1.0.0 Primera versión (paso A.3, subpaso 3).
@@ -43,7 +50,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m controllers.filter_controller
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["TEXT_SHORTCUT", "TOGGLE_SHORTCUT", "FilterController"]
 
 # Librerías estándar
@@ -58,10 +65,13 @@ from qtpy.QtWidgets import QWidget
 
 # Módulos del proyecto
 from controllers.app_modules.center_views import CenterView
+from controllers.metadata_filter_controller import MetadataFilterController
 from core.catalog.grid_filter import (
     FILTER_ATTRIBUTES,
+    FILTER_METADATA,
     FILTER_TEXT,
     AttributeFilter,
+    MetadataFilter,
     TextFilter,
 )
 from ui_helpers.widgets.attribute_filter_row import AttributeFilterRow
@@ -86,6 +96,7 @@ class FilterController(QObject):
         window: QWidget,
         text_row: TextFilterRow | None = None,
         attribute_row: AttributeFilterRow | None = None,
+        metadata: MetadataFilterController | None = None,
         panels: Mapping[str, QWidget] | None = None,
         parent: QObject | None = None,
     ) -> None:
@@ -101,6 +112,7 @@ class FilterController(QObject):
             window: Ventana donde valen Ctrl+L y Ctrl+F.
             text_row: Fila de «Texto» (el panel de esa pestaña; None = sin él).
             attribute_row: Fila de «Atributos» (igual).
+            metadata: Controlador del panel «Metadatos» (su panel es el de la pestaña).
             panels: Panel de las demás pestañas que ya lo tienen (clave -> widget).
             parent: Objeto padre.
         """
@@ -110,6 +122,7 @@ class FilterController(QObject):
         self._frame = frame
         self._text_row = text_row
         self._attribute_row = attribute_row
+        self._metadata = metadata
         all_panels: dict[str, QWidget] = dict(panels or {})
         if text_row is not None:
             all_panels[FILTER_TEXT] = text_row
@@ -117,6 +130,9 @@ class FilterController(QObject):
         if attribute_row is not None:
             all_panels[FILTER_ATTRIBUTES] = attribute_row
             attribute_row.attribute_filter_changed.connect(self._on_attributes_changed)
+        if metadata is not None:
+            all_panels[FILTER_METADATA] = metadata.panel
+            metadata.metadata_filter_changed.connect(self._on_metadata_changed)
         for key, panel in all_panels.items():
             bar.add_panel(key, panel)
         bar.set_available(all_panels.keys())
@@ -182,6 +198,14 @@ class FilterController(QObject):
         if self._attribute_row is not None:
             self._attribute_row.set_media_types(self._host.active_filter_media_types())
             self._attribute_row.set_filter(grid_filter.attributes)
+        if self._metadata is not None:
+            # Sus columnas y, si se ve, los recuentos que hayan cambiado
+            self._metadata.show_filter(grid_filter, enabled=self._enabled())
+
+    def _on_metadata_changed(self, metadata: MetadataFilter) -> None:
+        """Lo cambiado en el panel «Metadatos» (valores, campos, columnas)."""
+        if self._enabled():
+            self._apply(replace(self._host.active_filter, metadata=metadata))
 
     def _on_attributes_changed(self, attributes: AttributeFilter) -> None:
         """Lo pulsado en la fila de «Atributos»."""
@@ -322,6 +346,32 @@ if __name__ == "__main__":
     host.active_filter = NO_FILTER
     host.filter_changed.emit(host.active_filter)
     assert attribute_panel.current() == AttributeFilter()
+
+    # «Metadatos»: con su controlador, se puede pulsar; recibe cada filtro que se muestra
+    # (para contar) y lo que cambia en el panel pasa al filtro
+    class _Metadata(QObject):
+        metadata_filter_changed = Signal(object)
+
+        def __init__(self, parent: QWidget) -> None:
+            super().__init__(parent)
+            self.panel = QWidget(parent)
+            self.shown: list = []
+
+        def show_filter(self, grid_filter: object, *, enabled: bool) -> None:
+            self.shown.append((grid_filter, enabled))
+
+    host.active_filter = NO_FILTER
+    metadata_bar = FilterBar(frame)
+    metadata = _Metadata(window)
+    FilterController(host, bar=metadata_bar, frame=frame, window=window, metadata=metadata,
+                     parent=window)  # fmt: skip
+    assert metadata_bar._tabs[FILTER_METADATA].isEnabled() and metadata.shown[-1] == (NO_FILTER, True)
+    metadata_bar._tabs[FILTER_METADATA].click()
+    assert host.active_filter.active == {FILTER_METADATA} and not metadata.panel.isHidden()
+    assert metadata.shown[-1] == (host.active_filter, True)
+    columns = MetadataFilter.from_fields(("city",)).with_values(0, ["Huesca"])
+    metadata.metadata_filter_changed.emit(columns)
+    assert host.active_filter.metadata == columns and metadata.shown[-1][0].metadata == columns
 
     window.deleteLater()
     print("Autoprueba finalizada correctamente.")

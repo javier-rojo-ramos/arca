@@ -5,6 +5,7 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.10 Se añade 'filter_metadata_height' (alto del panel «Metadatos» de la barra de filtros).
 1.09 Se añade 'last_add_folder_parent' (dónde se abre «Añadir carpeta»).
 1.08 Se añade 'active_module' (módulo activo al cerrar la aplicación).
 1.07 Se añade 'inspector_sections' (secciones del inspector plegadas o desplegadas).
@@ -17,7 +18,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.09"
+__version__ = "1.10"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -34,6 +35,7 @@ from typing import Any, ClassVar
 # Módulos del proyecto
 from config.app_constants import (
     SETTING_ACTIVE_MODULE,
+    SETTING_FILTER_METADATA_HEIGHT,
     SETTING_INSPECTOR_METADATA_PRESET,
     SETTING_INSPECTOR_SECTIONS,
     SETTING_LAST_ADD_FOLDER_PARENT,
@@ -76,6 +78,8 @@ class ConfigManager:
         # Carpeta que contiene la última carpeta añadida: ahí se abre «Añadir carpeta»
         # ("" = la carpeta personal)
         SETTING_LAST_ADD_FOLDER_PARENT: "",
+        # Alto del panel «Metadatos» de la barra de filtros (None = el de partida)
+        SETTING_FILTER_METADATA_HEIGHT: None,
         # Aquí se añaden nuevas variables
     }
 

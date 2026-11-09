@@ -13,6 +13,8 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'restore_state'; el 'ModuleHost' los escribe en settings.json). Lo desplegado del
       árbol con casillas del inspector ya no es de este módulo: lo guarda el inspector.
 
+1.12.0 'filter_metadata_fields': Fecha de captura, Modelo de la cámara y Objetivo, como
+       Lightroom (decidido por el autor el 09/11/2026). Paso A.3.
 1.11.0 'filter_media_types': foto y vídeo (lo que entra en Imagen). Paso A.3.
 1.10.0 'show_source': una palabra clave pedida sin biblioteca se limita a Imagen (la
        flecha del inspector la pide sin biblioteca; paso A.2).
@@ -30,7 +32,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 __all__ = ["ImageModule"]
 
 # Librerías estándar
@@ -114,6 +116,10 @@ class ImageModule(AppModule):
     def filter_media_types(self) -> tuple[str, ...]:
         """Fotos y vídeos (los del móvil entran en Imagen)."""
         return (MediaType.PHOTO, MediaType.VIDEO)
+
+    def filter_metadata_fields(self) -> tuple[str, ...]:
+        """Columnas de partida de «Metadatos», como en Lightroom."""
+        return ("captured_at", "camera_model", "lens_model")
 
     def sort_fields(self) -> tuple[str, ...]:
         """Todos los campos de orden (de momento; llegarán los propios de las fotos)."""

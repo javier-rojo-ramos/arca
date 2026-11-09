@@ -39,6 +39,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.8.3 'active_filter_metadata_fields': las columnas de partida de «Metadatos».
 1.8.2 'active_filter_media_types': los tipos de la fila «Atributos» del módulo activo.
 1.8.1 Propiedad 'attached' (hay un catálogo abierto) y 'filter_changed' también en
       'attach' (la barra de filtros se activa al abrir el catálogo).
@@ -64,7 +65,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.8.2"
+__version__ = "1.8.3"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -247,6 +248,10 @@ class ModuleHost(QObject):
     def active_filter_media_types(self) -> tuple[str, ...]:
         """Tipos que ofrece la fila «Atributos» en el módulo activo."""
         return self._active.filter_media_types() if self._active is not None else ()
+
+    def active_filter_metadata_fields(self) -> tuple[str, ...]:
+        """Columnas de partida del panel «Metadatos» en el módulo activo."""
+        return self._active.filter_metadata_fields() if self._active is not None else ()
 
     def set_order(self, order: GridOrder) -> None:
         """El usuario ha elegido otro orden para el módulo activo: se recuerda y se aplica.
