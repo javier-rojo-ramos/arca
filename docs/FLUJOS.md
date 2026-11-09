@@ -165,7 +165,7 @@ Decidido por el autor el 01/11/2026 (ver [DECISIONES.md](DECISIONES.md)). `frame
 - **Ratón**: fondo suave bajo la zona del ratón, cursor de mano y texto emergente con el atajo. No coge el foco (los atajos siguen en la cuadrícula).
 
 ## 15. Barra de filtros (paso A.3)
-Decidido el 08/11/2026 (ver «Barra de filtros como la de Lightroom» en [DECISIONES.md](DECISIONES.md)). *Hechos el motor, el filtro por módulo, la barra, la fila de «Texto» (subpasos 1 a 4), la de «Atributos» y el panel de «Metadatos». Los filtros personalizados vendrán en un paso propio ([PENDIENTE.md](PENDIENTE.md)).*
+Decidido el 08/11/2026 (ver «Barra de filtros como la de Lightroom» en [DECISIONES.md](DECISIONES.md)). *Hechos el motor, el filtro por módulo, la barra, la fila de «Texto» (subpasos 1 a 4), la de «Atributos» y el panel de «Metadatos». Los filtros personalizados, en curso ([PENDIENTE.md](PENDIENTE.md)): hecho el motor (`core/catalog/filter_presets.py`; qué guarda un ajuste y cómo se elige, se compara y se restaura, en su cabecera).*
 
 - **Qué es**: un `GridFilter` (`core/catalog/grid_filter.py`, sin Qt) con las pestañas encendidas («Texto», «Atributos», «Metadatos»; vacío = «Ninguno»), las recordadas para Ctrl+L, el candado y lo escrito en la fila de «Texto». `rule_sets()` devuelve los conjuntos de reglas de las pestañas encendidas que tienen algo que filtrar (motor de las colecciones inteligentes, `smart_rules.py`).
 - **Consulta**: `MediaGridModel.set_filter(filtro)` → si cambian sus reglas, `reload()` → `fetch_grid_rows(conn, orden, origen, reglas)` → `media_queries.source_condition(origen, reglas)`: el WHERE del origen AND cada conjunto. Cambiar el candado o escribir con la pestaña apagada no recarga.

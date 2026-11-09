@@ -135,6 +135,7 @@ core/
     selection_metadata.py              Valores comunes de unos campos en la selección (común / «Varios» / vacío); FieldSource dice de qué columnas sale cada campo por tipo de medio
     grid_source.py                     GridSource (ALL / FOLDER / SMART / COLLECTION / QUICK): qué muestra la cuadrícula; inmutable. UNCLASSIFIED = «Sin clasificar»
     grid_filter.py                   ► FILTRO de la barra de filtros: GridFilter (pestañas encendidas, candado, filas de Texto y Atributos, columnas de Metadatos: MetadataFilter, metadata_rule) -> rule_sets() (conjuntos de reglas con AND, que se suman al origen); filter_to_dict / filter_from_dict; sin Qt
+    filter_presets.py                  AJUSTES PERSONALIZADOS de la barra de filtros: FilterPreset (nombre + GridFilter), los de fábrica, la lista de settings.json (filter_presets), cuál coincide con el filtro, cuáles valen para un módulo, elegir y restaurar
     grid_orders.py                   ► ÓRDENES de la cuadrícula: SORT_FIELDS (campos del desplegable), GridOrder (campo + dirección; to_state / from_state), order_by_sql (NULL al final, desempate por nombre e id); sin Qt
     smart_fields.py                  ► CAMPOS de las colecciones inteligentes (grupos, secciones, tipo, columna SQL, unidades; browse = también columna de «Metadatos»)
     metadata_values.py                 Valores y recuentos de una columna de «Metadatos» (fetch_metadata_values: cascada, fechas en árbol, lo elegido a 0); sin Qt

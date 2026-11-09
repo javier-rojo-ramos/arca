@@ -25,6 +25,7 @@ python -m core.metadata.video.fields         python -m core.metadata.video.rules
 python -m core.metadata.video.extractor
 python -m core.catalog.smart_fields          python -m core.catalog.smart_rules
 python -m core.catalog.grid_filter           python -m core.catalog.metadata_values  (cada fila filtra lo que cuenta)
+python -m core.catalog.filter_presets
 python -m core.catalog.system_collections    python -m core.catalog.user_collections
 python -m core.catalog.folder_tree           python -m core.catalog.missing_items
 python -m core.catalog.selection_metadata    python -m ui_helpers.inspector.formatting
