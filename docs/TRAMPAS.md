@@ -41,6 +41,7 @@
 - `QListView.setMovement(Static)` desactiva el arrastre: `setDragDropMode(DragOnly)` tiene que ir DESPUÉS.
 - Con selección única, al borrar filas del modelo Qt selecciona otra fila sola (`rowsAboutToBeRemoved`): por eso `set_collection_tree` limpia la selección antes de `removeRows` (si no, se seleccionaba «Rechazadas»).
 - Una colección inteligente que se está viendo **no se recarga sola** si un elemento deja de cumplir las reglas (p. ej. al quitarle las estrellas): sigue en la cuadrícula hasta volver a pulsarla. El contador sí se actualiza.
+- Desde el 09/11/2026, `RuleSet.rules` puede llevar **grupos** (otro `RuleSet`), no solo `Rule`: el código que recorra las reglas (p. ej. para saber qué campos usa una colección) tiene que contemplarlos, o recorrerlas con la misma recursión que `smart_rules.py`. Los conjuntos que monta la barra de filtros (`GridFilter.rule_sets()`) siguen siendo planos.
 - Los iconos nuevos (`hard_drive`, `inventory_2`, `photo_library`, `auto_awesome`) tienen que estar en el `.qrc` (y recompilado); si no, la barra usa los iconos estándar.
 - `ConfigManager.set` compara el valor antiguo con el nuevo: para cambiar un diccionario (p. ej. `sidebar_state`) hay que pasar una COPIA nueva, no modificar el que devuelve `get`.
 - `message_box.warning(...)` usa `title=` (no `titulo=`).

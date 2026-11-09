@@ -16,6 +16,19 @@ Una colección inteligente es un CONJUNTO DE REGLAS, como en Lightroom:
         Rule("captured_at", "between", ("2024-06-01", "2024-06-30")),
     ))
 
+GRUPOS (como las reglas anidadas de Lightroom): en lugar de una regla puede ir un grupo, que
+es otro 'RuleSet' con su propio «todas» o «alguna de». Así se mezclan «y» y «o»:
+
+    Valoración ≥ ★★★  Y  (País es España  O  País es Francia)
+
+    RuleSet("all", (
+        Rule("rating", "gte", 3),
+        RuleSet("any", (Rule("country", "eq", "España"), Rule("country", "eq", "Francia"))),
+    ))
+
+Un solo nivel: un grupo no puede llevar otro grupo dentro, ni quedar vacío (con «alguna
+de» dejaría pasar todo). Lo comprueba 'validate_rule_set'.
+
 Los CAMPOS (qué se puede filtrar, su tipo, su columna SQL) están en 'smart_fields.py':
 para añadir uno basta con una línea allí. Aquí está lo que no cambia al añadir campos:
     - el SQL de cada operador ('_condition'),
@@ -40,6 +53,8 @@ registra 'catalog_schema.configure_connection' en cada conexión.
 Todo es inmutable ('frozen' y tuplas), así que un 'RuleSet' se puede comparar con '==' y
 usar como clave de un diccionario (lo necesita 'GridSource').
 
+2.3.0 Grupos de reglas (un nivel): validación, SQL con paréntesis por grupo, JSON versión 2
+      (se sigue leyendo la 1) y texto legible con los grupos sangrados.
 2.2.0 «termina con» en las reglas de palabras clave (la barra de filtros busca con él en
       «Todos los campos disponibles»; paso A.3).
 2.1.1 Comentarios con el nombre nuevo de la función SQL ('arca_fold').
@@ -51,7 +66,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.smart_rules
 """
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 # ruff: noqa: RUF022
 __all__ = [
     "FIELDS",
@@ -96,8 +111,12 @@ from core.catalog.smart_fields import (
 MATCH_ALL = "all"  # todas las reglas (AND)
 MATCH_ANY = "any"  # alguna regla (OR)
 
-# Versión del formato de 'collections.rules_json' (subirla si cambia de forma incompatible)
-RULES_JSON_VERSION = 1
+# Versión del formato de 'collections.rules_json' (subirla si cambia de forma incompatible).
+# 2: con grupos. Se siguen leyendo las anteriores (la 1 es la 2 sin grupos).
+RULES_JSON_VERSION = 2
+
+# Niveles de grupos: 1 = grupos dentro de la lista principal, pero no grupos en un grupo
+_MAX_GROUP_DEPTH = 1
 
 # Longitud máxima de un texto en una regla (de sobra para un nombre o una ruta)
 _MAX_TEXT = 500
@@ -122,15 +141,15 @@ class Rule:
 
 @dataclass(frozen=True, slots=True)
 class RuleSet:
-    """Conjunto de reglas de una colección inteligente.
+    """Conjunto de reglas de una colección inteligente (o un grupo dentro de otro conjunto).
 
     Attributes:
         match: MATCH_ALL (todas) o MATCH_ANY (alguna).
-        rules: Las reglas (una tupla, para que el conjunto sea inmutable).
+        rules: Las reglas y los grupos (una tupla, para que el conjunto sea inmutable).
     """
 
     match: str = MATCH_ALL
-    rules: tuple[Rule, ...] = ()
+    rules: "tuple[Rule | RuleSet, ...]" = ()
 
 
 # -----------------------------------------------------------------------------
@@ -164,14 +183,35 @@ def validate_rule(rule: Rule) -> Rule:
 
 
 def validate_rule_set(rule_set: RuleSet) -> RuleSet:
-    """Comprueba todas las reglas y devuelve el conjunto normalizado.
+    """Comprueba todas las reglas (también las de los grupos) y devuelve el conjunto normalizado.
 
     Raises:
-        ValueError: Si el modo o alguna regla no son válidos.
+        ValueError: Si el modo o alguna regla no son válidos, o si un grupo está vacío o
+            lleva otro grupo dentro.
     """
+    return _validate_set(rule_set, depth=0)
+
+
+def _validate_set(rule_set: RuleSet, *, depth: int) -> RuleSet:
+    """'validate_rule_set' de un conjunto que está a 'depth' niveles de la lista principal."""
     if rule_set.match not in (MATCH_ALL, MATCH_ANY):
         raise ValueError(f"Modo de coincidencia no válido: {rule_set.match!r}")
-    return RuleSet(rule_set.match, tuple(validate_rule(rule) for rule in rule_set.rules))
+    items: list[Rule | RuleSet] = []
+    for item in rule_set.rules:
+        if isinstance(item, Rule):
+            items.append(validate_rule(item))
+        elif isinstance(item, RuleSet):
+            if depth >= _MAX_GROUP_DEPTH:
+                raise ValueError("Un grupo de reglas no puede llevar otro grupo dentro.")
+            # Vacío no filtraría nada: con «alguna de» arriba dejaría pasar todo
+            if not item.rules:
+                raise ValueError("Un grupo de reglas no puede quedar vacío.")
+            items.append(_validate_set(item, depth=depth + 1))
+        else:
+            # ValueError (no TypeError): es lo que esperan quienes validan (p. ej. un JSON
+            # manipulado a mano llega aquí y se muestra como «reglas no válidas»)
+            raise ValueError(f"Regla no válida: {item!r}")  # noqa: TRY004
+    return RuleSet(rule_set.match, tuple(items))
 
 
 def _validate_value(spec: SmartField, operator: str, value: Any) -> Any:
@@ -231,22 +271,31 @@ def rules_to_sql(rule_set: RuleSet) -> tuple[str, tuple[Any, ...]]:
     rule_set = validate_rule_set(rule_set)
     if not rule_set.rules:
         return "1 = 1", ()
+    return _set_sql(rule_set)
 
+
+def _set_sql(rule_set: RuleSet) -> tuple[str, tuple[Any, ...]]:
+    """SQL de un conjunto ya validado y no vacío: cada grupo, entre sus propios paréntesis."""
     parts: list[str] = []
     params: list[Any] = []
-    for rule in rule_set.rules:
-        spec = FIELDS[rule.field]
-        sql, rule_params = _condition(spec, rule)
-        # Campos de un tipo de medio (p. ej. ISO): solo coinciden archivos de ese tipo
-        if spec.media_types:
-            marks = ", ".join("?" * len(spec.media_types))
-            sql = f"m.media_type IN ({marks}) AND ({sql})"
-            rule_params = (*spec.media_types, *rule_params)
+    for item in rule_set.rules:
+        sql, item_params = _set_sql(item) if isinstance(item, RuleSet) else _rule_sql(item)
         parts.append(sql)
-        params.extend(rule_params)
-
+        params.extend(item_params)
     joiner = " AND " if rule_set.match == MATCH_ALL else " OR "
     return "(" + joiner.join(f"({part})" for part in parts) + ")", tuple(params)
+
+
+def _rule_sql(rule: Rule) -> tuple[str, tuple[Any, ...]]:
+    """SQL de UNA regla ya validada, con la restricción de tipo de medio de su campo."""
+    spec = FIELDS[rule.field]
+    sql, params = _condition(spec, rule)
+    # Campos de un tipo de medio (p. ej. ISO): solo coinciden archivos de ese tipo
+    if spec.media_types:
+        marks = ", ".join("?" * len(spec.media_types))
+        sql = f"m.media_type IN ({marks}) AND ({sql})"
+        params = (*spec.media_types, *params)
+    return sql, params
 
 
 def _like_pattern(text: str, *, prefix: bool, suffix: bool) -> str:
@@ -368,22 +417,24 @@ def _condition(spec: SmartField, rule: Rule) -> tuple[str, tuple[Any, ...]]:
 def rules_to_json(rule_set: RuleSet) -> str:
     """Convierte un conjunto de reglas (ya validado) en el texto de 'rules_json'.
 
-    Formato: {"version": 1, "match": "all", "rules": [{"field", "op", "value"}, ...]}
+    Formato (versión 2): {"version": 2, "match": "all", "rules": [...]}, donde cada
+    elemento de "rules" es una regla, {"field", "op", "value"}, o un grupo,
+    {"match", "rules"} (el grupo se reconoce por llevar "rules").
     """
-    rule_set = validate_rule_set(rule_set)
-    data = {
-        "version": RULES_JSON_VERSION,
-        "match": rule_set.match,
-        "rules": [
-            {
-                "field": rule.field,
-                "op": rule.operator,
-                "value": list(rule.value) if isinstance(rule.value, tuple) else rule.value,
-            }
-            for rule in rule_set.rules
-        ],
-    }
+    data = {"version": RULES_JSON_VERSION, **_set_to_data(validate_rule_set(rule_set))}
     return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+
+
+def _set_to_data(rule_set: RuleSet) -> dict[str, Any]:
+    """Un conjunto (o un grupo) como diccionario para el JSON."""
+    items: list[dict[str, Any]] = []
+    for item in rule_set.rules:
+        if isinstance(item, RuleSet):
+            items.append(_set_to_data(item))
+        else:
+            value = list(item.value) if isinstance(item.value, tuple) else item.value
+            items.append({"field": item.field, "op": item.operator, "value": value})
+    return {"match": rule_set.match, "rules": items}
 
 
 def rules_from_json(text: str | None) -> RuleSet:
@@ -402,16 +453,28 @@ def rules_from_json(text: str | None) -> RuleSet:
     version = data.get("version")
     if not isinstance(version, int) or version > RULES_JSON_VERSION:
         raise ValueError("Las reglas son de una versión más nueva de la aplicación.")
+    # La versión 1 es la 2 sin grupos: se leen igual
+    return validate_rule_set(_set_from_data(data, depth=0))
 
-    rules = []
+
+def _set_from_data(data: dict[str, Any], *, depth: int) -> RuleSet:
+    """Un conjunto (o un grupo) leído del JSON, sin validar las reglas todavía."""
+    items: list[Rule | RuleSet] = []
     for entry in data["rules"]:
         if not isinstance(entry, dict):
             raise ValueError("Una regla guardada no tiene el formato esperado.")
+        if "rules" in entry:
+            # Un grupo. La profundidad se corta aquí (no solo al validar): un JSON
+            # manipulado con muchos niveles no llega a recorrerse entero
+            if depth >= _MAX_GROUP_DEPTH or not isinstance(entry["rules"], list):
+                raise ValueError("Un grupo de reglas guardado no tiene el formato esperado.")
+            items.append(_set_from_data(entry, depth=depth + 1))
+            continue
         value = entry.get("value")
         if isinstance(value, list):
             value = tuple(value)  # "entre": la tupla es inmutable (y comparable)
-        rules.append(Rule(str(entry.get("field")), str(entry.get("op")), value))
-    return validate_rule_set(RuleSet(str(data.get("match", MATCH_ALL)), tuple(rules)))
+        items.append(Rule(str(entry.get("field")), str(entry.get("op")), value))
+    return RuleSet(str(data.get("match", MATCH_ALL)), tuple(items))
 
 
 # -----------------------------------------------------------------------------
@@ -456,9 +519,32 @@ def describe_rule(rule: Rule) -> str:
 
 
 def describe_rules(rule_set: RuleSet) -> str:
-    """Todas las reglas en palabras, una por línea, con el modo de coincidencia delante."""
+    """Todas las reglas en palabras, una por línea, con el modo de coincidencia delante.
+
+    Los grupos, con su modo y sus reglas sangradas debajo:
+
+        Cumple todas estas reglas:
+        • Valoración es mayor o igual que ★★★
+        • Cumple alguna de estas:
+            – País es «España»
+            – País es «Francia»
+    """
     header = "Cumple todas estas reglas:" if rule_set.match == MATCH_ALL else "Cumple alguna de estas reglas:"
-    return "\n".join([header, *(f"• {describe_rule(rule)}" for rule in rule_set.rules)])
+    return "\n".join([header, *_describe_items(rule_set, level=0)])
+
+
+def _describe_items(rule_set: RuleSet, *, level: int) -> list[str]:
+    """Las líneas de las reglas de un conjunto: «•» en la lista principal, «–» en un grupo."""
+    bullet = "• " if level == 0 else "    " * level + "– "
+    lines: list[str] = []
+    for item in rule_set.rules:
+        if isinstance(item, RuleSet):
+            mode = "todas" if item.match == MATCH_ALL else "alguna de"
+            lines.append(f"{bullet}Cumple {mode} estas:")
+            lines.extend(_describe_items(item, level=level + 1))
+        else:
+            lines.append(f"{bullet}{describe_rule(item)}")
+    return lines
 
 
 if __name__ == "__main__":
@@ -495,7 +581,7 @@ if __name__ == "__main__":
     db.executemany("INSERT INTO photo_details VALUES (?, ?, ?)", [(1, 100, "Nikon Df"), (2, 800, "iPhone 8 Plus"), (3, 100, None)])
     db.execute("INSERT INTO track_details VALUES (5, 12345.6)")
 
-    def ids(*rules: Rule, match: str = MATCH_ALL) -> list[int]:
+    def ids(*rules: Rule | RuleSet, match: str = MATCH_ALL) -> list[int]:
         sql, params = rules_to_sql(RuleSet(match, rules))
         return [r[0] for r in db.execute(f"SELECT id FROM media_items AS m WHERE {sql} ORDER BY id", params)]
 
@@ -566,7 +652,18 @@ if __name__ == "__main__":
     assert ids(Rule("has_gps", "is_false")) == [2, 3, 4]
     assert ids(Rule("media_type", "eq", "video")) == [4]
 
-    # 6. JSON: ida y vuelta idéntica (comparable con '==')
+    # 5b. Grupos: «y» y «o» mezclados, cada grupo entre sus paréntesis
+    red_or_rejected = RuleSet(MATCH_ANY, (Rule("color_label", "eq", "red"), Rule("flag", "eq", -1)))
+    assert ids(Rule("rating", "gte", 1), red_or_rejected) == [2, 3, 5]  # sin el 4 (sin color)
+    rated_red = RuleSet(MATCH_ALL, (Rule("rating", "eq", 3), Rule("color_label", "eq", "red")))
+    assert ids(Rule("media_type", "eq", "video"), rated_red, match=MATCH_ANY) == [2, 4]
+    assert ids(RuleSet(MATCH_ANY, (Rule("iso", "eq", 100),))) == [1, 3]  # tipo de medio, dentro
+    # Sin grupos, el mismo SQL que antes de existir los grupos
+    assert rules_to_sql(RuleSet(rules=both)) == (
+        "((m.rating = ?) AND (m.color_label = ?))", (3, "red")
+    ), rules_to_sql(RuleSet(rules=both))
+
+    # 6. JSON: ida y vuelta idéntica (comparable con '=='), también con grupos
     original = RuleSet(MATCH_ANY, (
         Rule("rating", "gte", 3),
         Rule("captured_at", "between", ("2024-06-01", "2024-06-30")),
@@ -576,8 +673,25 @@ if __name__ == "__main__":
     ))  # fmt: skip
     text = rules_to_json(original)
     assert "Añisclo" in text  # sin escapar (legible en la BD)
-    assert rules_from_json(text) == original
-    for bad in ("", "{", "[]", '{"version": 99, "rules": []}', '{"version": 1, "rules": [{"field": "zzz", "op": "eq", "value": 1}]}'):
+    assert text.startswith('{"version":2,') and rules_from_json(text) == original
+    grouped = RuleSet(MATCH_ALL, (Rule("rating", "gte", 1), red_or_rejected))
+    text = rules_to_json(grouped)
+    assert '{"match":"any","rules":[{"field":"color_label"' in text, text
+    assert rules_from_json(text) == grouped
+    # La versión 1 (las colecciones guardadas antes de los grupos) se sigue leyendo
+    old = '{"version":1,"match":"any","rules":[{"field":"rating","op":"gte","value":3}]}'
+    assert rules_from_json(old) == RuleSet(MATCH_ANY, (Rule("rating", "gte", 3),))
+    deep = '{"match":"any","rules":[{"field":"rating","op":"eq","value":1}]}'
+    for bad in (
+        "",
+        "{",
+        "[]",
+        '{"version": 99, "rules": []}',
+        '{"version": 1, "rules": [{"field": "zzz", "op": "eq", "value": 1}]}',
+        '{"version": 2, "rules": [{"match": "any", "rules": []}]}',  # grupo vacío
+        '{"version": 2, "rules": [{"match": "any", "rules": "x"}]}',
+        f'{{"version": 2, "rules": [{{"match": "all", "rules": [{deep}]}}]}}',  # grupo en grupo
+    ):
         try:
             rules_from_json(bad)
         except ValueError:
@@ -600,6 +714,11 @@ if __name__ == "__main__":
         RuleSet(rules=(Rule("captured_at", "between", ("2024-01-01",)),)),
         RuleSet(rules=(Rule("file_size", "gt", float("nan")),)),
         RuleSet(rules=(Rule("added_at", "in_last", 0),)),
+        RuleSet(rules=(RuleSet(MATCH_ANY, ()),)),  # grupo vacío
+        RuleSet(rules=(RuleSet(rules=(red_or_rejected,)),)),  # grupo dentro de un grupo
+        RuleSet(rules=(RuleSet("xor", both),)),
+        RuleSet(rules=(RuleSet(rules=(Rule("rating", "eq", 9),)),)),  # regla mala en un grupo
+        RuleSet(rules=("rating",)),  # ni regla ni grupo
     ):
         try:
             rules_to_sql(bad_set)
@@ -617,5 +736,14 @@ if __name__ == "__main__":
     assert describe_rule(Rule("added_at", "in_last", 7)) == "Fecha de importación en los últimos 7 días"
     assert describe_rule(Rule("color_label", "eq", "red")) == "Etiqueta de color es Rojo"
     assert describe_rule(Rule("has_gps", "is_true")) == "Tiene coordenadas GPS: sí"
+    countries = RuleSet(MATCH_ANY, (Rule("country", "eq", "España"), Rule("country", "eq", "Francia")))
+    assert describe_rules(RuleSet(MATCH_ALL, (Rule("rating", "gte", 3), countries))) == (
+        "Cumple todas estas reglas:\n"
+        "• Valoración es mayor o igual que ★★★\n"
+        "• Cumple alguna de estas:\n"
+        "    – País es «España»\n"
+        "    – País es «Francia»"
+    )
+    assert describe_rules(RuleSet(MATCH_ANY, (rated_red,))).splitlines()[1] == "• Cumple todas estas:"
     print(describe_rules(original))
     print("Autoprueba finalizada correctamente.")

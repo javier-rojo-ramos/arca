@@ -142,7 +142,7 @@ core/
     grid_orders.py                   ► ÓRDENES de la cuadrícula: SORT_FIELDS (campos del desplegable), GridOrder (campo + dirección; to_state / from_state), order_by_sql (NULL al final, desempate por nombre e id); sin Qt
     smart_fields.py                  ► CAMPOS de las colecciones inteligentes (grupos, secciones, tipo, columna SQL, unidades; browse = también columna de «Metadatos»)
     metadata_values.py                 Valores y recuentos de una columna de «Metadatos» (fetch_metadata_values: cascada, fechas en árbol, lo elegido a 0); sin Qt
-    smart_rules.py                     Rule, RuleSet: validación, rules_to_sql, JSON (rules_to_json / rules_from_json) y describe_rule
+    smart_rules.py                     Rule, RuleSet (con grupos de un nivel): validación, rules_to_sql, JSON (rules_to_json / rules_from_json) y describe_rule(s)
     system_collections.py              SYSTEM_COLLECTIONS: Clasificación (1..5), Etiqueta (Rojo..Púrpura), Marcadas, Rechazadas
     user_collections.py                Colecciones del usuario: árbol, crear, renombrar, borrar, añadir y quitar elementos
     folder_tree.py                     Árbol de carpetas con recuentos (fetch_folder_tree, build_folder_tree, sort_key natural)
