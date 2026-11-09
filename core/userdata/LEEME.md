@@ -92,7 +92,7 @@ Reconstruir / reescanear:
 Cambiar el destino de una extensión que ya tiene datos escritos no los mueve: se leerían
 del destino nuevo (vacío). Si algún día hiciera falta, habría que migrarlos.
 
-## Receta: un dato del usuario nuevo (palabras clave, notas, colecciones...)
+## Receta: un dato del usuario nuevo (notas, colecciones...)
 
 - En el archivo de carpeta: `merge_entry` ya conserva las claves que no conoce; se añade la
   clave a `USER_DEFAULTS` (`folder_file.py`) y a la lectura (`user_values_from_entry`).

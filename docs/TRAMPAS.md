@@ -11,13 +11,13 @@
 - `title` y `description` se sobrescriben al releer los metadatos (todavía no se pueden editar en la aplicación).
 - Si un nombre de biblioteca lleva `&`, en un `QAction`, `QRadioButton` o `QPushButton` hay que pasarlo por `qt_text()` o el `&` desaparece (se toma como tecla de acceso). En `QLabel` de texto plano, `QComboBox` y textos emergentes no hace falta.
 - En el delegado, el rectángulo de lo que se dibuja (miniatura o marcador) sale SIEMPRE de `_content_rect`, tanto en `paint` como en `_zone_at`: si uno de los dos usara otro cálculo, el círculo de la selección rápida se pulsaría en un sitio distinto del que se ve.
-- Un vídeo convertido a otro formato (`.MOV` → `.mp4`) es, para el catálogo, un archivo nuevo: el original queda ausente con sus datos de usuario (ver [PENDIENTE.md](PENDIENTE.md), C.3).
+- Un vídeo convertido a otro formato (`.MOV` → `.mp4`) es, para el catálogo, un archivo nuevo: el original queda ausente con sus datos de usuario (idea para reasociarlos en [PENDIENTE.md](PENDIENTE.md), B).
 - Un archivo cuya lectura falla se marca "intentado" y no se reintenta hasta que cambie o suba la versión.
 - ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.
 - Sin ExifTool, los HEIC y RAW salen como "formato sin soporte todavía" y se leen solos en cuanto haya ExifTool (su versión de extractor es mayor).
 - `ScanFilter` no distingue el atributo de "oculto" propio de macOS (solo el punto inicial y los atributos de Windows).
 - La unicidad de rutas distingue mayúsculas en macOS y Linux, no en Windows.
-- Los elementos con `content_created_at` NULL (metadatos aún sin leer, o sin EXIF) van al final de la cuadrícula hasta que se lean.
+- Con el orden por hora de captura, los elementos con `content_created_at` NULL (metadatos aún sin leer, o sin EXIF) van al final de la cuadrícula hasta que se lean.
 - Al añadir una carpeta la cuadrícula se recarga entera y se pierde la selección.
 - «Eliminar del catálogo» no deja rastro: al sincronizar la carpeta el archivo vuelve, con la valoración, marca y color que tenga ESCRITOS en su XMP o `.arca.json`. Un cambio aún pendiente de escribir (`user_data_pending`) se pierde al quitarlo.
 - «Eliminar del disco» en una unidad de red no se ofrece: esos archivos solo se quitan del catálogo (`is_network_path`). Si la detección fallara en un caso raro (p. ej. una carpeta de red montada como carpeta local), Windows podría borrar el archivo definitivamente.
@@ -32,7 +32,6 @@
 - Un archivo que no se puede escribir (solo lectura, abierto en otro programa) se reintenta en cada pasada de escritura; su error queda en `scan_errors` (fase `userdata`) y en el registro.
 - Renombrar o mover un vídeo (o cualquier archivo del archivo de carpeta) **fuera** de la aplicación deja su entrada en el `.arca.json` con el nombre antiguo: el archivo renombrado aparece sin datos. (Cuando existan los hashes se podrá reasociar.)
 - `-overwrite_original` sustituye el archivo: rompe enlaces duros y, en macOS, probablemente pierde las etiquetas del Finder y otros atributos extendidos.
-- La primera vez que se abre un catálogo tras esta versión, los valores que ya tenía quedan pendientes de escribirse en los archivos (solo se modifican los que no los tengan ya); si son 100 o más, se pregunta antes. Con miles de fotos valoradas, tarda (barra de progreso "Guardando en los archivos"). En parejas RAW + JPEG, el JPEG puede recibir en su XMP la valoración que el paso 1 tomó del sidecar del RAW.
 - Una miniatura borrada de la caché a mano no se detecta (no se comprueba el disco): usar "Regenerar todas las miniaturas".
 - Sin `pillow-heif`, los HEIC quedan con error de miniatura (estado 2) y no se reintentan solos: tras instalarla, "Regenerar miniaturas con error".
 - Un RAW cuya vista previa incrustada es pequeña da miniaturas de hasta ese tamaño, y los tamaños mayores contienen esa misma imagen (DNG de Lightroom: 1024 px; las vistas previas JPEG XL no se leen).
@@ -45,9 +44,9 @@
 - Los iconos nuevos (`hard_drive`, `inventory_2`, `photo_library`, `auto_awesome`) tienen que estar en el `.qrc` (y recompilado); si no, la barra usa los iconos estándar.
 - `ConfigManager.set` compara el valor antiguo con el nuevo: para cambiar un diccionario (p. ej. `sidebar_state`) hay que pasar una COPIA nueva, no modificar el que devuelve `get`.
 - `message_box.warning(...)` usa `title=` (no `titulo=`).
-- **Re-declarar una carpeta ya catalogada** (p. ej. de `auto` a Música) no quita lo que ya no encaja: se queda en el catálogo (sin marcarse ausente) con su biblioteca anterior. Hasta el 2b, quitarlo es a mano.
+- **Re-declarar una carpeta ya catalogada** (p. ej. de `auto` a Música) no quita lo que ya no encaja: se queda en el catálogo (sin marcarse ausente) con su biblioteca anterior. Quitarlo es a mano (el paso 2b-2, que lo haría, está aparcado).
 - En una carpeta **automática** sí se catalogan las carátulas y pósters sueltos (`cover.jpg`) como fotos: para música y películas hay que declarar la carpeta.
-- Los vídeos de las carpetas automáticas cuyo nombre no dice nada quedan **sin clasificar** (`library` NULL) hasta el 2c o hasta clasificarlos a mano. La detección por el nombre puede equivocarse con nombres raros (p. ej. un vídeo personal llamado «Concierto (2019).mp4» va a Vídeo): se corrige con el submenú «Biblioteca».
+- Los vídeos de las carpetas automáticas cuyo nombre no dice nada y cuyos metadatos tampoco (sin cámara ni GPS, y más cortos que una película) quedan **sin clasificar** (`library` NULL) hasta clasificarlos a mano. La detección por el nombre puede equivocarse con nombres raros (p. ej. un vídeo personal llamado «Concierto (2019).mp4» va a Vídeo): se corrige con el submenú «Biblioteca».
 - Algunas cámaras escriben la hora LOCAL en `QuickTime:CreateDate` (contra la especificación, que dice UTC): sus vídeos saldrían desplazados lo que valga la zona horaria. Pendiente de comprobar con vídeos reales y corregir por marca si pasa.
 - Las etiquetas de vídeo (`video/fields.py`) salen de la documentación de ExifTool; comprobadas con iPhone (31/10/2026), pero hasta probar otras marcas alguna puede no dar cámara o fecha.
 - En el JSON de ExifTool, un texto que parece número llega como número: `Keys:Software` de iPhone es `"27.0.1"` en un vídeo y `27.2` (número) en otro. Se guarda bien («27.2»), pero una versión como «18.10» se guardaría «18.1».

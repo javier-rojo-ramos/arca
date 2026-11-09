@@ -23,13 +23,19 @@ python -m core.catalog.grid_orders          python -m core.catalog.media_queries
 python -m core.catalog.availability          python -m core.catalog.libraries
 python -m core.metadata.video.fields         python -m core.metadata.video.rules
 python -m core.metadata.video.extractor
+python -m core.metadata.keyword_tags      (palabras clave de las etiquetas de ExifTool: rutas y sueltas)
 python -m core.catalog.smart_fields          python -m core.catalog.smart_rules
 python -m core.catalog.grid_filter           python -m core.catalog.metadata_values  (cada fila filtra lo que cuenta)
 python -m core.catalog.filter_presets
+python -m core.catalog.grid_source          python -m core.catalog.selection_summary
+python -m core.catalog.keywords             (árbol, asignar y quitar, caja de texto, gestionar el árbol, recuentos)
 python -m core.catalog.system_collections    python -m core.catalog.user_collections
 python -m core.catalog.folder_tree           python -m core.catalog.missing_items
 python -m core.catalog.selection_metadata    python -m ui_helpers.inspector.formatting
 python -m ui_helpers.inspector.metadata_fields  (todas las vistas sobre una foto y un vídeo de ejemplo)
+python -m ui_helpers.inspector.keyword_editor_section   python -m ui_helpers.inspector.keywords_section
+python -m ui_helpers.widgets.keyword_checklist          python -m ui_helpers.widgets.recent_keywords
+python -m ui_helpers.helpers.keyword_menu   (lógica del menú de los árboles de palabras clave; sin ventana)
 python -m core.catalog.media_removal        (papelera simulada: nunca toca la del sistema)
 python -m core.catalog.folder_removal       python -m controllers.folder_actions   (solo el texto del aviso)
 python -m core.metadata.track.gpx_reader     python -m core.metadata.track.extractor
@@ -38,6 +44,8 @@ python -m core.userdata.policy               python -m core.userdata.xmp_writer 
 python -m core.userdata.folder_file          python -m core.userdata.sync         (ExifTool; ida y vuelta completa)
 python -m ui_helpers.helpers.card_marks      (dibuja las marcas en una imagen; necesita PySide6)
 python -m ui_helpers.helpers.card_glyphs     (dibuja marcadores e indicadores en una imagen; sin ventana)
+python -m ui_helpers.helpers.theme_colors   (contraste de los colores del tema)
+python -m ui_helpers.helpers.theme_qss      (la hoja general, solo con colores del tema)
 python -m ui_helpers.widgets.organize_bar    (lógica de la barra y la barra sola en una ventana)
 python -m ui_helpers.widgets.sort_control    (lógica del control del orden; sin ventana)
 python -m controllers.app_modules.module_view_state   (orden, vista y filtro por módulo, guardar y recuperar; sin Qt)

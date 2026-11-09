@@ -12,7 +12,7 @@ Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto e
 2. Lee **solo** el documento del tema que vas a tocar (la tabla de `INDEX.md` dice cuál) y, si existe, el `LEEME.md` de su carpeta (`core/metadata/`, `core/thumbnails/`, `core/userdata/`).
 3. Para saber **dónde** está algo: el mapa de [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) y la tabla de [docs/COMO_AMPLIAR.md](docs/COMO_AMPLIAR.md). Después, busca (`grep`) el nombre concreto en lugar de abrir carpetas enteras.
 4. Cada `.py` explica en su **cabecera** qué hace, cómo se usa y su historial: léela antes que el resto del archivo.
-5. Archivos grandes: abre solo los métodos que necesites. Los más grandes son `controllers/main_window_controller.py` (~1 800 líneas), `core/catalog/keywords.py` (~1 200), `ui_helpers/sidebars/catalog_sidebar.py` (~1 150), `core/userdata/sync.py` (~1 050) y `core/metadata/processor.py` (~930).
+5. Archivos grandes: abre solo los métodos que necesites. Los más grandes son `controllers/main_window_controller.py` (~1 900 líneas), `ui_helpers/sidebars/catalog_sidebar.py` (~1 200), `core/catalog/keywords.py` (~1 200), `core/userdata/sync.py` (~1 050) y `core/metadata/processor.py` (~930).
 6. **No leas** `ui/main_window.py`: se genera desde `ui/main_window.ui` con `build_ui.py`. Para el nombre de un widget, búscalo con `grep`.
 7. Si el código y la documentación no coinciden, **manda el código**: corrige la documentación y avisa.
 
@@ -79,7 +79,8 @@ Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto e
 | Cambia una versión (campos, miniaturas, GPX) | La tabla de versiones de `INDEX.md` |
 | Cambia cómo funciona una operación | [docs/FLUJOS.md](docs/FLUJOS.md) |
 | Archivo o módulo nuevo | El mapa de [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) y, si es un punto de ampliación, [docs/COMO_AMPLIAR.md](docs/COMO_AMPLIAR.md) |
-| Se decide algo de diseño | [docs/DECISIONES.md](docs/DECISIONES.md): al final, con fecha y el porqué |
+| Se decide algo de diseño | [docs/DECISIONES.md](docs/DECISIONES.md): al final, con fecha y el porqué; si sustituye a otra, borra o reescribe la antigua (solo queda lo vigente) |
+| Se termina un paso de [docs/PENDIENTE.md](docs/PENDIENTE.md) | Sácalo de `PENDIENTE.md` (su detalle ya está en `HISTORIAL.md`); mientras dura, sus subpasos se pueden tachar |
 | Aparece una limitación o un error fácil de cometer | [docs/TRAMPAS.md](docs/TRAMPAS.md) |
 | Autoprueba o herramienta nueva | [docs/PRUEBAS.md](docs/PRUEBAS.md) |
 

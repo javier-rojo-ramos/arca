@@ -9,9 +9,9 @@ Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (W
 
 Principios:
 
-- **Los archivos originales no se mueven ni se modifican.** Hoy la aplicación solo los lee.
+- **Los archivos originales no se mueven ni se modifican.** Las únicas excepciones: escribir la valoración, la marca, el color y las palabras clave con las reglas de `core/userdata/` (XMP incrustado, sidecar `.xmp` o `.arca.json`; ver su `LEEME.md`), y enviar a la papelera lo que el usuario pide eliminar del disco.
 - **Un catálogo es una carpeta autónoma**: `catalogo.db` (SQLite en modo WAL) + `cache/<tipo>/` + `media_assets/{backdrops,covers,posters}/` + `export/`.
-- **La referencia de metadatos es Lightroom Classic**: se leen (y más adelante se editarán) los campos que muestran sus paneles EXIF y Ubicación.
+- **La referencia de metadatos es Lightroom Classic**: se leen los campos que muestran sus paneles EXIF y Ubicación (editarlos, más adelante).
 - La interfaz **nunca** toca la base de datos ni hace trabajo largo en el hilo principal.
 
 | Componente | Uso |
@@ -49,7 +49,7 @@ config/
   app_logging_manager.py             setup_logging (loguru + InterceptHandler)
 controllers/
   main_window_controller.py          Controlador de la ventana: catálogo activo, añadir y sincronizar carpetas, quitar ausentes, trabajos (metadatos, miniaturas y escritura de datos del usuario), regenerar miniaturas, barra de estado, ventana de opciones; conecta la cuadrícula (modelo, atajos y guardado de rating/flag/color) y crea los módulos (_configurar_modulos)
-  inspector_controller.py            InspectorController: selección de la cuadrícula -> resumen en segundo plano -> inspector; módulo activo (set_module); cambios de las secciones en cola (edit_requested -> user_data_changed); «Mostrar en el Explorador»
+  inspector_controller.py            InspectorController: selección de la cuadrícula -> resumen en segundo plano -> inspector; cambios de las secciones en cola (edit_requested -> user_data_changed); flecha «ver sus fotos» (navigate_requested); lo desplegado del árbol del inspector (save_state / restore_state); «Mostrar en el Explorador»
   folder_actions.py                  FolderActions: «Quitar del catálogo...» de una carpeta de la barra lateral (cuenta, pregunta y pide al controlador el trabajo JOB_REMOVE)
   collection_actions.py              CollectionActions: une barra lateral + menú de la cuadrícula + BD para las colecciones del usuario (crear, renombrar, borrar, soltar, añadir, quitar); lo crea CatalogModule
   filter_controller.py               FilterController: barra de filtros <-> filtro del módulo activo (ModuleHost.set_filter / filter_changed); Ctrl+L; oculta la franja en la vista individual
@@ -57,17 +57,19 @@ controllers/
   metadata_filter_controller.py      MetadataFilterController: panel «Metadatos» <-> recuentos en segundo plano (columnas de partida del módulo, solo lo que cambia, respuestas tardías fuera, alto guardado)
   center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula) y navegación (doble clic / Intro, Esc / G, flechas, Inicio, Fin; un solo archivo seleccionado en la vista individual)
   app_modules/                       ── Módulos de la aplicación (Catálogo, Imagen, Vídeo, Audio) ── ([FLUJOS.md §11](FLUJOS.md))
-    base.py                            AppModule (clase base: barra izquierda, panel derecho, qué muestra la cuadrícula, ciclo de vida) y ModuleContext
+    base.py                            AppModule (clase base: barra izquierda, qué muestra la cuadrícula, orden, vistas, tipos y columnas de partida del filtro, ciclo de vida) y ModuleContext
     registry.py                      ► LISTA de módulos en el orden de la toolbar (aquí se da de alta uno nuevo)
     module_host.py                     ModuleHost: toolbar de modos, barras laterales, módulo activo -> cuadrícula, estado por catálogo
-    module_view_state.py               ModuleViewState: lo elegido en cada módulo (orden y vista del centro) y cómo se guarda por catálogo (claves 'orders' y 'views'); sin Qt
+    module_view_state.py               ModuleViewState: lo elegido en cada módulo (orden, vista del centro y filtro) y cómo se guarda por catálogo (claves 'orders', 'views' y 'filters'); sin Qt
     center_views.py                    CenterView: vistas del centro (cuadrícula, individual, lista, mapa) con su texto emergente e icono; sin Qt
     catalog_module.py                  CatalogModule: barra CatalogSidebar (contadores, árboles, colecciones, opción de subcarpetas, estado)
-    image_module.py                    ImageModule: barra ImageSidebar (contador de la biblioteca Imagen y árbol de palabras clave con recuentos), estado
+    image_module.py                    ImageModule: barra ImageSidebar (Biblioteca - Imagen con su selección rápida, carpetas con imágenes y árbol de palabras clave con recuentos), estado
     placeholder_module.py              PlaceholderModule: botón sin módulo todavía (página «próximamente»)
 ui/main_window.ui, main_window.py    Interfaz de Qt Designer (main_window.py se GENERA con build_ui.py; no editar a mano).
                                      Widgets promocionados: widget_catalog_sidebar (CatalogSidebar), list_view_grid (MediaGridView),
-                                     widget_organize_bar (OrganizeBar, en frame_main_bottom)
+                                     widget_single_view (SingleMediaView), widget_filter_bar (FilterBar, en frame_main_top) y, en
+                                     frame_main_bottom, widget_view_buttons (ViewButtons), widget_sort_control (SortControl) y
+                                     widget_organize_bar (OrganizeBar)
 ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_message), barra de estado (ui_status),
                                      iconos, tema, widgets/job_progress_widget.py
   helpers/ui_icons.py                tinted_icon: SVG monocromos del .qrc teñidos al dibujarse (paleta, color fijo o hover)
@@ -85,7 +87,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/theme_qss.py               QSS de los componentes generales (barras de desplazamiento, separadores, botones, campos, menús...) a partir de un ThemeColors
   helpers/theme_style.py             ThemeStyle: QProxyStyle sobre Fusion que dibuja los botones de opción y las casillas (también las de listas y árboles) con los colores del tema
   helpers/ui_theme.py                Tema: paleta oscura de Fusion (build_palette), hoja de estilos global (QSS: la general + las piezas propias), tooltips, colores compartidos de la cuadrícula (GRID_BG, GRID_LINE) y de los iconos (SIDEBAR_ICON_COLOR, SIDEBAR_ICON_OPEN_COLOR, TOOLBAR_ICON_ACCENT_COLOR; None = paleta), TOOLBAR_MARGIN
-  helpers/mode_toolbar.py            ModeToolbar: botones de modo de la toolbar, exclusivos; icono en acento al pasar el ratón y en el modo activo; páginas provisionales (la crea ModuleHost)
+  helpers/mode_toolbar.py            ModeToolbar: botones de modo de la toolbar, exclusivos; icono en acento solo en el modo activo (al pasar el ratón cambia la caja); páginas provisionales (la crea ModuleHost)
   dialogs/settings_dialog.py         SettingsDialog: ventana de opciones (columna de secciones + páginas; PAGES = General, Catálogo, Metadatos)
   dialogs/collection_dialog.py       CollectionDialog: "Crear colección" / "Crear conjunto" (nombre, conjunto, incluir la selección)
   dialogs/smart_collection_dialog.py SmartCollectionDialog: crear / editar una colección inteligente (reglas y grupos de reglas, recuento en vivo)
@@ -117,10 +119,10 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   widgets/single_media_view.py       SingleMediaView: vista individual (archivo actual de la cuadrícula, mismo modelo y selección): imagen ajustada y nítida, marcador sin miniatura, aviso de no disponible, «No hay archivos»
   inspector/                         ── Inspector: el panel DERECHO ── ([FLUJOS.md §12](FLUJOS.md))
     inspector_panel.py               ► InspectorPanel y DEFAULT_SECTIONS (aquí se añade una sección)
-    base_section.py                    InspectorSection (title, title_for, key, modules / hidden_in / shown_in, applies_to, show_summary; datos propios con data_request / show_data; header_widget; señal edit_requested), InfoGrid (etiqueta | valor | icono; ROW_SPACING) e IconCell (icono o botón; ICON_Y_OFFSET)
+    base_section.py                    InspectorSection (title, title_for, key, libraries / fits, applies_to, show_summary; datos propios con data_request / show_data; header_widget; señal edit_requested), InfoGrid (etiqueta | valor | icono; ROW_SPACING) e IconCell (icono o botón; ICON_Y_OFFSET)
     keywords_section.py                Sección «Palabras clave» de solo lectura (las asignadas, separadas por comas, con «*» las que no tienen todos). Sin usar desde el 08/11/2026: el editor la sustituye en todos los módulos
-    keyword_editor_section.py          «Palabras clave» en Imagen: caja con comas (KeywordTextEdit: Intro, Esc, sugerencias, Ctrl+K); cambios con apply_keyword_changes
-    keyword_list_section.py            «Lista de palabras clave» en Imagen: KeywordChecklist (árbol con casillas); cambios con apply_keyword_changes
+    keyword_editor_section.py          «Palabras clave» (con cualquier selección, en todos los módulos): caja con comas (KeywordTextEdit: Intro, Esc, sugerencias, Ctrl+K) y «Últimas palabras clave»; cambios con apply_keyword_changes
+    keyword_list_section.py            «Lista de palabras clave» (siempre): KeywordChecklist (árbol con casillas, flecha «ver sus fotos», soltar tarjetas); cambios con apply_keyword_changes
     metadata_section.py                Sección «Metadatos» (biblioteca Imagen): desplegable de vistas en la cabecera, filas de metadata_fields.py, valores con fetch_field_values
     selection_section.py               Sección «Selección»: nombre, carpeta, tamaño, fecha, contenido, biblioteca y estado
     formatting.py                      Textos: tamaños (24,3 MB), fechas por precisión, rangos, tipos («434 fotos · 20 vídeos»), origen de la fecha; metadatos: dimensiones, exposición, compensación, GPS, dirección, programa y medición (códigos EXIF), duración, fps, códec
@@ -138,7 +140,7 @@ core/
     selection_summary.py               Resumen para el inspector: fetch_selection_summary (ids) y fetch_source_summary (origen); SelectionSummary
     keywords.py                        Palabras clave en el catálogo: ensure_keyword_path, resolve_flat_keyword (sueltas), set_media_keywords (manda el archivo), keyword_tree, fetch_keyword_tree, filter_keyword_tree; edición: assign_keyword, remove_keyword, diff_keyword_text, apply_keyword_changes; sin Qt
     selection_metadata.py              Valores comunes de unos campos en la selección (común / «Varios» / vacío); FieldSource dice de qué columnas sale cada campo por tipo de medio
-    grid_source.py                     GridSource (ALL / FOLDER / SMART / COLLECTION / QUICK): qué muestra la cuadrícula; inmutable. UNCLASSIFIED = «Sin clasificar»
+    grid_source.py                     GridSource (ALL / FOLDER / SMART / COLLECTION / QUICK / KEYWORD): qué muestra la cuadrícula; inmutable; source_to_dict / source_from_dict. UNCLASSIFIED = «Sin clasificar»
     grid_filter.py                   ► FILTRO de la barra de filtros: GridFilter (pestañas encendidas, candado, filas de Texto y Atributos, columnas de Metadatos: MetadataFilter, metadata_rule) -> rule_sets() (conjuntos de reglas con AND, que se suman al origen); filter_to_dict / filter_from_dict; sin Qt
     filter_presets.py                  AJUSTES PERSONALIZADOS de la barra de filtros: FilterPreset (nombre + GridFilter), los de fábrica, la lista de settings.json (filter_presets), cuál coincide con el filtro, cuáles valen para un módulo, elegir y restaurar
     grid_orders.py                   ► ÓRDENES de la cuadrícula: SORT_FIELDS (campos del desplegable), GridOrder (campo + dirección; to_state / from_state), order_by_sql (NULL al final, desempate por nombre e id); sin Qt
@@ -199,8 +201,10 @@ core/
     sources/                           base.py, pillow_source.py, heif_source.py (HEIC), raw_preview_source.py (RAW, vía ExifTool)
     job.py                             generate_pending_thumbnails (trabajo) e invalidate_thumbnails (regenerar a demanda)
     inspect_cli.py                     Diagnóstico: genera miniaturas de archivos reales y las cuenta
+    _testing.py                        Utilidades solo para las autopruebas de core/thumbnails (perfiles ICC de prueba)
 tools/exiftool/                      ExifTool (no se versiona; ver tools/exiftool/LEEME.txt)
-scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc
+scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc (genera resources/recursos_rc.py)
+scripts/export_qtbase_es.py          Copia la traducción al español de Qt (qtbase_es.qm) a resources/locales
 ruff.toml                            Configuración de Ruff (excluye tests/ y ui/)
 CLAUDE.md                            Reglas de trabajo para la IA (Claude Code): cómo leer el proyecto, convenciones y qué actualizar
 docs/                                Esta documentación (empieza por docs/INDEX.md)
