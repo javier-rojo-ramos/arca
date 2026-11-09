@@ -48,6 +48,8 @@ python -m ui_helpers.widgets.filter_preset_button  (texto del botón, menú, ✓
 python -m controllers.filter_controller      (barra <-> filtro con un host de mentira, Ctrl+L, Ctrl+F, fila de Texto, vista individual; sin ventana)
 python -m controllers.filter_preset_controller  (ajustes del módulo, el que coincide, elegir, restaurar, guardar y reemplazar, con host y configuración de mentira y las preguntas cambiadas; sin ventana)
 python -m ui_helpers.dialogs.filter_presets_dialog (subir, bajar, arrastrar, cambiar el nombre con vacío y repetido, eliminar, restaurar los de fábrica; sin ventana. Con --ventana, la ventana con los de fábrica y uno más)
+python -m ui_helpers.widgets.smart_rule_row (cada tipo de valor de ida y vuelta, cambios de campo y de operador, sugerencias de palabras clave, [−]; sin ventana)
+python -m ui_helpers.dialogs.smart_collection_dialog (crear y editar, añadir y quitar reglas, recuento y recuentos tardíos, errores en rojo, lo elegido; sin ventana. Con --ventana, la ventana con un contador simulado y un aviso de ejemplo)
 python -m controllers.metadata_filter_controller (columnas de partida, qué se recuenta, respuestas tardías, alto guardado, con host, modelo y BD de mentira; sin ventana)
 python -m ui_helpers.widgets.text_filter_row (opciones, pausa al escribir, la «×», set_filter; sin ventana, tarda ~1 s)
 python -m ui_helpers.widgets.attribute_filter_row (clics en marcas, estrellas, colores, selección rápida y tipos; operador; dibujo; sin ventana)

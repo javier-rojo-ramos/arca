@@ -14,85 +14,63 @@
                                                       [Crear]  [Cancelar]
 
 Cómo está hecha (para ampliarla sin tocarla):
-    - El botón del CAMPO abre un menú con un submenú por grupo (Estándar, Imagen, Tracks
-      GPS...) y, dentro, los campos por secciones. Todo sale de 'core/catalog/smart_fields.py':
-      un campo nuevo aparece aquí solo.
-    - Los OPERADORES de cada campo salen de su tipo ('allowed_operators').
-    - El VALOR se edita con un control según el tipo (texto, número con su unidad, fecha
-      con calendario, lista, estrellas...). Para un tipo nuevo, añadir su caso en
-      '_ValueEditor'.
+    - Cada regla es una fila 'SmartRuleRow' ('ui_helpers/widgets/smart_rule_row.py'): el
+      menú de campos, los operadores y el control del valor según el tipo están allí.
     - La ventana no toca la base de datos: devuelve un 'SmartCollectionChoice' y quien la
       abre ('controllers/collection_actions.py') crea o guarda la colección. Para mostrar
       cuántos elementos coinciden, recibe una función 'counter' que cuenta en segundo plano.
     - Para el campo «Palabra clave», recibe los nombres de las palabras del catálogo
-      ('keyword_names') y los ofrece mientras se escribe (contienen lo escrito, sin
-      distinguir mayúsculas).
+      ('keyword_names') y se los pasa a las filas, que los ofrecen mientras se escribe.
+    - Los colores salen del tema ('ui_theme.py'): el aviso de arriba es '#lbl_dialog_warning'
+      y el texto del recuento, '#lbl_dialog_status' (en rojo con la propiedad 'error').
 
+1.3.0 Las filas de las reglas pasan a 'ui_helpers/widgets/smart_rule_row.py' (sin cambios
+      de comportamiento); colores del tema en lugar de colores sueltos; autoprueba sin
+      ventana (la ventana, con '--ventana').
 1.2.0 Autocompletado del nombre en el campo «Palabra clave» ('keyword_names'; paso K4c).
 
 Uso:
     choice = SmartCollectionDialog.ask(parent, sets=[(3, "Álbumes")], counter=contar)
     if choice is not None:
         ...  # choice.name, choice.parent_id, choice.rules
+
+Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
+    python -m ui_helpers.dialogs.smart_collection_dialog
+Para verla (abre la ventana y espera a que se cierre):
+    python -m ui_helpers.dialogs.smart_collection_dialog --ventana
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["SmartCollectionChoice", "SmartCollectionDialog"]
 
 # Librerías estándar
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import date
-from typing import Any
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QDate, QStringListModel, Qt, QTimer, Signal
-from qtpy.QtGui import QFont
+from qtpy.QtCore import QStringListModel, Qt, QTimer
 from qtpy.QtWidgets import (
     QComboBox,
-    QCompleter,
-    QDateEdit,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMenu,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
-    QSpinBox,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 # Módulos del proyecto
-from core.catalog.smart_fields import (
-    FIELDS,
-    KIND_DATE,
-    KIND_ENUM,
-    KIND_KEYWORD,
-    KIND_NUMBER,
-    KIND_RATING,
-    KIND_TEXT,
-    OPERATORS,
-    SmartField,
-    fields_in_group,
-    visible_groups,
-)
-from core.catalog.smart_rules import MATCH_ALL, MATCH_ANY, Rule, RuleSet, validate_rule
+from core.catalog.smart_rules import MATCH_ALL, MATCH_ANY, Rule, RuleSet
 from core.catalog.user_collections import MAX_NAME_LENGTH
+from ui_helpers.widgets.smart_rule_row import DEFAULT_RULE, SmartRuleRow
 
-# Regla con la que empieza una fila nueva
-_DEFAULT_RULE = Rule("rating", "gte", 1)
 # Espera (ms) tras el último cambio antes de volver a contar los elementos que coinciden
 _COUNT_DELAY_MS = 350
-# Límites de los números (los campos admiten negativos: p. ej. una altitud bajo el mar)
-_NUMBER_LIMIT = 1e12
 
 # Función que cuenta en segundo plano: recibe las reglas y a quién avisar con el número
 # (o con None si no se pudo contar)
@@ -112,305 +90,6 @@ class SmartCollectionChoice:
     name: str
     parent_id: int | None
     rules: RuleSet
-
-
-# -----------------------------------------------------------------------------
-# Editor del valor de una regla
-# -----------------------------------------------------------------------------
-
-
-class _ValueEditor(QWidget):
-    """Control para el valor de una regla, según el tipo del campo y el operador.
-
-    Muestra: nada (operadores sin valor), un control, o dos con "y" en medio ("entre").
-    Los números se muestran en la unidad del usuario (km, MB...) y se devuelven en la
-    de la base de datos (ver 'SmartField.scale').
-    """
-
-    changed = Signal()
-
-    def __init__(
-        self,
-        spec: SmartField,
-        operator: str,
-        parent: QWidget | None = None,
-        keyword_names: QStringListModel | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self._spec = spec
-        self._operator = operator
-        self._keyword_names = keyword_names  # sugerencias del campo «Palabra clave»
-        self._editors: list[QWidget] = []
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        arity = OPERATORS[operator].arity
-        for position in range(arity):
-            if position == 1:
-                layout.addWidget(QLabel("y"))
-            editor = self._make_editor()
-            self._editors.append(editor)
-            layout.addWidget(editor, 1)
-        if arity == 0:
-            layout.addStretch(1)
-
-    def _make_editor(self) -> QWidget:
-        """Crea UN control para el tipo del campo (y lo conecta a 'changed')."""
-        spec = self._spec
-        if spec.kind == KIND_DATE and self._operator == "in_last":
-            editor = QSpinBox()
-            editor.setRange(1, 36500)
-            editor.setValue(30)
-            editor.setSuffix(" días")
-            editor.valueChanged.connect(self.changed)
-            return editor
-        if spec.kind in (KIND_TEXT, KIND_KEYWORD):
-            editor = QLineEdit()
-            editor.setMaxLength(500)
-            # Palabra clave: el nombre de UNA palabra («Coche»), sin la ruta
-            editor.setPlaceholderText("palabra clave" if spec.kind == KIND_KEYWORD else "texto")
-            if spec.kind == KIND_KEYWORD and self._keyword_names is not None:
-                # Las palabras del catálogo que contienen lo escrito (la regla compara
-                # nombres, así que se ofrecen nombres, no rutas)
-                completer = QCompleter(self._keyword_names, editor)
-                completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-                completer.setFilterMode(Qt.MatchFlag.MatchContains)
-                editor.setCompleter(completer)
-            editor.textChanged.connect(self.changed)
-            return editor
-        if spec.kind == KIND_NUMBER:
-            editor = QDoubleSpinBox()
-            editor.setDecimals(spec.decimals)
-            editor.setRange(-_NUMBER_LIMIT, _NUMBER_LIMIT)
-            editor.setGroupSeparatorShown(True)
-            if spec.unit:
-                editor.setSuffix(f" {spec.unit}")
-            editor.valueChanged.connect(self.changed)
-            return editor
-        if spec.kind == KIND_DATE:
-            editor = QDateEdit()
-            editor.setCalendarPopup(True)
-            editor.setDisplayFormat("dd/MM/yyyy")
-            editor.setDate(QDate.currentDate())
-            editor.dateChanged.connect(self.changed)
-            return editor
-        if spec.kind == KIND_RATING:
-            editor = QComboBox()
-            editor.addItem("sin estrellas", 0)
-            for stars in range(1, 6):
-                editor.addItem("★" * stars, stars)
-            editor.currentIndexChanged.connect(self.changed)
-            return editor
-        if spec.kind == KIND_ENUM:
-            editor = QComboBox()
-            for value, text in spec.choices:
-                editor.addItem(text, value)
-            editor.currentIndexChanged.connect(self.changed)
-            return editor
-        # Tipo sin control propio (no debería pasar: se ve en la autoprueba de smart_fields)
-        return QLabel(f"(tipo {spec.kind!r} sin editor)")
-
-    # --- Leer y escribir el valor -------------------------------------------------------
-
-    def value(self) -> Any:
-        """Valor de la regla: None, un valor o una tupla de dos ("entre")."""
-        values = [self._read(editor) for editor in self._editors]
-        if not values:
-            return None
-        return tuple(values) if len(values) == 2 else values[0]
-
-    def set_value(self, value: Any) -> None:
-        """Pone un valor (el de una regla guardada). Lo que no encaja se ignora."""
-        if not self._editors:
-            return
-        values = value if isinstance(value, (tuple, list)) else (value,)
-        for editor, item in zip(self._editors, values, strict=False):
-            self._write(editor, item)
-
-    def _read(self, editor: QWidget) -> Any:
-        spec = self._spec
-        if isinstance(editor, QSpinBox):
-            return editor.value()
-        if isinstance(editor, QLineEdit):
-            return editor.text()
-        if isinstance(editor, QDoubleSpinBox):
-            stored = editor.value() * spec.scale
-            # Sin decimales ni escala (ISO, píxeles...): entero
-            if spec.decimals == 0 and spec.scale == 1:
-                return int(round(stored))
-            return round(stored, 6)
-        if isinstance(editor, QDateEdit):
-            return editor.date().toString("yyyy-MM-dd")
-        if isinstance(editor, QComboBox):
-            return editor.currentData()
-        return None
-
-    def _write(self, editor: QWidget, value: Any) -> None:
-        try:
-            if isinstance(editor, QSpinBox) and isinstance(value, int):
-                editor.setValue(value)
-            elif isinstance(editor, QLineEdit) and isinstance(value, str):
-                editor.setText(value)
-            elif isinstance(editor, QDoubleSpinBox) and isinstance(value, (int, float)):
-                editor.setValue(value / self._spec.scale)
-            elif isinstance(editor, QDateEdit) and isinstance(value, str):
-                day = date.fromisoformat(value)
-                editor.setDate(QDate(day.year, day.month, day.day))
-            elif isinstance(editor, QComboBox):
-                position = editor.findData(value)
-                if position >= 0:
-                    editor.setCurrentIndex(position)
-        except (ValueError, TypeError):
-            pass  # un valor que no encaja (p. ej. de otra versión): se deja el de por defecto
-
-    def focus_first(self) -> None:
-        """Pone el cursor en el primer control (p. ej. para escribir el texto)."""
-        if self._editors:
-            self._editors[0].setFocus()
-
-
-# -----------------------------------------------------------------------------
-# Una fila: campo, operador, valor y quitar
-# -----------------------------------------------------------------------------
-
-
-class _RuleRow(QWidget):
-    """Una regla: [campo ▾] [operador ▾] [valor] [−]."""
-
-    changed = Signal()
-    remove_requested = Signal(object)  # la propia fila
-
-    def __init__(
-        self,
-        rule: Rule,
-        parent: QWidget | None = None,
-        keyword_names: QStringListModel | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self._keyword_names = keyword_names
-        self._field_key = ""
-        self._value_editor: _ValueEditor | None = None
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        # Campo: botón con un menú por grupos y secciones (ver '_build_field_menu')
-        self.button_field = QToolButton()
-        self.button_field.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.button_field.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
-        self.button_field.setMinimumWidth(190)
-        self.button_field.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self.button_field.setMenu(self._build_field_menu())
-
-        self.combo_operator = QComboBox()
-        self.combo_operator.setMinimumWidth(170)
-        self.combo_operator.currentIndexChanged.connect(self._on_operator_changed)
-
-        self._value_holder = QHBoxLayout()
-        self._value_holder.setContentsMargins(0, 0, 0, 0)
-
-        self.button_remove = QToolButton()
-        self.button_remove.setText("−")
-        self.button_remove.setToolTip("Quitar esta regla")
-        self.button_remove.setAutoRaise(True)
-        self.button_remove.clicked.connect(lambda: self.remove_requested.emit(self))
-
-        layout.addWidget(self.button_field)
-        layout.addWidget(self.combo_operator)
-        layout.addLayout(self._value_holder, 1)
-        layout.addWidget(self.button_remove)
-
-        self._set_field(rule.field if rule.field in FIELDS else _DEFAULT_RULE.field, rule.operator)
-        if self._value_editor is not None:
-            self._value_editor.set_value(rule.value)
-
-    # --- Menú de campos -----------------------------------------------------------------
-
-    def _build_field_menu(self) -> QMenu:
-        """Menú con un submenú por grupo y, dentro, los campos separados por secciones."""
-        menu = QMenu(self)
-        for group in visible_groups():
-            submenu = menu.addMenu(group.label)
-            section = None
-            for spec in fields_in_group(group.key):
-                if spec.section != section:
-                    # Título de la sección (en negrita y sin poder pulsarse)
-                    if section is not None:
-                        submenu.addSeparator()
-                    header = submenu.addAction(spec.section)
-                    header.setEnabled(False)
-                    font = QFont(header.font())
-                    font.setBold(True)
-                    header.setFont(font)
-                    section = spec.section
-                action = submenu.addAction(f"    {spec.label}")
-                action.triggered.connect(lambda _checked=False, key=spec.key: self._on_field_chosen(key))
-        return menu
-
-    def _on_field_chosen(self, key: str) -> None:
-        if key != self._field_key:
-            self._set_field(key, self.combo_operator.currentData())
-            self.changed.emit()
-            if self._value_editor is not None:
-                self._value_editor.focus_first()
-
-    # --- Cambios de campo y operador ------------------------------------------------------
-
-    def _set_field(self, key: str, operator: str | None) -> None:
-        """Cambia el campo: rellena sus operadores (mantiene el actual si lo admite)."""
-        spec = FIELDS[key]
-        self._field_key = key
-        group = next(g.label for g in visible_groups() if g.key == spec.group)
-        self.button_field.setText(spec.label)
-        self.button_field.setToolTip(f"{group} › {spec.section} › {spec.label}")
-
-        self.combo_operator.blockSignals(True)
-        self.combo_operator.clear()
-        for op in spec.allowed_operators:
-            self.combo_operator.addItem(OPERATORS[op].label, op)
-        position = self.combo_operator.findData(operator) if operator else -1
-        self.combo_operator.setCurrentIndex(max(0, position))
-        self.combo_operator.blockSignals(False)
-        self._rebuild_value_editor()
-
-    def _on_operator_changed(self, _index: int) -> None:
-        old = self._value_editor.value() if self._value_editor is not None else None
-        old_arity = len(old) if isinstance(old, tuple) else (0 if old is None else 1)
-        self._rebuild_value_editor()
-        # Si el valor sigue teniendo sentido (misma cantidad), se conserva
-        if self._value_editor is not None and old is not None:
-            new_arity = OPERATORS[self.combo_operator.currentData()].arity
-            if new_arity == old_arity:
-                self._value_editor.set_value(old)
-            elif new_arity == 2 and old_arity == 1:
-                self._value_editor.set_value((old, old))
-            elif new_arity == 1 and old_arity == 2:
-                self._value_editor.set_value(old[0])
-        self.changed.emit()
-
-    def _rebuild_value_editor(self) -> None:
-        """Cambia el control del valor por el que corresponde al campo y al operador."""
-        if self._value_editor is not None:
-            self._value_holder.removeWidget(self._value_editor)
-            self._value_editor.deleteLater()
-        self._value_editor = _ValueEditor(
-            FIELDS[self._field_key],
-            self.combo_operator.currentData(),
-            keyword_names=self._keyword_names,
-        )
-        self._value_editor.changed.connect(self.changed)
-        self._value_holder.addWidget(self._value_editor)
-
-    # --- Resultado ------------------------------------------------------------------------
-
-    def rule(self) -> Rule:
-        """La regla de esta fila, validada.
-
-        Raises:
-            ValueError: Si falta el valor o no es válido (mensaje para el usuario).
-        """
-        value = self._value_editor.value() if self._value_editor is not None else None
-        return validate_rule(Rule(self._field_key, self.combo_operator.currentData(), value))
 
 
 # -----------------------------------------------------------------------------
@@ -456,7 +135,7 @@ class SmartCollectionDialog(QDialog):
         self._counter = counter
         # Nombres de las palabras clave del catálogo (autocompletado de esas reglas)
         self._keyword_names = QStringListModel(list(keyword_names), self)
-        self._rows: list[_RuleRow] = []
+        self._rows: list[SmartRuleRow] = []
         # Para descartar recuentos que llegan tarde (ventana cerrada o reglas ya cambiadas)
         self._count_generation = 0
         self._alive = True
@@ -479,7 +158,7 @@ class SmartCollectionDialog(QDialog):
         self.combo_match = QComboBox()
         self.combo_match.addItem("todas", MATCH_ALL)
         self.combo_match.addItem("alguna de", MATCH_ANY)
-        initial = rules or RuleSet(rules=(_DEFAULT_RULE,))
+        initial = rules or RuleSet(rules=(DEFAULT_RULE,))
         self.combo_match.setCurrentIndex(max(0, self.combo_match.findData(initial.match)))
         self.combo_match.currentIndexChanged.connect(self._schedule_count)
         match_row = QHBoxLayout()
@@ -500,8 +179,10 @@ class SmartCollectionDialog(QDialog):
         scroll.setMinimumHeight(170)
 
         self.button_add_rule = QPushButton("+ Añadir regla")
-        self.button_add_rule.clicked.connect(lambda: self._add_row(_DEFAULT_RULE, focus=True))
+        self.button_add_rule.clicked.connect(lambda: self._add_row(DEFAULT_RULE, focus=True))
         self.label_status = QLabel()
+        # El rojo de los errores lo pone el tema con la propiedad 'error' ('_show_status')
+        self.label_status.setObjectName("lbl_dialog_status")
         self.label_status.setWordWrap(True)
         self.label_status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         bottom_row = QHBoxLayout()
@@ -522,8 +203,8 @@ class SmartCollectionDialog(QDialog):
         layout = QVBoxLayout(self)
         if note:
             label_note = QLabel(note)
+            label_note.setObjectName("lbl_dialog_warning")  # color de aviso, del tema
             label_note.setWordWrap(True)
-            label_note.setStyleSheet("color: #e0a030;")
             layout.addWidget(label_note)
         layout.addLayout(form)
         layout.addSpacing(6)
@@ -546,7 +227,7 @@ class SmartCollectionDialog(QDialog):
     # --- Filas ------------------------------------------------------------------------------
 
     def _add_row(self, rule: Rule, *, focus: bool = False) -> None:
-        row = _RuleRow(rule, self._rules_widget, keyword_names=self._keyword_names)
+        row = SmartRuleRow(rule, self._rules_widget, keyword_names=self._keyword_names)
         row.changed.connect(self._schedule_count)
         row.remove_requested.connect(self._remove_row)
         # Antes del 'stretch' final (así las filas se apilan arriba)
@@ -557,7 +238,7 @@ class SmartCollectionDialog(QDialog):
         if focus:
             row.button_field.setFocus()
 
-    def _remove_row(self, row: _RuleRow) -> None:
+    def _remove_row(self, row: SmartRuleRow) -> None:
         if len(self._rows) <= 1:
             return  # siempre queda al menos una regla
         self._rows.remove(row)
@@ -610,7 +291,12 @@ class SmartCollectionDialog(QDialog):
 
     def _show_status(self, text: str, *, error: bool = False) -> None:
         self.label_status.setText(text)
-        self.label_status.setStyleSheet("color: #e05050;" if error else "")
+        if self.label_status.property("error") != error:
+            # El tema pinta en rojo 'QLabel#lbl_dialog_status[error="true"]'; al cambiar la
+            # propiedad hay que volver a aplicar el estilo
+            self.label_status.setProperty("error", error)
+            self.label_status.style().unpolish(self.label_status)
+            self.label_status.style().polish(self.label_status)
 
     def _update_ok(self, *_args: object) -> None:
         self.button_ok.setEnabled(bool(self.edit_name.text().strip()) and bool(self._rows))
@@ -673,18 +359,107 @@ class SmartCollectionDialog(QDialog):
 
 
 if __name__ == "__main__":
-    # Prueba manual: abre la ventana sola, con un contador simulado.
+    # Autoprueba SIN ventana (plataforma 'offscreen'): filas, recuento, errores y lo elegido.
+    # Con '--ventana', la abre de verdad con un contador simulado (y espera a que se cierre).
     # Ejecutar desde la raíz del proyecto:  python -m ui_helpers.dialogs.smart_collection_dialog
+    import os
     import sys
 
+    show_window = "--ventana" in sys.argv
+    if not show_window:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from qtpy.QtWidgets import QApplication
 
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
+    from core.catalog.smart_fields import FIELDS
 
-    def fake_counter(rule_set: RuleSet, callback: Callable[[int | None], None]) -> None:
-        # Simula un recuento en segundo plano (llega un poco después)
-        QTimer.singleShot(200, lambda: callback(len(rule_set.rules) * 42))
+    app = QApplication([])
+    sets = [(1, "Álbumes"), (2, "Álbumes › Viajes")]
 
-    result = SmartCollectionDialog.ask(None, sets=[(1, "Álbumes"), (2, "Álbumes › Viajes")], counter=fake_counter)
-    print(result)
+    if show_window:
+        from ui_helpers.helpers.ui_theme import apply_theme
+
+        apply_theme()
+
+        def fake_counter(rule_set: RuleSet, callback: Callable[[int | None], None]) -> None:
+            # Simula un recuento en segundo plano (llega un poco después)
+            QTimer.singleShot(200, lambda: callback(len(rule_set.rules) * 42))
+
+        note = "Aviso de ejemplo, con el color de aviso del tema."
+        print(SmartCollectionDialog.ask(None, sets=sets, counter=fake_counter, note=note))
+        sys.exit(0)
+
+    # 1. Crear: una regla de ejemplo con «todas»; sin nombre no se puede crear
+    counts: list[tuple[RuleSet, Callable[[int | None], None]]] = []
+    dialog = SmartCollectionDialog(sets=sets, counter=lambda rules, done: counts.append((rules, done)))
+    assert dialog.windowTitle() == "Crear colección inteligente" and dialog.button_ok.text() == "Crear"
+    assert dialog._rule_set() == RuleSet(MATCH_ALL, (DEFAULT_RULE,))
+    assert not dialog.button_ok.isEnabled()
+    assert not dialog._rows[0].button_remove.isEnabled()  # la única regla no se quita
+    assert dialog.findChild(QLabel, "lbl_dialog_warning") is None  # sin aviso
+    dialog.edit_name.setText("  Las   mejores ")
+    assert dialog.button_ok.isEnabled()
+
+    # 2. Añadir y quitar reglas
+    dialog.button_add_rule.click()
+    assert len(dialog._rows) == 2 and all(row.button_remove.isEnabled() for row in dialog._rows)
+    dialog._rows[1].button_remove.click()
+    assert len(dialog._rows) == 1 and not dialog._rows[0].button_remove.isEnabled()
+
+    # 3. Recuento: «Contando…» y el número; uno que llega tarde (reglas ya cambiadas), no
+    dialog._count_now()
+    assert dialog.label_status.text() == "Contando…" and counts[-1][0] == dialog._rule_set()
+    late = counts[-1][1]
+    dialog._count_now()
+    late(5)
+    assert dialog.label_status.text() == "Contando…"
+    counts[-1][1](1)
+    assert dialog.label_status.text() == "Coincide 1 elemento"
+    counts[-1][1](1234)
+    assert dialog.label_status.text() == "Coinciden 1.234 elementos"
+    assert dialog.label_status.property("error") is False
+    counts[-1][1](None)
+    assert dialog.label_status.text() == "No se pudo contar."
+    assert dialog.label_status.property("error") is True  # el tema lo pinta en rojo
+
+    # 4. Una regla que no vale: el error (en rojo) y la ventana no se cierra
+    dialog._rows[0]._on_field_chosen("title")  # texto vacío
+    dialog._count_now()
+    assert "falta el texto" in dialog.label_status.text()
+    assert dialog.label_status.property("error") is True
+    dialog._on_accept()
+    assert dialog.result() == 0  # sin aceptar
+    dialog._rows[0].findChild(QLineEdit).setText("Ordesa")
+    dialog._count_now()
+    assert dialog.label_status.property("error") is False
+
+    # 5. Lo elegido: nombre sin espacios de más, conjunto, modo y reglas
+    dialog.combo_parent.setCurrentIndex(dialog.combo_parent.findData(2))
+    dialog.combo_match.setCurrentIndex(dialog.combo_match.findData(MATCH_ANY))
+    title_rule = Rule("title", FIELDS["title"].allowed_operators[0], "Ordesa")
+    expected = SmartCollectionChoice("Las mejores", 2, RuleSet(MATCH_ANY, (title_rule,)))
+    assert dialog.choice() == expected, dialog.choice()
+    dialog._on_accept()
+    assert dialog.result() == 1  # aceptada
+    counts[-1][1](7)  # un recuento que llega con la ventana ya cerrada: se ignora
+    assert dialog.label_status.text() == "Contando…"
+
+    # 6. Editar: las reglas guardadas, «Guardar» y el aviso de arriba (color del tema)
+    saved = RuleSet(MATCH_ANY, (
+        Rule("rating", "gte", 3),
+        Rule("captured_at", "between", ("2024-06-01", "2024-06-30")),
+        Rule("color_label", "eq", "red"),
+    ))  # fmt: skip
+    edit = SmartCollectionDialog(
+        sets=sets, parent_id=2, name="Ordesa", rules=saved, editing=True, note="Aviso"
+    )
+    assert edit.windowTitle() == "Editar colección inteligente" and edit.button_ok.text() == "Guardar"
+    assert edit._rule_set() == saved and edit.combo_parent.currentData() == 2
+    assert edit.button_ok.isEnabled() and len(edit._rows) == 3
+    assert edit.findChild(QLabel, "lbl_dialog_warning").text() == "Aviso"
+    # Sin contador: no se cuenta ni se muestra nada
+    edit._schedule_count()
+    assert edit.label_status.text() == ""
+
+    dialog.deleteLater()
+    edit.deleteLater()
+    print("Autoprueba finalizada correctamente.")

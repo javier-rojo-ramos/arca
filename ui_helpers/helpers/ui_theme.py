@@ -18,6 +18,9 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.12.0 Textos de las ventanas: aviso en el color de aviso ('#lbl_dialog_warning') y texto
+       de estado en rojo con la propiedad 'error' ('#lbl_dialog_status'); los usa el
+       editor de colecciones inteligentes (antes, con colores sueltos).
 1.11.0 Textos de las ventanas: ayuda en gris ('#lbl_dialog_hint') y aviso en rojo
        ('#lbl_dialog_error'); los usa «Gestionar ajustes personalizados».
 1.10.0 Desplegable de los ajustes personalizados de la barra de filtros
@@ -48,7 +51,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -179,11 +182,19 @@ QToolButton#btn_filter_presets::menu-indicator {{
 }}
 
 /* Textos de las ventanas (p. ej. «Gestionar ajustes personalizados»): la ayuda, en gris;
-   el aviso de algo que no vale, en rojo */
+   el aviso de algo que no vale, en rojo; un aviso de arriba (p. ej. «las reglas guardadas
+   no se podían leer»), en el color de aviso. El texto de estado de una ventana (p. ej. el
+   recuento de las colecciones inteligentes) se pone en rojo con la propiedad 'error' */
 QLabel#lbl_dialog_hint {{
     color: {COLORS.text_dim};
 }}
 QLabel#lbl_dialog_error {{
+    color: {COLORS.error};
+}}
+QLabel#lbl_dialog_warning {{
+    color: {COLORS.warning};
+}}
+QLabel#lbl_dialog_status[error="true"] {{
     color: {COLORS.error};
 }}
 QWidget#widget_filter_panels {{
