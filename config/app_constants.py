@@ -17,6 +17,7 @@ __all__ = [
     "SETTING_INSPECTOR_METADATA_PRESET",
     "SETTING_INSPECTOR_SECTIONS",
     "SETTING_FILTER_METADATA_HEIGHT",
+    "SETTING_FILTER_PRESETS",
     "SETTING_ACTIVE_MODULE",
     "SETTING_LAST_ADD_FOLDER_PARENT",
     "SETTING_MAIN_SPLITTER_STATE",
@@ -117,6 +118,11 @@ SETTING_INSPECTOR_SECTIONS = "inspector_sections"
 # Alto del panel «Metadatos» de la barra de filtros (px lógicos; se cambia arrastrando su
 # borde inferior). Uno para todos los módulos y catálogos. None = el de partida
 SETTING_FILTER_METADATA_HEIGHT = "filter_metadata_height"
+
+# Ajustes personalizados de la barra de filtros: lista de {"name", "filter"} en el orden
+# del desplegable (ver 'core/catalog/filter_presets.py'). Una para todos los módulos y
+# catálogos. None = los de fábrica (aún sin cambiar)
+SETTING_FILTER_PRESETS = "filter_presets"
 
 # Módulo activo al cerrar la aplicación ('catalog', 'image', 'video', 'audio'): se
 # vuelve a él al arrancar. Es común a todos los catálogos

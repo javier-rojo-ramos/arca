@@ -26,7 +26,10 @@ Qué hace cada cosa:
       pestañas encendidas y el candado no cambian. 'is_reset' dice si ya está así.
     - 'matching_preset': el ajuste que coincide con el filtro (su nombre va en el botón
       del desplegable), comparando solo lo que filtra: las pestañas encendidas y lo que
-      hay en ellas.
+      hay en ellas. En «Metadatos» basta con las mismas columnas (los valores elegidos
+      pueden ser otros; decidido por el autor el 09/11/2026): primero se busca el que
+      coincide del todo, también en los valores; si no hay, uno con las mismas columnas,
+      mejor el último elegido ('preferred') y si no, el primero de la lista.
     - 'fits_module': si un ajuste vale para un módulo (las columnas de «Metadatos» y los
       tipos de «Atributos» que enciende son de los tipos del módulo). Uno con «Objetivo»
       no vale en un módulo sin fotos.
@@ -54,13 +57,16 @@ Uso:
     preset = preset_from_filter("Bodas", grid_filter, default_fields)
     config.set(SETTING_FILTER_PRESETS, presets_to_config(with_preset_saved(presets, preset)))
 
+1.1.0 'matching_preset': en «Metadatos», basta con las mismas columnas (lo elegido en
+      ellas puede cambiar), con preferencia por el que coincide del todo y por el último
+      elegido ('preferred'). Lo pidió el autor el 09/11/2026.
 1.0.0 Primera versión (paso A.3, filtros personalizados, subpaso 1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.filter_presets
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "MAX_PRESET_NAME",
     "FilterPreset",
@@ -200,17 +206,24 @@ def _stored_filter(grid_filter: GridFilter) -> GridFilter:
     )
 
 
-def _signature(grid_filter: GridFilter, default_fields: Iterable[str]) -> tuple[Any, ...]:
+def _signature(
+    grid_filter: GridFilter, default_fields: Iterable[str], *, values: bool = True
+) -> tuple[Any, ...]:
     """Lo que se compara para saber si un filtro coincide con un ajuste: las pestañas
-    encendidas y lo que hay en ellas (lo escrito en una pestaña apagada no filtra)."""
+    encendidas y lo que hay en ellas (lo escrito en una pestaña apagada no filtra). Con
+    'values=False', de «Metadatos» solo los campos de las columnas, no lo elegido."""
     active = grid_filter.active
+    metadata: Any = None
+    if FILTER_METADATA in active:
+        metadata = _resolved_metadata(grid_filter.metadata, default_fields)
+        if not values:
+            metadata = tuple(column.field for column in metadata.columns)
     return (
         active,
         grid_filter.text if FILTER_TEXT in active else None,
         grid_filter.attributes if FILTER_ATTRIBUTES in active else None,
-        _resolved_metadata(grid_filter.metadata, default_fields)
-        if FILTER_METADATA in active else None,
-    )  # fmt: skip
+        metadata,
+    )
 
 
 def preset_from_filter(
@@ -300,17 +313,32 @@ def matching_preset(
     presets: Sequence[FilterPreset],
     media_types: Iterable[str],
     default_fields: Iterable[str],
+    preferred: str | None = None,
 ) -> FilterPreset | None:
-    """El primer ajuste (de los que valen para el módulo) que coincide con el filtro, o
-    None. Con «Ninguno», ninguno: un ajuste siempre enciende alguna pestaña."""
+    """El ajuste (de los que valen para el módulo) que coincide con el filtro, o None.
+
+    Primero, el primero que coincide del todo (también en lo elegido en «Metadatos»: así,
+    «Mi país» con España elegida no se confunde con «Ubicación», que tiene las mismas
+    columnas). Si no hay, uno con las mismas columnas de «Metadatos» y lo demás igual: el
+    que se llama 'preferred' (el último elegido en el módulo) o, si no, el primero.
+    Con «Ninguno», ninguno: un ajuste siempre enciende alguna pestaña.
+    """
     if grid_filter.is_none:
         return None
     types, fields = tuple(media_types), tuple(default_fields)
+    fitting = [preset for preset in presets if fits_module(preset, types)]
     wanted = _signature(grid_filter, fields)
-    for preset in presets:
-        if fits_module(preset, types) and _signature(preset.grid_filter, fields) == wanted:
+    for preset in fitting:
+        if _signature(preset.grid_filter, fields) == wanted:
             return preset
-    return None
+    columns = _signature(grid_filter, fields, values=False)
+    same = [p for p in fitting if _signature(p.grid_filter, fields, values=False) == columns]
+    if preferred is not None:
+        key = _name_key(preferred)
+        for preset in same:
+            if _name_key(preset.name) == key:
+                return preset
+    return same[0] if same else None
 
 
 def with_factory_restored(presets: Sequence[FilterPreset]) -> list[FilterPreset]:
@@ -439,9 +467,27 @@ if __name__ == "__main__":
     # Lo escrito en una pestaña apagada no cuenta; encenderla, sí
     assert match(replace(applied, text=TextFilter(text="otra"))) == "Ubicación"
     assert match(applied.with_panel(FILTER_TEXT, True)) is None
-    # Elegir un valor en una columna: ya no coincide
+    # Elegir un valor en una columna: sigue coincidiendo (mismas columnas)...
     chosen = replace(applied, metadata=applied.metadata.with_values(0, ["España"]))
-    assert match(chosen) is None
+    assert match(chosen) == "Ubicación"
+    # ...cambiar el campo de una columna, añadir o quitar una, ya no
+    assert match(replace(chosen, metadata=chosen.metadata.with_field(3, "keyword"))) is None
+    assert match(replace(chosen, metadata=chosen.metadata.with_column_added(3, "iso"))) is None
+    assert match(replace(chosen, metadata=chosen.metadata.with_column_removed(3))) is None
+    # Uno que coincide del todo (con lo elegido) gana a uno anterior con las mismas columnas
+    spain = preset_from_filter("Mi país", chosen, IMAGE_FIELDS)
+    with_spain = with_preset_saved(presets, spain)
+    assert matching_preset(chosen, with_spain, IMAGE_TYPES, IMAGE_FIELDS) == spain
+    # Con otro valor: el último elegido, si tiene las mismas columnas; si no, el primero
+    france = replace(applied, metadata=applied.metadata.with_values(0, ["Francia"]))
+    assert matching_preset(france, with_spain, IMAGE_TYPES, IMAGE_FIELDS).name == "Ubicación"
+    for preferred, expected in (("mi PAÍS", "Mi país"), ("Valoradas", "Ubicación")):
+        found = matching_preset(france, with_spain, IMAGE_TYPES, IMAGE_FIELDS, preferred)
+        assert found.name == expected, (preferred, found)
+    # En «Texto» y «Atributos», lo de dentro sí cuenta
+    rated = applied_preset(presets[3], NO_FILTER)
+    assert match(rated) == "Valoradas"
+    assert match(replace(rated, attributes=AttributeFilter(rating=3))) is None
     # «Ninguno»: ninguno, aunque lo de dentro sea igual
     assert match(applied.cleared()) is None
     # «Columnas de partida»: las vacías o las mismas con sus campos, en cada módulo

@@ -18,6 +18,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.10.0 Desplegable de los ajustes personalizados de la barra de filtros
+       ('#btn_filter_presets'): texto como las pestañas, sin la flecha de Fusion.
 1.9.2 Raya entre dos paneles de la barra de filtros ('#line_filter_panel').
 1.9.1 Raya fina entre las columnas de «Metadatos» ('#line_metadata_separator').
 1.9.0 Columnas de «Metadatos» de la barra de filtros ('#widget_metadata_column'): cabecera
@@ -44,7 +46,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.9.2"
+__version__ = "1.10.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -154,6 +156,24 @@ QToolButton#btn_filter_lock {{
 QToolButton#btn_filter_lock:hover {{
     border-color: {COLORS.line};
     background: {COLORS.bg_raised};
+}}
+/* Desplegable de los ajustes personalizados (filter_preset_button.py): texto como las
+   pestañas («Ubicación ▾»; la flecha la lleva el texto, sin la de Fusion) */
+QToolButton#btn_filter_presets {{
+    border: none;
+    background: transparent;
+    color: {COLORS.text_dim};
+    padding: 2px 2px;
+}}
+QToolButton#btn_filter_presets:hover {{
+    color: {COLORS.text};
+}}
+QToolButton#btn_filter_presets:disabled {{
+    color: {COLORS.text_disabled};
+}}
+QToolButton#btn_filter_presets::menu-indicator {{
+    image: none;
+    width: 0px;
 }}
 QWidget#widget_filter_panels {{
     border-top: 1px solid {COLORS.divider};

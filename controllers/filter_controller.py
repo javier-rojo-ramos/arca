@@ -20,6 +20,10 @@ la cuadrícula (ver 'module_host.py'). Aquí se traduce lo uno en lo otro:
       los recuentos en segundo plano) -> el filtro con 'metadata' cambiado. Cada vez que
       la barra muestra un filtro, se lo pasa ('show_filter'): así cuenta lo que cambie
       también al escribir en «Texto» o pulsar en «Atributos».
+    - Desplegable de los ajustes personalizados (lo lleva 'FilterPresetController': la
+      lista y las preguntas) -> el filtro que pide (un ajuste elegido, «Restaurar...»).
+      Cada vez que la barra muestra un filtro, se lo pasa ('show_filter'): así el botón
+      enseña el nombre del ajuste que coincide.
     - 'ModuleHost.filter_changed' (otro módulo, abrir o cerrar el catálogo, la vuelta a
       «Ninguno» al cambiar de origen) -> la barra.
     - 'ModuleHost.view_changed' -> la franja de la barra se oculta en la vista individual
@@ -31,6 +35,7 @@ provisionales: no ofrecen campos de orden).
 Paneles de las pestañas: las filas de «Texto» ('text_row') y de «Atributos»
 ('attribute_row'), el controlador de «Metadatos» ('metadata', con su panel) y los de las
 demás que ya tengan uno ('panels') se pasan al crearlo; solo esas pestañas se pueden pulsar.
+El controlador de los ajustes personalizados ('presets'), también.
 
 Uso (en el controlador principal, solo la conexión):
     self.filters = FilterController(module_host, bar=widget_filter_bar,
@@ -38,8 +43,11 @@ Uso (en el controlador principal, solo la conexión):
                                     text_row=TextFilterRow(widget_filter_bar),
                                     attribute_row=AttributeFilterRow(widget_filter_bar),
                                     metadata=MetadataFilterController(...),
+                                    presets=FilterPresetController(...),
                                     parent=self)
 
+1.4.0 Ajustes personalizados ('presets': su controlador, con el desplegable de la
+      barra); paso A.3, filtros personalizados.
 1.3.0 Panel de «Metadatos» ('metadata': su controlador, con los recuentos); la pestaña
       «Metadatos» ya se puede pulsar (paso A.3).
 1.2.0 Fila de «Atributos» ('attribute_row'), con los tipos del módulo activo (paso A.3).
@@ -50,7 +58,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m controllers.filter_controller
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["TEXT_SHORTCUT", "TOGGLE_SHORTCUT", "FilterController"]
 
 # Librerías estándar
@@ -65,12 +73,14 @@ from qtpy.QtWidgets import QWidget
 
 # Módulos del proyecto
 from controllers.app_modules.center_views import CenterView
+from controllers.filter_preset_controller import FilterPresetController
 from controllers.metadata_filter_controller import MetadataFilterController
 from core.catalog.grid_filter import (
     FILTER_ATTRIBUTES,
     FILTER_METADATA,
     FILTER_TEXT,
     AttributeFilter,
+    GridFilter,
     MetadataFilter,
     TextFilter,
 )
@@ -97,6 +107,7 @@ class FilterController(QObject):
         text_row: TextFilterRow | None = None,
         attribute_row: AttributeFilterRow | None = None,
         metadata: MetadataFilterController | None = None,
+        presets: FilterPresetController | None = None,
         panels: Mapping[str, QWidget] | None = None,
         parent: QObject | None = None,
     ) -> None:
@@ -113,6 +124,7 @@ class FilterController(QObject):
             text_row: Fila de «Texto» (el panel de esa pestaña; None = sin él).
             attribute_row: Fila de «Atributos» (igual).
             metadata: Controlador del panel «Metadatos» (su panel es el de la pestaña).
+            presets: Controlador de los ajustes personalizados (el desplegable de la barra).
             panels: Panel de las demás pestañas que ya lo tienen (clave -> widget).
             parent: Objeto padre.
         """
@@ -123,6 +135,9 @@ class FilterController(QObject):
         self._text_row = text_row
         self._attribute_row = attribute_row
         self._metadata = metadata
+        self._presets = presets
+        if presets is not None:
+            presets.filter_requested.connect(self._on_preset_requested)
         all_panels: dict[str, QWidget] = dict(panels or {})
         if text_row is not None:
             all_panels[FILTER_TEXT] = text_row
@@ -201,6 +216,14 @@ class FilterController(QObject):
         if self._metadata is not None:
             # Sus columnas y, si se ve, los recuentos que hayan cambiado
             self._metadata.show_filter(grid_filter, enabled=self._enabled())
+        if self._presets is not None:
+            # El nombre del ajuste que coincide y qué se puede pulsar en su menú
+            self._presets.show_filter(grid_filter, enabled=self._enabled())
+
+    def _on_preset_requested(self, grid_filter: GridFilter) -> None:
+        """Un ajuste elegido o «Restaurar...» en el desplegable de ajustes."""
+        if self._enabled():
+            self._apply(grid_filter)
 
     def _on_metadata_changed(self, metadata: MetadataFilter) -> None:
         """Lo cambiado en el panel «Metadatos» (valores, campos, columnas)."""
@@ -372,6 +395,30 @@ if __name__ == "__main__":
     columns = MetadataFilter.from_fields(("city",)).with_values(0, ["Huesca"])
     metadata.metadata_filter_changed.emit(columns)
     assert host.active_filter.metadata == columns and metadata.shown[-1][0].metadata == columns
+
+    # Ajustes personalizados: reciben cada filtro que se muestra; el que piden, se aplica
+    class _Presets(QObject):
+        filter_requested = Signal(object)
+
+        def __init__(self, parent: QWidget) -> None:
+            super().__init__(parent)
+            self.shown: list = []
+
+        def show_filter(self, grid_filter: object, *, enabled: bool) -> None:
+            self.shown.append((grid_filter, enabled))
+
+    host.active_filter = NO_FILTER
+    presets = _Presets(window)
+    FilterController(host, bar=FilterBar(frame), frame=frame, window=window, presets=presets,
+                     parent=window)  # fmt: skip
+    assert presets.shown[-1] == (NO_FILTER, True)
+    wanted = NO_FILTER.with_panel(FILTER_ATTRIBUTES, True)
+    presets.filter_requested.emit(wanted)
+    assert host.active_filter == wanted and presets.shown[-1] == (wanted, True)
+    host.attached = False  # sin catálogo: no se aplica
+    presets.filter_requested.emit(NO_FILTER)
+    assert host.active_filter == wanted
+    host.attached = True
 
     window.deleteLater()
     print("Autoprueba finalizada correctamente.")

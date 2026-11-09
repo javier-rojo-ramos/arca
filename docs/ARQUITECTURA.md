@@ -43,7 +43,7 @@ config/
   app_paths.py                       Rutas y nombre (APP_NAME, APP_VERSION), carpeta de configuración por SO
   app_config.py                      Instancia única (singleton) de la configuración: `from config.app_config import config`
   app_config_manager.py              ConfigManager: settings.json (claves: catalogo_ruta, thumbnail_size, write_user_data_to_files,
-                                     main_splitter_state, show_subfolder_items, sidebar_state, inspector_metadata_preset, inspector_sections, active_module...)
+                                     main_splitter_state, show_subfolder_items, sidebar_state, inspector_metadata_preset, inspector_sections, active_module, filter_metadata_height, filter_presets...)
   app_info.py                        Texto de ayuda en HTML (pendiente de implementar)
   app_constants.py                   Constantes, iconos (AppIcons), tamaños de miniatura, claves compartidas de settings.json
   app_logging_manager.py             setup_logging (loguru + InterceptHandler)
@@ -53,6 +53,7 @@ controllers/
   folder_actions.py                  FolderActions: «Quitar del catálogo...» de una carpeta de la barra lateral (cuenta, pregunta y pide al controlador el trabajo JOB_REMOVE)
   collection_actions.py              CollectionActions: une barra lateral + menú de la cuadrícula + BD para las colecciones del usuario (crear, renombrar, borrar, soltar, añadir, quitar); lo crea CatalogModule
   filter_controller.py               FilterController: barra de filtros <-> filtro del módulo activo (ModuleHost.set_filter / filter_changed); Ctrl+L; oculta la franja en la vista individual
+  filter_preset_controller.py        FilterPresetController: desplegable de ajustes personalizados <-> lista (settings.json, filter_presets) y filtro del módulo activo; pide el nombre al guardar y si se reemplaza
   metadata_filter_controller.py      MetadataFilterController: panel «Metadatos» <-> recuentos en segundo plano (columnas de partida del módulo, solo lo que cambia, respuestas tardías fuera, alto guardado)
   center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula) y navegación (doble clic / Intro, Esc / G, flechas, Inicio, Fin; un solo archivo seleccionado en la vista individual)
   app_modules/                       ── Módulos de la aplicación (Catálogo, Imagen, Vídeo, Audio) ── ([FLUJOS.md §11](FLUJOS.md))
@@ -103,7 +104,8 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   widgets/elided_label.py            ElidedLabel: etiqueta de una línea que recorta con «…» (por la derecha, la izquierda o el centro)
   widgets/organize_bar.py            OrganizeBar: barra inferior para clasificar la selección (marcar, rechazar, estrellas, colores, selección rápida); attach(vista, modelo)
   widgets/sort_control.py            SortControl: «Orden: [campo] [↑]» a la izquierda de la barra inferior; set_options(campos, orden) y señal order_requested (no sabe nada de los módulos)
-  widgets/filter_bar.py              FilterBar: barra de filtros de la franja superior («Filtro activo:», pestañas, «Ninguno», candado; paneles debajo); solo muestra y avisa
+  widgets/filter_bar.py              FilterBar: barra de filtros de la franja superior («Filtro activo:», pestañas, «Ninguno», desplegable de ajustes, candado; paneles debajo); solo muestra y avisa
+  widgets/filter_preset_button.py    FilterPresetButton: el desplegable de los ajustes personalizados (nombre del que coincide o «Ajustes»; acciones arriba y lista con ✓); solo muestra y avisa
   widgets/attribute_filter_row.py    AttributeFilterRow: fila de «Atributos» de la barra de filtros (marca, ≥/≤/= y estrellas, colores y «sin color», selección rápida, tipos del módulo); iconos dibujados; avisa en el acto
   widgets/metadata_column.py         MetadataColumnWidget: una columna de «Metadatos» de la barra de filtros (menú de campos y engranaje; valores con recuentos, fechas en árbol, selección); value_text
   widgets/metadata_filter_panel.py   MetadataFilterPanel: el panel «Metadatos» (de 1 a 6 columnas, añadir y quitar, borde para el alto); columns_to_refresh (qué recontar)

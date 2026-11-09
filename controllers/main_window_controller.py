@@ -46,6 +46,7 @@ from controllers.app_modules.module_host import ModuleHost
 from controllers.app_modules.registry import create_modules
 from controllers.center_view_controller import CenterViewController
 from controllers.filter_controller import FilterController
+from controllers.filter_preset_controller import FilterPresetController
 from controllers.folder_actions import FolderActions
 from controllers.inspector_controller import InspectorController
 from controllers.metadata_filter_controller import MetadataFilterController
@@ -869,6 +870,14 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         )
         # Tras los cambios del usuario (estrellas, palabras clave...), sus recuentos también
         self._sidebar_refresh_timer.timeout.connect(self.metadata_filters.refresh_counts)
+        # Ajustes personalizados: el desplegable antes del candado (ver 'FilterPresetController')
+        presets = FilterPresetController(
+            self.module_host,
+            button=bar.preset_button,
+            config=self.config,
+            window=self,
+            parent=self,
+        )
         self.filters = FilterController(
             self.module_host,
             bar=bar,
@@ -877,6 +886,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             text_row=TextFilterRow(bar),
             attribute_row=AttributeFilterRow(bar),
             metadata=self.metadata_filters,
+            presets=presets,
             parent=self,
         )
 

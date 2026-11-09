@@ -5,7 +5,8 @@
     (debajo, los paneles de las pestañas encendidas: la fila de «Texto»...)
 
 De izquierda a derecha: el texto fijo «Filtro activo:», las pestañas en el centro, el
-desplegable de filtros personalizados (aún oculto) y, siempre lo último, el candado. Las
+desplegable de los ajustes personalizados ('preset_button', un 'FilterPresetButton': lo
+maneja 'controllers/filter_preset_controller.py') y, siempre lo último, el candado. Las
 pestañas «Texto», «Atributos» y «Metadatos» son INTERRUPTORES que se combinan; «Ninguno»
 apaga todas. Las encendidas (o «Ninguno», si no hay ninguna) van en el color de acento.
 
@@ -27,6 +28,7 @@ Uso (en el .ui es un widget promocionado, 'widget_filter_bar', dentro de 'frame_
     bar.set_available({"text"})
     bar.set_state(frozenset({"text"}), locked=False)
 
+1.2.0 El desplegable de los ajustes personalizados, antes del candado ('preset_button').
 1.1.0 Raya gris de 1 px entre dos paneles encendidos (p. ej. entre «Texto» y «Atributos»);
       lo pidió el autor el 09/11/2026.
 1.0.1 Los paneles empiezan DEBAJO de su raya de 1 px (antes la raya tapaba su primera fila
@@ -37,7 +39,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.filter_bar
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["LOCK_TOOLTIPS", "TAB_TEXTS", "TITLE_TEXT", "FilterBar"]
 
 # Librerías estándar
@@ -63,6 +65,7 @@ from core.catalog.grid_filter import (
     FILTER_TEXT,
 )
 from ui_helpers.helpers.ui_icons import tinted_icon
+from ui_helpers.widgets.filter_preset_button import FilterPresetButton
 
 # Textos de la interfaz
 TITLE_TEXT = "Filtro activo:"
@@ -84,6 +87,7 @@ LOCK_BUTTON_SIZE = 24
 LOCK_ICON_SIZE = 16
 _TAB_SPACING = 14  # entre las palabras del centro
 _SIDE_MARGIN = 10  # a izquierda y derecha de la fila
+_PRESET_LOCK_SPACING = 8  # entre el desplegable de ajustes y el candado
 _PANEL_LINE = 1  # raya sobre los paneles (la pinta el QSS: 'border-top' de 1 px)
 
 # Nombres de objeto (los usa el QSS de 'ui_theme.py')
@@ -152,8 +156,11 @@ class FilterBar(QWidget):
         right = QWidget(header)
         right_layout = QHBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(_PRESET_LOCK_SPACING)
         right_layout.addStretch(1)
-        # Aquí irá el desplegable de filtros personalizados (antes del candado)
+        # El desplegable de los ajustes personalizados, antes del candado
+        self._presets = FilterPresetButton(right)
+        right_layout.addWidget(self._presets)
         self._lock = QToolButton(right)
         self._lock.setObjectName(LOCK_OBJECT_NAME)
         self._lock.setCheckable(True)
@@ -196,6 +203,11 @@ class FilterBar(QWidget):
     def locked(self) -> bool:
         """Si el candado se ve cerrado."""
         return self._locked
+
+    @property
+    def preset_button(self) -> FilterPresetButton:
+        """El desplegable de los ajustes personalizados (lo maneja su controlador)."""
+        return self._presets
 
     def add_panel(self, key: str, panel: QWidget) -> None:
         """Pone el panel de una pestaña (se ve debajo cuando la pestaña está encendida).
@@ -353,8 +365,13 @@ if __name__ == "__main__":
     assert bar._lock.isChecked() and bar._lock.toolTip() == LOCK_TOOLTIPS[1]
     assert bar.locked and bar.active == frozenset()
 
+    # El desplegable de ajustes, justo antes del candado (lo último por la derecha)
+    right_layout = bar._lock.parentWidget().layout()
+    assert right_layout.indexOf(bar.preset_button) == right_layout.indexOf(bar._lock) - 1
+    assert right_layout.indexOf(bar._lock) == right_layout.count() - 1
+
     # Nada coge el foco; un panel repetido o de una pestaña desconocida, rechazado
-    buttons = (*bar._tabs.values(), bar._none, bar._lock)
+    buttons = (*bar._tabs.values(), bar._none, bar.preset_button, bar._lock)
     assert all(b.focusPolicy() == Qt.FocusPolicy.NoFocus for b in buttons)
     for bad in (FILTER_TEXT, "otra"):
         try:
