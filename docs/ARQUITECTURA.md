@@ -88,7 +88,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/mode_toolbar.py            ModeToolbar: botones de modo de la toolbar, exclusivos; icono en acento al pasar el ratón y en el modo activo; páginas provisionales (la crea ModuleHost)
   dialogs/settings_dialog.py         SettingsDialog: ventana de opciones (columna de secciones + páginas; PAGES = General, Catálogo, Metadatos)
   dialogs/collection_dialog.py       CollectionDialog: "Crear colección" / "Crear conjunto" (nombre, conjunto, incluir la selección)
-  dialogs/smart_collection_dialog.py SmartCollectionDialog: crear / editar una colección inteligente (reglas, recuento en vivo)
+  dialogs/smart_collection_dialog.py SmartCollectionDialog: crear / editar una colección inteligente (reglas y grupos de reglas, recuento en vivo)
   dialogs/filter_presets_dialog.py   FilterPresetsDialog: «Gestionar ajustes personalizados» (ordenar, cambiar el nombre, eliminar, restaurar los de fábrica); devuelve la lista nueva
   dialogs/folder_content_dialog.py   FolderContentDialog: «¿Qué contiene esta carpeta?» al añadir una carpeta (FOLDER_CONTENT_TEXTS)
   dialogs/remove_dialog.py           RemoveDialog: «Eliminar N archivos del catálogo», como Lightroom: explicación y botones «Eliminar del disco» / «Eliminar del catálogo» (por defecto) / «Cancelar»
@@ -112,6 +112,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   widgets/metadata_filter_panel.py   MetadataFilterPanel: el panel «Metadatos» (de 1 a 6 columnas, añadir y quitar, borde para el alto); columns_to_refresh (qué recontar)
   widgets/text_filter_row.py         TextFilterRow: fila de «Texto» de la barra de filtros (campo, operador, caja; avisa tras 300 ms al escribir)
   widgets/smart_rule_row.py          SmartRuleRow: una regla del editor de colecciones inteligentes ([campo ▾] [operador ▾] [valor] [−]; menú de campos por grupos y secciones, control del valor según el tipo); DEFAULT_RULE
+  widgets/smart_rule_group.py        SmartRuleGroup: un grupo de reglas del editor (cabecera con su «todas / alguna de» y «−», sus SmartRuleRow, su «+ Añadir regla»); MATCH_CHOICES
   widgets/view_buttons.py            ViewButtons: botones de vista de la barra inferior (uno por vista del módulo activo); set_views y señal view_requested (no sabe qué es una vista)
   widgets/single_media_view.py       SingleMediaView: vista individual (archivo actual de la cuadrícula, mismo modelo y selección): imagen ajustada y nítida, marcador sin miniatura, aviso de no disponible, «No hay archivos»
   inspector/                         ── Inspector: el panel DERECHO ── ([FLUJOS.md §12](FLUJOS.md))

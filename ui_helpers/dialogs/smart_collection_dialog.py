@@ -6,16 +6,22 @@
     Coincidir con [todas ▾] las reglas siguientes:
     ┌─────────────────────────────────────────────────────────────────────┐
     │ [Valoración       ▾] [es mayor o igual que ▾] [★★★        ▾]   [−] │
-    │ [Carpeta (ruta)   ▾] [contiene             ▾] [Ordesa       ]   [−] │
     │ [Fecha de captura ▾] [está entre           ▾] [01/06/24] y [30/06/24] [−] │
+    │ ┃ Coincidir con [alguna de ▾] las reglas siguientes:            [−] │
+    │ ┃ [País ▾]  [es ▾]  [España        ]                            [−] │
+    │ ┃ [País ▾]  [es ▾]  [Francia       ]                            [−] │
+    │ ┃ [+ Añadir regla]                                                  │
     └─────────────────────────────────────────────────────────────────────┘
-    [+ Añadir regla]                                  Coinciden 128 elementos
+    [+ Añadir regla]  [+ Añadir grupo]                Coinciden 128 elementos
 
                                                       [Crear]  [Cancelar]
 
 Cómo está hecha (para ampliarla sin tocarla):
     - Cada regla es una fila 'SmartRuleRow' ('ui_helpers/widgets/smart_rule_row.py'): el
       menú de campos, los operadores y el control del valor según el tipo están allí.
+    - Cada GRUPO (un paréntesis con su propio «todas / alguna de») es un 'SmartRuleGroup'
+      ('ui_helpers/widgets/smart_rule_group.py'), con sus reglas dentro. Un solo nivel,
+      como el motor. La lista principal guarda al menos una regla o un grupo.
     - La ventana no toca la base de datos: devuelve un 'SmartCollectionChoice' y quien la
       abre ('controllers/collection_actions.py') crea o guarda la colección. Para mostrar
       cuántos elementos coinciden, recibe una función 'counter' que cuenta en segundo plano.
@@ -24,6 +30,8 @@ Cómo está hecha (para ampliarla sin tocarla):
     - Los colores salen del tema ('ui_theme.py'): el aviso de arriba es '#lbl_dialog_warning'
       y el texto del recuento, '#lbl_dialog_status' (en rojo con la propiedad 'error').
 
+1.4.0 Grupos de reglas: «+ Añadir grupo» y los grupos guardados ('SmartRuleGroup'); la
+      lista se desplaza hasta la regla o el grupo que se añade.
 1.3.0 Las filas de las reglas pasan a 'ui_helpers/widgets/smart_rule_row.py' (sin cambios
       de comportamiento); colores del tema en lugar de colores sueltos; autoprueba sin
       ventana (la ventana, con '--ventana').
@@ -40,7 +48,7 @@ Para verla (abre la ventana y espera a que se cierre):
     python -m ui_helpers.dialogs.smart_collection_dialog --ventana
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["SmartCollectionChoice", "SmartCollectionDialog"]
 
 # Librerías estándar
@@ -48,8 +56,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QStringListModel, Qt, QTimer
+from qtpy.QtCore import QEvent, QStringListModel, Qt, QTimer
 from qtpy.QtWidgets import (
+    QApplication,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -67,7 +76,11 @@ from qtpy.QtWidgets import (
 # Módulos del proyecto
 from core.catalog.smart_rules import MATCH_ALL, MATCH_ANY, Rule, RuleSet
 from core.catalog.user_collections import MAX_NAME_LENGTH
+from ui_helpers.widgets.smart_rule_group import MATCH_CHOICES, SmartRuleGroup
 from ui_helpers.widgets.smart_rule_row import DEFAULT_RULE, SmartRuleRow
+
+# Lo que hay en la lista principal: reglas y grupos
+_Item = SmartRuleRow | SmartRuleGroup
 
 # Espera (ms) tras el último cambio antes de volver a contar los elementos que coinciden
 _COUNT_DELAY_MS = 350
@@ -135,7 +148,7 @@ class SmartCollectionDialog(QDialog):
         self._counter = counter
         # Nombres de las palabras clave del catálogo (autocompletado de esas reglas)
         self._keyword_names = QStringListModel(list(keyword_names), self)
-        self._rows: list[SmartRuleRow] = []
+        self._items: list[_Item] = []  # reglas y grupos de la lista principal, en orden
         # Para descartar recuentos que llegan tarde (ventana cerrada o reglas ya cambiadas)
         self._count_generation = 0
         self._alive = True
@@ -156,8 +169,8 @@ class SmartCollectionDialog(QDialog):
 
         # --- Coincidir con todas / alguna ---
         self.combo_match = QComboBox()
-        self.combo_match.addItem("todas", MATCH_ALL)
-        self.combo_match.addItem("alguna de", MATCH_ANY)
+        for match, text in MATCH_CHOICES:  # las mismas que en la cabecera de un grupo
+            self.combo_match.addItem(text, match)
         initial = rules or RuleSet(rules=(DEFAULT_RULE,))
         self.combo_match.setCurrentIndex(max(0, self.combo_match.findData(initial.match)))
         self.combo_match.currentIndexChanged.connect(self._schedule_count)
@@ -172,14 +185,19 @@ class SmartCollectionDialog(QDialog):
         self._rules_layout = QVBoxLayout(self._rules_widget)
         self._rules_layout.setContentsMargins(6, 6, 6, 6)
         self._rules_layout.addStretch(1)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.StyledPanel)
-        scroll.setWidget(self._rules_widget)
-        scroll.setMinimumHeight(170)
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.StyledPanel)
+        self._scroll.setWidget(self._rules_widget)
+        self._scroll.setMinimumHeight(170)
 
         self.button_add_rule = QPushButton("+ Añadir regla")
         self.button_add_rule.clicked.connect(lambda: self._add_row(DEFAULT_RULE, focus=True))
+        self.button_add_group = QPushButton("+ Añadir grupo")
+        self.button_add_group.setToolTip(
+            "Añadir un grupo de reglas con su propio «todas» o «alguna de» (como un paréntesis)"
+        )
+        self.button_add_group.clicked.connect(lambda: self._add_group(None, focus=True))
         self.label_status = QLabel()
         # El rojo de los errores lo pone el tema con la propiedad 'error' ('_show_status')
         self.label_status.setObjectName("lbl_dialog_status")
@@ -187,6 +205,7 @@ class SmartCollectionDialog(QDialog):
         self.label_status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         bottom_row = QHBoxLayout()
         bottom_row.addWidget(self.button_add_rule)
+        bottom_row.addWidget(self.button_add_group)
         bottom_row.addWidget(self.label_status, 1)
 
         # --- Botones ---
@@ -209,7 +228,7 @@ class SmartCollectionDialog(QDialog):
         layout.addLayout(form)
         layout.addSpacing(6)
         layout.addLayout(match_row)
-        layout.addWidget(scroll, 1)
+        layout.addWidget(self._scroll, 1)
         layout.addLayout(bottom_row)
         layout.addWidget(self.buttons)
 
@@ -219,44 +238,91 @@ class SmartCollectionDialog(QDialog):
         self._count_timer.setInterval(_COUNT_DELAY_MS)
         self._count_timer.timeout.connect(self._count_now)
 
-        for rule in initial.rules:
-            self._add_row(rule)
+        for item in initial.rules:
+            if isinstance(item, RuleSet):
+                self._add_group(item)
+            else:
+                self._add_row(item)
         self._update_ok()
         self._schedule_count()
 
-    # --- Filas ------------------------------------------------------------------------------
+    # --- Reglas y grupos de la lista principal -------------------------------------------------
 
     def _add_row(self, rule: Rule, *, focus: bool = False) -> None:
         row = SmartRuleRow(rule, self._rules_widget, keyword_names=self._keyword_names)
         row.changed.connect(self._schedule_count)
-        row.remove_requested.connect(self._remove_row)
-        # Antes del 'stretch' final (así las filas se apilan arriba)
-        self._rules_layout.insertWidget(self._rules_layout.count() - 1, row)
-        self._rows.append(row)
-        self._update_remove_buttons()
-        self._schedule_count()
+        row.remove_requested.connect(self._remove_item)
+        self._insert_item(row, scroll=focus)
         if focus:
             row.button_field.setFocus()
 
-    def _remove_row(self, row: SmartRuleRow) -> None:
-        if len(self._rows) <= 1:
-            return  # siempre queda al menos una regla
-        self._rows.remove(row)
-        self._rules_layout.removeWidget(row)
-        row.deleteLater()
+    def _add_group(self, rule_set: RuleSet | None, *, focus: bool = False) -> None:
+        """Añade un grupo: el guardado o, con None, uno nuevo («alguna de» y una regla)."""
+        group = SmartRuleGroup(rule_set, self._rules_widget, keyword_names=self._keyword_names)
+        group.changed.connect(self._schedule_count)
+        group.remove_requested.connect(self._remove_item)
+        group.row_added.connect(self._scroll_to)  # una regla nueva en el grupo, a la vista
+        self._insert_item(group, scroll=focus)
+        if focus:
+            group.focus_first()
+
+    def _insert_item(self, item: _Item, *, scroll: bool) -> None:
+        """Pone una regla o un grupo al final de la lista (antes del 'stretch', para que se
+        apilen arriba). 'scroll': desplazarse hasta él (al añadirlo el usuario; al abrir la
+        ventana, no, para que la lista empiece por arriba)."""
+        self._rules_layout.insertWidget(self._rules_layout.count() - 1, item)
+        self._items.append(item)
+        self._update_remove_buttons()
+        self._schedule_count()
+        if scroll:
+            self._scroll_to(item)
+
+    def _remove_item(self, item: _Item) -> None:
+        """Quita una regla o un grupo entero, con sus reglas (sin preguntar, como siempre)."""
+        if len(self._items) <= 1:
+            return  # siempre queda al menos una regla o un grupo
+        self._items.remove(item)
+        self._rules_layout.removeWidget(item)
+        item.deleteLater()
         self._update_remove_buttons()
         self._schedule_count()
 
     def _update_remove_buttons(self) -> None:
-        """La última regla que queda no se puede quitar."""
-        for row in self._rows:
-            row.button_remove.setEnabled(len(self._rows) > 1)
+        """Lo último que queda en la lista principal (regla o grupo) no se puede quitar."""
+        for item in self._items:
+            item.button_remove.setEnabled(len(self._items) > 1)
+
+    def _scroll_to(self, widget: QWidget) -> None:
+        """Desplaza la lista hasta 'widget' (una regla o un grupo recién añadidos).
+
+        Qt coloca lo nuevo con retraso (con eventos pendientes, en varias vueltas): ni
+        siquiera en la siguiente vuelta del bucle tiene aún su sitio ni la barra su nuevo
+        recorrido. Por eso, en la siguiente vuelta, se fuerza la colocación (el layout de la
+        lista y el recorrido de la barra) antes de desplazarse.
+        """
+
+        def scroll() -> None:
+            try:
+                self._rules_layout.activate()  # coloca reglas y grupos (y lo de dentro)
+                # El área recalcula el tamaño de la lista y el recorrido de la barra
+                QApplication.sendEvent(self._scroll, QEvent(QEvent.Type.LayoutRequest))
+                self._scroll.ensureWidgetVisible(widget)
+            except RuntimeError:
+                pass  # ya no existe (se quitó o se cerró la ventana)
+
+        QTimer.singleShot(0, scroll)
 
     # --- Reglas y recuento ------------------------------------------------------------------
 
     def _rule_set(self) -> RuleSet:
-        """Las reglas de todas las filas. ValueError si alguna no es válida."""
-        return RuleSet(self.combo_match.currentData(), tuple(row.rule() for row in self._rows))
+        """Las reglas y los grupos de la lista. ValueError si alguna regla no es válida."""
+        return RuleSet(
+            self.combo_match.currentData(),
+            tuple(
+                item.rule_set() if isinstance(item, SmartRuleGroup) else item.rule()
+                for item in self._items
+            ),
+        )
 
     def _schedule_count(self, *_args: object) -> None:
         self._update_ok()
@@ -299,7 +365,7 @@ class SmartCollectionDialog(QDialog):
             self.label_status.style().polish(self.label_status)
 
     def _update_ok(self, *_args: object) -> None:
-        self.button_ok.setEnabled(bool(self.edit_name.text().strip()) and bool(self._rows))
+        self.button_ok.setEnabled(bool(self.edit_name.text().strip()) and bool(self._items))
 
     def _on_accept(self) -> None:
         """Comprueba las reglas antes de cerrar: si alguna no vale, se dice y no se cierra."""
@@ -368,7 +434,7 @@ if __name__ == "__main__":
     show_window = "--ventana" in sys.argv
     if not show_window:
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    from qtpy.QtWidgets import QApplication
+    # (antes de crear la aplicación: Qt lee la plataforma al crearla)
 
     from core.catalog.smart_fields import FIELDS
 
@@ -394,16 +460,38 @@ if __name__ == "__main__":
     assert dialog.windowTitle() == "Crear colección inteligente" and dialog.button_ok.text() == "Crear"
     assert dialog._rule_set() == RuleSet(MATCH_ALL, (DEFAULT_RULE,))
     assert not dialog.button_ok.isEnabled()
-    assert not dialog._rows[0].button_remove.isEnabled()  # la única regla no se quita
+    assert not dialog._items[0].button_remove.isEnabled()  # la única regla no se quita
     assert dialog.findChild(QLabel, "lbl_dialog_warning") is None  # sin aviso
     dialog.edit_name.setText("  Las   mejores ")
     assert dialog.button_ok.isEnabled()
 
     # 2. Añadir y quitar reglas
     dialog.button_add_rule.click()
-    assert len(dialog._rows) == 2 and all(row.button_remove.isEnabled() for row in dialog._rows)
-    dialog._rows[1].button_remove.click()
-    assert len(dialog._rows) == 1 and not dialog._rows[0].button_remove.isEnabled()
+    assert len(dialog._items) == 2 and all(row.button_remove.isEnabled() for row in dialog._items)
+    dialog._items[1].button_remove.click()
+    assert len(dialog._items) == 1 and not dialog._items[0].button_remove.isEnabled()
+
+    # 2b. Grupos: «+ Añadir grupo» añade al final uno nuevo («alguna de» y una regla)
+    dialog.button_add_group.click()
+    group = dialog._items[1]
+    assert isinstance(group, SmartRuleGroup) and len(dialog._items) == 2
+    assert dialog._rule_set() == RuleSet(MATCH_ALL, (DEFAULT_RULE, RuleSet(MATCH_ANY, (DEFAULT_RULE,))))
+    assert group.button_remove.isEnabled() and dialog._items[0].button_remove.isEnabled()
+    assert not group.rows()[0].button_remove.isEnabled()  # la última regla del grupo
+    # Un cambio dentro del grupo vuelve a contar
+    dialog._count_timer.stop()
+    group.button_add_rule.click()
+    assert dialog._count_timer.isActive() and len(group.rows()) == 2
+    # Si solo queda el grupo, tampoco se puede quitar
+    dialog._items[0].button_remove.click()
+    assert dialog._items == [group] and not group.button_remove.isEnabled()
+    assert dialog._rule_set() == RuleSet(MATCH_ALL, (RuleSet(MATCH_ANY, (DEFAULT_RULE,) * 2),))
+    # Con otra regla, el [−] del grupo lo quita entero, con sus reglas
+    dialog.button_add_rule.click()
+    group.button_remove.click()
+    assert len(dialog._items) == 1 and isinstance(dialog._items[0], SmartRuleRow)
+    assert not dialog._items[0].button_remove.isEnabled()
+    assert dialog._rule_set() == RuleSet(MATCH_ALL, (DEFAULT_RULE,))
 
     # 3. Recuento: «Contando…» y el número; uno que llega tarde (reglas ya cambiadas), no
     dialog._count_now()
@@ -422,13 +510,13 @@ if __name__ == "__main__":
     assert dialog.label_status.property("error") is True  # el tema lo pinta en rojo
 
     # 4. Una regla que no vale: el error (en rojo) y la ventana no se cierra
-    dialog._rows[0]._on_field_chosen("title")  # texto vacío
+    dialog._items[0]._on_field_chosen("title")  # texto vacío
     dialog._count_now()
     assert "falta el texto" in dialog.label_status.text()
     assert dialog.label_status.property("error") is True
     dialog._on_accept()
     assert dialog.result() == 0  # sin aceptar
-    dialog._rows[0].findChild(QLineEdit).setText("Ordesa")
+    dialog._items[0].findChild(QLineEdit).setText("Ordesa")
     dialog._count_now()
     assert dialog.label_status.property("error") is False
 
@@ -443,9 +531,11 @@ if __name__ == "__main__":
     counts[-1][1](7)  # un recuento que llega con la ventana ya cerrada: se ignora
     assert dialog.label_status.text() == "Contando…"
 
-    # 6. Editar: las reglas guardadas, «Guardar» y el aviso de arriba (color del tema)
-    saved = RuleSet(MATCH_ANY, (
+    # 6. Editar: las reglas y los grupos guardados, «Guardar» y el aviso de arriba
+    countries = RuleSet(MATCH_ANY, (Rule("country", "eq", "España"), Rule("country", "eq", "Francia")))
+    saved = RuleSet(MATCH_ALL, (
         Rule("rating", "gte", 3),
+        countries,
         Rule("captured_at", "between", ("2024-06-01", "2024-06-30")),
         Rule("color_label", "eq", "red"),
     ))  # fmt: skip
@@ -454,7 +544,8 @@ if __name__ == "__main__":
     )
     assert edit.windowTitle() == "Editar colección inteligente" and edit.button_ok.text() == "Guardar"
     assert edit._rule_set() == saved and edit.combo_parent.currentData() == 2
-    assert edit.button_ok.isEnabled() and len(edit._rows) == 3
+    assert [type(item) for item in edit._items] == [SmartRuleRow, SmartRuleGroup, SmartRuleRow, SmartRuleRow]
+    assert edit.button_ok.isEnabled() and len(edit._items[1].rows()) == 2
     assert edit.findChild(QLabel, "lbl_dialog_warning").text() == "Aviso"
     # Sin contador: no se cuenta ni se muestra nada
     edit._schedule_count()

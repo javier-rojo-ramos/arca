@@ -18,6 +18,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.13.0 Raya a la izquierda de un grupo de reglas de las colecciones inteligentes
+       ('#frame_rule_group').
 1.12.0 Textos de las ventanas: aviso en el color de aviso ('#lbl_dialog_warning') y texto
        de estado en rojo con la propiedad 'error' ('#lbl_dialog_status'); los usa el
        editor de colecciones inteligentes (antes, con colores sueltos).
@@ -51,7 +53,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.12.0"
+__version__ = "1.13.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -196,6 +198,12 @@ QLabel#lbl_dialog_warning {{
 }}
 QLabel#lbl_dialog_status[error="true"] {{
     color: {COLORS.error};
+}}
+/* Un grupo de reglas del editor de colecciones inteligentes (smart_rule_group.py): una
+   raya a la izquierda, como un paréntesis; sus reglas van sangradas */
+QFrame#frame_rule_group {{
+    border: none;
+    border-left: 2px solid {COLORS.line};
 }}
 QWidget#widget_filter_panels {{
     border-top: 1px solid {COLORS.divider};
