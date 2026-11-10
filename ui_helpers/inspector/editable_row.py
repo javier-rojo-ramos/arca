@@ -28,6 +28,10 @@ Como en la caja de palabras clave ('keyword_editor_section.py'), las teclas se a
 en subclases ('keyPressEvent') y salir de la caja para abrir su menú contextual
 ('PopupFocusReason') no cuenta como salir.
 
+1.2.0 El texto de la caja de varias líneas, a la misma distancia del borde que en la de
+      una línea ('base_section.EDITOR_TEXT_INSET'; margen del documento de 2 px): la
+      rejilla adelanta las cajas esa distancia y su texto queda alineado con el de las
+      demás filas (pedido por el autor). La autoprueba lo mide con el tema.
 1.1.0 Tras verlo el autor: con Intro la caja suelta el foco (vuelve a verse como texto);
       sin la ayuda al pasar el ratón (molestaba).
 1.0.0 Primera versión: una línea y varias líneas; «Varios» como en Lightroom.
@@ -36,7 +40,7 @@ Prueba rápida (sin ventana; necesita PySide6):
     python -m ui_helpers.inspector.editable_row
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["MULTI_LINE_ROWS", "EditableValue"]
 
 # Librerías de terceros (Qt)
@@ -147,7 +151,9 @@ class EditableValue(QWidget):
             editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
             editor.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             editor.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-            editor.document().setDocumentMargin(1)
+            # Con 2 px, su texto empieza a la misma distancia del borde que en la caja de una
+            # línea ('base_section.EDITOR_TEXT_INSET'; lo comprueba la autoprueba)
+            editor.document().setDocumentMargin(2)
             self._editor = editor
         else:
             self._editor = _LineEditor(self)
@@ -390,6 +396,46 @@ if __name__ == "__main__":
     else:
         print("5. (sin foco en esta plataforma: no se comprueba)")
     focused.hide()
+
+    # 6. Con el tema, el texto de las dos cajas empieza 'EDITOR_TEXT_INSET' px después que
+    #    el de una etiqueta (lo que la rejilla adelanta las cajas): alineados en el inspector
+    from qtpy.QtCore import QPoint
+    from qtpy.QtGui import QColor, QImage, QPainter
+    from qtpy.QtWidgets import QLabel
+
+    import resources.recursos_rc  # noqa: F401 - recursos del tema
+    from ui_helpers.helpers.ui_theme import apply_theme
+    from ui_helpers.inspector.base_section import EDITOR_TEXT_INSET
+
+    apply_theme()
+
+    def ink_start(widget: QWidget) -> int:
+        """Primera columna con texto (claro sobre el fondo oscuro) del widget dibujado."""
+        widget.resize(200, max(widget.sizeHint().height(), 20))
+        widget.show()
+        app.processEvents()
+        image = QImage(widget.size(), QImage.Format.Format_ARGB32)
+        image.fill(QColor("#000000"))
+        painter = QPainter(image)
+        widget.render(painter, QPoint(0, 0))
+        painter.end()
+        widget.hide()
+        for x in range(image.width()):
+            if any(image.pixelColor(x, y).red() > 100 for y in range(image.height())):
+                return x
+        raise AssertionError("no se ve el texto")
+
+    label = QLabel("Varios")
+    reference = ink_start(label)
+    for multiline in (False, True):
+        box = EditableValue(multiline=multiline)
+        box.editor().setFocusPolicy(Qt.FocusPolicy.NoFocus)  # sin el borde del foco
+        box.set_value("Varios")
+        inset = ink_start(box) - reference
+        assert inset == EDITOR_TEXT_INSET, (multiline, inset)
+        box.deleteLater()
+    label.deleteLater()
+    print(f"6. Con el tema, el texto de las cajas empieza a {EDITOR_TEXT_INSET} px del borde")
 
     for widget in (line, text, nested, focused):
         widget.deleteLater()

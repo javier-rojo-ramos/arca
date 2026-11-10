@@ -35,19 +35,21 @@ valoración. Si la caja mostraba «Varios», antes se pregunta («Edición múlt
 volver a mostrar»: SETTING_CONFIRM_MULTI_EDIT). Al refrescar, lo que el usuario está
 escribiendo no se pisa.
 
+1.2.1 El desplegable de vistas, 2 px más a la izquierda (alineado con el resto del
+      inspector; pedido por el autor).
 1.2.0 Título, pie, creador y copyright editables (cajas de 'editable_row.py'), con el
       aviso «Edición múltiple» si tenían valores distintos. Autoprueba (sin ventana).
-
-Prueba rápida (sin ventana; necesita PySide6):
-    python -m ui_helpers.inspector.metadata_section
 1.1.0 Es de la biblioteca Imagen ('libraries'): aparece cuando todo lo seleccionado es de
       ella, en cualquier módulo (paso A.2). Sin cambio visible.
 1.0.1 Columna de etiquetas de ancho fijo (las de todos los campos): los valores no se
       mueven al cambiar de vista.
 1.0.0 Primera versión: vistas «Por defecto», «Ubicación» y «EXIF».
+
+Prueba rápida (sin ventana; necesita PySide6):
+    python -m ui_helpers.inspector.metadata_section
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["MetadataSection", "multi_edit_question"]
 
 # Librerías estándar
@@ -56,7 +58,7 @@ from functools import partial
 from typing import Any
 
 # Librerías de terceros (Qt)
-from qtpy.QtWidgets import QComboBox, QSizePolicy, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QComboBox, QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 
 # Módulos del proyecto
 from config.app_config import config
@@ -96,6 +98,13 @@ MULTI_EDIT_CANCEL = "Cancelar"
 MULTI_EDIT_DONT_ASK = "No volver a mostrar"
 # Largo máximo del valor citado en el aviso (un pie largo se corta con «…»)
 _QUOTED_MAX = 60
+
+# Cuánto se aparta el desplegable de vistas del borde derecho de la cabecera (px lógicos),
+# para alinearlo con el resto del inspector (pedido por el autor el 10/11/2026). El margen
+# de la cabecera es común a todas las secciones plegables (también las de la barra
+# izquierda) y un QSS con márgenes haría que Qt dibujara el desplegable de otra forma: por
+# eso va en un contenedor propio
+_COMBO_RIGHT_INSET = 2
 
 
 def multi_edit_question(label: str, count: int, value: str | None) -> str:
@@ -155,6 +164,13 @@ class MetadataSection(InspectorSection):
             self._combo.addItem(preset.title, preset.key)
         self._combo.setCurrentIndex(max(0, self._combo.findData(self._preset)))
         self._combo.currentIndexChanged.connect(self._on_preset_changed)
+        # En su contenedor, con el margen derecho (ver '_COMBO_RIGHT_INSET')
+        self._header = QWidget()
+        self._header.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        header_layout = QHBoxLayout(self._header)
+        header_layout.setContentsMargins(0, 0, _COMBO_RIGHT_INSET, 0)
+        header_layout.setSpacing(0)
+        header_layout.addWidget(self._combo)
 
         self._build_rows()
 
@@ -163,7 +179,7 @@ class MetadataSection(InspectorSection):
     # -------------------------------------------------------------------------
 
     def header_widget(self) -> QWidget | None:
-        return self._combo
+        return self._header
 
     def possible_key_labels(self) -> list[str]:
         """Las etiquetas de TODOS los campos (de cualquier vista): ancho fijo de la columna."""
@@ -298,6 +314,10 @@ if __name__ == "__main__":
     section._build_rows()
     assert set(section._editors) == set(EDITABLE_KEYS), section._editors
     assert not set(section._rows) & set(EDITABLE_KEYS)  # o caja o texto, no las dos
+    # El desplegable de vistas va en la cabecera dentro de su contenedor, apartado del borde
+    header = section.header_widget()
+    assert header is not None and section._combo.parentWidget() is header
+    assert header.layout().contentsMargins().right() == _COMBO_RIGHT_INSET
 
     edits: list[tuple[Any, Any]] = []
     section.edit_requested.connect(lambda function, arguments: edits.append((function, arguments)))

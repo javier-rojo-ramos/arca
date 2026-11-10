@@ -41,10 +41,12 @@ Las secciones NO tocan la base de datos ni hacen nada por su cuenta: piden las a
 señales (p. ej. 'reveal_requested', 'edit_requested') y las atiende
 'controllers/inspector_controller.py'.
 
-Filas "etiqueta | valor | icono": 'InfoGrid' es una rejilla de tres columnas, con la
-etiqueta en gris alineada a la derecha, el valor (recortado con '…' si no cabe) y una
-columna estrecha para un botón o un icono. Todas las secciones la usan, así que las
-columnas quedan alineadas de una sección a otra.
+Filas "etiqueta | valor | icono": 'InfoGrid' es una rejilla con la etiqueta en gris, el
+valor (recortado con '…' si no cabe) y una columna estrecha para un botón o un icono.
+Todas las secciones la usan, así que las columnas quedan alineadas de una sección a otra.
+Por dentro, las separaciones entre esas columnas son columnas de ancho fijo (no la
+separación de Qt): así una caja editable ('add_editor_row') empieza 'EDITOR_TEXT_INSET' px
+antes que los valores y su texto queda alineado con el de ellos.
 
 Los iconos de la tercera columna son 'IconCell' (un icono, una inicial o un botón): van
 pegados al borde DERECHO, igual que la etiqueta de la extensión de la cabecera, y bajados
@@ -52,6 +54,10 @@ pegados al borde DERECHO, igual que la etiqueta de la extensión de la cabecera,
 de una línea de texto queda por encima del de las letras, por el hueco de los
 descendentes).
 
+1.10.0 Las cajas editables empiezan 'EDITOR_TEXT_INSET' px antes que los valores: su
+       texto queda alineado con el de las demás filas (pedido por el autor). Las
+       separaciones entre columnas pasan a ser columnas fijas (sin cambio para el resto de
+       filas: comprobado midiendo antes y después).
 1.9.0 'InfoGrid.add_editor_row': fila con un widget propio como valor (las cajas
       editables de «Metadatos»).
 1.8.0 Secciones según la biblioteca de lo resumido ('libraries', 'fits'), no según el
@@ -73,7 +79,7 @@ descendentes).
       entre filas de 6 px ('ROW_SPACING'), como las filas de la barra izquierda.
 """
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 __all__ = [
     "ICON_SIZE",
     "IconCell",
@@ -113,6 +119,19 @@ KEY_COLUMN_MIN_WIDTH = 64
 # Alineación de las etiquetas (decidido por el autor el 02/11/2026: a la izquierda, con la
 # columna de ancho fijo). Para alinearlas a la derecha, como Lightroom: Qt.AlignmentFlag.AlignRight
 KEY_ALIGNMENT = Qt.AlignmentFlag.AlignLeft
+# Separación horizontal entre la etiqueta y el valor, y entre el valor y el icono (px)
+COLUMN_SPACING = 8
+# Distancia del borde izquierdo de una caja editable ('editable_row.py') a su texto (px):
+# borde (1) + relleno del QSS (2) + margen propio de la caja (2). Las cajas empiezan esos
+# píxeles ANTES que los valores de texto: así su texto queda alineado con el de las demás
+# filas y el recuadro asoma por el hueco de la izquierda (pedido por el autor el
+# 10/11/2026). La autoprueba de 'editable_row' comprueba que la caja mide eso
+EDITOR_TEXT_INSET = 5
+
+# Columnas de la rejilla. Sin separación propia ('setHorizontalSpacing(0)'): los huecos son
+# columnas de ancho fijo, para que una caja editable pueda empezar en la del margen
+_KEY_COLUMN, _GAP_COLUMN, _INSET_COLUMN, _VALUE_COLUMN, _ICON_GAP_COLUMN, _ICON_COLUMN = range(6)
+_COLUMN_COUNT = 6
 
 
 @dataclass(slots=True)
@@ -219,11 +238,18 @@ class InfoGrid(QWidget):
         self._layout = QGridLayout(self)
         # Márgenes como los de las filas de la barra izquierda
         self._layout.setContentsMargins(8, 2, 4, 2)
-        self._layout.setHorizontalSpacing(8)
+        # Columnas: etiqueta | hueco | margen de las cajas | valor | hueco | icono. Los
+        # huecos son columnas fijas (ver '_KEY_COLUMN'...): hueco + margen = COLUMN_SPACING
+        self._layout.setHorizontalSpacing(0)
         self._layout.setVerticalSpacing(ROW_SPACING)
-        self._layout.setColumnMinimumWidth(0, KEY_COLUMN_MIN_WIDTH)
-        self._layout.setColumnStretch(1, 1)  # el valor se queda con el ancho libre
-        self._layout.setColumnMinimumWidth(2, ICON_COLUMN_WIDTH)
+        self._layout.setColumnMinimumWidth(_KEY_COLUMN, KEY_COLUMN_MIN_WIDTH)
+        self._layout.setColumnMinimumWidth(_GAP_COLUMN, COLUMN_SPACING - EDITOR_TEXT_INSET)
+        self._layout.setColumnMinimumWidth(_INSET_COLUMN, EDITOR_TEXT_INSET)
+        self._layout.setColumnStretch(_VALUE_COLUMN, 1)  # el valor se queda con el ancho libre
+        # El hueco antes de los iconos, siempre (como cuando era la separación de Qt: las
+        # rejillas del inspector siempre tienen filas a todo el ancho o iconos)
+        self._layout.setColumnMinimumWidth(_ICON_GAP_COLUMN, COLUMN_SPACING)
+        self._layout.setColumnMinimumWidth(_ICON_COLUMN, ICON_COLUMN_WIDTH)
         self._key_labels: list[QLabel] = []  # para igualar el ancho entre secciones
 
     def key_labels(self) -> list[QLabel]:
@@ -237,7 +263,7 @@ class InfoGrid(QWidget):
 
     def set_key_column_width(self, width: int) -> None:
         """Fija el ancho de la columna de etiquetas (el panel pone el mismo en todas)."""
-        self._layout.setColumnMinimumWidth(0, max(KEY_COLUMN_MIN_WIDTH, width))
+        self._layout.setColumnMinimumWidth(_KEY_COLUMN, max(KEY_COLUMN_MIN_WIDTH, width))
 
     def add_separator(self) -> None:
         """Línea fina de separación entre grupos de filas, a todo el ancho."""
@@ -249,13 +275,13 @@ class InfoGrid(QWidget):
         self.add_widget_row(line)
 
     def add_widget_row(self, widget: QWidget) -> None:
-        """Fila sin etiqueta: el widget ocupa todo el ancho (las tres columnas).
+        """Fila sin etiqueta: el widget ocupa todo el ancho (todas las columnas).
 
         Así lo que lleve a su derecha (p. ej. la extensión de la cabecera) queda alineado
         con los iconos de las filas.
         """
         row = self._layout.rowCount()
-        self._layout.addWidget(widget, row, 0, 1, 3)
+        self._layout.addWidget(widget, row, 0, 1, _COLUMN_COUNT)
 
     def add_row(
         self,
@@ -278,19 +304,21 @@ class InfoGrid(QWidget):
         set_secondary_text(key_label)
         self._key_labels.append(key_label)
         value_label = ElidedLabel(self, mode=mode)
-        self._layout.addWidget(key_label, row, 0)
-        self._layout.addWidget(value_label, row, 1)
+        self._layout.addWidget(key_label, row, _KEY_COLUMN)
+        self._layout.addWidget(value_label, row, _VALUE_COLUMN)
         if accessory is not None:
             accessory.setParent(self)
             self._layout.addWidget(
-                accessory, row, 2, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-            )
+                accessory, row, _ICON_COLUMN,
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            )  # fmt: skip
         return InfoRow(key_label, value_label, accessory)
 
     def add_editor_row(self, key: str, editor: QWidget, *, align_top: bool = False) -> QLabel:
         """Añade una fila cuyo valor es un widget propio (p. ej. una caja editable).
 
-        El widget ocupa las columnas del valor y del icono (no lleva icono).
+        El widget empieza 'EDITOR_TEXT_INSET' px antes que los valores de texto (su texto
+        queda alineado con el de ellos) y llega hasta el borde derecho (no lleva icono).
 
         Args:
             key: Texto de la etiqueta.
@@ -308,8 +336,8 @@ class InfoGrid(QWidget):
         set_secondary_text(key_label)
         self._key_labels.append(key_label)
         editor.setParent(self)
-        self._layout.addWidget(key_label, row, 0, vertical)
-        self._layout.addWidget(editor, row, 1, 1, 2)
+        self._layout.addWidget(key_label, row, _KEY_COLUMN, vertical)
+        self._layout.addWidget(editor, row, _INSET_COLUMN, 1, _COLUMN_COUNT - _INSET_COLUMN)
         return key_label
 
 
