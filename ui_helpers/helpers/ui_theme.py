@@ -18,6 +18,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.15.0 Cajas editables del inspector ('#edit_inspector_value': parecen texto hasta pasar
+       el ratón o entrar; «Varios» en gris con la propiedad 'mixed').
 1.14.0 'MARK_COLORS' (marcas de clasificación, de 'theme_colors.py') junto a 'COLORS' y
        'CARD_COLORS'; la sombra de la paleta, del tema ('shadow').
 1.13.0 Raya a la izquierda de un grupo de reglas de las colecciones inteligentes
@@ -55,7 +57,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.14.0"
+__version__ = "1.15.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -442,6 +444,26 @@ QLabel#lbl_inspector_extension {{
 }}
 QLabel#lbl_inspector_library_icon {{
     font-weight: bold;
+}}
+/* Cajas editables del inspector (ui_helpers/inspector/editable_row.py; título, pie...):
+   parecen texto, sin fondo ni borde, hasta pasar el ratón (borde fino) o entrar en ellas
+   (borde de acento y fondo de campo, como el resto de campos); con valores distintos en
+   la selección, «Varios» en gris (propiedad 'mixed') */
+QLineEdit#edit_inspector_value, QPlainTextEdit#edit_inspector_value {{
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 0px 2px;
+}}
+QLineEdit#edit_inspector_value:hover, QPlainTextEdit#edit_inspector_value:hover {{
+    border-color: {COLORS.line};
+}}
+QLineEdit#edit_inspector_value:focus, QPlainTextEdit#edit_inspector_value:focus {{
+    border-color: {COLORS.accent};
+    background: {COLORS.bg_input};
+}}
+QLineEdit#edit_inspector_value[mixed="true"],
+QPlainTextEdit#edit_inspector_value[mixed="true"] {{
+    color: {COLORS.text_dim};
 }}
 
 /* «Últimas palabras clave» del inspector (ui_helpers/widgets/recent_keywords.py): botones

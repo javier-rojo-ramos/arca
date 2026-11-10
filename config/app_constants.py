@@ -14,6 +14,7 @@ Incluye:
 # ruff: noqa: RUF022
 __all__ = [
     "AppIcons",
+    "SETTING_CONFIRM_MULTI_EDIT",
     "SETTING_INSPECTOR_METADATA_PRESET",
     "SETTING_INSPECTOR_SECTIONS",
     "SETTING_FILTER_METADATA_HEIGHT",
@@ -110,6 +111,9 @@ SETTING_SIDEBAR_STATE = "sidebar_state"
 # Vista elegida en la sección «Metadatos» del inspector ("default", "location", "exif"...;
 # ver ui_helpers/inspector/metadata_fields.py)
 SETTING_INSPECTOR_METADATA_PRESET = "inspector_metadata_preset"
+# Preguntar antes de poner el mismo metadato (título, pie...) a varios archivos que tienen
+# valores distintos (aviso «Edición múltiple»; False = «No volver a mostrar»). True si no consta
+SETTING_CONFIRM_MULTI_EDIT = "confirm_multi_edit"
 
 # Secciones del inspector desplegadas o plegadas: {clave de la sección: True/False}.
 # Es común a todos los catálogos (la barra izquierda, en cambio, se guarda por catálogo)

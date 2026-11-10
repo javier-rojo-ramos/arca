@@ -6,6 +6,8 @@ configuración de iconos, textos y roles de botones para mensajes de informació
 advertencias, errores críticos y preguntas, garantizando además la compatibilidad
 retroactiva en la ejecución de diálogos entre distintas versiones de Qt.
 
+1.09 'question_with_checkbox': pregunta con una casilla debajo (p. ej. «No volver a
+     mostrar»); devuelve el botón pulsado y si se marcó la casilla.
 1.08 Se armonizan los nombres de las variables y métodos para mantener consistencia.
 1.07 Se elimina compatibilidad con PyQt5 / PySide2, manteniendo solo PyQt6 / PySide6.
 1.06 Flag configurable para el centrado mediante la variable 'ajuste_manual':
@@ -20,13 +22,13 @@ retroactiva en la ejecución de diálogos entre distintas versiones de Qt.
 1.01 Se incorpora el título de la aplicación como título por defecto.
 """
 
-__version__ = "1.07"
+__version__ = "1.09"
 __all__ = ["MessageBoxHelper"]
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QTimer
 from qtpy.QtGui import QGuiApplication
-from qtpy.QtWidgets import QMessageBox, QWidget
+from qtpy.QtWidgets import QCheckBox, QMessageBox, QWidget
 
 # Módulos del proyecto
 from config import app_paths
@@ -84,6 +86,23 @@ class MessageBoxHelper:
     ) -> str | None:
         return self._show("question", text, title, buttons, centered)
 
+    def question_with_checkbox(
+        self,
+        text: str,
+        checkbox: str,
+        title: str | None = None,
+        buttons: list[str] | None = None,
+        centered: bool | None = None,
+    ) -> tuple[str | None, bool]:
+        """Pregunta con una casilla debajo (p. ej. «No volver a mostrar»).
+
+        Returns:
+            (texto del botón pulsado o None, True si se marcó la casilla).
+        """
+        checked: list[bool] = []
+        clicked = self._show("question", text, title, buttons, centered, checkbox, checked)
+        return clicked, bool(checked and checked[0])
+
     def _show(
         self,
         type: str,
@@ -91,7 +110,13 @@ class MessageBoxHelper:
         title: str | None = None,
         buttons: list[str] | None = None,
         centered: bool | None = None,
+        checkbox: str | None = None,
+        checked: list[bool] | None = None,
     ) -> str | None:
+        """Muestra el mensaje y devuelve el texto del botón pulsado.
+
+        Con 'checkbox', pone una casilla con ese texto y deja en 'checked' si se marcó.
+        """
         title_to_show = title if title is not None else self.app_name
 
         # Prioriza el parámetro del método; si no se pasa, usa el de la instancia
@@ -109,6 +134,9 @@ class MessageBoxHelper:
         }
         msg.setIcon(icon_map.get(type, QMessageBox.Icon.Information))
         msg.setText(text)
+        box = QCheckBox(checkbox, msg) if checkbox else None
+        if box is not None:
+            msg.setCheckBox(box)
 
         if buttons:
             for i, btn_text in enumerate(buttons):
@@ -151,5 +179,7 @@ class MessageBoxHelper:
 
         msg.exec()
 
+        if box is not None and checked is not None:
+            checked.append(box.isChecked())
         clicked = msg.clickedButton()
         return clicked.text() if clicked else None

@@ -52,6 +52,8 @@ pegados al borde DERECHO, igual que la etiqueta de la extensión de la cabecera,
 de una línea de texto queda por encima del de las letras, por el hueco de los
 descendentes).
 
+1.9.0 'InfoGrid.add_editor_row': fila con un widget propio como valor (las cajas
+      editables de «Metadatos»).
 1.8.0 Secciones según la biblioteca de lo resumido ('libraries', 'fits'), no según el
       módulo activo (fuera 'modules', 'hidden_in' y 'shown_in'); paso A.2.
 1.7.0 Señal 'navigate_requested' (la flecha «ver sus fotos» del árbol de palabras).
@@ -71,7 +73,7 @@ descendentes).
       entre filas de 6 px ('ROW_SPACING'), como las filas de la barra izquierda.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 __all__ = [
     "ICON_SIZE",
     "IconCell",
@@ -284,6 +286,31 @@ class InfoGrid(QWidget):
                 accessory, row, 2, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             )
         return InfoRow(key_label, value_label, accessory)
+
+    def add_editor_row(self, key: str, editor: QWidget, *, align_top: bool = False) -> QLabel:
+        """Añade una fila cuyo valor es un widget propio (p. ej. una caja editable).
+
+        El widget ocupa las columnas del valor y del icono (no lleva icono).
+
+        Args:
+            key: Texto de la etiqueta.
+            editor: El widget del valor (pasa a ser hijo de la rejilla).
+            align_top: True si el widget ocupa varias líneas (la etiqueta va arriba, a la
+                altura de la primera).
+
+        Returns:
+            La etiqueta (para su texto emergente).
+        """
+        row = self._layout.rowCount()
+        key_label = QLabel(key, self)
+        vertical = Qt.AlignmentFlag.AlignTop if align_top else Qt.AlignmentFlag.AlignVCenter
+        key_label.setAlignment(KEY_ALIGNMENT | vertical)
+        set_secondary_text(key_label)
+        self._key_labels.append(key_label)
+        editor.setParent(self)
+        self._layout.addWidget(key_label, row, 0, vertical)
+        self._layout.addWidget(editor, row, 1, 1, 2)
+        return key_label
 
 
 def set_secondary_text(label: QWidget, secondary: bool = True) -> None:

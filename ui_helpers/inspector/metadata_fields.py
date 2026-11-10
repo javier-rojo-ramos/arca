@@ -35,6 +35,8 @@ Cómo añadir:
     - La vista personalizada (más adelante): una lista de claves guardada en
       'settings.json'; 'preset_rows' ya acepta cualquier lista de claves.
 
+1.5.0 'EDITABLE_KEYS' (los campos que se editan en la sección: título, pie, creador y
+      copyright) y 'editor_value' (lo que muestra su caja).
 1.4.0 Título, Pie (de ilustración), Creador y Copyright, de solo lectura por ahora, en
       «Por defecto» y «Ubicación» (paso C.5). El título es el propio ('m.file_title'): sin
       título, en blanco, no el nombre del archivo.
@@ -45,10 +47,11 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.metadata_fields
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "COMMON_HEAD",
     "DEFAULT_PRESET",
+    "EDITABLE_KEYS",
     "FIELDS",
     "MIXED_TEXT",
     "PRESETS",
@@ -57,6 +60,7 @@ __all__ = [
     "InspectorField",
     "MetadataPreset",
     "display_value",
+    "editor_value",
     "preset_rows",
     "sources_for",
 ]
@@ -68,6 +72,7 @@ from typing import Any
 
 # Módulos del proyecto
 from core.catalog.selection_metadata import MIXED, VALUE, FieldSource, FieldValue
+from core.userdata.editable_fields import EDITABLE_COLUMNS
 from ui_helpers.inspector.formatting import (
     EXPOSURE_PROGRAMS,
     FLASH_STATES,
@@ -306,6 +311,24 @@ PRESETS: dict[str, MetadataPreset] = {
 }  # fmt: skip
 DEFAULT_PRESET = "default"
 
+# Campos que se EDITAN en la sección (con una caja en lugar de un texto; paso C.5). Su
+# clave es la columna de 'core/userdata/editable_fields.py', que dice además si admite
+# varias líneas. La ubicación se añadirá aquí en el paso 5
+EDITABLE_KEYS: tuple[str, ...] = ("title", "description", "creator", "copyright")
+assert set(EDITABLE_KEYS) <= set(EDITABLE_COLUMNS) and set(EDITABLE_KEYS) <= set(FIELDS)
+
+
+def editor_value(value: FieldValue) -> tuple[str, bool]:
+    """Lo que muestra la caja de un campo editable: (texto, hay valores distintos).
+
+    Sin formato: el texto tal cual está en el catálogo (con sus saltos de línea).
+    """
+    if value.state == MIXED:
+        return "", True
+    if value.state != VALUE or not value.value or value.value[0] is None:
+        return "", False
+    return str(value.value[0]), False
+
 
 def preset_rows(preset_key: str | Iterable[str]) -> tuple[str, ...]:
     """Filas de una vista: la cabecera común + sus campos (con separadores).
@@ -444,6 +467,10 @@ if __name__ == "__main__":
     # El pie de varias líneas, entero en el texto emergente
     values = fetch_field_values(db, [photo], sources_for(["description"]))
     assert display_value("description", values["description"]).tooltip == "Primera línea\nSegunda línea"
+    # En su caja editable, tal cual (con el salto de línea); «Varios» y vacío
+    assert editor_value(values["description"]) == ("Primera línea\nSegunda línea", False)
+    assert editor_value(FieldValue(MIXED)) == ("", True)
+    assert editor_value(FieldValue()) == ("", False)
     print("3. Foto, vista por defecto: como el ejemplo")
     # Título, pie, creador y copyright: tras la exposición en «Por defecto», tras las fechas
     # en «Ubicación» y nunca en «EXIF»; siempre antes del lugar

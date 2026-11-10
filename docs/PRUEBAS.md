@@ -33,6 +33,7 @@ python -m core.catalog.system_collections    python -m core.catalog.user_collect
 python -m core.catalog.folder_tree           python -m core.catalog.missing_items
 python -m core.catalog.selection_metadata    python -m ui_helpers.inspector.formatting
 python -m ui_helpers.inspector.metadata_fields  (todas las vistas sobre una foto y un vídeo de ejemplo)
+python -m ui_helpers.inspector.editable_row      python -m ui_helpers.inspector.metadata_section   (cajas editables y su aviso; sin ventana)
 python -m ui_helpers.inspector.keyword_editor_section   python -m ui_helpers.inspector.keywords_section
 python -m ui_helpers.widgets.keyword_checklist          python -m ui_helpers.widgets.recent_keywords
 python -m ui_helpers.helpers.keyword_menu   (lógica del menú de los árboles de palabras clave; sin ventana)
