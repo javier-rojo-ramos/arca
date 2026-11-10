@@ -9,7 +9,7 @@ Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (W
 
 Principios:
 
-- **Los archivos originales no se mueven ni se modifican.** Las únicas excepciones: escribir la valoración, la marca, el color y las palabras clave con las reglas de `core/userdata/` (XMP incrustado, sidecar `.xmp` o `.arca.json`; ver su `LEEME.md`), y enviar a la papelera lo que el usuario pide eliminar del disco.
+- **Los archivos originales no se mueven ni se modifican.** Las únicas excepciones: escribir la valoración, la marca, el color, las palabras clave y los metadatos descriptivos editados en la aplicación (título, pie de ilustración, creador, copyright y ubicación) con las reglas de `core/userdata/` (XMP incrustado, sidecar `.xmp` o `.arca.json`; ver su `LEEME.md`), y enviar a la papelera lo que el usuario pide eliminar del disco.
 - **Un catálogo es una carpeta autónoma**: `catalogo.db` (SQLite en modo WAL) + `cache/<tipo>/` + `media_assets/{backdrops,covers,posters}/` + `export/`.
 - **La referencia de metadatos es Lightroom Classic**: se leen los campos que muestran sus paneles EXIF y Ubicación (editarlos, más adelante).
 - La interfaz **nunca** toca la base de datos ni hace trabajo largo en el hilo principal.

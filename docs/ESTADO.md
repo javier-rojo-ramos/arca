@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 09/11/2026.
+**Actualizado**: 10/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes: añadir y sincronizar carpetas, metadatos con ExifTool, miniaturas, cuadrícula y vista individual, clasificación (valoración, marca, color y selección rápida) guardada también en los archivos, palabras clave, colecciones (también inteligentes, con grupos de reglas), barra de filtros («Texto», «Atributos», «Metadatos» y ajustes personalizados) e inspector, que edita las palabras clave en todos los módulos. El módulo Imagen navega por carpetas y palabras clave. Vídeo, audio, GPX y ebooks se catalogan y se clasifican en bibliotecas, pero los módulos Vídeo y Audio aún son provisionales. Lo siguiente, en [PENDIENTE.md](PENDIENTE.md).
 
@@ -62,6 +62,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 10/11/2026: edición de los metadatos descriptivos (C.5), paso 0: prueba de escritura con ExifTool y Lightroom, sin tocar el código; decisiones, plan y resultados anotados.
 - 09/11/2026: los iconos de los menús ya no van pegados al borde izquierdo y, en la opción resaltada, son oscuros como el texto.
 - 09/11/2026: todos los colores de la interfaz salen del tema (`theme_colors.py`): las marcas de clasificación, las etiquetas, lo que va encima de la imagen y el estado de los archivos; la barra inferior, con el mismo fondo y anillo que «Atributos»; el número del arrastre, oscuro sobre el ámbar.
 - 09/11/2026: revisión de la documentación: quitados los pasos hechos y las decisiones sustituidas; lo entregado hasta el 07/11 pasa a «Verificado» y sus detalles sin mirar, a «Comprobaciones sueltas».
@@ -71,4 +72,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 09/11/2026: filtros personalizados, subpaso 3: ventana «Gestionar ajustes personalizados» (ordenar, cambiar el nombre, eliminar, restaurar los de fábrica).
 - 09/11/2026: filtros personalizados, subpaso 2: desplegable de ajustes personalizados antes del candado (guardar con nombre, restaurar, elegir uno de la lista; cinco de fábrica), sin la ventana de gestión todavía.
 - 09/11/2026: filtros personalizados, subpaso 1: motor de los ajustes personalizados de la barra de filtros (guardar, elegir, restaurar, cuál coincide, los de fábrica), aún sin desplegable.
-- 09/11/2026: la franja de filtros con «Metadatos» ya no deja hueco encima y debajo del panel; raya gris entre dos paneles encendidos.

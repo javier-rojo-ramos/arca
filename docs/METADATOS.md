@@ -172,6 +172,29 @@ Una palabra suelta va a la única del árbol con ese nombre; si hay varias, al p
 
 **Escritura** (desde el 03/11/2026, paso K4a; `xmp_writer.py`): como Lightroom, comprobado con un NEF con solo «Opel Astra» (`lr:HierarchicalSubject` = `Coche|Opel Astra`, `dc:Subject` = `Coche`, `Opel Astra`) y un HEIC con «Familia > Isa» y «Familia > Javi» (`dc:Subject` = `Familia`, `Isa`, `Javi`, aunque «[Familia]» es una categoría): la jerárquica lleva las rutas **asignadas** y la plana cada palabra **y sus padres**. A un archivo solo se le asigna la palabra; sus padres se deducen del árbol (no hay «padres automáticos»). `IPTC:Keywords` se actualiza solo si el archivo ya lo tenía. En los formatos sin XMP, en el `.arca.json` de la carpeta (clave `keywords`, lista de rutas), que también se lee al sincronizar. Para decidir si un archivo ya está al día, las rutas se comparan **letra a letra** (desde el 04/11/2026: renombrar «Familia» a «Família» en la aplicación tiene que llegar al archivo); al leer, en cambio, una palabra se reconoce sin mayúsculas ni acentos. Renombrar, mover o borrar una palabra del árbol deja pendientes todos los archivos que la tienen o tienen alguna de sus hijas.
 
+**Escritura de los metadatos descriptivos** (paso C.5, en curso; ver [DECISIONES.md](DECISIONES.md)). Se escribe en todas las etiquetas de las que se lee: el XMP siempre y las antiguas solo si el archivo ya las tiene. Probado el 10/11/2026, fuera del proyecto, con ExifTool 13.59, el extractor de imagen y Lightroom Classic:
+
+| Columna | XMP (siempre) | Antiguas (solo si ya existen) | Lightroom, vista IPTC |
+|---|---|---|---|
+| `title` | `XMP-dc:Title` | `IPTC:ObjectName` | Título (Estado) |
+| `description` | `XMP-dc:Description` | `IPTC:Caption-Abstract`, `IFD0:ImageDescription` | Descripción (Contenido); en otras vistas, «Pie de ilustración» |
+| `creator` | `XMP-dc:Creator` | `IPTC:By-line`, `IFD0:Artist` | Creador (Contacto) |
+| `copyright` | `XMP-dc:Rights` | `IPTC:CopyrightNotice`, `IFD0:Copyright` | Copyright |
+| `sublocation` | `XMP-iptcCore:Location` | `IPTC:Sub-location` | Ubicación secundaria (Imagen) |
+| `city` | `XMP-photoshop:City` | `IPTC:City` | Ciudad |
+| `region` | `XMP-photoshop:State` | `IPTC:Province-State` | Estado o región |
+| `country` | `XMP-photoshop:Country` | `IPTC:Country-PrimaryLocationName` | País/Región |
+| `country_code` | `XMP-iptcCore:CountryCode` | `IPTC:Country-PrimaryLocationCode` | Código de país ISO |
+
+- **JPEG** (con IPTC en Latin y en UTF-8) y **HEIC** (solo EXIF): el extractor relee lo escrito y Lightroom lo muestra; al vaciar queda todo vacío. Las demás etiquetas IPTC (`IPTC:Keywords`) no se tocan. Si solo se vacía el XMP, al releer vuelve el IPTC antiguo.
+- **Límites del IPTC** (`City` 32 bytes, `ObjectName` 64, `Caption-Abstract` 2000...): ExifTool recorta lo que sobra con un aviso `[Minor] ... exceeds length limit (truncated)`; en UTF-8, sin partir una letra. El XMP guarda el valor entero.
+- **IPTC en Latin** (sin `CodedCharacterSet`): los acentos, la ñ, © y las comillas tipográficas, bien; lo que no existe en Latin («→»), «?». Lightroom lee bien los acentos de un IPTC antiguo en Latin.
+- **Resumen IPTC** (`Photoshop:IPTCDigest`): ExifTool no lo recalcula solo; con `-Photoshop:IPTCDigest=new` queda igual a `CurrentIPTCDigest`. Con el resumen desajustado, Lightroom muestra el IPTC (la ciudad cortada, «Villanueva de la Cañada del Río», y «?» en el pie); con el resumen al día, el XMP entero.
+- **Saltos de línea** en el pie: bien en `IPTC:Caption-Abstract`, `IFD0:ImageDescription` y el XMP, escritos con `#[CSTR]` ([TRAMPAS.md](TRAMPAS.md)).
+- **`dc:creator` es una lista**: dos creadores se leen «Ana, Luis»; «Rojo, Javier» escrito es un solo creador (ExifTool no lo parte).
+- **RAW** (simulado: un TIFF con `Artist` y `Copyright` de cámara, más su sidecar): lo escrito en el sidecar manda; al vaciarlo (borrando la etiqueta o con un vacío explícito, `-TAG^=`, que la lectura salta) vuelve lo de la cámara. Falta probarlo con un DNG y un RAW real (NEF o CR3).
+- **Textos de cámara**: Lightroom también muestra «OLYMPUS DIGITAL CAMERA» (de `IFD0:ImageDescription`) como pie; aquí se lee igual.
+
 Aún **no** se extraen los ajustes de revelado (`XMP-crs`), salvo el recorte. Tampoco las **regiones de caras** de Lightroom (`XMP-mwg-rs:RegionName` = «Isa», «Javi», `RegionType` = `Face`, con su posición): idea para más adelante (personas).
 
 **Contrastado con Lightroom** (paneles EXIF y Ubicación) con un JPEG, dos HEIC (uno vertical) y un DNG: coinciden todos los campos. Diferencias que no son errores: la exposición se muestra redondeada (1/906 s → 1/900), la Dirección se traduce a 8 sectores de 45° (292,47° → "Oeste"), Lightroom abrevia la marca ("NIKON CORPORATION" → "Nikon"; aquí se guarda tal cual) y un campo borrado en Lightroom puede seguir en el archivo (la Dirección de un HEIC). Disponible pero sin columna: `OriginalRawFileName` ("Nombre de archivo original" de un DNG).
