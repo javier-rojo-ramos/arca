@@ -1,4 +1,4 @@
-"""Escritura de valoración, marca, etiqueta de color y palabras clave en XMP con ExifTool.
+"""Escritura en XMP con ExifTool: valoración, marca, color, palabras clave y metadatos editados.
 
 Este módulo NO depende de Qt ni de la base de datos: recibe rutas y valores, escribe y
 comprueba. Quién decide QUÉ escribir y CUÁNDO es 'sync.py'.
@@ -18,6 +18,21 @@ Etiquetas que se escriben (las mismas que Lightroom Classic y que lee el extract
                  IPTC:Keywords                la misma lista plana, SOLO si el archivo ya
                                               la tenía (si no, al quitar todas las palabras
                                               del XMP volverían a leerse las viejas de IPTC)
+    title, description, creator, copyright, sublocation, city, region, country,
+    country_code (los metadatos editables: 'editable_fields.py')
+                 su etiqueta XMP, siempre ('XMP-dc:Title'...), y las antiguas (IPTC, EXIF:
+                 'IPTC:ObjectName'...) SOLO si el archivo ya las tiene, por lo mismo que
+                 'IPTC:Keywords'. Vacío = se borran. Para saber si ya está al día y para
+                 comprobar lo escrito se lee como el extractor: la primera etiqueta no
+                 vacía (XMP > IPTC > EXIF). Así lo recortado del IPTC (límites de longitud)
+                 o cambiado por '?' (IPTC en Latin) no cuenta: manda el XMP, que va entero.
+
+Resumen IPTC ('Photoshop:IPTCDigest'): si el archivo lo tiene y se toca alguna etiqueta
+IPTC (también 'IPTC:Keywords'), se recalcula ('=new'): ExifTool no lo hace solo, y con el
+resumen desajustado Lightroom toma el IPTC antes que el XMP (comprobado el 10/11/2026).
+
+Saltos de línea (el pie de ilustración): el archivo de argumentos de ExifTool lleva un
+argumento por línea, así que esas líneas van escapadas y con '#[CSTR]' delante.
 
 Por qué el 0 se escribe y no se borra la etiqueta: al releer, una etiqueta AUSENTE
 significa "el archivo no dice nada" y no toca el catálogo; un 0 escrito significa "sin
@@ -47,6 +62,10 @@ Rendimiento: arrancar ExifTool tarda unos cientos de milisegundos, así que cada
 de archivos se escribe con UNA sola llamada ('-execute' separa los archivos dentro de
 la misma llamada) y se lee con otra antes y otra después.
 
+1.2.0 Metadatos editados (título, pie, ubicación...): XMP y antiguas que existan,
+      comprobados como los lee el extractor; resumen IPTC recalculado al tocar el IPTC
+      (también con las palabras clave, que antes lo dejaban desajustado); '#[CSTR]' en los
+      valores con saltos de línea; los avisos '[Minor]' de ExifTool también se ignoran.
 1.1.2 Marca de la salida de ExifTool con el nombre nuevo de la aplicación ('@@ARCA ').
 1.1.1 Las palabras clave se comparan letra a letra para decidir si se escribe: renombrar
       solo con mayúsculas o acentos («Familia» -> «Família») también llega al archivo.
@@ -55,17 +74,19 @@ Prueba rápida (necesita ExifTool instalado; trabaja sobre archivos de prueba te
     python -m core.userdata.xmp_writer
 """
 
-__version__ = "1.1.2"
+__version__ = "1.2.0"
 __all__ = [
     "XMP_READ_TAGS",
     "XmpWriteOutcome",
     "XmpWriteRequest",
     "XmpUserDataWriter",
+    "edited_values_from_tags",
     "keyword_paths_from_tags",
     "user_values_from_tags",
 ]
 
 # Librerías estándar
+import re
 import subprocess
 import tempfile
 import threading
@@ -91,8 +112,12 @@ from core.metadata.exiftool_runner import (
     ExifToolRunner,
 )
 from core.catalog.keywords import flat_keyword_names, same_keywords
-from core.metadata.field_spec import pick_flag, rating_value
+from core.metadata.field_spec import common, pick_flag, rating_value, read_field, text
 from core.metadata.keyword_tags import HIERARCHY_SEPARATOR, read_keywords
+from core.userdata.editable_fields import EDITABLE_FIELDS, field_for
+
+# Resumen del bloque IPTC que guardan Photoshop y Lightroom (ver la cabecera)
+_IPTC_DIGEST_TAG = "Photoshop:IPTCDigest"
 
 # Etiquetas que se leen para saber qué valores tiene ya un archivo
 XMP_READ_TAGS: tuple[str, ...] = (
@@ -104,7 +129,19 @@ XMP_READ_TAGS: tuple[str, ...] = (
     "-XMP-dc:Subject",
     "-XMP-lr:HierarchicalSubject",
     "-IPTC:Keywords",
+    *(f"-{tag}" for spec in EDITABLE_FIELDS for tag in (spec.xmp_tag, *spec.legacy_tags)),
+    f"-{_IPTC_DIGEST_TAG}",
 )
+
+# Cómo se lee cada metadato editable: igual que el extractor ('IMAGE_FIELDS'), la primera
+# etiqueta no vacía en el orden XMP > antiguas
+_EDITABLE_READ = {
+    spec.column: common(spec.column, (spec.xmp_tag, *spec.legacy_tags), text)
+    for spec in EDITABLE_FIELDS
+}
+
+# Un texto que parece un número (ExifTool lo entrega como número: '1.50' -> 1.5)
+_NUMBER_TEXT = re.compile(r"[+-]?(\d+\.?\d*|\.\d+)")
 
 # Archivos por llamada de escritura
 _WRITE_BATCH_SIZE = 25
@@ -133,7 +170,9 @@ class XmpWriteRequest:
             sidecar '.xmp' (que se crea si no existe).
         values: SOLO los campos que hay que dejar con ese valor ('rating' 0-5, 'flag'
             -1/0/1, 'color_label' nombre canónico o None, 'keywords' las rutas asignadas,
-            p. ej. (('Coche', 'Opel Astra'),)). Los que no estén no se tocan.
+            p. ej. (('Coche', 'Opel Astra'),), y las columnas editables con su texto o
+            None para vaciarlas; el título, ya sin el nombre del archivo: 'file_title').
+            Los que no estén no se tocan.
     """
 
     path: Path
@@ -174,6 +213,45 @@ def keyword_paths_from_tags(tags: Mapping[str, Any]) -> tuple[tuple[str, ...], .
     'keyword_tags.read_keywords'). Las sueltas, como rutas de una palabra."""
     found = read_keywords(tags)
     return (*found.paths, *((name,) for name in found.flat))
+
+
+def edited_values_from_tags(tags: Mapping[str, Any]) -> dict[str, str | None]:
+    """Metadatos editables que tiene un archivo, leídos como los lee el extractor.
+
+    De cada campo, la primera etiqueta no vacía (XMP > IPTC > EXIF), como texto; None si
+    no tiene ninguna.
+    """
+    return {column: read_field(spec, tags) for column, spec in _EDITABLE_READ.items()}
+
+
+def _same_text(current: str | None, wanted: str | None) -> bool:
+    """True si el texto del archivo es el pedido.
+
+    ExifTool entrega como número un texto que lo parece ('1.50' llega como 1.5): en ese
+    caso se comparan como números, para no reintentar para siempre un título como «1.50».
+    """
+    if current == wanted:
+        return True
+    if current is None or wanted is None or not _NUMBER_TEXT.fullmatch(wanted):
+        return False
+    try:
+        return float(current) == float(wanted)
+    except ValueError:
+        return False
+
+
+def _edited_arguments(
+    column: str, value: str | None, current_tags: Mapping[str, Any]
+) -> list[str]:
+    """Argumentos para dejar un metadato editable con ese valor (None = vaciarlo).
+
+    La etiqueta XMP siempre; las antiguas, solo las que el archivo ya tiene (si no, al
+    vaciar el campo volvería a leerse su valor antiguo).
+    """
+    spec = field_for(column)
+    tags = [spec.xmp_tag, *(tag for tag in spec.legacy_tags if current_tags.get(tag) is not None)]
+    new_text = "" if value is None else value
+    return [f"-{tag}={new_text}" for tag in tags]
 
 
 def _keyword_arguments(wanted: Sequence[Sequence[str]], current_tags: Mapping[str, Any]) -> list[str]:
@@ -239,15 +317,31 @@ def _arguments_for(
         keyword_paths_from_tags(current_tags), wanted["keywords"], exact=True
     ):
         args += _keyword_arguments(wanted["keywords"], current_tags)
+
+    # Metadatos editables: solo los que, leídos como el extractor, no tienen ya ese valor
+    current_edits = edited_values_from_tags(current_tags)
+    for column, current_value in current_edits.items():
+        if column in wanted and not _same_text(current_value, wanted[column]):
+            args += _edited_arguments(column, wanted[column], current_tags)
+
+    # Si se toca el IPTC de un archivo con resumen IPTC, se recalcula (ver la cabecera)
+    if current_tags.get(_IPTC_DIGEST_TAG) is not None and any(
+        arg.startswith("-IPTC:") for arg in args
+    ):
+        args.append(f"-{_IPTC_DIGEST_TAG}=new")
     return args
 
 
 def _matches(tags: Mapping[str, Any], wanted: Mapping[str, Any]) -> bool:
     """True si el archivo tiene ya los valores pedidos (solo se comparan esos campos)."""
     current = user_values_from_tags(tags)
+    edits = edited_values_from_tags(tags)
     for field, value in wanted.items():
         if field == "keywords":
             if not same_keywords(keyword_paths_from_tags(tags), value, exact=True):
+                return False
+        elif field in edits:
+            if not _same_text(edits[field], value):
                 return False
         elif current[field] != value:
             return False
@@ -272,7 +366,7 @@ def _remove_stale_temp(path: Path) -> None:
 
 
 class XmpUserDataWriter:
-    """Escribe valoración, marca y color en XMP (incrustado o sidecar) con ExifTool."""
+    """Escribe en XMP (incrustado o sidecar) con ExifTool los datos que se le piden."""
 
     def __init__(self, runner: ExifToolRunner) -> None:
         """Crea el escritor.
@@ -396,7 +490,8 @@ class XmpUserDataWriter:
         for position, (path, args) in enumerate(items):
             # Antes de cada archivo, una marca en la salida de errores para saber a quién
             # pertenece cada mensaje
-            lines += ["-echo2", f"{_MARK}{position}", *args, str(path), "-execute"]
+            arg_lines = [_argument_line(arg) for arg in args]
+            lines += ["-echo2", f"{_MARK}{position}", *arg_lines, str(path), "-execute"]
 
         with tempfile.NamedTemporaryFile(
             "w", encoding="utf-8", newline="\n", suffix=".txt", delete=False
@@ -437,8 +532,25 @@ class XmpUserDataWriter:
         return _split_messages(completed.stderr.decode("utf-8", errors="replace"))
 
 
+def _argument_line(arg: str) -> str:
+    """Un argumento como línea del archivo de argumentos de ExifTool ('-@').
+
+    Cada línea es un argumento, así que uno con saltos de línea (un pie de varias líneas)
+    va escapado como en C ('\\n', '\\\\') y con '#[CSTR]' delante de ESA línea (no es una
+    cabecera del archivo: ver docs/TRAMPAS.md).
+    """
+    if "\n" not in arg and "\r" not in arg:
+        return arg
+    escaped = arg.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
+    return f"#[CSTR]{escaped}"
+
+
 def _split_messages(stderr: str) -> dict[int, str]:
-    """Reparte la salida de errores de ExifTool entre los archivos (por sus marcas)."""
+    """Reparte la salida de errores de ExifTool entre los archivos (por sus marcas).
+
+    Los avisos menores ('Warning: [minor] ...' o '[Minor]', como el recorte de un valor
+    largo en el IPTC) no se guardan.
+    """
     messages: dict[int, list[str]] = {}
     current: int | None = None
     for line in stderr.splitlines():
@@ -448,9 +560,13 @@ def _split_messages(stderr: str) -> dict[int, str]:
             except ValueError:
                 current = None
             continue
-        text = line.strip()
-        if current is not None and text and not text.startswith("Warning: [minor]"):
-            messages.setdefault(current, []).append(text)
+        line_text = line.strip()
+        if (
+            current is not None
+            and line_text
+            and not line_text.lower().startswith("warning: [minor]")
+        ):
+            messages.setdefault(current, []).append(line_text)
     return {position: " | ".join(texts) for position, texts in messages.items()}
 
 
@@ -577,5 +693,80 @@ if __name__ == "__main__":
         made = writer.write([XmpWriteRequest(raw2, {"rating": 0, "flag": 0, "keywords": (("Playa",),)})])
         assert made[0].ok and read_tags(raw2)["XMP-dc:Subject"] in ("Playa", ["Playa"])
         print("Palabras clave: escritas como Lightroom, sin tocar lo demás; IPTC al día")
+
+        # 9. Metadatos editados en un JPEG «de Lightroom»: IPTC antiguo en Latin, EXIF de
+        #    cámara y resumen IPTC al día (como los archivos de prueba del 10/11/2026)
+        def exiftool_args(path: Path, *args: str) -> None:
+            """Como 'exiftool', con archivo de argumentos UTF-8 (en Windows, la línea de
+            órdenes estropea las tildes: ver docs/TRAMPAS.md)."""
+            with tempfile.NamedTemporaryFile(
+                "w", encoding="utf-8", suffix=".txt", delete=False
+            ) as arg_file:
+                arg_file.write("\n".join([*args, str(path)]) + "\n")
+            try:
+                subprocess.run(
+                    [*runner.command, "-overwrite_original", "-charset", "utf8",
+                     "-charset", "filename=utf8", "-@", arg_file.name],
+                    capture_output=True, check=True,
+                )  # fmt: skip
+            finally:
+                Path(arg_file.name).unlink(missing_ok=True)
+
+        def digests(path: Path) -> tuple[Any, Any]:
+            """(resumen guardado, resumen del IPTC actual)."""
+            found = runner.read([path], tags=(f"-{_IPTC_DIGEST_TAG}", "-CurrentIPTCDigest"))
+            tags = found[path].tags
+            current = next(v for k, v in tags.items() if k.endswith("CurrentIPTCDigest"))
+            return tags.get(_IPTC_DIGEST_TAG), current
+
+        lightroom = folder / "lightroom.jpg"
+        Image.new("RGB", (32, 24), "green").save(lightroom, quality=90)
+        exiftool_args(
+            lightroom, "-IFD0:ImageDescription=OLYMPUS DIGITAL CAMERA", "-IPTC:ObjectName=Viejo",
+            "-IPTC:Caption-Abstract=Pie viejo con eñe", "-IPTC:City=Málaga",
+            "-IPTC:Keywords=Señal",
+        )  # fmt: skip
+        exiftool_args(lightroom, f"-{_IPTC_DIGEST_TAG}=new")
+        wanted = {
+            "title": "Atardecer en Castilla y León",
+            "description": "Primera línea con eñe\nSegunda línea → con flecha",
+            "city": "Villanueva de la Cañada del Río Grande",  # más de 32 bytes: el IPTC la recorta
+            "creator": "Rojo, Javier",  # con coma: un solo creador
+        }
+        outcome = writer.write([XmpWriteRequest(lightroom, wanted)])[0]
+        assert outcome.ok and outcome.written, outcome
+        tags = read_tags(lightroom)
+        assert edited_values_from_tags(tags) == {**dict.fromkeys(_EDITABLE_READ), **wanted}
+        assert tags["IPTC:ObjectName"] == wanted["title"]  # las antiguas, al día
+        assert tags["IFD0:ImageDescription"] == wanted["description"]
+        assert tags["XMP-photoshop:City"] == wanted["city"]  # el XMP, entero
+        assert wanted["city"].startswith(tags["IPTC:City"]) and tags["IPTC:City"] != wanted["city"]
+        assert "IPTC:By-line" not in tags and "IFD0:Artist" not in tags  # no se crean
+        assert tags["IPTC:Keywords"] == "Señal"  # lo demás del IPTC, intacto
+        saved, current = digests(lightroom)
+        assert saved == current, (saved, current)  # resumen recalculado
+        # Lo mismo otra vez: no se toca el archivo
+        mtime = lightroom.stat().st_mtime_ns
+        assert not writer.write([XmpWriteRequest(lightroom, wanted)])[0].written
+        assert lightroom.stat().st_mtime_ns == mtime
+        # Vaciar: se borran el XMP y las antiguas (si no, volverían «Viejo» o «OLYMPUS...»)
+        emptied = writer.write([XmpWriteRequest(lightroom, dict.fromkeys(wanted))])[0]
+        assert emptied.ok and emptied.written, emptied
+        tags = read_tags(lightroom)
+        assert set(edited_values_from_tags(tags).values()) == {None}, tags
+        assert digests(lightroom)[0] == digests(lightroom)[1]
+        # Las palabras clave también dejan el resumen al día (antes lo desajustaban)
+        assert writer.write([XmpWriteRequest(lightroom, {"keywords": (("Playa",),)})])[0].ok
+        assert read_tags(lightroom)["IPTC:Keywords"] == "Playa"
+        assert digests(lightroom)[0] == digests(lightroom)[1]
+        print("Metadatos editados: XMP y antiguas al día, resumen IPTC recalculado")
+
+    # 10. Detalles sin ExifTool: números como texto, saltos de línea y avisos menores
+    assert _same_text("1.5", "1.50") and _same_text("7", "007") and not _same_text("1.5", "1,5")
+    assert not _same_text(None, "1") and _same_text(None, None)
+    assert _argument_line("-XMP-dc:Title=Una") == "-XMP-dc:Title=Una"
+    assert _argument_line("-A=x\\y\nz") == "#[CSTR]-A=x\\\\y\\nz"
+    stderr = f"{_MARK}0\nWarning: [Minor] IPTC:City exceeds length limit (truncated)\n{_MARK}1\nError: x"
+    assert _split_messages(stderr) == {1: "Error: x"}
 
     print("Autoprueba finalizada correctamente.")

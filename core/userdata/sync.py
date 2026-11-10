@@ -16,6 +16,10 @@ Dos sentidos:
        FOLDER_FILE   -> entrada del archivo en el '.arca.json' de su carpeta
    Las palabras clave van igual, con su propia marca ('keywords_pending'): se escriben
    EXACTAMENTE las del catálogo (las rutas asignadas; ver 'xmp_writer' y 'folder_file').
+   Los metadatos editados (título, pie, ubicación...; 'editable_fields.py') también, con
+   su marca por campo ('metadata_edit_pending'): en XMP, su etiqueta y las antiguas que
+   el archivo ya tenga; en el '.arca.json', su clave (vaciado = ""). El título igual al
+   nombre del archivo se escribe vacío ('file_title').
    Cuando el destino ya tiene esos valores, quita esos bits de pendiente. Lo que no se
    puede escribir (archivo abierto por otro programa, unidad desconectada, sin
    ExifTool...) sigue pendiente y se reintenta la próxima vez: nunca se pierde, porque
@@ -43,6 +47,11 @@ Dos sentidos:
          archivo, el procesador con 'folder_file_edits'. En los formatos con XMP, los
          escribe el procesador como cualquier metadato extraído (salvo lo pendiente).
 
+1.5.0 Escritura de los metadatos editados ('metadata_edit_pending'): XMP o '.arca.json',
+      y su marca se quita como la de la valoración. Autoprueba: ida y vuelta de los
+      metadatos editados; los textos con tildes se escriben con un archivo de argumentos
+      (en Windows, por la línea de órdenes llegaban como «?») y el '.arca.json' oculto se
+      sobrescribe con un temporal (con 'write_text' daba PermissionError).
 1.4.0 Metadatos descriptivos editados: 'apply_folder_files' los aplica desde el
       '.arca.json' (salvo los pendientes) y 'folder_file_edits' se los da al procesador.
 1.3.2 El archivo de carpeta se llama '.arca.json' (comentarios y autoprueba).
@@ -53,7 +62,7 @@ Prueba rápida (desde la raíz del proyecto; la parte de XMP necesita ExifTool):
     python -m core.userdata.sync
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "SCAN_STAGE_USERDATA",
     "FolderFileCache",
@@ -84,7 +93,14 @@ from core.catalog.media_queries import USER_FIELD_BITS
 from core.jobs.progress import JobProgress
 from core.metadata.exiftool_runner import ExifToolError, ExifToolRunner, find_sidecars
 from core.metadata.keyword_tags import FileKeywords
-from core.userdata.editable_fields import default_title, field_for, unless_pending_sql
+from core.userdata.editable_fields import (
+    EDITABLE_COLUMNS,
+    default_title,
+    field_for,
+    file_title,
+    pending_columns,
+    unless_pending_sql,
+)
 from core.userdata.folder_file import (
     FolderData,
     KEYWORDS_KEY,
@@ -115,6 +131,10 @@ _USER_COLUMNS: tuple[str, ...] = ("rating", "flag", "color_label")
 
 # Caché de archivos de carpeta durante un escaneo: carpeta -> contenido (None = ilegible)
 FolderFileCache = dict[Path, FolderData | None]
+
+# Valor de un metadato que la entrada del archivo de carpeta no trae (no editado): distinto
+# de None (vaciado a propósito), para decidir si hay que escribir la entrada
+_NOT_EDITED = object()
 
 
 # =============================================================================
@@ -203,6 +223,8 @@ class _Item:
     sidecar_mtime_ns: int | None
     keywords_pending: bool = False  # 'keywords_pending' (hay que escribir las palabras)
     keywords: tuple[tuple[str, ...], ...] = ()  # las palabras del catálogo (rutas)
+    metadata_pending: int = 0  # bits de 'metadata_edit_pending' (metadatos editados)
+    metadata: dict[str, Any] = field(default_factory=dict)  # sus valores en la BD
     # Resultado
     ok: bool = False
     written: bool = False
@@ -221,15 +243,26 @@ class _Item:
         }
         if self.keywords_pending:
             wanted[KEYWORDS_KEY] = self.keywords
+        # Metadatos editados: el título igual al nombre del archivo es «sin título»
+        for column in pending_columns(self.metadata_pending):
+            value = self.metadata[column]
+            wanted[column] = file_title(value, self.path.name) if column == "title" else value
         return wanted
 
 
+# Elementos con algo pendiente de escribir fuera del catálogo (presentes en disco)
+_PENDING_SQL = (
+    "(user_data_pending <> 0 OR keywords_pending <> 0 OR metadata_edit_pending <> 0) "
+    "AND is_missing = 0"
+)
+
+
 def count_pending_user_data(conn: sqlite3.Connection) -> int:
-    """Cuántos elementos (presentes) tienen datos del usuario sin escribir fuera del catálogo."""
-    row = conn.execute(
-        "SELECT COUNT(*) FROM media_items "
-        "WHERE (user_data_pending <> 0 OR keywords_pending <> 0) AND is_missing = 0"
-    ).fetchone()
+    """Cuántos elementos (presentes) tienen datos del usuario sin escribir fuera del catálogo.
+
+    Cuenta también los metadatos editados (título, pie...) y las palabras clave.
+    """
+    row = conn.execute(f"SELECT COUNT(*) FROM media_items WHERE {_PENDING_SQL}").fetchone()
     return int(row[0])
 
 
@@ -279,14 +312,14 @@ def write_pending_user_data(
         if cancel_event is not None and cancel_event.is_set():
             cancelled = True
             break
+        # Las columnas editables van al final (sus nombres salen de una lista cerrada)
         rows = conn.execute(
-            """SELECT id, storage_location_id, relative_path, file_extension,
+            f"""SELECT id, storage_location_id, relative_path, file_extension,
                       rating, flag, color_label, user_data_pending,
                       file_size, file_mtime_ns, thumbnail_mtime_ns, sidecar_mtime_ns,
-                      keywords_pending
+                      keywords_pending, metadata_edit_pending, {", ".join(EDITABLE_COLUMNS)}
                  FROM media_items
-                WHERE (user_data_pending <> 0 OR keywords_pending <> 0) AND is_missing = 0
-                  AND id > ?
+                WHERE {_PENDING_SQL} AND id > ?
                 ORDER BY id LIMIT ?""",
             (last_id, batch_size),
         ).fetchall()
@@ -323,6 +356,8 @@ def write_pending_user_data(
                     keywords_pending=bool(row[12]),
                     # Las rutas del catálogo, solo si hay que escribirlas
                     keywords=tuple(media_keyword_paths(conn, row[0])) if row[12] else (),
+                    metadata_pending=row[13],
+                    metadata=dict(zip(EDITABLE_COLUMNS, row[14:], strict=True)),
                 )
             )
 
@@ -423,10 +458,17 @@ def _write_folder_items(items: list[_Item]) -> None:
             key = find_entry_key(data.items, item.path.name)
             old_entry = data.items.get(key) if key else None
             # Se parte de lo que ya tiene y se cambian solo los campos pendientes
+            wanted = item.wanted
             old_values: dict[str, Any] = user_values_from_entry(old_entry)
-            if KEYWORDS_KEY in item.wanted:
+            if KEYWORDS_KEY in wanted:
                 old_values[KEYWORDS_KEY] = keywords_from_entry(old_entry)
-            new_values = {**old_values, **item.wanted}
+            # Metadatos editados: sin la clave NO es lo mismo que vaciado (""): la clave
+            # dice que se editó, y entonces manda sobre lo que traiga el archivo
+            old_edits = edited_values_from_entry(old_entry)
+            for column in EDITABLE_COLUMNS:
+                if column in wanted:
+                    old_values[column] = old_edits.get(column, _NOT_EDITED)
+            new_values = {**old_values, **wanted}
             if _same_values(new_values, old_values):
                 continue  # ya lo tenía: no hace falta escribir por él
             new_entry = merge_entry(old_entry, new_values)
@@ -593,12 +635,20 @@ def _save_results(conn: sqlite3.Connection, items: Iterable[_Item]) -> None:
             # Se quita el bit de cada campo escrito SOLO si su valor sigue siendo el
             # escrito: si el usuario lo cambió mientras tanto, sigue pendiente
             for column, value in item.wanted.items():
-                if column == KEYWORDS_KEY:
-                    continue  # va aparte (abajo)
+                if column not in USER_FIELD_BITS:
+                    continue  # las palabras clave y los metadatos van aparte (abajo)
                 conn.execute(
                     f"UPDATE media_items SET user_data_pending = user_data_pending & ? "  # noqa: S608
                     f"WHERE id = ? AND {column} IS ?",
                     (~USER_FIELD_BITS[column] & 7, item.media_id, value),
+                )
+            # Metadatos editados: igual, comparando con el valor de la BD que se leyó (el
+            # título escrito puede ser «sin título» y en la BD, el nombre del archivo)
+            for column in pending_columns(item.metadata_pending):
+                conn.execute(
+                    "UPDATE media_items SET metadata_edit_pending = metadata_edit_pending & ~? "
+                    f"WHERE id = ? AND {column} IS ?",
+                    (field_for(column).bit, item.media_id, item.metadata[column]),
                 )
             # Las palabras clave: solo si siguen siendo las escritas (si el usuario las
             # cambió mientras tanto, siguen pendientes)
@@ -891,11 +941,12 @@ if __name__ == "__main__":
 
     from core.catalog.catalog_schema import apply_migrations, configure_connection
     from core.catalog.folder_importer import add_folder
-    from core.catalog.media_queries import update_user_field
+    from core.catalog.media_queries import update_metadata_fields, update_user_field
     from core.metadata.processor import process_pending_metadata
     from core.metadata.registry import ExtractorRegistry
     from core.metadata.image.extractor import ImageExtractor
     from core.userdata.folder_file import BACKUP_FILE_NAME, FOLDER_FILE_NAME
+    from core.userdata.xmp_writer import XMP_READ_TAGS
 
     try:
         runner = ExifToolRunner()
@@ -926,10 +977,43 @@ if __name__ == "__main__":
     def pending(conn: sqlite3.Connection) -> int:
         return count_pending_user_data(conn)
 
+    def edited(conn: sqlite3.Connection, path: str) -> tuple:
+        """Título, pie, creador y ciudad de un elemento."""
+        return tuple(conn.execute(
+            "SELECT title, description, creator, city FROM media_items WHERE relative_path = ?",
+            (path,),
+        ).fetchone())  # fmt: skip
+
+    def exiftool_args(path: Path, *args: str) -> None:
+        """Otro programa escribe en un archivo. Con un archivo de argumentos UTF-8: en
+        Windows, por la línea de órdenes las tildes llegan como «?» (docs/TRAMPAS.md)."""
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt", delete=False) as f:
+            f.write("\n".join([*args, str(path)]) + "\n")
+        try:
+            subprocess.run(
+                [*runner.command, "-overwrite_original", "-charset", "utf8",
+                 "-charset", "filename=utf8", "-@", f.name],
+                capture_output=True, check=True,
+            )  # fmt: skip
+        finally:
+            Path(f.name).unlink(missing_ok=True)
+
+    def overwrite(path: Path, content: str) -> None:
+        """Sobrescribe un archivo aunque esté oculto (en Windows, 'write_text' no puede)."""
+        temp = path.with_name(path.name + ".prueba")
+        temp.write_text(content, encoding="utf-8")
+        os.replace(temp, path)
+
+    def tags_of(path: Path) -> dict[str, Any]:
+        return runner.read([path], tags=(*XMP_READ_TAGS, "-CurrentIPTCDigest"))[path].tags
+
     with tempfile.TemporaryDirectory() as tmp:
         library = Path(tmp) / "Biblioteca"
         (library / "sub").mkdir(parents=True)
         Image.new("RGB", (40, 30), "red").save(library / "foto.jpg", quality=90)
+        # Como si lo hubiera guardado Lightroom: IPTC antiguo y su resumen al día
+        exiftool_args(library / "foto.jpg", "-IPTC:ObjectName=Viejo", "-IPTC:City=Málaga")
+        exiftool_args(library / "foto.jpg", "-Photoshop:IPTCDigest=new")
         Image.new("RGB", (40, 30), "blue").save(library / "dibujo.png")
         Image.new("RGB", (40, 30), "green").save(library / "raw.nef", format="TIFF")  # "RAW"
         (library / "clip.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64)
@@ -982,6 +1066,39 @@ if __name__ == "__main__":
         again = write_pending_user_data(original)
         assert again.total == 0
 
+        # --- 2b. Metadatos editados: XMP con sus antiguas, sidecar y '.arca.json' --------
+        city = "Villanueva de la Cañada del Río Grande"  # más larga que el IPTC (32 bytes)
+        edits = {
+            "foto.jpg": {"title": "Atardecer en León", "description": "Línea 1\nLínea 2 →",
+                         "city": city},
+            "raw.nef": {"creator": "Javier Rojo"},
+            "clip.mp4": {"title": "Vídeo editado", "description": None},
+            "dibujo.png": {"title": "Temporal"},
+        }  # fmt: skip
+        for path, values in edits.items():
+            update_metadata_fields(original, [by_path[path]], values)
+        original.commit()
+        assert pending(original) == 4
+        result = write_pending_user_data(original)
+        assert (result.written, result.failed, pending(original)) == (4, 0, 0), result
+        tags = tags_of(library / "foto.jpg")
+        assert tags["XMP-dc:Title"] == tags["IPTC:ObjectName"] == "Atardecer en León", tags
+        assert tags["XMP-dc:Description"] == "Línea 1\nLínea 2 →", tags
+        assert tags["XMP-photoshop:City"] == city and city.startswith(tags["IPTC:City"]), tags
+        digest = next(v for k, v in tags.items() if k.endswith("CurrentIPTCDigest"))
+        assert tags["Photoshop:IPTCDigest"] == digest  # resumen IPTC al día
+        assert tags_of(library / "raw.xmp")["XMP-dc:Creator"] == "Javier Rojo"
+        entry = read_folder_file(library).items["clip.mp4"]
+        assert entry["title"] == "Vídeo editado" and entry["description"] == "", entry
+        # Vaciar el título: en el archivo desaparece; en el catálogo, el nombre del archivo
+        update_metadata_fields(original, [by_path["dibujo.png"]], {"title": "  "})
+        original.commit()
+        assert write_pending_user_data(original).written == 1
+        assert "XMP-dc:Title" not in tags_of(library / "dibujo.png")
+        assert edited(original, "dibujo.png")[0] == "dibujo" and pending(original) == 0
+        assert add_folder(original, library).changed_items == 0  # sin falsos cambios
+        print("Metadatos editados: al XMP (con IPTC y resumen), al sidecar y al .arca.json")
+
         # --- 3. Catálogo NUEVO a partir de las carpetas -------------------------------
         rebuilt = new_catalog()
         imported = add_folder(rebuilt, library)
@@ -989,7 +1106,11 @@ if __name__ == "__main__":
         process_pending_metadata(rebuilt, registry=registry)  # fotos (XMP y sidecar)
         assert user_values(rebuilt) == wanted, user_values(rebuilt)
         assert pending(rebuilt) == 0
-        print("Catálogo reconstruido: valoraciones, marcas y colores recuperados")
+        assert edited(rebuilt, "foto.jpg") == ("Atardecer en León", "Línea 1\nLínea 2 →", None, city)
+        assert edited(rebuilt, "raw.nef") == ("raw", None, "Javier Rojo", None)
+        assert edited(rebuilt, "clip.mp4") == ("Vídeo editado", None, None, None)
+        assert edited(rebuilt, "dibujo.png")[0] == "dibujo"
+        print("Catálogo reconstruido: valoraciones, marcas, colores y metadatos editados recuperados")
 
         # --- 4. Un cambio pendiente NO se pisa al releer el archivo -------------------
         ids_rebuilt = ids(rebuilt)
@@ -1020,8 +1141,7 @@ if __name__ == "__main__":
 
         # --- 5b. Cambio externo Y cambio en la aplicación a la vez: gana la aplicación,
         #     pero el archivo se relee (por si trae otros datos nuevos, como un título)
-        subprocess.run([*command, "-overwrite_original", "-XMP-dc:Title=Nuevo título",
-                        str(library / "foto.jpg")], capture_output=True, check=True)  # fmt: skip
+        exiftool_args(library / "foto.jpg", "-XMP-dc:Title=Nuevo título")
         update_user_field(rebuilt, [ids_rebuilt["foto.jpg"]], "rating", 2)
         rebuilt.execute("UPDATE media_items SET thumbnail_status = 1 WHERE relative_path = 'foto.jpg'")
         rebuilt.commit()
@@ -1056,8 +1176,8 @@ if __name__ == "__main__":
         print("Sin ExifTool: el PNG sigue pendiente, el vídeo se escribe")
 
         # --- 7. Archivo de carpeta dañado: no se reescribe a ciegas ------------------
-        (library / "sub" / FOLDER_FILE_NAME).write_text("{roto", encoding="utf-8")
-        (library / "sub" / BACKUP_FILE_NAME).write_text("{roto", encoding="utf-8")
+        overwrite(library / "sub" / FOLDER_FILE_NAME, "{roto")
+        overwrite(library / "sub" / BACKUP_FILE_NAME, "{roto")
         update_user_field(rebuilt, [ids_rebuilt["sub/peli.mkv"]], "rating", 3)
         rebuilt.commit()
         broken = write_pending_user_data(rebuilt)

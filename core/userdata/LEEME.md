@@ -1,8 +1,9 @@
 # Datos del usuario fuera del catálogo: cómo está organizado
 
-La valoración, la marca (aceptada/rechazada) y la etiqueta de color se guardan en la base
-de datos **y también fuera de ella**, para que sobrevivan a recrear el catálogo: basta con
-volver a añadir las carpetas. Todo lo de aquí es Python puro (sin Qt).
+La valoración, la marca (aceptada/rechazada), la etiqueta de color, las palabras clave y
+los metadatos descriptivos editados en la aplicación (título, pie, ubicación...) se guardan
+en la base de datos **y también fuera de ella**, para que sobrevivan a recrear el catálogo:
+basta con volver a añadir las carpetas. Todo lo de aquí es Python puro (sin Qt).
 
 ## Mapa
 
@@ -10,7 +11,7 @@ volver a añadir las carpetas. Todo lo de aquí es Python puro (sin Qt).
 core/userdata/
 ├── policy.py        ► AQUÍ se decide el destino de cada formato (una línea por extensión)
 ├── editable_fields.py ► Metadatos descriptivos editables (título, pie, ubicación...): una línea por
-│                      campo. En construcción (C.5 de docs/PENDIENTE.md): aún no se escriben
+│                      campo. Se leen y se escriben; falta editarlos en el inspector (C.5)
 ├── folder_file.py     El archivo de carpeta '.arca.json' (leer, escribir de forma atómica, copia .bak)
 ├── xmp_writer.py      Escritura en XMP con ExifTool (incrustado o sidecar), con comprobación
 └── sync.py            Une catálogo y archivos: el trabajo de escritura y la lectura al importar
@@ -104,6 +105,16 @@ del destino nuevo (vacío). Si algún día hiciera falta, habría que migrarlos.
   (`core/metadata/image/fields.py`).
 - En la BD: un bit nuevo en `USER_FIELD_BITS` (`media_queries.py`) y ampliar el `CHECK` de
   `user_data_pending` con una migración.
+
+## Receta: un metadato descriptivo editable nuevo
+
+Una línea en `EDITABLE_FIELDS` (`editable_fields.py`) con el siguiente bit libre, su
+etiqueta XMP, sus etiquetas antiguas (las mismas, y en el mismo orden, que las de lectura en
+`IMAGE_FIELDS`: la autoprueba lo comprueba) y su clave del `.arca.json`. La columna tiene
+que existir en `media_items`. Escritura, relectura y marca de pendiente salen solas.
+Reglas de escritura (XMP siempre, antiguas solo si existen, resumen IPTC, `#[CSTR]`): en la
+cabecera de `xmp_writer.py` y en «Escritura de los metadatos descriptivos» de
+`docs/METADATOS.md`.
 
 ## Pruebas
 

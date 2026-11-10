@@ -10,11 +10,12 @@ El procesador siempre llama a 'extract_batch'.
 
 Cómo ampliar un extractor con campos nuevos: ver 'LEEME.md'.
 
+2.0.2 'metadata_edit_pending' (migración 2) en 'PROTECTED_COLUMNS'.
 2.0.1 Docstring de 'ExtractionResult': un título None ya no conserva el anterior (el
       procesador pone el nombre del archivo sin extensión).
 """
 
-__version__ = "2.0.1"
+__version__ = "2.0.2"
 __all__ = [
     "PROTECTED_COLUMNS",
     "ExtractionResult",
@@ -79,6 +80,7 @@ PROTECTED_COLUMNS: frozenset[str] = frozenset(
         "updated_at",
         "user_data_pending",
         "keywords_pending",
+        "metadata_edit_pending",
     }
 )
 

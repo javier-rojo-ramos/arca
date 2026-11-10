@@ -50,13 +50,16 @@ Seguridad al escribir ('write_folder_file'):
     Los tres archivos empiezan por punto (el escáner los ignora) y en Windows se marcan
     además como ocultos.
 
+1.4.0 'merge_entry' escribe los metadatos editados (vaciado = ""). Autoprueba: el
+      '.arca.json' oculto se sobrescribe con un temporal y 'os.replace' (en Windows,
+      'write_text' sobre un archivo oculto da PermissionError).
 1.3.0 'edited_values_from_entry': lee los metadatos descriptivos editados de una entrada.
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.folder_file
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "BACKUP_FILE_NAME",
     "FOLDER_FILE_NAME",
@@ -326,15 +329,18 @@ def merge_entry(
     Args:
         entry: Entrada anterior (o None si no tenía).
         values: rating, flag y color_label actuales (los de la base de datos) y, si se
-            quieren escribir, 'keywords' (rutas). Sin 'keywords', las que tuviera la
-            entrada se conservan tal cual.
+            quieren escribir, 'keywords' (rutas) y metadatos editados (por su COLUMNA:
+            'title', 'city'...; None = vaciado a propósito, que se guarda como ""). Sin
+            'keywords' o sin un metadato, lo que tuviera la entrada se conserva tal cual.
         now: Marca de tiempo ISO 8601 UTC (por defecto, la hora actual).
 
     Returns:
         La entrada nueva, o None si ya no hay nada que guardar (se borra la entrada).
     """
+    edited = [spec for spec in EDITABLE_FIELDS if spec.column in values]
     # Se parte de las claves que no son de esta función (desconocidas o futuras)
     replaced = set(USER_DEFAULTS) | {"updated_at"} | ({KEYWORDS_KEY} if KEYWORDS_KEY in values else set())
+    replaced |= {spec.folder_key for spec in edited}
     merged = {k: v for k, v in (entry or {}).items() if k not in replaced}
     for key, default in USER_DEFAULTS.items():
         value = values.get(key, default)
@@ -342,6 +348,11 @@ def merge_entry(
             merged[key] = value
     if values.get(KEYWORDS_KEY):
         merged[KEYWORDS_KEY] = [list(path) for path in values[KEYWORDS_KEY]]
+    # Un metadato editado se guarda SIEMPRE (también vacío): la clave dice «editado» y su
+    # valor manda sobre lo que traiga el archivo
+    for spec in edited:
+        value = values[spec.column]
+        merged[spec.folder_key] = "" if value is None else value
 
     if not merged:
         return None
@@ -440,6 +451,13 @@ if __name__ == "__main__":
     # Ejecutar desde la raíz del proyecto:  python -m core.userdata.folder_file
     import tempfile
 
+    def overwrite(path: Path, content: str) -> None:
+        """Sobrescribe un archivo aunque esté oculto (en Windows, 'write_text' no puede:
+        los '.arca.json' se marcan como ocultos), como lo hace 'write_folder_file'."""
+        temp = path.with_name(path.name + ".prueba")
+        temp.write_text(content, encoding="utf-8")
+        os.replace(temp, path)
+
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
 
@@ -481,7 +499,6 @@ if __name__ == "__main__":
 
         # 4b. Metadatos editados: solo las claves que están; "" y null = vaciado; lo que
         #     no es texto se ignora. 'merge_entry' los conserva al reescribir lo demás
-        #     (va antes del 5, que en Windows falla: sobrescribe un archivo oculto)
         edited = {"title": " Atardecer ", "description": "", "city": None, "country": 34,
                   "region": "Línea 1\r\nLínea 2", "rating": 2}  # fmt: skip
         assert edited_values_from_entry(edited) == {
@@ -490,10 +507,20 @@ if __name__ == "__main__":
         assert edited_values_from_entry({"rating": 2}) == {}
         assert edited_values_from_entry(None) == {}
         assert merge_entry(edited, {"rating": 4}, now="T")["title"] == " Atardecer "
-        print("Metadatos editados: leídos de la entrada")
+        # Al escribirlos: por su columna; vaciado = "" (la clave sigue: «editado»)
+        written = merge_entry({"rating": 2, "city": "Soria"},
+                              {"rating": 2, "title": "Nuevo", "description": None}, now="T")  # fmt: skip
+        assert written == {"rating": 2, "city": "Soria", "title": "Nuevo", "description": "",
+                           "updated_at": "T"}, written  # fmt: skip
+        assert edited_values_from_entry(written) == {
+            "title": "Nuevo", "description": None, "city": "Soria"
+        }  # fmt: skip
+        # Una entrada con solo metadatos vaciados no se borra (sin ellos volvería lo del archivo)
+        assert merge_entry(None, {"title": None}, now="T") == {"title": "", "updated_at": "T"}
+        print("Metadatos editados: leídos de la entrada y escritos en ella")
 
         # 5. Archivo principal dañado: se usa la copia
-        (folder / FOLDER_FILE_NAME).write_text("{ esto no es json", encoding="utf-8")
+        overwrite(folder / FOLDER_FILE_NAME, "{ esto no es json")
         recovered = read_folder_file(folder)
         assert recovered.source == "backup" and recovered.items["Peli.mkv"]["rating"] == 4
 
@@ -502,8 +529,8 @@ if __name__ == "__main__":
         assert read_folder_file(folder).source == "backup"
 
         # 7. Los dos dañados: error (no "sin datos")
-        (folder / FOLDER_FILE_NAME).write_text("[]", encoding="utf-8")
-        (folder / BACKUP_FILE_NAME).write_text("nope", encoding="utf-8")
+        overwrite(folder / FOLDER_FILE_NAME, "[]")
+        overwrite(folder / BACKUP_FILE_NAME, "nope")
         try:
             read_folder_file(folder)
         except FolderFileError as error:
@@ -534,7 +561,7 @@ if __name__ == "__main__":
 
         # 10. Una versión futura del formato no se rebaja al reescribir
         future = {"format": _FORMAT_ID, "version": 7, "items": {"a.mp3": {"rating": 1}}}
-        (folder / FOLDER_FILE_NAME).write_text(json.dumps(future), encoding="utf-8")
+        overwrite(folder / FOLDER_FILE_NAME, json.dumps(future))
         loaded = read_folder_file(folder)
         assert loaded.version == 7
         write_folder_file(loaded)
