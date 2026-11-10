@@ -22,11 +22,15 @@ leerlo en 'load()' y guardarlo en 'save()' (y añadir la clave a
 
 Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 
+1.2.0 "Metadatos": opción «Preguntar antes de cambiar varios archivos con valores
+      distintos» (el aviso «Edición múltiple»; SETTING_CONFIRM_MULTI_EDIT); la ayuda de
+      «Escribir los cambios en los archivos» cita también las palabras clave y los
+      metadatos editados.
 1.1.1 Texto de ayuda con el nombre nuevo del archivo de carpeta ('.arca.json').
 1.1.0 Sección "Catálogo": mostrar o no los elementos de las subcarpetas.
 """
 
-__version__ = "1.1.1"
+__version__ = "1.2.0"
 __all__ = ["PAGES", "CatalogPage", "GeneralPage", "MetadataPage", "SettingsDialog", "SettingsPage"]
 
 # Librerías estándar
@@ -56,6 +60,7 @@ from qtpy.QtWidgets import (
 # Módulos del proyecto
 from config import app_paths
 from config.app_constants import (
+    SETTING_CONFIRM_MULTI_EDIT,
     SETTING_SHOW_SUBFOLDER_ITEMS,
     SETTING_WRITE_USER_DATA_TO_FILES,
     AppIcons,
@@ -192,7 +197,8 @@ class CatalogPage(SettingsPage):
 
 
 class MetadataPage(SettingsPage):
-    """Sección "Metadatos": dónde se guardan la valoración, la marca y el color."""
+    """Sección "Metadatos": guardar los cambios también en los archivos y preguntar antes de
+    poner el mismo metadato a varios archivos que lo tienen distinto."""
 
     title = "Metadatos"
     icon = AppIcons.LIB_IMAGE
@@ -204,8 +210,9 @@ class MetadataPage(SettingsPage):
         self.body.addWidget(self.check_write_files)
         self.body.addWidget(
             self.make_help_label(
-                "La valoración, la marca y la etiqueta de color se guardan también fuera "
-                "del catálogo, para no perderlas si hay que volver a crearlo:"
+                "La valoración, la marca, la etiqueta de color, las palabras clave y los "
+                "metadatos editados en el inspector (título, pie, ubicación...) se guardan "
+                "también fuera del catálogo, para no perderlos si hay que volver a crearlo:"
                 "<ul>"
                 "<li><b>JPEG, TIFF, PNG, WebP, DNG, HEIC</b>: dentro del propio archivo (XMP), "
                 "como Lightroom.</li>"
@@ -220,11 +227,27 @@ class MetadataPage(SettingsPage):
             )
         )
 
+        self.check_confirm_multi_edit = QCheckBox(
+            "Preguntar antes de cambiar varios archivos con valores distintos"
+        )
+        self.body.addWidget(self.check_confirm_multi_edit)
+        self.body.addWidget(
+            self.make_help_label(
+                "Al editar en el inspector un metadato (título, pie, ubicación...) de varios "
+                "archivos que lo tienen distinto (<i>Varios</i>), se pide confirmación antes "
+                "de poner a todos el mismo valor. Es el aviso <b>Edición múltiple</b>: su "
+                "casilla <i>No volver a mostrar</i> desactiva esta opción."
+            )
+        )
+
     def load(self) -> None:
         self._load_bool(SETTING_WRITE_USER_DATA_TO_FILES, self.check_write_files, True)
+        self._load_bool(SETTING_CONFIRM_MULTI_EDIT, self.check_confirm_multi_edit, True)
 
     def save(self) -> set[str]:
-        return self._save_bool(SETTING_WRITE_USER_DATA_TO_FILES, self.check_write_files)
+        changed = self._save_bool(SETTING_WRITE_USER_DATA_TO_FILES, self.check_write_files)
+        changed |= self._save_bool(SETTING_CONFIRM_MULTI_EDIT, self.check_confirm_multi_edit)
+        return changed
 
 
 # Secciones de la ventana, en el orden en que aparecen. Para añadir una, crear su
@@ -353,6 +376,7 @@ if __name__ == "__main__":
             self.data: dict[str, Any] = {
                 SETTING_WRITE_USER_DATA_TO_FILES: True,
                 SETTING_SHOW_SUBFOLDER_ITEMS: True,
+                SETTING_CONFIRM_MULTI_EDIT: False,  # como tras «No volver a mostrar»
             }
 
         def get(self, key: str, default: Any = None) -> Any:

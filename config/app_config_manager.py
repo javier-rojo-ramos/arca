@@ -5,6 +5,7 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.12 Se añade 'confirm_multi_edit' (aviso «Edición múltiple» del inspector).
 1.11 Se añade 'filter_presets' (ajustes personalizados de la barra de filtros).
 1.10 Se añade 'filter_metadata_height' (alto del panel «Metadatos» de la barra de filtros).
 1.09 Se añade 'last_add_folder_parent' (dónde se abre «Añadir carpeta»).
@@ -19,7 +20,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.11"
+__version__ = "1.12"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -36,6 +37,7 @@ from typing import Any, ClassVar
 # Módulos del proyecto
 from config.app_constants import (
     SETTING_ACTIVE_MODULE,
+    SETTING_CONFIRM_MULTI_EDIT,
     SETTING_FILTER_METADATA_HEIGHT,
     SETTING_FILTER_PRESETS,
     SETTING_INSPECTOR_METADATA_PRESET,
@@ -66,6 +68,9 @@ class ConfigManager:
         "thumbnail_size": THUMBNAIL_SIZE_DEFAULT,  # Tamaño de miniaturas (slider_thumbnails)
         # Escribir valoración, marca y color en los archivos (Opciones > Metadatos)
         SETTING_WRITE_USER_DATA_TO_FILES: True,
+        # Preguntar antes de poner el mismo metadato a varios archivos que lo tienen distinto
+        # (aviso «Edición múltiple»; Opciones > Metadatos)
+        SETTING_CONFIRM_MULTI_EDIT: True,
         # Al elegir una carpeta, mostrar también sus subcarpetas (Opciones > Catálogo)
         SETTING_SHOW_SUBFOLDER_ITEMS: True,
         # Lo desplegado en la barra lateral, por catálogo (ver CatalogSidebar.save_state)

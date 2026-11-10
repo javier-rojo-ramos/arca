@@ -11,7 +11,7 @@ basta con volver a añadir las carpetas. Todo lo de aquí es Python puro (sin Qt
 core/userdata/
 ├── policy.py        ► AQUÍ se decide el destino de cada formato (una línea por extensión)
 ├── editable_fields.py ► Metadatos descriptivos editables (título, pie, ubicación...): una línea por
-│                      campo. Se leen y se escriben; falta editarlos en el inspector (C.5)
+│                      campo. Se editan en el inspector («Metadatos» de Imagen)
 ├── folder_file.py     El archivo de carpeta '.arca.json' (leer, escribir de forma atómica, copia .bak)
 ├── xmp_writer.py      Escritura en XMP con ExifTool (incrustado o sidecar), con comprobación
 └── sync.py            Une catálogo y archivos: el trabajo de escritura y la lectura al importar

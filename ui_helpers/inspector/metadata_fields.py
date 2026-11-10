@@ -35,6 +35,8 @@ Cómo añadir:
     - La vista personalizada (más adelante): una lista de claves guardada en
       'settings.json'; 'preset_rows' ya acepta cualquier lista de claves.
 
+1.6.0 La ubicación (lugar, ciudad, región, país y código de país) también se edita
+      (paso C.5, 5).
 1.5.0 'EDITABLE_KEYS' (los campos que se editan en la sección: título, pie, creador y
       copyright) y 'editor_value' (lo que muestra su caja).
 1.4.0 Título, Pie (de ilustración), Creador y Copyright, de solo lectura por ahora, en
@@ -47,7 +49,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.metadata_fields
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = [
     "COMMON_HEAD",
     "DEFAULT_PRESET",
@@ -313,8 +315,11 @@ DEFAULT_PRESET = "default"
 
 # Campos que se EDITAN en la sección (con una caja en lugar de un texto; paso C.5). Su
 # clave es la columna de 'core/userdata/editable_fields.py', que dice además si admite
-# varias líneas. La ubicación se añadirá aquí en el paso 5
-EDITABLE_KEYS: tuple[str, ...] = ("title", "description", "creator", "copyright")
+# varias líneas. Se editan en todas las vistas donde aparecen
+EDITABLE_KEYS: tuple[str, ...] = (
+    "title", "description", "creator", "copyright",
+    "sublocation", "city", "region", "country", "country_code",
+)  # fmt: skip
 assert set(EDITABLE_KEYS) <= set(EDITABLE_COLUMNS) and set(EDITABLE_KEYS) <= set(FIELDS)
 
 
@@ -471,6 +476,11 @@ if __name__ == "__main__":
     assert editor_value(values["description"]) == ("Primera línea\nSegunda línea", False)
     assert editor_value(FieldValue(MIXED)) == ("", True)
     assert editor_value(FieldValue()) == ("", False)
+    # Todos los metadatos que se saben escribir se editan aquí, y en todas las vistas donde
+    # están (la ubicación, en «Por defecto» y «Ubicación»)
+    assert set(EDITABLE_KEYS) == set(EDITABLE_COLUMNS)
+    for preset in ("default", "location"):
+        assert set(_PLACE_BLOCK) <= set(preset_rows(preset)) & set(EDITABLE_KEYS), preset
     print("3. Foto, vista por defecto: como el ejemplo")
     # Título, pie, creador y copyright: tras la exposición en «Por defecto», tras las fechas
     # en «Ubicación» y nunca en «EXIF»; siempre antes del lugar
