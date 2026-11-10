@@ -32,7 +32,7 @@ Al cambiar una de estas versiones, actualizar esta tabla.
 | | |
 |---|---|
 | Aplicación | Arca Media 26.11.001 (`config/app_paths.py`: `APP_NAME` «arca», `APP_NAME_COMERCIAL` y `APP_VERSION`) |
-| Esquema de la base de datos | v1, consolidado el 05/11/2026 (`PRAGMA user_version` = número de migraciones de `core/catalog/catalog_schema.py`; los catálogos llevan la marca `APPLICATION_ID` en `PRAGMA application_id`) |
+| Esquema de la base de datos | v2: la v1, consolidada el 05/11/2026, y la migración 2 (`metadata_edit_pending`, 10/11/2026) (`PRAGMA user_version` = número de migraciones de `core/catalog/catalog_schema.py`; los catálogos llevan la marca `APPLICATION_ID` en `PRAGMA application_id`) |
 | Lista de campos de imagen | versión 8 (`IMAGE_FIELDS_VERSION`; incluye la lectura de los datos del usuario y de las palabras clave) |
 | Lista de campos de vídeo | versión 2 (`VIDEO_FIELDS_VERSION`; con el objetivo; comprobada con vídeos de iPhone) |
 | Lector de GPX | versión 2 (`TRACK_EXTRACTOR_VERSION`; umbral de desnivel 8 m) |

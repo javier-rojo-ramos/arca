@@ -25,6 +25,8 @@ de una canción...) van en tablas 1:1 con 'media_items' (photo_details,
 video_details, audio_details...), no en la tabla general. Las que falten se
 añadirán como migraciones nuevas, una por una.
 
+2.1.0 Migración 2: 'media_items.metadata_edit_pending' (metadatos descriptivos editados
+      pendientes de escribir, un bit por campo) y su índice parcial.
 2.0.0 Esquema consolidado: las 17 migraciones de la fase de pruebas pasan a ser una sola
       (v1), con cada columna en su sitio lógico. 'APPLICATION_ID' marca los catálogos de
       la aplicación; los anteriores no se migran (los rechaza 'open_catalog').
@@ -46,7 +48,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.catalog_schema
 """
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 __all__ = [
     "APPLICATION_ID",
     "BUSY_TIMEOUT_SECONDS",
@@ -485,9 +487,26 @@ CREATE TABLE collection_items (
 CREATE INDEX idx_collection_items_media ON collection_items(media_id);
 """
 
+# Migración 2 (10/11/2026): metadatos descriptivos editados en la aplicación (título, pie
+# de ilustración, creador, copyright, ubicación) aún no escritos en su destino.
+_MIGRATION_002_METADATA_EDIT_PENDING = """
+-- BLOQUE D. UN BIT POR CAMPO, los de 'EDITABLE_FIELDS' (core/userdata/editable_fields.py):
+-- 0 = nada pendiente. Lo pone 'update_metadata_fields' (solo los bits de lo que cambia) y
+-- lo quita el trabajo de escritura (core/userdata/sync.py) cuando el destino ya tiene ese
+-- valor. Mientras un bit está puesto, lo que se lea del archivo no pisa ESA columna. Como
+-- 'user_data_pending', pero sin tope en el CHECK: un campo editable nuevo es un bit más y
+-- no necesita otra migración (el tope de aquella obligó a separar 'keywords_pending').
+ALTER TABLE media_items ADD COLUMN metadata_edit_pending INTEGER NOT NULL DEFAULT 0
+    CHECK(metadata_edit_pending >= 0);
+CREATE INDEX idx_media_metadata_edit_pending ON media_items(id) WHERE metadata_edit_pending <> 0;
+"""
+
 # Lista ORDENADA de migraciones: la posición (empezando en 1) es la versión a la
 # que lleva cada una. Para evolucionar el esquema, añadir elementos AL FINAL.
-MIGRATIONS: tuple[str, ...] = (_MIGRATION_001_INITIAL_SCHEMA,)
+MIGRATIONS: tuple[str, ...] = (
+    _MIGRATION_001_INITIAL_SCHEMA,
+    _MIGRATION_002_METADATA_EDIT_PENDING,
+)
 
 # Versión actual del esquema: se deduce sola del número de migraciones, así no
 # hay que acordarse de subirla a mano.
@@ -620,7 +639,7 @@ if __name__ == "__main__":
 
     # 1. Un catálogo vacío pasa de la versión 0 a la actual, con la marca de la aplicación
     assert db.execute("PRAGMA user_version").fetchone()[0] == 0
-    assert apply_migrations(db) == SCHEMA_VERSION == 1
+    assert apply_migrations(db) == SCHEMA_VERSION == 2
     assert db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert db.execute("PRAGMA application_id").fetchone()[0] == APPLICATION_ID
     print(f"Esquema creado: v{SCHEMA_VERSION}, application_id = {APPLICATION_ID:#x}")
@@ -659,10 +678,11 @@ if __name__ == "__main__":
     defaults = db.execute(
         """SELECT rating, flag, orientation, is_missing, has_xmp_sidecar, library,
                   library_manual, thumbnail_status, thumbnail_version, thumbnail_source,
-                  scan_version, user_data_pending, keywords_pending, in_quick_selection
+                  scan_version, user_data_pending, keywords_pending, in_quick_selection,
+                  metadata_edit_pending
              FROM media_items"""
     ).fetchone()
-    assert defaults == (0, 0, 1, 0, 0, None, 0, 0, 0, None, 0, 0, 0, 0), defaults
+    assert defaults == (0, 0, 1, 0, 0, None, 0, 0, 0, None, 0, 0, 0, 0, 0), defaults
     print("Valores por defecto de media_items: correctos")
 
     # 6. Los CHECK rechazan valores imposibles
@@ -671,8 +691,12 @@ if __name__ == "__main__":
         ("longitude", -181.0), ("user_data_pending", 8), ("keywords_pending", 2),
         ("in_quick_selection", 2), ("library_manual", 2), ("has_xmp_sidecar", 2),
         ("content_date_precision", "hour"), ("thumbnail_status", 3),
+        ("metadata_edit_pending", -1), ("metadata_edit_pending", None),
     ):  # fmt: skip
         assert rejected(db, f"UPDATE media_items SET {column} = ?", (value,)), column
+    # 'metadata_edit_pending' no tiene tope: un campo editable nuevo es un bit más
+    assert not rejected(db, "UPDATE media_items SET metadata_edit_pending = ?", (1 << 20,))
+    db.execute("UPDATE media_items SET metadata_edit_pending = 0")
     assert rejected(db, "INSERT INTO collections(kind, name) VALUES ('carpeta', 'x')")
     print("CHECK: valores imposibles rechazados")
 
@@ -687,6 +711,7 @@ if __name__ == "__main__":
         ("idx_media_items_quick_selection", "in_quick_selection = 1"),
         ("idx_media_user_data_pending", "user_data_pending <> 0"),
         ("idx_media_keywords_pending", "keywords_pending <> 0"),
+        ("idx_media_metadata_edit_pending", "metadata_edit_pending <> 0"),
     ):
         plan = " ".join(
             str(row[-1])
@@ -743,6 +768,28 @@ if __name__ == "__main__":
 
     # 13. La función SQL de texto sin mayúsculas ni acentos está registrada
     assert db.execute(f"SELECT {FOLD_SQL_FUNCTION}('Añisclo')").fetchone()[0] == "anisclo"
-
     db.close()
+
+    # 14. Un catálogo v1 con datos pasa a la v2: la columna nueva vale 0 en lo que ya había
+    old = sqlite3.connect(":memory:")
+    configure_connection(old)
+    old.executescript(
+        f"BEGIN;\n{MIGRATIONS[0]}\nPRAGMA application_id = {APPLICATION_ID};\n"
+        "PRAGMA user_version = 1;\nCOMMIT;"
+    )
+    old.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('Prueba', '/p')")
+    old.execute(
+        """INSERT INTO media_items(storage_location_id, relative_path, file_name,
+               media_type, mime_type, file_size, file_mtime_ns, title, rating)
+           VALUES (1, 'a/foto.jpg', 'foto.jpg', 'photo', 'image/jpeg', 1, 0, 'foto', 4)"""
+    )
+    old.commit()
+    assert "metadata_edit_pending" not in columns_of(old, "media_items")
+    assert apply_migrations(old) == 2
+    assert old.execute("PRAGMA user_version").fetchone()[0] == 2
+    row = old.execute("SELECT rating, metadata_edit_pending FROM media_items").fetchone()
+    assert row == (4, 0), row
+    old.close()
+    print("Migración 2: catálogo v1 al día, con 'metadata_edit_pending' = 0")
+
     print("Autoprueba finalizada correctamente.")

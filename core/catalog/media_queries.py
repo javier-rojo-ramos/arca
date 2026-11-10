@@ -16,6 +16,9 @@ Tres responsabilidades:
        en la barra lateral siempre coincide con lo que muestra la cuadrícula.
     3. 'update_user_field': guarda en el catálogo lo que el usuario decide en la cuadrícula
        (estrellas, marca, etiqueta de color: BLOQUE C del esquema).
+       'update_metadata_fields': lo mismo con los metadatos descriptivos que edita el
+       usuario (título, pie de ilustración, ubicación...; ver
+       core/userdata/editable_fields.py), con su bit en 'metadata_edit_pending'.
     4. 'set_quick_selection' / 'clear_quick_selection': la "Selección rápida" (el círculo
        de la tarjeta). Vive SOLO en el catálogo: no se escribe en los archivos.
 
@@ -25,6 +28,8 @@ solo la mitad del trabajo: 'update_user_field' deja además el elemento PENDIENT
 archivo, en su sidecar XMP o en el archivo de carpeta, para que sobreviva a recrear el
 catálogo.
 
+2.2.0 'update_metadata_fields': metadatos descriptivos editados, pendientes de escribir
+      (paso C.5).
 2.1.0 Filtro de la barra de filtros: 'fetch_grid_rows(..., filters)' y
       'source_condition(source, filters)' (paso A.3).
 2.0.0 El orden es un 'GridOrder' (campo y dirección, de 'grid_orders.py'); se quitan
@@ -49,7 +54,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_queries
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 # ruff: noqa: RUF022
 __all__ = [
     "AVAILABLE",
@@ -65,12 +70,13 @@ __all__ = [
     "fetch_grid_rows",
     "set_quick_selection",
     "source_condition",
+    "update_metadata_fields",
     "update_user_field",
 ]
 
 # Librerías estándar
 import sqlite3
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 # Módulos del proyecto
@@ -79,6 +85,7 @@ from core.catalog.grid_orders import NAME_ORDER, GridOrder, order_by_sql
 from core.catalog.grid_source import ALL_ITEMS, GridSource, SourceKind
 from core.catalog.keywords import KEYWORD_MEDIA_SQL
 from core.catalog.smart_rules import RuleSet, rules_to_sql
+from core.userdata.editable_fields import bits_for, default_title, normalize_value
 
 # Valores de 'media_items.flag' (mismos que Lightroom: marcada / sin marca / rechazada)
 FLAG_REJECTED = -1
@@ -361,6 +368,70 @@ def update_user_field(
     return changed
 
 
+def update_metadata_fields(
+    conn: sqlite3.Connection, media_ids: Sequence[int], values: Mapping[str, object]
+) -> int:
+    """Escribe metadatos descriptivos editados (título, pie, ubicación...) en varios elementos.
+
+    Como 'update_user_field', pero para los campos de 'EDITABLE_FIELDS'
+    (core/userdata/editable_fields.py), varios a la vez: cada valor, limpio
+    ('normalize_value'), va a su columna, y los bits de ESOS campos se ponen en
+    'metadata_edit_pending'. Hasta que el trabajo de escritura los lleve al archivo, lo que
+    se lea de él no pisa estas columnas.
+
+    Un título vacío (None, '' o solo espacios) vuelve, en cada elemento, al nombre de su
+    archivo sin extensión ('title' es NOT NULL), y queda pendiente igual: en el archivo se
+    vacía.
+
+    Args:
+        conn: Conexión (la pone el gestor; él hace el commit).
+        media_ids: 'id' de los elementos a modificar.
+        values: Columna editable -> texto nuevo (None o vacío = vaciar el campo).
+
+    Returns:
+        Número de elementos modificados.
+
+    Raises:
+        ValueError: Si una columna no es editable (no se modifica nada).
+        TypeError: Si un valor no es texto ni None (no se modifica nada).
+    """
+    # Se valida todo antes de tocar nada
+    clean = {column: normalize_value(column, value) for column, value in values.items()}
+    if not clean:
+        return 0
+    bits = bits_for(clean)
+    reset_title = "title" in clean and clean["title"] is None
+    assigned = {
+        column: value
+        for column, value in clean.items()
+        if not (column == "title" and value is None)
+    }
+    # Las columnas ya están validadas contra una lista cerrada: es seguro ponerlas en el SQL
+    assignments = "".join(f"{column} = ?, " for column in assigned)
+    ids = [int(i) for i in media_ids]
+    changed = 0
+    for start in range(0, len(ids), _CHUNK):
+        chunk = ids[start : start + _CHUNK]
+        marks = ",".join("?" * len(chunk))
+        cursor = conn.execute(
+            f"UPDATE media_items SET {assignments}"
+            "metadata_edit_pending = metadata_edit_pending | ?, "
+            f"updated_at = CURRENT_TIMESTAMP WHERE id IN ({marks})",
+            (*assigned.values(), bits, *chunk),
+        )
+        changed += cursor.rowcount
+        if reset_title:
+            # El nombre sin extensión se calcula en Python, igual que lo hace el escáner
+            rows = conn.execute(
+                f"SELECT id, file_name FROM media_items WHERE id IN ({marks})", chunk
+            ).fetchall()
+            conn.executemany(
+                "UPDATE media_items SET title = ? WHERE id = ?",
+                [(default_title(file_name), media_id) for media_id, file_name in rows],
+            )
+    return changed
+
+
 # -----------------------------------------------------------------------------
 # Selección rápida
 # -----------------------------------------------------------------------------
@@ -563,6 +634,40 @@ if __name__ == "__main__":
     many = list(range(1, 1500))
     assert update_user_field(db, many, "rating", 2) == 5  # solo existen 5 filas
     assert update_user_field(db, [], "rating", 1) == 0
+
+    # Metadatos descriptivos editados: cada valor, limpio, a su columna, y su bit pendiente
+    def edited(name: str) -> tuple[Any, ...]:
+        return db.execute(
+            "SELECT title, description, city, metadata_edit_pending FROM media_items "
+            "WHERE file_name = ?",
+            (name,),
+        ).fetchone()
+
+    user_pending = dict(db.execute("SELECT id, user_data_pending FROM media_items"))
+    values = {"title": "  Atardecer ", "city": "León"}
+    assert update_metadata_fields(db, [ids["a.jpg"], ids["b.jpg"]], values) == 2
+    assert edited("a.jpg") == edited("b.jpg") == ("Atardecer", None, "León", 1 | 32)
+    assert edited("c.jpg") == ("c.jpg", None, None, 0)  # los demás, sin tocar
+    # Vaciar: el título vuelve al nombre sin extensión y la ciudad a NULL; los bits se suman
+    values = {"title": "", "city": None, "description": "Uno\r\nDos"}
+    assert update_metadata_fields(db, [ids["a.jpg"]], values) == 1
+    assert edited("a.jpg") == ("a", "Uno\nDos", None, 1 | 2 | 32)
+    assert edited("b.jpg") == ("Atardecer", None, "León", 1 | 32)
+    # No toca los datos del usuario ni su pendiente
+    assert dict(db.execute("SELECT id, user_data_pending FROM media_items")) == user_pending
+    # Lo que no vale se rechaza entero, sin modificar nada
+    for bad in ({"rating": "3"}, {"title": 3}, {"city": "x", "file_name": "y"}):
+        try:
+            update_metadata_fields(db, [ids["a.jpg"]], bad)
+            raise AssertionError(f"debía rechazar {bad}")
+        except (ValueError, TypeError):
+            pass
+    assert edited("a.jpg") == ("a", "Uno\nDos", None, 1 | 2 | 32)
+    assert update_metadata_fields(db, [ids["a.jpg"]], {}) == 0
+    assert update_metadata_fields(db, [], {"city": "León"}) == 0
+    assert update_metadata_fields(db, many, {"title": None}) == 5  # troceado
+    titles = dict(db.execute("SELECT file_name, title FROM media_items"))
+    assert titles == {"c.jpg": "c", "a.jpg": "a", "b.jpg": "b", "B2.jpg": "B2", "gone.jpg": "gone"}
 
     # Selección rápida: se cuenta y se muestra lo mismo, y no deja nada pendiente de escribir
     from core.catalog.grid_source import QUICK_SELECTION

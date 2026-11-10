@@ -42,6 +42,7 @@ python -m core.metadata.track.gpx_reader     python -m core.metadata.track.extra
 python -m core.metadata.track.inspect_cli ruta.gpx    (diagnóstico de GPX: resumen y desnivel con varios umbrales)
 python -m core.userdata.policy               python -m core.userdata.xmp_writer   (ExifTool)
 python -m core.userdata.folder_file          python -m core.userdata.sync         (ExifTool; ida y vuelta completa)
+python -m core.userdata.editable_fields      (las etiquetas que se escriben son las mismas que se leen)
 python -m ui_helpers.helpers.card_marks      (dibuja las marcas en una imagen; necesita PySide6)
 python -m ui_helpers.helpers.card_glyphs     (dibuja marcadores e indicadores en una imagen; sin ventana)
 python -m ui_helpers.helpers.theme_colors   (contraste y formato de los colores del tema; marcas legibles sobre la banda)

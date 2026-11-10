@@ -136,7 +136,7 @@ core/
     libraries.py                     ► BIBLIOTECAS (Library, LIBRARY_NAMES: su nombre en toda la interfaz) y tipo de contenido de las carpetas: qué se cataloga en cada una (ALLOWED_MEDIA_TYPES), biblioteca de cada archivo (library_for), detección de vídeos por el nombre (guess_video_library: patrones al principio del archivo), corrección manual (set_library, CLASSIFIABLE_MEDIA_TYPES), classify_pending_videos, count_unclassified, declaraciones con herencia (FolderContentResolver, set_folder_content, folder_content_for)
     color_labels.py                    Etiquetas de color canónicas y equivalencia con Lightroom (xmp:Label, photoshop:LabelColor); sin Qt
     media_queries.py                   SQL de la cuadrícula (fetch_grid_rows, count_grid_items); _source_condition traduce
-                                       el GridSource a SQL (ÚNICO sitio; pública como source_condition); guardado de rating/flag/color (update_user_field); sin Qt
+                                       el GridSource a SQL (ÚNICO sitio; pública como source_condition); guardado de rating/flag/color (update_user_field) y de los metadatos editados (update_metadata_fields); sin Qt
     selection_summary.py               Resumen para el inspector: fetch_selection_summary (ids) y fetch_source_summary (origen); SelectionSummary
     keywords.py                        Palabras clave en el catálogo: ensure_keyword_path, resolve_flat_keyword (sueltas), set_media_keywords (manda el archivo), keyword_tree, fetch_keyword_tree, filter_keyword_tree; edición: assign_keyword, remove_keyword, diff_keyword_text, apply_keyword_changes; sin Qt
     selection_metadata.py              Valores comunes de unos campos en la selección (común / «Varios» / vacío); FieldSource dice de qué columnas sale cada campo por tipo de medio
@@ -189,6 +189,7 @@ core/
     inspect_cli.py                     Herramienta de diagnóstico (qué lee ExifTool / qué se guardaría; --campos elige imagen o vídeo según el archivo)
   userdata/                          ── Datos del usuario fuera del catálogo ── (ver core/userdata/LEEME.md)
     policy.py                        ► destino de cada formato: XMP incrustado, sidecar .xmp o archivo de carpeta
+    editable_fields.py               ► metadatos descriptivos editables: columna, bit de pendiente, etiquetas XMP y antiguas, clave del .arca.json
     folder_file.py                     Archivo de carpeta '.arca.json' (lectura, escritura atómica, copia .bak)
     xmp_writer.py                      Escritura en XMP con ExifTool (solo los campos pendientes; comprueba releyendo)
     sync.py                            write_pending_user_data (trabajo) y la lectura al importar (apply_file_user_data, apply_folder_files)

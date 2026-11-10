@@ -9,6 +9,8 @@ volver a añadir las carpetas. Todo lo de aquí es Python puro (sin Qt).
 ```
 core/userdata/
 ├── policy.py        ► AQUÍ se decide el destino de cada formato (una línea por extensión)
+├── editable_fields.py ► Metadatos descriptivos editables (título, pie, ubicación...): una línea por
+│                      campo. En construcción (C.5 de docs/PENDIENTE.md): aún no se escriben
 ├── folder_file.py     El archivo de carpeta '.arca.json' (leer, escribir de forma atómica, copia .bak)
 ├── xmp_writer.py      Escritura en XMP con ExifTool (incrustado o sidecar), con comprobación
 └── sync.py            Une catálogo y archivos: el trabajo de escritura y la lectura al importar
