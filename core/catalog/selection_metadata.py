@@ -20,6 +20,11 @@ Columnas: 'tabla.columna', con estas tablas:
 Para cada tipo de medio se dan sus columnas; '*' vale para cualquier tipo. Un tipo sin
 columnas no tiene ese campo (cuenta como "sin valor"): p. ej. la ISO de un vídeo.
 
+Columnas calculadas (no existen en la tabla; se escriben igual):
+    m.file_title   el título PROPIO: NULL si 'title' es el nombre del archivo sin extensión
+                   (función SQL 'arca_file_title'). Así varias fotos sin título salen en
+                   blanco, no «Varios» (cada una tiene su nombre como título).
+
     FieldSource("camera_model", {"photo": ("photo.camera_model",),
                                  "video": ("video.camera_model",)})
     FieldSource("dimensions", {"*": ("m.width", "m.height")})
@@ -27,11 +32,13 @@ columnas no tiene ese campo (cuenta como "sin valor"): p. ej. la ISO de un víde
 Rendimiento: una sola consulta por trozo de 500 'id', con 'COUNT(DISTINCT ...)' en SQL:
 seleccionar miles de fotos (Ctrl+A) no trae miles de filas a Python.
 
+1.1.0 Columna calculada 'm.file_title' (título propio; paso C.5).
+
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.selection_metadata
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["EMPTY", "MIXED", "VALUE", "FieldSource", "FieldValue", "fetch_field_values"]
 
 # Librerías estándar
@@ -41,6 +48,9 @@ import sqlite3
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
+
+# Módulos del proyecto
+from core.catalog.catalog_schema import FILE_TITLE_SQL_FUNCTION
 
 # Estados del valor de un campo en la selección
 EMPTY, VALUE, MIXED = "empty", "value", "mixed"
@@ -54,6 +64,11 @@ _TABLES: dict[str, str] = {
 
 # Una referencia de columna válida ('m.width', 'photo.iso'): evita SQL inyectado por error
 _COLUMN_REF = re.compile(r"^(m|photo|video|track)\.([a-z_][a-z0-9_]*)$")
+
+# Columnas calculadas (ver el docstring del módulo): referencia -> expresión SQL
+_COMPUTED_COLUMNS: dict[str, str] = {
+    "m.file_title": f"{FILE_TITLE_SQL_FUNCTION}(m.title, m.file_name)",
+}
 
 # SQLite limita las variables de una sentencia (999 en versiones antiguas)
 _CHUNK = 500
@@ -87,7 +102,10 @@ class FieldValue:
 
 
 def _column_sql(ref: str) -> str:
-    """SQL de una referencia de columna: 'm.width' o una subconsulta a su tabla de detalles."""
+    """SQL de una referencia de columna: 'm.width', una subconsulta a su tabla de detalles
+    o una columna calculada."""
+    if ref in _COMPUTED_COLUMNS:
+        return _COMPUTED_COLUMNS[ref]
     match = _COLUMN_REF.match(ref)
     if match is None:
         raise ValueError(f"Columna no válida: {ref!r} (se espera 'tabla.columna')")
@@ -242,6 +260,16 @@ if __name__ == "__main__":
     many = [add(f"m{i}.jpg", "photo", width=6000, height=4000) for i in range(1200)]
     assert fetch_field_values(db, many, sources)["dimensions"] == FieldValue(VALUE, (6000, 4000))
     assert fetch_field_values(db, [*many, c], sources)["dimensions"] == FieldValue(MIXED)
+
+    # 5b. Título propio: el nombre del archivo sin extensión no cuenta (vacío, no «Varios»)
+    own = [FieldSource("title", {"*": ("m.file_title",)})]
+    untitled = [add(f"IMG_{i}.jpg", "photo") for i in range(3)]
+    db.executemany("UPDATE media_items SET title = ? WHERE id = ?",
+                   [(f"IMG_{i}", media_id) for i, media_id in enumerate(untitled)])  # fmt: skip
+    assert fetch_field_values(db, untitled, own)["title"] == FieldValue(EMPTY)
+    db.execute("UPDATE media_items SET title = 'Atardecer' WHERE id = ?", (untitled[0],))
+    assert fetch_field_values(db, untitled[:1], own)["title"] == FieldValue(VALUE, ("Atardecer",))
+    assert fetch_field_values(db, untitled, own)["title"] == FieldValue(MIXED)
 
     # 6. Una columna mal escrita se rechaza (no se mete en el SQL)
     try:

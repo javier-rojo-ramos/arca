@@ -23,10 +23,10 @@
 
 | Columna | Imagen: de dónde sale | Vídeo: de dónde sale | Inspector «Metadatos» (vistas) | Colección inteligente | Otros usos |
 |---|---|---|---|---|---|
-| `title` | `XMP-dc:Title` → `IPTC:ObjectName` | `XMP-dc:Title` → `ItemList:Title` → `UserData:Title` … | — | Título | — |
-| `description` | `XMP-dc:Description` → `IPTC:Caption-Abstract` → `IFD0:ImageDescription` | `XMP-dc:Description` → `ItemList:Description` → `UserData:Description` … | — | Descripción | — |
-| `creator` | `XMP-dc:Creator` → `IPTC:By-line` → `IFD0:Artist` | `XMP-dc:Creator` → `ItemList:Artist` → `UserData:Artist` … | — | Autor | — |
-| `copyright` | `XMP-dc:Rights` → `IPTC:CopyrightNotice` → `IFD0:Copyright` | `XMP-dc:Rights` → `ItemList:Copyright` → `UserData:Copyright` | — | Copyright | — |
+| `title` | `XMP-dc:Title` → `IPTC:ObjectName` | `XMP-dc:Title` → `ItemList:Title` → `UserData:Title` … | «Título» (Por defecto, Ubicación; el propio: en blanco si es el nombre del archivo) | Título | — |
+| `description` | `XMP-dc:Description` → `IPTC:Caption-Abstract` → `IFD0:ImageDescription` | `XMP-dc:Description` → `ItemList:Description` → `UserData:Description` … | «Pie» (Por defecto, Ubicación) | Descripción | — |
+| `creator` | `XMP-dc:Creator` → `IPTC:By-line` → `IFD0:Artist` | `XMP-dc:Creator` → `ItemList:Artist` → `UserData:Artist` … | «Creador» (Por defecto, Ubicación) | Autor | — |
+| `copyright` | `XMP-dc:Rights` → `IPTC:CopyrightNotice` → `IFD0:Copyright` | `XMP-dc:Rights` → `ItemList:Copyright` → `UserData:Copyright` | «Copyright» (Por defecto, Ubicación) | Copyright | — |
 | `intellectual_genre` | `XMP-iptcCore:IntellectualGenre` → `IPTC:ObjectAttributeReference` | — | — | — | — |
 | `scene` | `XMP-iptcCore:Scene` | — | — | — | — |
 | `iptc_created_at` | `XMP-photoshop:DateCreated` → `Composite:DateTimeCreated` → `IPTC:DateCreated` | — | — | — | — |
@@ -78,7 +78,7 @@
 | `video_details.focal_length_35mm` | — | `VideoKeys:FocalLengthIn35mmFormat` → `Keys:FocalLengthIn35mmFormat` → `FocalLengthIn35mmFormat` | «Focal 35 mm» (Por defecto, EXIF) | — | — |
 | `video_details.f_number` | — | `VideoKeys:CameraLensIrisfnumber` → `Keys:CameraLensIrisfnumber` → `CameraLensIrisfnumber` … | — | — | — |
 
-Huecos a la vista (extraídos pero sin mostrar en ningún sitio): `title`, `description`, `creator`, `copyright` (solo filtrables), `intellectual_genre`, `scene`, `iptc_created_at`, `body_serial_number`, `software` (foto y vídeo), `user_comment`, `brightness_value`, `flash_code` (el detalle del flash: modo, retorno), `timezone_offset` y `content_date_source` (sí aparecen en el texto emergente de «Fecha» de «Selección»), `has_xmp_sidecar` y, en los vídeos, `f_number` (la fila «Exposición» solo lee fotos). Candidatos naturales para las vistas IPTC y Personalizada.
+Huecos a la vista (extraídos pero sin mostrar en ningún sitio): `intellectual_genre`, `scene`, `iptc_created_at`, `body_serial_number`, `software` (foto y vídeo), `user_comment`, `brightness_value`, `flash_code` (el detalle del flash: modo, retorno), `timezone_offset` y `content_date_source` (sí aparecen en el texto emergente de «Fecha» de «Selección»), `has_xmp_sidecar` y, en los vídeos, `f_number` (la fila «Exposición» solo lee fotos). Candidatos naturales para las vistas IPTC y Personalizada.
 
 **Datos del usuario** que se leen del archivo (`IMAGE_USER_FIELDS`, ver más abajo): `rating`, `flag` y `color_label` se ven en las **tarjetas** y en la **barra inferior**, y son filtrables en colecciones inteligentes (Valoración, Marca, Etiqueta de color).
 

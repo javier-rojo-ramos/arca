@@ -35,6 +35,9 @@ Cómo añadir:
     - La vista personalizada (más adelante): una lista de claves guardada en
       'settings.json'; 'preset_rows' ya acepta cualquier lista de claves.
 
+1.4.0 Título, Pie (de ilustración), Creador y Copyright, de solo lectura por ahora, en
+      «Por defecto» y «Ubicación» (paso C.5). El título es el propio ('m.file_title'): sin
+      título, en blanco, no el nombre del archivo.
 1.3.1 «Lugar» también como nombre completo de 'sublocation' (antes «Ubicación
       secundaria»): el mismo en todas partes (decidido por el autor el 09/11/2026).
 
@@ -42,7 +45,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.metadata_fields
 """
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 __all__ = [
     "COMMON_HEAD",
     "DEFAULT_PRESET",
@@ -161,6 +164,17 @@ def _plain(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
+def _one_line(value: Any) -> str:
+    """Texto de varias líneas en una sola (el pie, en una fila de una línea)."""
+    return " ".join(_plain(value).split("\n"))
+
+
+def _multiline_tooltip(value: Any) -> str:
+    """El texto completo, con sus saltos de línea, si tiene más de una."""
+    text = _plain(value)
+    return text if "\n" in text else ""
+
+
 def _direction_tooltip(degrees: Any) -> str:
     """Grados exactos de la dirección («292,5°»)."""
     if degrees is None:
@@ -215,6 +229,13 @@ _FIELD_LIST: tuple[InspectorField, ...] = (
     InspectorField("metering_mode", "Medición", "Modo de medición",
                    {"photo": ("photo.metering_mode",)}, _code_text(METERING_MODES)),
 
+    # --- Descripción (IPTC); el título, solo el propio (no el nombre del archivo) ---
+    InspectorField("title", "Título", "Título", {_ANY: ("m.file_title",)}, _plain),
+    InspectorField("description", "Pie", "Pie de ilustración", {_ANY: ("m.description",)},
+                   _one_line, _multiline_tooltip),
+    InspectorField("creator", "Creador", "Creador", {_ANY: ("m.creator",)}, _plain),
+    InspectorField("copyright", "Copyright", "Copyright", {_ANY: ("m.copyright",)}, _plain),
+
     # --- Ubicación (IPTC) ---
     InspectorField("sublocation", "Lugar", "Lugar", {_ANY: ("m.sublocation",)}, _plain),
     InspectorField("city", "Ciudad", "Ciudad", {_ANY: ("m.city",)}, _plain),
@@ -258,18 +279,25 @@ _EXPOSURE_BLOCK = (
     "camera", "lens_model", "focal_length", "focal_length_35mm", "exposure", "iso",
     "exposure_bias", "flash", "exposure_program", "metering_mode",
 )  # fmt: skip
+_DESCRIPTION_BLOCK = ("title", "description", "creator", "copyright")
 _PLACE_BLOCK = ("sublocation", "city", "region", "country", "country_code")
 _GPS_BLOCK = ("gps", "altitude", "direction")
 
-# Vistas, en el orden del desplegable
+# Vistas, en el orden del desplegable. Título, pie, creador y copyright (decidido por el
+# autor el 10/11/2026): en «Por defecto», tras la exposición y antes del lugar; en
+# «Ubicación», entre las fechas y el lugar; en «EXIF», no
 PRESETS: dict[str, MetadataPreset] = {
     preset.key: preset
     for preset in (
         MetadataPreset(
             "default", "Por defecto",
-            (*_EXPOSURE_BLOCK, SEPARATOR, *_PLACE_BLOCK, SEPARATOR, *_GPS_BLOCK),
+            (*_EXPOSURE_BLOCK, SEPARATOR, *_DESCRIPTION_BLOCK, SEPARATOR, *_PLACE_BLOCK,
+             SEPARATOR, *_GPS_BLOCK),
         ),
-        MetadataPreset("location", "Ubicación", (*_PLACE_BLOCK, SEPARATOR, *_GPS_BLOCK)),
+        MetadataPreset(
+            "location", "Ubicación",
+            (*_DESCRIPTION_BLOCK, SEPARATOR, *_PLACE_BLOCK, SEPARATOR, *_GPS_BLOCK),
+        ),
         MetadataPreset(
             "exif", "EXIF",
             (*_EXPOSURE_BLOCK, SEPARATOR, "duration", "frame_rate", "video_codec"),
@@ -375,6 +403,12 @@ if __name__ == "__main__":
                    20, 20, 0.0008, 8, 100, -0.333, 0, 3, 5, 2.3)""",
         (photo,),
     )
+    # Sin título propio (el nombre del archivo), con pie de dos líneas y creador
+    db.execute(
+        "UPDATE media_items SET title = 'DSC_9140', description = ?, creator = 'Javier Rojo' "
+        "WHERE id = ?",
+        ("Primera línea\nSegunda línea", photo),
+    )
     video = add("IMG_6755.mov", "video", width=1080, height=1920, duration=4.03,
                 content_created_at="2026-10-31 18:15:43")  # fmt: skip
     db.execute(
@@ -399,12 +433,27 @@ if __name__ == "__main__":
         "lens_model": "AF-S NIKKOR 20mm f/1.8G ED", "focal_length": "20 mm",
         "focal_length_35mm": "20 mm", "exposure": "1/1250 s a f/8,0", "iso": "ISO 100",
         "exposure_bias": "−1/3 EV", "flash": "No disparado", "exposure_program": "Prioridad de apertura",
-        "metering_mode": "Matricial", "sublocation": "Valle de Ordesa", "city": "Torla",
+        "metering_mode": "Matricial",
+        "title": "", "description": "Primera línea Segunda línea", "creator": "Javier Rojo",
+        "copyright": "",
+        "sublocation": "Valle de Ordesa", "city": "Torla",
         "region": "Huesca", "country": "España", "country_code": "ES",
         "gps": "42°40'55,5204\" N 0°4'11,9676\" E", "altitude": "1.418,1 m", "direction": "Norte",
     }  # fmt: skip
     assert shown == expected, {k: (shown[k], expected[k]) for k in expected if shown[k] != expected[k]}
+    # El pie de varias líneas, entero en el texto emergente
+    values = fetch_field_values(db, [photo], sources_for(["description"]))
+    assert display_value("description", values["description"]).tooltip == "Primera línea\nSegunda línea"
     print("3. Foto, vista por defecto: como el ejemplo")
+    # Título, pie, creador y copyright: tras la exposición en «Por defecto», tras las fechas
+    # en «Ubicación» y nunca en «EXIF»; siempre antes del lugar
+    for preset, before in (("default", "metering_mode"), ("location", SEPARATOR)):
+        rows = preset_rows(preset)
+        start = rows.index("title")
+        assert rows[start : start + 4] == _DESCRIPTION_BLOCK, preset
+        assert rows[start - 1] == SEPARATOR and rows[start + 5] == "sublocation", preset
+        assert before in rows[:start], preset
+    assert not set(_DESCRIPTION_BLOCK) & set(preset_rows("exif"))
     # Las fechas EXIF van en la cabecera común: en todas las vistas, tras la de captura
     for preset in PRESETS:
         assert preset_rows(preset)[:7] == (

@@ -25,6 +25,8 @@ de una canción...) van en tablas 1:1 con 'media_items' (photo_details,
 video_details, audio_details...), no en la tabla general. Las que falten se
 añadirán como migraciones nuevas, una por una.
 
+2.2.0 Función SQL 'arca_file_title' (título propio de un archivo), registrada en cada
+      conexión por 'configure_connection'.
 2.1.0 Migración 2: 'media_items.metadata_edit_pending' (metadatos descriptivos editados
       pendientes de escribir, un bit por campo) y su índice parcial.
 2.0.0 Esquema consolidado: las 17 migraciones de la fase de pruebas pasan a ser una sola
@@ -48,10 +50,11 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.catalog_schema
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 __all__ = [
     "APPLICATION_ID",
     "BUSY_TIMEOUT_SECONDS",
+    "FILE_TITLE_SQL_FUNCTION",
     "FOLD_SQL_FUNCTION",
     "MIGRATIONS",
     "SCHEMA_VERSION",
@@ -64,6 +67,9 @@ __all__ = [
 # Librerías estándar
 import sqlite3
 import unicodedata
+
+# Módulos del proyecto
+from core.userdata.editable_fields import file_title
 
 # Segundos que una conexión espera si otra tiene la base de datos bloqueada
 # (en modo WAL solo puede escribir una conexión a la vez; las demás esperan).
@@ -523,6 +529,19 @@ APPLICATION_ID: int = 0x41524341
 # Nombre de la función SQL que pasa un texto a minúsculas y sin acentos (ver 'fold_text')
 FOLD_SQL_FUNCTION = "arca_fold"
 
+# Nombre de la función SQL con el título PROPIO de un archivo: 'arca_file_title(title,
+# file_name)' da NULL si el título es su nombre sin extensión (el que pone el escáner a un
+# archivo sin título). Así varias fotos sin título se ven «vacías» y no «Varios» (cada una
+# tiene su nombre); ver 'core/userdata/editable_fields.file_title'.
+FILE_TITLE_SQL_FUNCTION = "arca_file_title"
+
+
+def _file_title_sql(title: object, file_name: object) -> str | None:
+    """'file_title' para SQLite (un valor raro no debe hacer fallar la consulta)."""
+    if not isinstance(title, str) or not isinstance(file_name, str):
+        return title if isinstance(title, str) else None
+    return file_title(title, file_name)
+
 
 def fold_text(text: object) -> str | None:
     """Texto sin mayúsculas ni acentos, para comparar ('Cañón' -> 'canon').
@@ -557,7 +576,9 @@ def configure_connection(conn: sqlite3.Connection) -> None:
     # de la aplicación (solo se podría perder la última transacción si se va la luz)
     conn.execute("PRAGMA synchronous = NORMAL;")
     # Funciones propias (tampoco se guardan en el archivo): texto sin mayúsculas ni acentos
+    # y título propio de un archivo
     conn.create_function(FOLD_SQL_FUNCTION, 1, fold_text, deterministic=True)
+    conn.create_function(FILE_TITLE_SQL_FUNCTION, 2, _file_title_sql, deterministic=True)
 
 
 def apply_migrations(conn: sqlite3.Connection) -> int:
@@ -766,8 +787,13 @@ if __name__ == "__main__":
     db.execute("DELETE FROM storage_locations")
     assert db.execute("SELECT COUNT(*) FROM folder_libraries").fetchone()[0] == 0
 
-    # 13. La función SQL de texto sin mayúsculas ni acentos está registrada
+    # 13. Las funciones SQL propias están registradas: texto sin mayúsculas ni acentos y
+    #     título propio (el nombre del archivo sin extensión no cuenta como título)
     assert db.execute(f"SELECT {FOLD_SQL_FUNCTION}('Añisclo')").fetchone()[0] == "anisclo"
+    for title, name, own in (("IMG_0001", "IMG_0001.HEIC", None), ("Atardecer", "a.jpg", "Atardecer"),
+                             (None, "a.jpg", None), ("x", None, "x")):  # fmt: skip
+        got = db.execute(f"SELECT {FILE_TITLE_SQL_FUNCTION}(?, ?)", (title, name)).fetchone()[0]
+        assert got == own, (title, name, got)
     db.close()
 
     # 14. Un catálogo v1 con datos pasa a la v2: la columna nueva vale 0 en lo que ya había
