@@ -47,6 +47,8 @@ Clic en la cuadrícula ──► update_user_field ──► BD (+ bit de pendie
 Reconstruir / reescanear:
    add_folder ──► apply_folder_files   (vídeo, audio... desde su .arca.json)
    process_pending_metadata ──► extractor ──► user_data ──► apply_file_user_data (fotos)
+                            └─► metadatos editados: no pisa lo pendiente; sin XMP,
+                                folder_file_edits (lo editado en el .arca.json manda)
 ```
 
 ## Reglas que conviene recordar

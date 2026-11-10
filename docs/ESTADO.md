@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Edición de metadatos, paso 2: relectura** (10/11; `processor` 2.3.0, `sync` 1.4.0, `folder_file` 1.3.0, `editable_fields` 1.1.0, `base` 2.0.1) | Sincronizar una carpeta y dejar que se lean los metadatos: todo igual que antes. Único cambio a la vista: una foto cuyo título se borró en otro programa (p. ej. Lightroom) pasa a tener como título el nombre del archivo, al releerla (antes conservaba el título viejo) |
 | **Edición de metadatos, paso 1: núcleo** (10/11; `editable_fields` 1.0.0, nuevo; `catalog_schema` 2.1.0, migración 2; `media_queries` 2.2.0) | Abrir un catálogo que ya existía: se abre como siempre (pasa solo al esquema v2) y todo se ve igual. Aún no hay nada nuevo a la vista |
 | **Iconos de los menús** (09/11; `theme_qss` 1.3.0, `ui_icons` 1.3.0, `sidebar_icons` 1.1.0, `catalog_sidebar` 1.12.1) | Clic derecho en una colección inteligente: el icono de «Editar colección inteligente…» ya no va pegado al borde izquierdo, y con la opción resaltada (ámbar) es oscuro, como el texto. Igual en el «+» de Colecciones (crear conjunto, colección o colección inteligente) y en los cuadraditos del submenú de etiquetas de la cuadrícula (solo la posición) |
 | **Colores, todos del tema** (09/11; `theme_colors` 1.6.0, `ui_theme` 1.14.0, `card_marks` 1.1.0, `card_glyphs` 1.2.0, `ui_color_labels` 1.1.0, `thumbnails_delegate` 2.14.0, `single_media_view` 1.0.1, `media_grid_view` 1.2.0, `organize_bar` 1.1.0, `selection_section` 1.3.2, `ui_icons` 1.2.1) | Todo se ve igual que antes (comprobado sin ventana, píxel a píxel: tarjetas en nueve estados, marcas, etiquetas, círculos de «Estado» del inspector, fila «Atributos» y vista individual), salvo dos cosas: **arrastrar tarjetas**, el número de la insignia ámbar es ahora oscuro (antes blanco); **barra inferior**, al pasar el ratón por una zona el fondo es algo más claro, y el anillo del color activo, gris claro en vez de blanco (los mismos que la fila «Atributos» de la barra de filtros) |
@@ -63,6 +64,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 10/11/2026: edición de los metadatos descriptivos, paso 2: al releer un archivo no se pisa lo editado pendiente de escribir; en los formatos sin XMP manda lo editado en el `.arca.json`; un archivo sin título deja el nombre del archivo.
 - 10/11/2026: edición de los metadatos descriptivos, paso 1: la lista de campos editables, la migración 2 (`metadata_edit_pending`) y la función que guarda lo editado; aún sin nada visible.
 - 10/11/2026: edición de los metadatos descriptivos (C.5), paso 0: prueba de escritura con ExifTool y Lightroom, sin tocar el código; decisiones, plan y resultados anotados.
 - 09/11/2026: los iconos de los menús ya no van pegados al borde izquierdo y, en la opción resaltada, son oscuros como el texto.
@@ -72,4 +74,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 09/11/2026: colecciones inteligentes con grupos, subpaso 2: las filas de reglas del editor pasan a su propio archivo (sin cambios de comportamiento); los colores del editor salen del tema.
 - 09/11/2026: colecciones inteligentes con grupos, subpaso 1: el motor de reglas admite grupos de un nivel (SQL, validación, JSON versión 2 y texto emergente); aún sin cambios en el editor.
 - 09/11/2026: filtros personalizados, subpaso 3: ventana «Gestionar ajustes personalizados» (ordenar, cambiar el nombre, eliminar, restaurar los de fábrica).
-- 09/11/2026: filtros personalizados, subpaso 2: desplegable de ajustes personalizados antes del candado (guardar con nombre, restaurar, elegir uno de la lista; cinco de fábrica), sin la ventana de gestión todavía.

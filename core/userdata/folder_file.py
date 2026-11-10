@@ -27,6 +27,11 @@ Formato (versión 1):
       palabras, no se escribe. Una versión anterior de la aplicación que no la conozca la
       conserva igual que cualquier clave desconocida.
 
+    - Metadatos descriptivos editados en la aplicación (desde el 10/11/2026; las claves de
+      'EDITABLE_FIELDS' en 'editable_fields.py': "title", "description", "city"...): la
+      clave solo está si el campo se ha EDITADO, y entonces su valor manda siempre sobre
+      lo que traiga el archivo (que la aplicación no modifica). "" = vaciado a propósito.
+
     - Las claves de 'items' son el NOMBRE del archivo (sin carpeta), tal como está en
       disco. En Windows y macOS (que no distinguen mayúsculas), si no hay coincidencia
       exacta se prueba sin distinguirlas; en Linux, 'A.mp4' y 'a.mp4' son dos archivos.
@@ -45,11 +50,13 @@ Seguridad al escribir ('write_folder_file'):
     Los tres archivos empiezan por punto (el escáner los ignora) y en Windows se marcan
     además como ocultos.
 
+1.3.0 'edited_values_from_entry': lee los metadatos descriptivos editados de una entrada.
+
 Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.folder_file
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "BACKUP_FILE_NAME",
     "FOLDER_FILE_NAME",
@@ -57,6 +64,7 @@ __all__ = [
     "FolderData",
     "FolderFileError",
     "KEYWORDS_KEY",
+    "edited_values_from_entry",
     "find_entry_key",
     "keywords_from_entry",
     "merge_entry",
@@ -80,6 +88,7 @@ from loguru import logger
 
 # Módulos del proyecto
 from core.catalog.color_labels import is_valid_color_label
+from core.userdata.editable_fields import EDITABLE_FIELDS, normalize_value
 
 # Nombres de los archivos (empiezan por punto: ocultos en macOS y Linux, y el escáner
 # de carpetas los ignora)
@@ -286,6 +295,26 @@ def keywords_from_entry(entry: dict[str, Any] | None) -> tuple[tuple[str, ...], 
     return tuple(paths)
 
 
+def edited_values_from_entry(entry: dict[str, Any] | None) -> dict[str, str | None]:
+    """Metadatos descriptivos editados de una entrada: columna -> valor ya limpio.
+
+    Solo los campos cuya clave está (los que se editaron en la aplicación); "" o null
+    = vaciado a propósito (None). Un valor que no es texto (editado a mano) se ignora,
+    como si la clave no estuviera.
+    """
+    if not entry:
+        return {}
+    values: dict[str, str | None] = {}
+    for spec in EDITABLE_FIELDS:
+        if spec.folder_key not in entry:
+            continue
+        try:
+            values[spec.column] = normalize_value(spec.column, entry[spec.folder_key])
+        except TypeError:
+            logger.debug(f"Valor no válido en '{spec.folder_key}': {entry[spec.folder_key]!r}")
+    return values
+
+
 def merge_entry(
     entry: dict[str, Any] | None, values: dict[str, Any], *, now: str | None = None
 ) -> dict[str, Any] | None:
@@ -449,6 +478,19 @@ if __name__ == "__main__":
         assert merge_entry({"rating": 3, "updated_at": "x"}, dict(USER_DEFAULTS)) is None
         kept = merge_entry({"rating": 3, "lyrics_checked": True}, dict(USER_DEFAULTS), now="T3")
         assert kept == {"lyrics_checked": True, "updated_at": "T3"}
+
+        # 4b. Metadatos editados: solo las claves que están; "" y null = vaciado; lo que
+        #     no es texto se ignora. 'merge_entry' los conserva al reescribir lo demás
+        #     (va antes del 5, que en Windows falla: sobrescribe un archivo oculto)
+        edited = {"title": " Atardecer ", "description": "", "city": None, "country": 34,
+                  "region": "Línea 1\r\nLínea 2", "rating": 2}  # fmt: skip
+        assert edited_values_from_entry(edited) == {
+            "title": "Atardecer", "description": None, "region": "Línea 1 Línea 2", "city": None,
+        }  # fmt: skip
+        assert edited_values_from_entry({"rating": 2}) == {}
+        assert edited_values_from_entry(None) == {}
+        assert merge_entry(edited, {"rating": 4}, now="T")["title"] == " Atardecer "
+        print("Metadatos editados: leídos de la entrada")
 
         # 5. Archivo principal dañado: se usa la copia
         (folder / FOLDER_FILE_NAME).write_text("{ esto no es json", encoding="utf-8")

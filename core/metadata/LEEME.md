@@ -143,6 +143,11 @@ su motor lo agradece).
   Si se intenta, el trabajo falla con un mensaje claro. (Los datos del usuario que trae el archivo
   no se escriben desde el extractor: viajan en `user_data`, ver la receta 1b.)
 - **Un valor `None`** deja la columna vacía (borra un valor antiguo). Solo `title` es
-  distinto: nunca se vacía, porque es obligatorio.
+  distinto: nunca se vacía, porque es obligatorio; el procesador pone el nombre del
+  archivo sin extensión.
+- **Metadatos editables** (título, pie, ubicación...; `core/userdata/editable_fields.py`):
+  el procesador no pisa los que el usuario ha cambiado y aún no están escritos (su bit de
+  `metadata_edit_pending`), y en los formatos sin XMP manda lo editado en el `.arca.json`.
+  El extractor no tiene que hacer nada especial.
 - **Un archivo que falla** no para el trabajo: se anota en `scan_errors` (fase `metadata`)
   y no se reintenta hasta que cambie el archivo o suba la versión.

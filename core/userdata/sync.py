@@ -37,7 +37,14 @@ Dos sentidos:
          Una carpeta SIN archivo '.arca.json' no toca nada (no se sabe nada de ella).
    Nunca se aplica nada leído a medias: si la lectura se canceló o falló (un sidecar
    ilegible), el extractor no entrega datos del usuario y el catálogo no se toca.
+       - Metadatos descriptivos editados (título, pie...; 'editable_fields.py') en los
+         formatos FOLDER_FILE: lo que guarda el '.arca.json' manda SIEMPRE (el original
+         no se toca). Los aplica 'apply_folder_files' al importar y, tras releer el
+         archivo, el procesador con 'folder_file_edits'. En los formatos con XMP, los
+         escribe el procesador como cualquier metadato extraído (salvo lo pendiente).
 
+1.4.0 Metadatos descriptivos editados: 'apply_folder_files' los aplica desde el
+      '.arca.json' (salvo los pendientes) y 'folder_file_edits' se los da al procesador.
 1.3.2 El archivo de carpeta se llama '.arca.json' (comentarios y autoprueba).
 1.3.1 Palabras clave comparadas letra a letra al escribir el '.emc.json' y al dar por
       escrito lo pendiente (renombrar solo con mayúsculas o acentos también se escribe).
@@ -46,7 +53,7 @@ Prueba rápida (desde la raíz del proyecto; la parte de XMP necesita ExifTool):
     python -m core.userdata.sync
 """
 
-__version__ = "1.3.2"
+__version__ = "1.4.0"
 __all__ = [
     "SCAN_STAGE_USERDATA",
     "FolderFileCache",
@@ -55,6 +62,7 @@ __all__ = [
     "apply_file_user_data",
     "apply_folder_files",
     "count_pending_user_data",
+    "folder_file_edits",
     "write_pending_user_data",
 ]
 
@@ -76,10 +84,12 @@ from core.catalog.media_queries import USER_FIELD_BITS
 from core.jobs.progress import JobProgress
 from core.metadata.exiftool_runner import ExifToolError, ExifToolRunner, find_sidecars
 from core.metadata.keyword_tags import FileKeywords
+from core.userdata.editable_fields import default_title, field_for, unless_pending_sql
 from core.userdata.folder_file import (
     FolderData,
     KEYWORDS_KEY,
     FolderFileError,
+    edited_values_from_entry,
     find_entry_key,
     keywords_from_entry,
     merge_entry,
@@ -734,7 +744,8 @@ def apply_folder_files(
 
     Lo llama 'add_folder' tras guardar cada lote (con su transacción abierta). Solo trata
     los archivos cuyo destino es FOLDER_FILE y, de ellos, los campos que no están
-    pendientes de escribir. Las carpetas sin archivo '.arca.json' no se tocan.
+    pendientes de escribir. Las carpetas sin archivo '.arca.json' no se tocan. Los
+    metadatos editados (título, pie...) solo se tocan si la entrada trae su clave.
 
     Args:
         conn: Conexión (con la transacción del lote abierta).
@@ -753,20 +764,13 @@ def apply_folder_files(
         if destination_for(relative_path) is not UserDataDestination.FOLDER_FILE:
             continue
         posix = PurePosixPath(relative_path)
-        folder = location_root / posix.parent
-        if folder not in cache:
-            try:
-                cache[folder] = read_folder_file(folder)
-            except FolderFileError as error:
-                # No se sabe qué hay: mejor no tocar nada que poner valores por defecto
-                logger.warning(f"No se aplican los datos de la carpeta {folder}: {error}")
-                cache[folder] = None
-        data = cache[folder]
+        data = _folder_data(location_root / posix.parent, cache)
         if data is None or not data.exists:
             continue  # ilegible o sin archivo: no se sabe nada, no se toca nada
 
         key = find_entry_key(data.items, posix.name)
-        values = user_values_from_entry(data.items.get(key) if key else None)
+        entry = data.items.get(key) if key else None
+        values = user_values_from_entry(entry)
         row = conn.execute(
             "SELECT id, rating, flag, color_label, user_data_pending, keywords_pending "
             "FROM media_items WHERE storage_location_id = ? AND relative_path = ?",
@@ -777,7 +781,7 @@ def apply_folder_files(
         # Palabras clave: las de la entrada (sin la clave = ninguna), salvo si están
         # pendientes de escribir
         keywords_changed = not row[5] and set_media_keywords(
-            conn, row[0], keywords_from_entry(data.items.get(key) if key else None)
+            conn, row[0], keywords_from_entry(entry)
         )
         current = dict(zip(_USER_COLUMNS, row[1:4], strict=True))
         updates = {
@@ -791,9 +795,87 @@ def apply_folder_files(
                 f"UPDATE media_items SET {assignments} WHERE id = ?",  # noqa: S608
                 (*updates.values(), row[0]),
             )
-        if updates or keywords_changed:
+        # Metadatos editados: solo los que la entrada trae (sin la clave, manda lo que
+        # lea el extractor), salvo los pendientes de escribir
+        edits_changed = _apply_edited_values(
+            conn, row[0], posix.name, edited_values_from_entry(entry)
+        )
+        if updates or keywords_changed or edits_changed:
             changed += 1
     return changed
+
+
+def folder_file_edits(
+    location_root: Path, relative_path: str, cache: FolderFileCache
+) -> dict[str, str | None] | None:
+    """Metadatos editados que guarda el '.arca.json' para un archivo FOLDER_FILE.
+
+    Lo usa el procesador de metadatos: en estos formatos lo editado en la aplicación vive
+    solo en el archivo de carpeta (el original no se toca), así que manda SIEMPRE sobre
+    lo que lea el extractor.
+
+    Args:
+        location_root: Carpeta raíz de la ubicación.
+        relative_path: Ruta relativa del archivo (con '/').
+        cache: Archivos de carpeta ya leídos (se reutiliza entre archivos).
+
+    Returns:
+        Columna -> valor (None = vaciado a propósito) de los campos editados; vacío si
+        no hay archivo de carpeta o el archivo no tiene entrada. None si el archivo de
+        carpeta está dañado: no se sabe qué se editó.
+    """
+    posix = PurePosixPath(relative_path)
+    data = _folder_data(location_root / posix.parent, cache)
+    if data is None:
+        return None
+    if not data.exists:
+        return {}
+    key = find_entry_key(data.items, posix.name)
+    return edited_values_from_entry(data.items.get(key) if key else None)
+
+
+def _folder_data(folder: Path, cache: FolderFileCache) -> FolderData | None:
+    """El archivo de carpeta de 'folder', leído una vez por escaneo (None = ilegible)."""
+    if folder not in cache:
+        try:
+            cache[folder] = read_folder_file(folder)
+        except FolderFileError as error:
+            # No se sabe qué hay: mejor no tocar nada que poner valores por defecto
+            logger.warning(f"No se aplican los datos de la carpeta {folder}: {error}")
+            cache[folder] = None
+    return cache[folder]
+
+
+def _apply_edited_values(
+    conn: sqlite3.Connection, media_id: int, file_name: str, edits: dict[str, str | None]
+) -> bool:
+    """Pone en un elemento los metadatos editados del archivo de carpeta.
+
+    No toca los campos pendientes de escribir (su cambio es más nuevo). Un título vaciado
+    vuelve al nombre del archivo sin extensión.
+
+    Returns:
+        True si cambió algo.
+    """
+    if not edits:
+        return False
+    values = {
+        column: default_title(file_name) if column == "title" and value is None else value
+        for column, value in edits.items()
+    }
+    # Nombres de columna de la lista cerrada de 'editable_fields.py': sin inyección SQL.
+    # Cada columna conserva su valor si su bit está pendiente; solo se cuenta como cambio
+    # si alguna columna no pendiente tenía otro valor.
+    assignments = ", ".join(unless_pending_sql(column) for column in values)
+    changed_condition = " OR ".join(
+        f"(NOT metadata_edit_pending & {field_for(column).bit} AND {column} IS NOT ?)"
+        for column in values
+    )
+    cursor = conn.execute(
+        f"UPDATE media_items SET {assignments} WHERE id = ? AND ({changed_condition})",
+        (*values.values(), media_id, *values.values()),
+    )
+    return cursor.rowcount > 0
 
 
 if __name__ == "__main__":

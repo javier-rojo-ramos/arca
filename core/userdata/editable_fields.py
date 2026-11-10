@@ -35,13 +35,14 @@ Cómo añadir un campo:
     3. La clave del '.arca.json' tampoco se cambia después: está en los archivos de los
        usuarios.
 
+1.1.0 'unless_pending_sql': asignación que no pisa una columna pendiente de escribir.
 1.0.0 Primera versión: título, pie de ilustración, creador, copyright y ubicación.
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.editable_fields
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "ALL_EDIT_BITS",
     "EDITABLE_COLUMNS",
@@ -53,6 +54,7 @@ __all__ = [
     "file_title",
     "normalize_value",
     "pending_columns",
+    "unless_pending_sql",
 ]
 
 # Librerías estándar
@@ -163,6 +165,23 @@ def pending_columns(mask: int) -> tuple[str, ...]:
     return tuple(spec.column for spec in EDITABLE_FIELDS if mask & spec.bit)
 
 
+def unless_pending_sql(column: str) -> str:
+    """Asignación SQL que no pisa una columna editable si su bit está pendiente.
+
+    Para un UPDATE de 'media_items' con lo leído de un archivo: el cambio del usuario aún
+    sin escribir es más nuevo. Se comprueba en la misma sentencia, así que tampoco se
+    pierde una edición hecha mientras se leía el archivo. Lleva un parámetro ('?').
+
+    Ejemplo: 'title = CASE WHEN metadata_edit_pending & 1 THEN title ELSE ? END'.
+
+    Raises:
+        ValueError: Si la columna no es editable (así el nombre es siempre de la lista
+            cerrada y se puede poner en el SQL sin riesgo).
+    """
+    bit = field_for(column).bit
+    return f"{column} = CASE WHEN metadata_edit_pending & {bit} THEN {column} ELSE ? END"
+
+
 def normalize_value(column: str, value: object) -> str | None:
     """Valor editado tal como se guarda: texto limpio, o None si queda vacío.
 
@@ -253,6 +272,23 @@ if __name__ == "__main__":
         except ValueError:
             pass
     print("Máscaras de bits: correctas")
+
+    # 3b. La asignación que protege lo pendiente, probada en SQLite
+    import sqlite3
+
+    db = sqlite3.connect(":memory:")
+    db.execute("CREATE TABLE media_items (id INTEGER, city TEXT, metadata_edit_pending INTEGER)")
+    db.executemany("INSERT INTO media_items VALUES (?, 'Soria', ?)", [(1, 0), (2, 32), (3, 1)])
+    db.execute(f"UPDATE media_items SET {unless_pending_sql('city')}", ("León",))
+    assert dict(db.execute("SELECT id, city FROM media_items")) == {
+        1: "León", 2: "Soria", 3: "León"
+    }  # fmt: skip
+    try:
+        unless_pending_sql("file_name")
+        raise AssertionError("debía rechazar una columna no editable")
+    except ValueError:
+        pass
+    db.close()
 
     # 4. Valores: limpios, vacío = None, saltos de línea solo donde caben
     assert normalize_value("title", "  Atardecer en León  ") == "Atardecer en León"

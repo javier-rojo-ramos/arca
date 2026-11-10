@@ -9,9 +9,12 @@ es más eficiente por lotes (ExifTool lo es), sobrescribir también 'extract_bat
 El procesador siempre llama a 'extract_batch'.
 
 Cómo ampliar un extractor con campos nuevos: ver 'LEEME.md'.
+
+2.0.1 Docstring de 'ExtractionResult': un título None ya no conserva el anterior (el
+      procesador pone el nombre del archivo sin extensión).
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __all__ = [
     "PROTECTED_COLUMNS",
     "ExtractionResult",
@@ -104,7 +107,8 @@ class ExtractionResult:
     Attributes:
         common: Valores para columnas de 'media_items' (nunca las de
             'PROTECTED_COLUMNS'). Un valor None deja la columna vacía, salvo
-            'title', que nunca se vacía (es NOT NULL): None conserva el actual.
+            'title', que nunca se vacía (es NOT NULL): con None, el procesador pone el
+            nombre del archivo sin extensión.
         details: Valores para la tabla de detalles del tipo (columna -> valor).
         user_data: Datos del USUARIO que el archivo trae consigo (columna -> valor,
             con 'rating', 'flag' y 'color_label'; None si el archivo no los trae) y,

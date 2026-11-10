@@ -30,6 +30,16 @@ marca y el color que traiga el XMP del archivo los aplica aparte
 'core.userdata.sync.apply_file_user_data' (manda el archivo, salvo que el elemento
 esté pendiente de escribir).
 
+Metadatos descriptivos editables (título, pie, ubicación...; ver
+'core/userdata/editable_fields.py'): manda el archivo, salvo en las columnas cuyo bit de
+'metadata_edit_pending' está puesto (el cambio del usuario aún no está escrito). En los
+formatos sin XMP, lo editado está en el '.arca.json' de la carpeta y manda siempre sobre lo
+leído. Sin título en el archivo, 'title' vale el nombre del archivo sin extensión.
+
+2.3.0 Metadatos editables: no se pisan los pendientes de escribir; en los formatos sin XMP
+      manda el '.arca.json'; un archivo sin título deja el nombre sin extensión (antes se
+      conservaba el título anterior).
+
 Qué pasa con cada archivo:
     - Se lee bien      -> se guardan sus datos y se borra cualquier error anterior.
     - Falla (dañado...) -> se anota en 'scan_errors' y se marca como "intentado" con
@@ -44,7 +54,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.metadata.processor
 """
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 __all__ = [
     "DEFAULT_BATCH_SIZE",
     "SCAN_STAGE_METADATA",
@@ -58,7 +68,7 @@ import threading
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 # Librerías de terceros
 from loguru import logger
@@ -73,8 +83,18 @@ from core.metadata.base import (
     UnsupportedFormatError,
 )
 from core.metadata.registry import ExtractorRegistry, default_registry
+from core.userdata.editable_fields import (
+    EDITABLE_COLUMNS,
+    default_title,
+    unless_pending_sql,
+)
 from core.userdata.policy import uses_xmp
-from core.userdata.sync import apply_file_keywords, apply_file_user_data
+from core.userdata.sync import (
+    FolderFileCache,
+    apply_file_keywords,
+    apply_file_user_data,
+    folder_file_edits,
+)
 
 # Nombre de la fase para la columna 'stage' de la tabla 'scan_errors'
 SCAN_STAGE_METADATA = "metadata"
@@ -173,6 +193,10 @@ class _Outcome:
     # (file_mtime_ns, sidecar_mtime_ns) en la BD al leer el archivo: si cambian antes de
     # guardar (la aplicación acaba de escribir en él), sus datos del usuario no se aplican
     state: tuple[int | None, int | None] | None = None
+    # Solo en los formatos con '.arca.json' (sin XMP): los metadatos editados que guarda
+    # para este archivo (columna -> valor; vacío = ninguno). None = el '.arca.json' está
+    # dañado y no se sabe qué se editó (o el formato usa XMP: no se mira)
+    folder_edits: dict[str, str | None] | None = None
 
 
 def process_pending_metadata(
@@ -316,6 +340,8 @@ def _extract_rows(
     outcomes: list[_Outcome] = []
     cancelled = False
     online_locations: dict[int, bool] = {}
+    # Archivos de carpeta leídos en este lote (se leen aquí, sin transacción abierta)
+    folder_files: FolderFileCache = {}
 
     groups: dict[str, list[sqlite3.Row | tuple]] = {}
     for row in rows:
@@ -367,7 +393,13 @@ def _extract_rows(
             if result is None:  # no se llegó a leer por haberse cancelado
                 cancelled = True
                 continue
-            outcomes.append(_to_outcome(row, extractor, path, result))
+            outcome = _to_outcome(row, extractor, path, result)
+            # Formatos sin XMP: lo editado en la aplicación está en su '.arca.json'
+            if outcome.kind == _OK and not uses_xmp(outcome.extension):
+                outcome.folder_edits = folder_file_edits(
+                    locations[outcome.location_id], outcome.relative_path, folder_files
+                )
+            outcomes.append(outcome)
 
     return outcomes, cancelled
 
@@ -496,14 +528,26 @@ def _write_success(
             f"{sorted(unknown)} (¿falta la migración?)"
         )
 
-    # El título es NOT NULL: si el archivo no trae uno, se conserva el que hay
-    values = {
-        column: value
-        for column, value in result.common.items()
-        if not (column == "title" and value is None)
-    }
-    # Los nombres de columna salen de la lista cerrada de arriba: no hay inyección SQL
-    assignments = [f"{column} = ?" for column in values]
+    values = dict(result.common)
+    # Metadatos editados en la aplicación, en los formatos sin XMP: viven en el '.arca.json'
+    # (el original no se toca) y mandan SIEMPRE sobre lo leído del archivo
+    if not uses_xmp(outcome.extension):
+        if outcome.folder_edits is None:
+            # '.arca.json' dañado: no se sabe qué se editó; mejor no tocar esas columnas
+            for column in EDITABLE_COLUMNS:
+                values.pop(column, None)
+        else:
+            values.update(outcome.folder_edits)
+    # El título es NOT NULL: sin título, el nombre del archivo sin extensión
+    if "title" in values and values["title"] is None:
+        values["title"] = default_title(PurePosixPath(outcome.relative_path).name)
+    # Los nombres de columna salen de listas cerradas (las de arriba y la de los campos
+    # editables): no hay inyección SQL. Un campo editado pendiente de escribir en el
+    # archivo no se pisa (se comprueba en la misma sentencia: 'unless_pending_sql')
+    assignments = [
+        unless_pending_sql(column) if column in EDITABLE_COLUMNS else f"{column} = ?"
+        for column in values
+    ]
     assignments += ["scan_version = ?", "last_scanned_at = CURRENT_TIMESTAMP"]
     conn.execute(
         f"UPDATE media_items SET {', '.join(assignments)} WHERE id = ?",
@@ -929,5 +973,106 @@ sys.stdout.buffer.write(json.dumps(out, ensure_ascii=False).encode("utf-8"))
 
             # Una segunda ejecución no tiene nada pendiente (los dos fallos quedan como "intentados")
             assert process_pending_metadata(conn, registry=exiftool_registry).total == 0
+
+            # Metadatos editados (formato con XMP): al releer, lo pendiente de escribir no
+            # se pisa y lo demás lo manda el archivo
+            from core.catalog.media_queries import update_metadata_fields
+
+            a_id = rows(conn, "SELECT id FROM media_items WHERE relative_path = 'a.jpg'")[0][0]
+
+            def edited_a() -> tuple:
+                return tuple(rows(
+                    conn, "SELECT title, city, sublocation FROM media_items WHERE id = ?", (a_id,)
+                )[0])  # fmt: skip
+
+            update_metadata_fields(conn, [a_id], {"title": "Atardecer", "city": "Soria"})
+            conn.execute(
+                "UPDATE media_items SET sublocation = 'Otro', scan_version = 0 WHERE id = ?",
+                (a_id,),
+            )
+            conn.commit()
+            assert process_pending_metadata(conn, registry=exiftool_registry).processed == 1
+            assert edited_a() == ("Atardecer", "Soria", "Paseo"), edited_a()
+            # Ya escrito (sin pendiente): manda el archivo, que no trae título -> el nombre
+            conn.execute(
+                "UPDATE media_items SET metadata_edit_pending = 0, scan_version = 0 WHERE id = ?",
+                (a_id,),
+            )
+            conn.commit()
+            process_pending_metadata(conn, registry=exiftool_registry)
+            assert edited_a() == ("a", "Castro Urdiales", "Paseo"), edited_a()
+            print("Metadatos editados (XMP): lo pendiente no se pisa; sin título, el nombre")
+
+    # ---------- Formato sin XMP (GPX): lo editado en su '.arca.json' manda siempre ----------
+    from core.metadata.track.extractor import TrackExtractor
+    from core.userdata.folder_file import (
+        FOLDER_FILE_NAME,
+        FolderData,
+        write_folder_file,
+    )
+
+    GPX = """<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Prueba" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Ruta del archivo</name>
+    <desc>Descripción del archivo</desc>
+    <trkseg>
+      <trkpt lat="43.1" lon="-4.8"><ele>500</ele><time>2024-07-15T06:30:00Z</time></trkpt>
+      <trkpt lat="43.2" lon="-4.8"><ele>900</ele><time>2024-07-15T10:30:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>"""
+    track_registry = ExtractorRegistry()
+    track_registry.register(TrackExtractor())
+
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        routes = base / "Rutas"
+        routes.mkdir()
+        for name in ("editada.gpx", "sin_editar.gpx"):
+            (routes / name).write_text(GPX, encoding="utf-8")
+        folder_data = FolderData(routes)
+        folder_data.items["editada.gpx"] = {"title": "Ruta editada", "description": "", "rating": 3}
+        write_folder_file(folder_data)
+
+        db_path = CatalogBuilder(base / "Cat").build()
+        with closing(sqlite3.connect(db_path)) as conn:
+            configure_connection(conn)
+
+            def route(name: str) -> tuple:
+                return tuple(rows(
+                    conn, "SELECT title, description, rating FROM media_items "
+                    "WHERE relative_path = ?", (name,),
+                )[0])  # fmt: skip
+
+            # Al importar ('apply_folder_files'), antes de leer el GPX
+            add_folder(conn, routes)
+            assert route("editada.gpx") == ("Ruta editada", None, 3), route("editada.gpx")
+            assert route("sin_editar.gpx") == ("sin_editar", None, 0)
+            # Tras leerlo: lo editado manda; lo que no se editó sale del archivo
+            assert process_pending_metadata(conn, registry=track_registry).processed == 2
+            assert route("editada.gpx") == ("Ruta editada", None, 3), route("editada.gpx")
+            assert route("sin_editar.gpx") == ("Ruta del archivo", "Descripción del archivo", 0)
+            # Un cambio pendiente de escribir manda sobre el '.arca.json' (es más nuevo), al
+            # releer y al volver a añadir la carpeta
+            ids = dict(rows(conn, "SELECT relative_path, id FROM media_items"))
+            update_metadata_fields(conn, [ids["editada.gpx"]], {"title": "Pendiente"})
+            conn.execute("UPDATE media_items SET scan_version = 0")
+            conn.commit()
+            process_pending_metadata(conn, registry=track_registry)
+            add_folder(conn, routes)
+            assert route("editada.gpx") == ("Pendiente", None, 3), route("editada.gpx")
+            # '.arca.json' dañado (y sin copia): no se sabe qué se editó y esas columnas no
+            # se tocan, ni siquiera las de un archivo sin editar
+            broken = routes / "roto.tmp"
+            broken.write_text("{ esto no es json", encoding="utf-8")
+            os.replace(broken, routes / FOLDER_FILE_NAME)  # el .arca.json está oculto
+            conn.execute("UPDATE media_items SET metadata_edit_pending = 0, scan_version = 0")
+            conn.execute("UPDATE media_items SET title = 'Otro' WHERE id = ?",
+                         (ids["sin_editar.gpx"],))  # fmt: skip
+            conn.commit()
+            assert process_pending_metadata(conn, registry=track_registry).processed == 2
+            assert route("editada.gpx")[0] == "Pendiente" and route("sin_editar.gpx")[0] == "Otro"
+            print("Metadatos editados (.arca.json): mandan siempre, salvo lo pendiente")
 
     print("Autoprueba finalizada correctamente.")
