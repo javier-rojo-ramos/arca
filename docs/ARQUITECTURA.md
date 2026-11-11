@@ -195,7 +195,7 @@ core/
     policy.py                        ► destino de cada formato: XMP incrustado, sidecar .xmp o archivo de carpeta
     editable_fields.py               ► metadatos descriptivos editables: columna, bit de pendiente, etiquetas XMP y antiguas, clave del .arca.json
     folder_file.py                     Archivo de carpeta '.arca.json' (lectura, escritura atómica, copia .bak)
-    xmp_writer.py                      Escritura en XMP con ExifTool (solo los campos pendientes; comprueba releyendo)
+    xmp_writer.py                      Escritura en XMP con ExifTool (solo los campos pendientes; comprueba releyendo); el GPS, también en el EXIF
     sync.py                            write_pending_user_data (trabajo) y la lectura al importar (apply_file_user_data, apply_folder_files)
   thumbnails/                        ── Generar y guardar las miniaturas ── (ver core/thumbnails/LEEME.md)
     sizes.py                           ThumbnailSize: 160 / 480 / 1200 / 2560 px (lado largo) y calidad JPEG

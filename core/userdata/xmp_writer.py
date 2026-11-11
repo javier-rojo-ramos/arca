@@ -26,6 +26,15 @@ Etiquetas que se escriben (las mismas que Lightroom Classic y que lee el extract
                  comprobar lo escrito se lee como el extractor: la primera etiqueta no
                  vacía (XMP > IPTC > EXIF). Así lo recortado del IPTC (límites de longitud)
                  o cambiado por '?' (IPTC en Latin) no cuenta: manda el XMP, que va entero.
+    latitude, longitude, altitude, gps_direction (el GPS: números; docs/DECISIONES.md, 12/11/2026)
+                 en las etiquetas de GPS que ya tenga el archivo ('XMP-exif:GPS*', 'GPS:GPS*'
+                 del EXIF, o los dos) y, si no tiene ninguna, en el EXIF, como Lightroom;
+                 en un sidecar o un GIF, solo el XMP. Con su referencia: N/S y E/O en el
+                 EXIF (en el XMP van con signo), sobre o bajo el nivel del mar (0/1) y la
+                 dirección respecto al norte verdadero (T). Vacío = se borran, valor y
+                 referencia, allí donde estén. Se comprueba como lo lee el extractor
+                 ('gps_from_tags', XMP primero) y con margen (el EXIF guarda fracciones:
+                 42,682089 vuelve como 42,6820889999).
 
 Resumen IPTC ('Photoshop:IPTCDigest'): si el archivo lo tiene y se toca alguna etiqueta
 IPTC (también 'IPTC:Keywords'), se recalcula ('=new'): ExifTool no lo hace solo, y con el
@@ -62,6 +71,8 @@ Rendimiento: arrancar ExifTool tarda unos cientos de milisegundos, así que cada
 de archivos se escribe con UNA sola llamada ('-execute' separa los archivos dentro de
 la misma llamada) y se lee con otra antes y otra después.
 
+1.3.0 El GPS editado (latitud, longitud, altitud y dirección): donde ya esté y, si no está,
+      en el EXIF; con sus referencias; comprobado como el extractor y con margen.
 1.2.1 Los metadatos editados que se leen y escriben aquí son los de TEXTO: el GPS (números)
       lleva su propia regla, en el paso 4 de su edición.
 1.2.0 Metadatos editados (título, pie, ubicación...): XMP y antiguas que existan,
@@ -76,7 +87,7 @@ Prueba rápida (necesita ExifTool instalado; trabaja sobre archivos de prueba te
     python -m core.userdata.xmp_writer
 """
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 __all__ = [
     "XMP_READ_TAGS",
     "XmpWriteOutcome",
@@ -115,8 +126,9 @@ from core.metadata.exiftool_runner import (
     ExifToolRunner,
 )
 from core.metadata.field_spec import common, pick_flag, rating_value, read_field, text
+from core.metadata.image.rules import GPS_SOURCE_TAGS, gps_from_tags
 from core.metadata.keyword_tags import HIERARCHY_SEPARATOR, read_keywords
-from core.userdata.editable_fields import EDITABLE_FIELDS, TEXT, field_for
+from core.userdata.editable_fields import EDITABLE_FIELDS, NUMBER, TEXT, EditableField, field_for
 
 # Resumen del bloque IPTC que guardan Photoshop y Lightroom (ver la cabecera)
 _IPTC_DIGEST_TAG = "Photoshop:IPTCDigest"
@@ -124,6 +136,30 @@ _IPTC_DIGEST_TAG = "Photoshop:IPTCDigest"
 # Metadatos editables de TEXTO (título, pie, ubicación...): XMP y las antiguas que existan.
 # Los del GPS son números y se escriben con otra regla (docs/DECISIONES.md, 12/11/2026)
 _TEXT_FIELDS = tuple(spec for spec in EDITABLE_FIELDS if spec.kind == TEXT)
+
+# El GPS (números): latitud, longitud, altitud y dirección
+_GPS_FIELDS = tuple(spec for spec in EDITABLE_FIELDS if spec.kind == NUMBER)
+_GPS_COLUMNS = frozenset(spec.column for spec in _GPS_FIELDS)
+
+# En el XMP, la latitud y la longitud llevan el signo en el propio valor ('41,23.244N'):
+# no tienen etiqueta de referencia. En el EXIF, el valor va sin signo y la referencia aparte
+_SIGNED_IN_XMP = frozenset({"latitude", "longitude"})
+
+# Destinos donde no se puede escribir el EXIF: un sidecar (es solo XMP) y el GIF
+_XMP_ONLY_SUFFIXES = frozenset({".xmp", ".gif"})
+
+# Margen al comparar el GPS del archivo con el pedido: el EXIF guarda fracciones (grados,
+# minutos y segundos) y el XMP, minutos con decimales. 1e-6° son unos 11 cm
+_GPS_TOLERANCE: dict[str, float] = {
+    "latitude": 1e-6, "longitude": 1e-6, "altitude": 0.05, "gps_direction": 0.01,
+}  # fmt: skip
+
+
+def _gps_targets(spec: EditableField) -> tuple[tuple[str, str | None, bool], ...]:
+    """Dónde va un campo del GPS: (etiqueta del valor, su referencia o None, es del XMP)."""
+    exif_tag = spec.legacy_tags[0]
+    xmp_ref = None if spec.column in _SIGNED_IN_XMP else f"{spec.xmp_tag}Ref"
+    return ((spec.xmp_tag, xmp_ref, True), (exif_tag, f"{exif_tag}Ref", False))
 
 # Etiquetas que se leen para saber qué valores tiene ya un archivo
 XMP_READ_TAGS: tuple[str, ...] = (
@@ -136,6 +172,14 @@ XMP_READ_TAGS: tuple[str, ...] = (
     "-XMP-lr:HierarchicalSubject",
     "-IPTC:Keywords",
     *(f"-{tag}" for spec in _TEXT_FIELDS for tag in (spec.xmp_tag, *spec.legacy_tags)),
+    # El GPS: lo que lee el extractor y, para saber dónde está, cada etiqueta y su referencia
+    *dict.fromkeys(
+        f"-{tag}"
+        for tag in (
+            *GPS_SOURCE_TAGS,
+            *(t for spec in _GPS_FIELDS for target in _gps_targets(spec) for t in target[:2] if t),
+        )
+    ),
     f"-{_IPTC_DIGEST_TAG}",
 )
 
@@ -177,7 +221,9 @@ class XmpWriteRequest:
         values: SOLO los campos que hay que dejar con ese valor ('rating' 0-5, 'flag'
             -1/0/1, 'color_label' nombre canónico o None, 'keywords' las rutas asignadas,
             p. ej. (('Coche', 'Opel Astra'),), y las columnas editables con su texto o
-            None para vaciarlas; el título, ya sin el nombre del archivo: 'file_title').
+            None para vaciarlas; el título, ya sin el nombre del archivo: 'file_title';
+            el GPS, con su número: latitud y longitud con signo, altitud negativa bajo
+            el nivel del mar).
             Los que no estén no se tocan.
     """
 
@@ -260,6 +306,76 @@ def _edited_arguments(
     return [f"-{tag}={new_text}" for tag in tags]
 
 
+def _same_number(column: str, current: float | None, wanted: float | None) -> bool:
+    """True si el número del archivo es el pedido, con el margen de su campo."""
+    if current is None or wanted is None:
+        return current is None and wanted is None
+    return abs(current - wanted) <= _GPS_TOLERANCE[column]
+
+
+def _gps_reference(column: str, value: float) -> str:
+    """Valor de la etiqueta de referencia de un campo del GPS (sin conversión: con '#')."""
+    if column == "latitude":
+        return "N" if value >= 0 else "S"
+    if column == "longitude":
+        return "E" if value >= 0 else "W"
+    if column == "altitude":
+        return "1" if value < 0 else "0"  # 1 = bajo el nivel del mar
+    return "T"  # dirección: respecto al norte verdadero, como las cámaras y Lightroom
+
+
+def _number_text(value: float) -> str:
+    """Número para ExifTool: punto decimal, sin notación científica ni ceros de más."""
+    return f"{value:.8f}".rstrip("0").rstrip(".") or "0"
+
+
+def _gps_arguments(
+    path: Path, wanted: Mapping[str, Any], current_tags: Mapping[str, Any]
+) -> list[str]:
+    """Argumentos para dejar el GPS pedido (solo los campos que cambian).
+
+    Regla (docs/DECISIONES.md, 12/11/2026): en los grupos de GPS que ya tenga el archivo
+    (XMP, EXIF o los dos) y, si no tiene ninguno, en el EXIF, como Lightroom; en un
+    sidecar o un GIF, solo el XMP. Vaciar borra el valor y su referencia allí donde
+    estén. Los valores van con '#' (sin la conversión de texto de ExifTool: «1» como
+    referencia de la altitud se escribiría 0; ver docs/TRAMPAS.md).
+    """
+    columns = [spec for spec in _GPS_FIELDS if spec.column in wanted]
+    if not columns:
+        return []
+    current = gps_from_tags(current_tags)
+    xmp_only = path.suffix.lower() in _XMP_ONLY_SUFFIXES
+    has_xmp = any(current_tags.get(spec.xmp_tag) is not None for spec in _GPS_FIELDS)
+    has_exif = any(current_tags.get(spec.legacy_tags[0]) is not None for spec in _GPS_FIELDS)
+    if xmp_only:
+        use_xmp, use_exif = True, False
+    elif has_xmp or has_exif:
+        use_xmp, use_exif = has_xmp, has_exif
+    else:
+        use_xmp, use_exif = False, True  # sin GPS: en el EXIF, como Lightroom
+
+    args: list[str] = []
+    for spec in columns:
+        value = wanted[spec.column]
+        if _same_number(spec.column, current[spec.column], value):
+            continue
+        for tag, ref_tag, is_xmp in _gps_targets(spec):
+            if not is_xmp and xmp_only:
+                continue
+            if value is None:
+                # Se borra donde esté (si quedara en un grupo, al releer volvería)
+                if current_tags.get(tag) is not None:
+                    args.append(f"-{tag}=")
+                    if ref_tag:
+                        args.append(f"-{ref_tag}=")
+            elif use_xmp if is_xmp else use_exif:
+                number = value if is_xmp and spec.column in _SIGNED_IN_XMP else abs(value)
+                args.append(f"-{tag}#={_number_text(number)}")
+                if ref_tag:
+                    args.append(f"-{ref_tag}#={_gps_reference(spec.column, value)}")
+    return args
+
+
 def _keyword_arguments(wanted: Sequence[Sequence[str]], current_tags: Mapping[str, Any]) -> list[str]:
     """Argumentos para dejar EXACTAMENTE esas palabras (las listas se vacían y se rellenan)."""
     args = ["-XMP-lr:HierarchicalSubject="]
@@ -330,6 +446,9 @@ def _arguments_for(
         if column in wanted and not _same_text(current_value, wanted[column]):
             args += _edited_arguments(column, wanted[column], current_tags)
 
+    # El GPS (números), con su propia regla
+    args += _gps_arguments(request.path, wanted, current_tags)
+
     # Si se toca el IPTC de un archivo con resumen IPTC, se recalcula (ver la cabecera)
     if current_tags.get(_IPTC_DIGEST_TAG) is not None and any(
         arg.startswith("-IPTC:") for arg in args
@@ -342,12 +461,16 @@ def _matches(tags: Mapping[str, Any], wanted: Mapping[str, Any]) -> bool:
     """True si el archivo tiene ya los valores pedidos (solo se comparan esos campos)."""
     current = user_values_from_tags(tags)
     edits = edited_values_from_tags(tags)
+    gps = gps_from_tags(tags) if _GPS_COLUMNS & wanted.keys() else {}
     for field, value in wanted.items():
         if field == "keywords":
             if not same_keywords(keyword_paths_from_tags(tags), value, exact=True):
                 return False
         elif field in edits:
             if not _same_text(edits[field], value):
+                return False
+        elif field in _GPS_COLUMNS:
+            if not _same_number(field, gps[field], value):
                 return False
         elif current[field] != value:
             return False
@@ -767,6 +890,66 @@ if __name__ == "__main__":
         assert digests(lightroom)[0] == digests(lightroom)[1]
         print("Metadatos editados: XMP y antiguas al día, resumen IPTC recalculado")
 
+        # 9b. GPS (casos de las pruebas con Lightroom del 12/11/2026)
+        def gps_tags(path: Path) -> dict[str, Any]:
+            return {k: v for k, v in read_tags(path).items() if "GPS" in k and "Composite" not in k}
+
+        south = {"latitude": -33.4569, "longitude": -70.6483, "altitude": -12.5, "gps_direction": 292.47}
+        # Sin GPS: se crea en el EXIF, con sus referencias (como Lightroom); nada en el XMP
+        no_gps = folder / "sin_gps.jpg"
+        Image.new("RGB", (32, 24), "white").save(no_gps, quality=90)
+        outcome = writer.write([XmpWriteRequest(no_gps, south)])[0]
+        assert outcome.ok and outcome.written, outcome
+        tags = gps_tags(no_gps)
+        assert (tags["GPS:GPSLatitudeRef"], tags["GPS:GPSLongitudeRef"]) == ("S", "W"), tags
+        assert (tags["GPS:GPSAltitude"], tags["GPS:GPSAltitudeRef"]) == (12.5, 1), tags
+        assert (tags["GPS:GPSImgDirection"], tags["GPS:GPSImgDirectionRef"]) == (292.47, "T"), tags
+        assert not any(k.startswith("XMP-exif:") for k in tags), tags
+        assert gps_from_tags(read_tags(no_gps)) == south
+        # Otra vez lo mismo: no se toca (el EXIF devuelve fracciones: se compara con margen)
+        mtime = no_gps.stat().st_mtime_ns
+        assert not writer.write([XmpWriteRequest(no_gps, south)])[0].written
+        assert no_gps.stat().st_mtime_ns == mtime
+        # Con el EXIF y el XMP distintos (foto A): se cambian los dos
+        both = folder / "ambos.jpg"
+        Image.new("RGB", (32, 24), "white").save(both, quality=90)
+        exiftool("-GPS:GPSLatitude#=40.4168", "-GPS:GPSLatitudeRef#=N", "-GPS:GPSLongitude#=3.7038",
+                 "-GPS:GPSLongitudeRef#=W", "-XMP-exif:GPSLatitude#=41.3874",
+                 "-XMP-exif:GPSLongitude#=2.1686", str(both))  # fmt: skip
+        place = {"latitude": 43.4623, "longitude": -3.81}
+        assert writer.write([XmpWriteRequest(both, place)])[0].written
+        tags = gps_tags(both)
+        assert (tags["XMP-exif:GPSLatitude"], tags["XMP-exif:GPSLongitude"]) == (43.4623, -3.81), tags
+        assert (tags["GPS:GPSLatitude"], tags["GPS:GPSLongitudeRef"]) == (43.4623, "W"), tags
+        # Solo con XMP (foto C): la altitud y la dirección van al XMP; no se crea el EXIF
+        only_xmp = folder / "solo_xmp.jpg"
+        Image.new("RGB", (32, 24), "white").save(only_xmp, quality=90)
+        exiftool("-XMP-exif:GPSLatitude#=31.559", "-XMP-exif:GPSLongitude#=35.4732", str(only_xmp))
+        assert writer.write([XmpWriteRequest(only_xmp, {"altitude": -430.0, "gps_direction": 0.0})])[0].ok
+        tags = gps_tags(only_xmp)
+        assert (tags["XMP-exif:GPSAltitude"], tags["XMP-exif:GPSAltitudeRef"]) == (430, 1), tags
+        assert tags["XMP-exif:GPSImgDirection"] == 0 and not any(k.startswith("GPS:") for k in tags)
+        assert gps_from_tags(read_tags(only_xmp))["altitude"] == -430.0
+        # Vaciar la ubicación: se borra (valor y referencia) en los dos grupos; lo demás queda
+        exiftool("-GPS:GPSAltitude#=650", "-GPS:GPSAltitudeRef#=0", str(both))
+        emptied = writer.write([XmpWriteRequest(both, {"latitude": None, "longitude": None})])[0]
+        assert emptied.ok and emptied.written, emptied
+        tags = gps_tags(both)
+        assert not {"GPS:GPSLatitude", "GPS:GPSLatitudeRef", "XMP-exif:GPSLatitude",
+                    "XMP-exif:GPSLongitude"} & tags.keys(), tags  # fmt: skip
+        assert tags["GPS:GPSAltitude"] == 650
+        # Sidecar nuevo de un RAW y GIF: solo el XMP
+        sidecar = folder / "IMG_0002.xmp"
+        gif = folder / "dibujo.gif"
+        Image.new("RGB", (32, 24), "white").save(gif)
+        outcomes = writer.write([XmpWriteRequest(sidecar, place), XmpWriteRequest(gif, place)])
+        assert all(o.ok and o.written for o in outcomes), outcomes
+        for path in (sidecar, gif):
+            tags = gps_tags(path)
+            assert tags["XMP-exif:GPSLatitude"] == 43.4623, (path, tags)
+            assert not any(k.startswith("GPS:") for k in tags), (path, tags)
+        print("GPS: donde ya está o, si no, en el EXIF; referencias; vaciar; sidecar y GIF, solo XMP")
+
     # 10. Detalles sin ExifTool: números como texto, saltos de línea y avisos menores
     assert _same_text("1.5", "1.50") and _same_text("7", "007") and not _same_text("1.5", "1,5")
     assert not _same_text(None, "1") and _same_text(None, None)
@@ -774,5 +957,10 @@ if __name__ == "__main__":
     assert _argument_line("-A=x\\y\nz") == "#[CSTR]-A=x\\\\y\\nz"
     stderr = f"{_MARK}0\nWarning: [Minor] IPTC:City exceeds length limit (truncated)\n{_MARK}1\nError: x"
     assert _split_messages(stderr) == {1: "Error: x"}
+    assert _number_text(41.3874) == "41.3874" and _number_text(100.0) == "100"
+    assert _number_text(0.000001) == "0.000001" and _number_text(0.0) == "0"
+    assert _same_number("latitude", 42.6820889999083, 42.682089)  # el EXIF, con su margen
+    assert not _same_number("latitude", 42.6821, 42.682089) and _same_number("altitude", None, None)
+    assert _gps_reference("latitude", -0.5) == "S" and _gps_reference("altitude", 0.0) == "0"
 
     print("Autoprueba finalizada correctamente.")

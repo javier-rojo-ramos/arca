@@ -22,12 +22,14 @@ devuelve la imagen girada o no) y el de los RAW (varias imágenes dentro del arc
 Con 'python -m core.metadata.inspect_cli archivo.heic --campos' se ve qué guarda
 la aplicación y se compara con Lightroom.
 
+1.3.0 'gps_from_tags' y 'GPS_SOURCE_TAGS': el GPS de un archivo leído como el extractor, para
+      comprobar lo escrito (core/userdata/xmp_writer.py). La lectura no cambia.
 1.2.0 GPS: pareja de coordenadas de una sola fuente (primero el XMP) y altitud del XMP con
       su referencia ('IMAGE_FIELDS_VERSION' 9).
 """
 
-__version__ = "1.2.0"
-__all__ = ["apply_image_rules", "crop_size"]
+__version__ = "1.3.0"
+__all__ = ["GPS_COLUMNS", "GPS_SOURCE_TAGS", "apply_image_rules", "crop_size", "gps_from_tags"]
 
 # Librerías estándar
 import math
@@ -46,12 +48,22 @@ from core.metadata.field_spec import (
     read_field,
     real,
 )
+from core.metadata.image.fields import IMAGE_FIELDS
 
 # Parejas de coordenadas, en orden: el XMP y, si no tiene las dos, el compuesto de ExifTool
 # (sale del EXIF). Son las mismas etiquetas, y en el mismo orden, que en 'fields.py'
 _GPS_PAIRS: tuple[tuple[str, str], ...] = (
     ("XMP-exif:GPSLatitude", "XMP-exif:GPSLongitude"),
     ("Composite:GPSLatitude", "Composite:GPSLongitude"),
+)
+
+# Columnas del GPS, sus líneas de 'fields.py' y TODAS las etiquetas de las que se leen (con
+# la referencia de la altitud del XMP): para leer el GPS de un archivo como el extractor
+GPS_COLUMNS: tuple[str, ...] = ("latitude", "longitude", "altitude", "gps_direction")
+_GPS_FIELDS = tuple(spec for spec in IMAGE_FIELDS if spec.column in GPS_COLUMNS)
+GPS_SOURCE_TAGS: tuple[str, ...] = (
+    *dict.fromkeys(tag for spec in _GPS_FIELDS for tag in spec.sources),
+    "XMP-exif:GPSAltitudeRef",
 )
 
 # Orígenes de la fecha de captura, por orden de fiabilidad:
@@ -220,6 +232,20 @@ def _gps(tags: Mapping[str, Any], common_values: dict[str, Any]) -> None:
         common_values["altitude"] = (
             -abs(altitude) if _below_sea_level(tags.get("XMP-exif:GPSAltitudeRef")) else abs(altitude)
         )
+
+
+def gps_from_tags(tags: Mapping[str, Any]) -> dict[str, float | None]:
+    """El GPS de un archivo leído EXACTAMENTE como el extractor (lista de campos y regla).
+
+    Para saber si un archivo ya tiene el GPS pedido y comprobar lo escrito
+    (core/userdata/xmp_writer.py). Las etiquetas tienen que incluir 'GPS_SOURCE_TAGS'.
+
+    Returns:
+        Columna de 'GPS_COLUMNS' -> valor (None si no tiene).
+    """
+    values = {spec.column: read_field(spec, tags) for spec in _GPS_FIELDS}
+    _gps(tags, values)
+    return values
 
 
 def _below_sea_level(ref: Any) -> bool:
