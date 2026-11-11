@@ -35,7 +35,7 @@ valoración. Si la caja mostraba «Varios», antes se pregunta («Edición múlt
 volver a mostrar»: SETTING_CONFIRM_MULTI_EDIT). Al refrescar, lo que el usuario está
 escribiendo no se pisa.
 
-El GPS, la altitud y la dirección (12/11/2026) también son cajas: muestran lo mismo que la
+El GPS, la altitud y la dirección (11/11/2026) también son cajas: muestran lo mismo que la
 fila y lo escrito se interpreta antes de guardarlo ('value_parsing.py'; la caja «GPS»
 cambia la latitud y la longitud). Si no vale, la caja vuelve a su valor y avisa junto a
 ella ('EditableValue.reject'), sin preguntar ni guardar nada.

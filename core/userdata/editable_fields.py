@@ -23,7 +23,7 @@ en docs/METADATOS.md):
     - Un valor vacío es None ('normalize_value').
     - Los campos de texto son la mayoría. Los del GPS (latitud, longitud, altitud y
       dirección) son NÚMEROS ('kind' = NUMBER), con sus límites, y se escriben con otra
-      regla (ver docs/DECISIONES.md, 12/11/2026): en las etiquetas de GPS que ya tenga el
+      regla (ver docs/DECISIONES.md, 11/11/2026): en las etiquetas de GPS que ya tenga el
       archivo y, si no tiene ninguna, en el EXIF; ahí 'legacy_tags' es su etiqueta EXIF.
       La latitud y la longitud van siempre juntas ('PAIRED_COLUMNS').
     - El título no puede quedar vacío en el catálogo ('title' es NOT NULL): sin título vale

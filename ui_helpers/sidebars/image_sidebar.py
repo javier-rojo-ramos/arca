@@ -46,6 +46,7 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula; lo une
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
 'scroll_image_sidebar', 'widget_image_sidebar_content' y 'edit_keyword_filter'.
 
+1.7.2 El filtro de palabras clave, a 8 px de la cabecera de la sección (antes, 4).
 1.7.1 La fila elegida por código (p. ej. con la flecha del inspector) se repinta al
       momento: antes no se veía marcada hasta pasar el ratón por encima.
 1.7.0 'show_source': elegir desde fuera (la flecha «ver sus fotos» del inspector); si
@@ -67,7 +68,7 @@ El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres 
       también el árbol con casillas del inspector (paso K4b).
 """
 
-__version__ = "1.7.1"
+__version__ = "1.7.2"
 __all__ = ["ImageSidebar", "filter_keyword_tree"]
 
 # Librerías estándar
@@ -207,7 +208,9 @@ class ImageSidebar(QWidget):
         self.section_keywords = CollapsibleSection("Lista de palabras clave", content)
         box = QWidget(content)
         box_layout = QVBoxLayout(box)
-        box_layout.setContentsMargins(6, 2, 6, 4)
+        # Arriba, 6: con los 2 del cuerpo de la sección, el filtro queda a 8 px de la
+        # cabecera (pedido por el autor el 11/11/2026 para toda caja bajo un título)
+        box_layout.setContentsMargins(6, 6, 6, 4)
         box_layout.setSpacing(4)
         self._filter = QLineEdit(box)
         self._filter.setObjectName("edit_keyword_filter")

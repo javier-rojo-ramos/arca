@@ -509,7 +509,7 @@ ALTER TABLE media_items ADD COLUMN metadata_edit_pending INTEGER NOT NULL DEFAUL
 CREATE INDEX idx_media_metadata_edit_pending ON media_items(id) WHERE metadata_edit_pending <> 0;
 """
 
-# Migración 3 (12/11/2026): la dirección de la cámara pasa a 'media_items', junto a la
+# Migración 3 (11/11/2026): la dirección de la cámara pasa a 'media_items', junto a la
 # latitud, la longitud y la altitud. Es un dato de ubicación (la vista de mapa lo usará con
 # el resto, también en vídeos) y así se edita con el mismo mecanismo que los demás
 # metadatos editables (core/userdata/editable_fields.py), que trabaja con 'media_items'.

@@ -112,7 +112,7 @@ IMAGE_FIELDS: tuple[FieldSpec, ...] = (
         text,
     ),
     # GPS: primero el XMP. Lightroom Classic muestra el XMP cuando no coincide con el EXIF
-    # (comprobado el 12/11/2026), y lo editado en un RAW solo puede ir a su sidecar. El XMP
+    # (comprobado el 11/11/2026), y lo editado en un RAW solo puede ir a su sidecar. El XMP
     # y el compuesto de ExifTool ya llevan el signo (sur y oeste, negativos). La pareja
     # latitud/longitud sale siempre de la misma fuente y la altitud del XMP lleva su
     # referencia aparte: las dos cosas, en 'rules.py'.

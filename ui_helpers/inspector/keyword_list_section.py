@@ -26,6 +26,7 @@ La sección no toca la base de datos: lee con 'data_request'
 ('keywords.fetch_keyword_editor_data') y pide los cambios con 'edit_requested'
 ('keywords.apply_keyword_changes'), que atiende el controlador del inspector.
 
+1.5.2 El filtro, a 8 px de la cabecera de la sección (antes, 4), como de los lados.
 1.5.1 Margen derecho de 8 px, como el izquierdo (antes, 4), igual que 'InfoGrid'.
 1.5.0 En todos los módulos, siempre (también sin selección: para navegar con la flecha o
       soltar tarjetas); recuentos de la biblioteca de lo resumido o de todas; la flecha
@@ -37,7 +38,7 @@ La sección no toca la base de datos: lee con 'data_request'
 1.1.0 Datos con 'KeywordEditorData'; los padres de las palabras asignadas, resaltados.
 """
 
-__version__ = "1.5.1"
+__version__ = "1.5.2"
 __all__ = ["KeywordListSection"]
 
 # Librerías estándar
@@ -72,8 +73,10 @@ class KeywordListSection(InspectorSection):
         self._pending_ids: tuple[int, ...] = ()   # los de la última petición de datos
 
         layout = QVBoxLayout(self)
-        # Mismos márgenes que las filas de las demás secciones ('InfoGrid')
-        layout.setContentsMargins(8, 2, 8, 2)
+        # A los lados, los de las filas de las demás secciones ('InfoGrid'). Arriba, 6: con
+        # los 2 del cuerpo de la sección, el filtro del árbol queda a 8 px de la cabecera,
+        # como de los lados (pedido por el autor el 11/11/2026)
+        layout.setContentsMargins(8, 6, 8, 2)
         layout.setSpacing(0)
 
         self._checklist = KeywordChecklist(self)

@@ -9,7 +9,7 @@ extend-exclude = ["tests/", "ui/"]
 line-length = 100
 
 [lint]
-# Reglas fijadas el 12/11/2026: son exactamente las que ruff 0.17.4 activa por defecto
+# Reglas fijadas el 11/11/2026: son exactamente las que ruff 0.17.4 activa por defecto
 # ('ruff check --show-settings --isolated'). Sin esta lista, el conjunto dependería de la
 # versión de ruff instalada (o de la que trae la extensión) y una actualización podría
 # cambiar los avisos sin tocar el código. Para añadir o quitar reglas, mejor

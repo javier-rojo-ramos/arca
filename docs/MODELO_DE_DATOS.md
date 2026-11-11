@@ -49,7 +49,7 @@ Tablas: `media_items`, `photo_details`, `video_details`, `track_details`, `keywo
 |---|---|
 | 1 | Esquema inicial, consolidado el 05/11/2026 a partir de las 17 migraciones de la fase de pruebas (su detalle, en [HISTORIAL.md](HISTORIAL.md)): todas las tablas, índices y el trigger de `updated_at` |
 | 2 | 10/11/2026: `media_items.metadata_edit_pending` (metadatos descriptivos editados pendientes de escribir) y su índice parcial `idx_media_metadata_edit_pending` |
-| 3 | 12/11/2026: `gps_direction` pasa de `photo_details` a `media_items`, con lo ya leído copiado (sin releer las fotos), para editarlo con el resto del GPS ([DECISIONES.md](DECISIONES.md)) |
+| 3 | 11/11/2026: `gps_direction` pasa de `photo_details` a `media_items`, con lo ya leído copiado (sin releer las fotos), para editarlo con el resto del GPS ([DECISIONES.md](DECISIONES.md)) |
 
 Mecanismo: `open_catalog` aplica al abrir las migraciones pendientes (cada una es atómica y anota su versión en `PRAGMA user_version`) **antes** de crear el gestor asíncrono. Un catálogo de una versión más nueva se rechaza (`SchemaVersionError`). Al crear el esquema se pone la marca `APPLICATION_ID` (`PRAGMA application_id` = «ARCA»): un catálogo con versión y sin marca es de antes de consolidar (se rechaza: «versión de pruebas anterior»), y uno con otra marca, de otra aplicación.
 

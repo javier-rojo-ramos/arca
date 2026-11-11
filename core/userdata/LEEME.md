@@ -119,7 +119,7 @@ cabecera de `xmp_writer.py` y en «Escritura de los metadatos descriptivos» de
 Un campo NUMÉRICO (como los del GPS): `kind=NUMBER` y, si hace falta, `limits` y `circular`.
 Se guarda como número en la columna y en el `.arca.json`; dos columnas que no tienen sentido
 por separado (latitud y longitud) van en `PAIRED_COLUMNS`. El GPS se escribe en el XMP o el
-EXIF con su propia regla (docs/DECISIONES.md, 12/11/2026), no con la de los textos.
+EXIF con su propia regla (docs/DECISIONES.md, 11/11/2026), no con la de los textos.
 
 ## Pruebas
 

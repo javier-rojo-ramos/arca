@@ -26,7 +26,7 @@ Etiquetas que se escriben (las mismas que Lightroom Classic y que lee el extract
                  comprobar lo escrito se lee como el extractor: la primera etiqueta no
                  vacía (XMP > IPTC > EXIF). Así lo recortado del IPTC (límites de longitud)
                  o cambiado por '?' (IPTC en Latin) no cuenta: manda el XMP, que va entero.
-    latitude, longitude, altitude, gps_direction (el GPS: números; docs/DECISIONES.md, 12/11/2026)
+    latitude, longitude, altitude, gps_direction (el GPS: números; docs/DECISIONES.md, 11/11/2026)
                  en las etiquetas de GPS que ya tenga el archivo ('XMP-exif:GPS*', 'GPS:GPS*'
                  del EXIF, o los dos) y, si no tiene ninguna, en el EXIF, como Lightroom;
                  en un sidecar o un GIF, solo el XMP. Con su referencia: N/S y E/O en el
@@ -134,7 +134,7 @@ from core.userdata.editable_fields import EDITABLE_FIELDS, NUMBER, TEXT, Editabl
 _IPTC_DIGEST_TAG = "Photoshop:IPTCDigest"
 
 # Metadatos editables de TEXTO (título, pie, ubicación...): XMP y las antiguas que existan.
-# Los del GPS son números y se escriben con otra regla (docs/DECISIONES.md, 12/11/2026)
+# Los del GPS son números y se escriben con otra regla (docs/DECISIONES.md, 11/11/2026)
 _TEXT_FIELDS = tuple(spec for spec in EDITABLE_FIELDS if spec.kind == TEXT)
 
 # El GPS (números): latitud, longitud, altitud y dirección
@@ -334,7 +334,7 @@ def _gps_arguments(
 ) -> list[str]:
     """Argumentos para dejar el GPS pedido (solo los campos que cambian).
 
-    Regla (docs/DECISIONES.md, 12/11/2026): en los grupos de GPS que ya tenga el archivo
+    Regla (docs/DECISIONES.md, 11/11/2026): en los grupos de GPS que ya tenga el archivo
     (XMP, EXIF o los dos) y, si no tiene ninguno, en el EXIF, como Lightroom; en un
     sidecar o un GIF, solo el XMP. Vaciar borra el valor y su referencia allí donde
     estén. Los valores van con '#' (sin la conversión de texto de ExifTool: «1» como
@@ -890,7 +890,7 @@ if __name__ == "__main__":
         assert digests(lightroom)[0] == digests(lightroom)[1]
         print("Metadatos editados: XMP y antiguas al día, resumen IPTC recalculado")
 
-        # 9b. GPS (casos de las pruebas con Lightroom del 12/11/2026)
+        # 9b. GPS (casos de las pruebas con Lightroom del 11/11/2026)
         def gps_tags(path: Path) -> dict[str, Any]:
             return {k: v for k, v in read_tags(path).items() if "GPS" in k and "Composite" not in k}
 

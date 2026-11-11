@@ -31,7 +31,7 @@ Formato (versión 1):
       'EDITABLE_FIELDS' en 'editable_fields.py': "title", "description", "city"...): la
       clave solo está si el campo se ha EDITADO, y entonces su valor manda siempre sobre
       lo que traiga el archivo (que la aplicación no modifica). "" = vaciado a propósito.
-      El GPS (desde el 12/11/2026: "latitude", "longitude", "altitude", "gps_direction")
+      El GPS (desde el 11/11/2026: "latitude", "longitude", "altitude", "gps_direction")
       va como número; la latitud y la longitud, siempre juntas.
 
     - Las claves de 'items' son el NOMBRE del archivo (sin carpeta), tal como está en

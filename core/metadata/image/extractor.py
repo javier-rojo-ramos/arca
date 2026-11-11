@@ -202,7 +202,7 @@ sys.stdout.buffer.write(json.dumps(out, ensure_ascii=False).encode("utf-8"))
         south, _ = run_rules({"Composite:GPSLatitude": -33.5, "Composite:GPSLongitude": -70.6, "Composite:GPSAltitude": -10})
         assert (south["latitude"], south["longitude"], south["altitude"]) == (-33.5, -70.6, -10.0)
 
-        # GPS con el XMP primero (casos comprobados con Lightroom Classic 16 el 12/11/2026)
+        # GPS con el XMP primero (casos comprobados con Lightroom Classic 16 el 11/11/2026)
         exif = {"Composite:GPSLatitude": 40.4168, "Composite:GPSLongitude": -3.7038,
                 "Composite:GPSAltitude": 650, "GPS:GPSAltitude": 650, "GPS:GPSImgDirection": 90}
         xmp = {"XMP-exif:GPSLatitude": 41.3874, "XMP-exif:GPSLongitude": 2.1686,

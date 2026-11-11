@@ -2,7 +2,7 @@
 
 Funciones puras (sin Qt). Aceptan lo que muestra la propia fila ('formatting.py': así una
 caja que se deja como está, o en la que solo se toca una parte, se entiende) y las formas
-habituales de escribirlo (decididas por el autor el 12/11/2026, docs/DECISIONES.md):
+habituales de escribirlo (decididas por el autor el 11/11/2026, docs/DECISIONES.md):
 
     GPS        42°40'55,5204" N 0°4'11,9676" E   grados, minutos y segundos, como se ve
                41°23'14.64" N 2°10'6.96" E       (coma o punto; N/S y E/O/W, delante o
@@ -56,7 +56,7 @@ NUMERIC_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 
 # Aviso junto a la caja cuando lo escrito no vale (textos decididos por el autor el
-# 12/11/2026)
+# 11/11/2026)
 INVALID_TEXTS: dict[str, str] = {
     "gps": (
         "No es una ubicación válida. Escribe, por ejemplo,\n"
