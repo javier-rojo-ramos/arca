@@ -47,6 +47,8 @@ Dos sentidos:
          archivo, el procesador con 'folder_file_edits'. En los formatos con XMP, los
          escribe el procesador como cualquier metadato extraído (salvo lo pendiente).
 
+1.6.0 GPS editado (números): al '.arca.json' ya; en los formatos con XMP queda pendiente
+      (el archivo se aplaza, sin error) hasta que el escritor lo sepa escribir.
 1.5.0 Escritura de los metadatos editados ('metadata_edit_pending'): XMP o '.arca.json',
       y su marca se quita como la de la valoración. Autoprueba: ida y vuelta de los
       metadatos editados; los textos con tildes se escriben con un archivo de argumentos
@@ -62,7 +64,7 @@ Prueba rápida (desde la raíz del proyecto; la parte de XMP necesita ExifTool):
     python -m core.userdata.sync
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = [
     "SCAN_STAGE_USERDATA",
     "FolderFileCache",
@@ -95,6 +97,8 @@ from core.metadata.exiftool_runner import ExifToolError, ExifToolRunner, find_si
 from core.metadata.keyword_tags import FileKeywords
 from core.userdata.editable_fields import (
     EDITABLE_COLUMNS,
+    EDITABLE_FIELDS,
+    TEXT,
     default_title,
     field_for,
     file_title,
@@ -249,6 +253,13 @@ class _Item:
             wanted[column] = file_title(value, self.path.name) if column == "title" else value
         return wanted
 
+
+# Metadatos editados que el escritor de XMP todavía no sabe escribir: el GPS (paso 4 de su
+# edición, docs/PENDIENTE.md, C.5). En los formatos con XMP siguen pendientes: ni se piden
+# al escritor ni se dan por escritos. En el '.arca.json' ya se escriben.
+_XMP_PENDING_LATER: frozenset[str] = frozenset(
+    spec.column for spec in EDITABLE_FIELDS if spec.kind != TEXT
+)
 
 # Elementos con algo pendiente de escribir fuera del catálogo (presentes en disco)
 _PENDING_SQL = (
@@ -519,6 +530,11 @@ def _write_xmp_items(
     targets: list[_Item] = []
     before: dict[int, os.stat_result | None] = {}  # estado del destino antes de escribir
     for item in items:
+        # Sin el GPS, que este escritor aún no escribe (sigue pendiente)
+        values = {k: v for k, v in item.wanted.items() if k not in _XMP_PENDING_LATER}
+        if not values:
+            item.deferred = True  # solo le queda el GPS: no se intenta, no es un error
+            continue
         try:
             original = item.path.stat()
         except FileNotFoundError:
@@ -546,7 +562,7 @@ def _write_xmp_items(
             if (original.st_size, original.st_mtime_ns) != (item.file_size, item.file_mtime_ns):
                 item.rescan = True
 
-        requests.append(XmpWriteRequest(target, item.wanted))
+        requests.append(XmpWriteRequest(target, values))
         targets.append(item)
 
     if not requests:
@@ -645,6 +661,10 @@ def _save_results(conn: sqlite3.Connection, items: Iterable[_Item]) -> None:
             # Metadatos editados: igual, comparando con el valor de la BD que se leyó (el
             # título escrito puede ser «sin título» y en la BD, el nombre del archivo)
             for column in pending_columns(item.metadata_pending):
+                if column in _XMP_PENDING_LATER and (
+                    item.destination is not UserDataDestination.FOLDER_FILE
+                ):
+                    continue  # no se ha escrito: sigue pendiente
                 conn.execute(
                     "UPDATE media_items SET metadata_edit_pending = metadata_edit_pending & ~? "
                     f"WHERE id = ? AND {column} IS ?",
@@ -897,7 +917,7 @@ def _folder_data(folder: Path, cache: FolderFileCache) -> FolderData | None:
 
 
 def _apply_edited_values(
-    conn: sqlite3.Connection, media_id: int, file_name: str, edits: dict[str, str | None]
+    conn: sqlite3.Connection, media_id: int, file_name: str, edits: dict[str, str | float | None]
 ) -> bool:
     """Pone en un elemento los metadatos editados del archivo de carpeta.
 
@@ -1099,6 +1119,28 @@ if __name__ == "__main__":
         assert add_folder(original, library).changed_items == 0  # sin falsos cambios
         print("Metadatos editados: al XMP (con IPTC y resumen), al sidecar y al .arca.json")
 
+        # --- 2c. GPS editado: al '.arca.json' ya; en una foto con XMP, pendiente (el
+        #     escritor de XMP lo escribirá en el paso 4 de la edición del GPS) ---------
+        update_metadata_fields(original, [by_path["clip.mp4"]],
+                               {"latitude": 41.3874, "longitude": 2.1686, "altitude": -12.5})
+        update_metadata_fields(original, [by_path["foto.jpg"]], {"latitude": 43.4623, "longitude": -3.81})
+        original.commit()
+        jpeg_before = (library / "foto.jpg").stat().st_mtime_ns
+        gps_pass = write_pending_user_data(original)
+        assert (gps_pass.written, gps_pass.failed) == (1, 0), gps_pass.summary()
+        entry = read_folder_file(library).items["clip.mp4"]
+        assert (entry["latitude"], entry["longitude"], entry["altitude"]) == (41.3874, 2.1686, -12.5)
+        assert (library / "foto.jpg").stat().st_mtime_ns == jpeg_before  # la foto, sin tocar
+        bits = original.execute(
+            "SELECT relative_path, metadata_edit_pending FROM media_items WHERE metadata_edit_pending <> 0"
+        ).fetchall()
+        assert [tuple(r) for r in bits] == [("foto.jpg", 512 | 1024)], bits  # el vídeo, escrito
+        # Se deja la foto como estaba, para que el resto de la prueba no cambie
+        original.execute("UPDATE media_items SET metadata_edit_pending = 0, latitude = NULL, "
+                         "longitude = NULL WHERE relative_path = 'foto.jpg'")
+        original.commit()
+        print("GPS editado: al .arca.json; en la foto, pendiente hasta el paso 4")
+
         # --- 3. Catálogo NUEVO a partir de las carpetas -------------------------------
         rebuilt = new_catalog()
         imported = add_folder(rebuilt, library)
@@ -1110,6 +1152,10 @@ if __name__ == "__main__":
         assert edited(rebuilt, "raw.nef") == ("raw", None, "Javier Rojo", None)
         assert edited(rebuilt, "clip.mp4") == ("Vídeo editado", None, None, None)
         assert edited(rebuilt, "dibujo.png")[0] == "dibujo"
+        clip_gps = rebuilt.execute(
+            "SELECT latitude, longitude, altitude FROM media_items WHERE relative_path = 'clip.mp4'"
+        ).fetchone()
+        assert tuple(clip_gps) == (41.3874, 2.1686, -12.5), tuple(clip_gps)  # del .arca.json
         print("Catálogo reconstruido: valoraciones, marcas, colores y metadatos editados recuperados")
 
         # --- 4. Un cambio pendiente NO se pisa al releer el archivo -------------------

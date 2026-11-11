@@ -10,7 +10,7 @@ basta con volver a añadir las carpetas. Todo lo de aquí es Python puro (sin Qt
 ```
 core/userdata/
 ├── policy.py        ► AQUÍ se decide el destino de cada formato (una línea por extensión)
-├── editable_fields.py ► Metadatos descriptivos editables (título, pie, ubicación...): una línea por
+├── editable_fields.py ► Metadatos descriptivos editables (título, pie, ubicación, GPS...): una línea por
 │                      campo. Se editan en el inspector («Metadatos» de Imagen)
 ├── folder_file.py     El archivo de carpeta '.arca.json' (leer, escribir de forma atómica, copia .bak)
 ├── xmp_writer.py      Escritura en XMP con ExifTool (incrustado o sidecar), con comprobación
@@ -115,6 +115,11 @@ que existir en `media_items`. Escritura, relectura y marca de pendiente salen so
 Reglas de escritura (XMP siempre, antiguas solo si existen, resumen IPTC, `#[CSTR]`): en la
 cabecera de `xmp_writer.py` y en «Escritura de los metadatos descriptivos» de
 `docs/METADATOS.md`.
+
+Un campo NUMÉRICO (como los del GPS): `kind=NUMBER` y, si hace falta, `limits` y `circular`.
+Se guarda como número en la columna y en el `.arca.json`; dos columnas que no tienen sentido
+por separado (latitud y longitud) van en `PAIRED_COLUMNS`. El GPS se escribe en el XMP o el
+EXIF con su propia regla (docs/DECISIONES.md, 12/11/2026), no con la de los textos.
 
 ## Pruebas
 

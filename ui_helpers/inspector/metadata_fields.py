@@ -35,6 +35,7 @@ Cómo añadir:
     - La vista personalizada (más adelante): una lista de claves guardada en
       'settings.json'; 'preset_rows' ya acepta cualquier lista de claves.
 
+1.6.2 Autoprueba: el GPS ya es editable por dentro, pero sus cajas llegan después.
 1.6.1 «Dirección» sale de 'media_items.gps_direction' (migración 3), como el resto del GPS.
 1.6.0 La ubicación (lugar, ciudad, región, país y código de país) también se edita
       (paso C.5, 5).
@@ -50,7 +51,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.metadata_fields
 """
 
-__version__ = "1.6.1"
+__version__ = "1.6.2"
 __all__ = [
     "COMMON_HEAD",
     "DEFAULT_PRESET",
@@ -479,8 +480,10 @@ if __name__ == "__main__":
     assert editor_value(FieldValue(MIXED)) == ("", True)
     assert editor_value(FieldValue()) == ("", False)
     # Todos los metadatos que se saben escribir se editan aquí, y en todas las vistas donde
-    # están (la ubicación, en «Por defecto» y «Ubicación»)
-    assert set(EDITABLE_KEYS) == set(EDITABLE_COLUMNS)
+    # están (la ubicación, en «Por defecto» y «Ubicación»). El GPS, todavía no: sus cajas
+    # llegan en el paso 5 de su edición (docs/PENDIENTE.md, C.5)
+    gps_columns = {"latitude", "longitude", "altitude", "gps_direction"}
+    assert set(EDITABLE_KEYS) == set(EDITABLE_COLUMNS) - gps_columns
     for preset in ("default", "location"):
         assert set(_PLACE_BLOCK) <= set(preset_rows(preset)) & set(EDITABLE_KEYS), preset
     print("3. Foto, vista por defecto: como el ejemplo")

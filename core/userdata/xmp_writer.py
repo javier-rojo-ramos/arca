@@ -62,6 +62,8 @@ Rendimiento: arrancar ExifTool tarda unos cientos de milisegundos, así que cada
 de archivos se escribe con UNA sola llamada ('-execute' separa los archivos dentro de
 la misma llamada) y se lee con otra antes y otra después.
 
+1.2.1 Los metadatos editados que se leen y escriben aquí son los de TEXTO: el GPS (números)
+      lleva su propia regla, en el paso 4 de su edición.
 1.2.0 Metadatos editados (título, pie, ubicación...): XMP y antiguas que existan,
       comprobados como los lee el extractor; resumen IPTC recalculado al tocar el IPTC
       (también con las palabras clave, que antes lo dejaban desajustado); '#[CSTR]' en los
@@ -74,7 +76,7 @@ Prueba rápida (necesita ExifTool instalado; trabaja sobre archivos de prueba te
     python -m core.userdata.xmp_writer
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = [
     "XMP_READ_TAGS",
     "XmpWriteOutcome",
@@ -114,10 +116,14 @@ from core.metadata.exiftool_runner import (
 )
 from core.metadata.field_spec import common, pick_flag, rating_value, read_field, text
 from core.metadata.keyword_tags import HIERARCHY_SEPARATOR, read_keywords
-from core.userdata.editable_fields import EDITABLE_FIELDS, field_for
+from core.userdata.editable_fields import EDITABLE_FIELDS, TEXT, field_for
 
 # Resumen del bloque IPTC que guardan Photoshop y Lightroom (ver la cabecera)
 _IPTC_DIGEST_TAG = "Photoshop:IPTCDigest"
+
+# Metadatos editables de TEXTO (título, pie, ubicación...): XMP y las antiguas que existan.
+# Los del GPS son números y se escriben con otra regla (docs/DECISIONES.md, 12/11/2026)
+_TEXT_FIELDS = tuple(spec for spec in EDITABLE_FIELDS if spec.kind == TEXT)
 
 # Etiquetas que se leen para saber qué valores tiene ya un archivo
 XMP_READ_TAGS: tuple[str, ...] = (
@@ -129,7 +135,7 @@ XMP_READ_TAGS: tuple[str, ...] = (
     "-XMP-dc:Subject",
     "-XMP-lr:HierarchicalSubject",
     "-IPTC:Keywords",
-    *(f"-{tag}" for spec in EDITABLE_FIELDS for tag in (spec.xmp_tag, *spec.legacy_tags)),
+    *(f"-{tag}" for spec in _TEXT_FIELDS for tag in (spec.xmp_tag, *spec.legacy_tags)),
     f"-{_IPTC_DIGEST_TAG}",
 )
 
@@ -137,7 +143,7 @@ XMP_READ_TAGS: tuple[str, ...] = (
 # etiqueta no vacía en el orden XMP > antiguas
 _EDITABLE_READ = {
     spec.column: common(spec.column, (spec.xmp_tag, *spec.legacy_tags), text)
-    for spec in EDITABLE_FIELDS
+    for spec in _TEXT_FIELDS
 }
 
 # Un texto que parece un número (ExifTool lo entrega como número: '1.50' -> 1.5)

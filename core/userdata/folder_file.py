@@ -31,6 +31,8 @@ Formato (versión 1):
       'EDITABLE_FIELDS' en 'editable_fields.py': "title", "description", "city"...): la
       clave solo está si el campo se ha EDITADO, y entonces su valor manda siempre sobre
       lo que traiga el archivo (que la aplicación no modifica). "" = vaciado a propósito.
+      El GPS (desde el 12/11/2026: "latitude", "longitude", "altitude", "gps_direction")
+      va como número; la latitud y la longitud, siempre juntas.
 
     - Las claves de 'items' son el NOMBRE del archivo (sin carpeta), tal como está en
       disco. En Windows y macOS (que no distinguen mayúsculas), si no hay coincidencia
@@ -50,6 +52,8 @@ Seguridad al escribir ('write_folder_file'):
     Los tres archivos empiezan por punto (el escáner los ignora) y en Windows se marcan
     además como ocultos.
 
+1.5.0 El GPS editado (números): 'edited_values_from_entry' descarta lo que no vale (un
+      texto, una latitud imposible, media pareja), como si la clave no estuviera.
 1.4.0 'merge_entry' escribe los metadatos editados (vaciado = ""). Autoprueba: el
       '.arca.json' oculto se sobrescribe con un temporal y 'os.replace' (en Windows,
       'write_text' sobre un archivo oculto da PermissionError).
@@ -59,7 +63,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.folder_file
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "BACKUP_FILE_NAME",
     "FOLDER_FILE_NAME",
@@ -91,7 +95,7 @@ from loguru import logger
 
 # Módulos del proyecto
 from core.catalog.color_labels import is_valid_color_label
-from core.userdata.editable_fields import EDITABLE_FIELDS, normalize_value
+from core.userdata.editable_fields import EDITABLE_FIELDS, incomplete_pairs, normalize_value
 
 # Nombres de los archivos (empiezan por punto: ocultos en macOS y Linux, y el escáner
 # de carpetas los ignora)
@@ -298,23 +302,28 @@ def keywords_from_entry(entry: dict[str, Any] | None) -> tuple[tuple[str, ...], 
     return tuple(paths)
 
 
-def edited_values_from_entry(entry: dict[str, Any] | None) -> dict[str, str | None]:
+def edited_values_from_entry(entry: dict[str, Any] | None) -> dict[str, str | float | None]:
     """Metadatos descriptivos editados de una entrada: columna -> valor ya limpio.
 
     Solo los campos cuya clave está (los que se editaron en la aplicación); "" o null
-    = vaciado a propósito (None). Un valor que no es texto (editado a mano) se ignora,
-    como si la clave no estuviera.
+    = vaciado a propósito (None). Un valor que no es del tipo del campo o no vale
+    (editado a mano: un número en el título, una latitud de 95°) se ignora, como si la
+    clave no estuviera; también media pareja (una latitud sin su longitud).
     """
     if not entry:
         return {}
-    values: dict[str, str | None] = {}
+    values: dict[str, str | float | None] = {}
     for spec in EDITABLE_FIELDS:
         if spec.folder_key not in entry:
             continue
         try:
             values[spec.column] = normalize_value(spec.column, entry[spec.folder_key])
-        except TypeError:
+        except (TypeError, ValueError):
             logger.debug(f"Valor no válido en '{spec.folder_key}': {entry[spec.folder_key]!r}")
+    for pair in incomplete_pairs(values):
+        logger.debug(f"Pareja incompleta en el archivo de carpeta: {pair}")
+        for column in pair:
+            values.pop(column, None)
     return values
 
 
@@ -517,7 +526,23 @@ if __name__ == "__main__":
         }  # fmt: skip
         # Una entrada con solo metadatos vaciados no se borra (sin ellos volvería lo del archivo)
         assert merge_entry(None, {"title": None}, now="T") == {"title": "", "updated_at": "T"}
-        print("Metadatos editados: leídos de la entrada y escritos en ella")
+        # El GPS, como números: se escriben tal cual y se leen limpios; lo que no vale
+        # (un texto, fuera de límites, media pareja) se ignora
+        gps = merge_entry(None, {"latitude": 41.3874, "longitude": -3.81, "altitude": -12.5,
+                                 "gps_direction": None}, now="T")  # fmt: skip
+        assert gps == {"latitude": 41.3874, "longitude": -3.81, "altitude": -12.5,
+                       "gps_direction": "", "updated_at": "T"}, gps  # fmt: skip
+        assert edited_values_from_entry(gps) == {
+            "latitude": 41.3874, "longitude": -3.81, "altitude": -12.5, "gps_direction": None
+        }  # fmt: skip
+        assert edited_values_from_entry({"latitude": "", "longitude": ""}) == {
+            "latitude": None, "longitude": None
+        }  # fmt: skip
+        for bad in ({"latitude": 41.0}, {"latitude": 95.0, "longitude": 2.0},
+                    {"latitude": "41", "longitude": 2.0}, {"altitude": "cien"}):
+            assert edited_values_from_entry(bad) == {}, bad
+        assert edited_values_from_entry({"gps_direction": 720}) == {"gps_direction": 0.0}
+        print("Metadatos editados: leídos de la entrada y escritos en ella (también el GPS)")
 
         # 5. Archivo principal dañado: se usa la copia
         overwrite(folder / FOLDER_FILE_NAME, "{ esto no es json")

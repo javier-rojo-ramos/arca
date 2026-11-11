@@ -28,6 +28,8 @@ solo la mitad del trabajo: 'update_user_field' deja además el elemento PENDIENT
 archivo, en su sidecar XMP o en el archivo de carpeta, para que sobreviva a recrear el
 catálogo.
 
+2.3.0 'update_metadata_fields': también el GPS (números: latitud, longitud, altitud y
+      dirección), con la latitud y la longitud siempre juntas.
 2.2.0 'update_metadata_fields': metadatos descriptivos editados, pendientes de escribir
       (paso C.5).
 2.1.0 Filtro de la barra de filtros: 'fetch_grid_rows(..., filters)' y
@@ -54,7 +56,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_queries
 """
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 # ruff: noqa: RUF022
 __all__ = [
     "AVAILABLE",
@@ -85,7 +87,12 @@ from core.catalog.grid_orders import NAME_ORDER, GridOrder, order_by_sql
 from core.catalog.grid_source import ALL_ITEMS, GridSource, SourceKind
 from core.catalog.keywords import KEYWORD_MEDIA_SQL
 from core.catalog.smart_rules import RuleSet, rules_to_sql
-from core.userdata.editable_fields import bits_for, default_title, normalize_value
+from core.userdata.editable_fields import (
+    bits_for,
+    default_title,
+    incomplete_pairs,
+    normalize_value,
+)
 
 # Valores de 'media_items.flag' (mismos que Lightroom: marcada / sin marca / rechazada)
 FLAG_REJECTED = -1
@@ -386,17 +393,21 @@ def update_metadata_fields(
     Args:
         conn: Conexión (la pone el gestor; él hace el commit).
         media_ids: 'id' de los elementos a modificar.
-        values: Columna editable -> texto nuevo (None o vacío = vaciar el campo).
+        values: Columna editable -> texto nuevo, o número en el GPS (None o vacío =
+            vaciar el campo). La latitud y la longitud van siempre juntas.
 
     Returns:
         Número de elementos modificados.
 
     Raises:
-        ValueError: Si una columna no es editable (no se modifica nada).
-        TypeError: Si un valor no es texto ni None (no se modifica nada).
+        ValueError: Si una columna no es editable, un número se sale de sus límites o
+            falta media pareja (latitud sin longitud...); no se modifica nada.
+        TypeError: Si un valor no es del tipo del campo (no se modifica nada).
     """
     # Se valida todo antes de tocar nada
     clean = {column: normalize_value(column, value) for column, value in values.items()}
+    for pair in incomplete_pairs(clean):
+        raise ValueError(f"{pair[0]!r} y {pair[1]!r} se cambian juntas (o se vacían las dos)")
     if not clean:
         return 0
     bits = bits_for(clean)
@@ -666,6 +677,30 @@ if __name__ == "__main__":
     assert update_metadata_fields(db, [ids["a.jpg"]], {}) == 0
     assert update_metadata_fields(db, [], {"city": "León"}) == 0
     assert update_metadata_fields(db, many, {"title": None}) == 5  # troceado
+    # GPS: números, con sus bits; la latitud y la longitud, juntas; la dirección da la vuelta
+    def gps(name: str) -> tuple:
+        return db.execute(
+            "SELECT latitude, longitude, altitude, gps_direction, metadata_edit_pending "
+            "FROM media_items WHERE file_name = ?",
+            (name,),
+        ).fetchone()
+
+    pending_c = gps("c.jpg")[4]
+    location = {"latitude": 41.3874, "longitude": 2.1686, "altitude": -12.5, "gps_direction": 360}
+    assert update_metadata_fields(db, [ids["c.jpg"]], location) == 1
+    assert gps("c.jpg") == (41.3874, 2.1686, -12.5, 0.0, pending_c | 512 | 1024 | 2048 | 4096)
+    assert update_metadata_fields(db, [ids["c.jpg"]], {"latitude": None, "longitude": None}) == 1
+    assert gps("c.jpg")[:2] == (None, None) and gps("c.jpg")[2] == -12.5  # la altitud, aparte
+    for bad in ({"latitude": 41.0}, {"latitude": 41.0, "longitude": None},
+                {"latitude": 91.0, "longitude": 2.0}, {"altitude": "100"}):
+        try:
+            update_metadata_fields(db, [ids["c.jpg"]], bad)
+            raise AssertionError(f"debía rechazar {bad}")
+        except (ValueError, TypeError):
+            pass
+    assert gps("c.jpg")[:3] == (None, None, -12.5)  # sin cambios
+    db.execute("UPDATE media_items SET metadata_edit_pending = ?, altitude = NULL, gps_direction = NULL "
+               "WHERE file_name = 'c.jpg'", (pending_c,))
     titles = dict(db.execute("SELECT file_name, title FROM media_items"))
     assert titles == {"c.jpg": "c", "a.jpg": "a", "b.jpg": "b", "B2.jpg": "B2", "gone.jpg": "gone"}
 

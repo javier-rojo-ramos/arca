@@ -2,8 +2,8 @@
 
 Este módulo NO depende de Qt ni de la base de datos: es una lista declarativa.
 
-Cada campo editable (título, pie de ilustración, creador, copyright y ubicación) es una
-línea de 'EDITABLE_FIELDS', y de esa línea sale todo lo demás:
+Cada campo editable (título, pie de ilustración, creador, copyright, ubicación y GPS) es
+una línea de 'EDITABLE_FIELDS', y de esa línea sale todo lo demás:
     - 'update_metadata_fields' (core/catalog/media_queries.py) guarda el valor en su
       columna de 'media_items' y pone el BIT del campo en 'metadata_edit_pending'
       (pendiente de escribir en el archivo);
@@ -21,6 +21,11 @@ en docs/METADATOS.md):
       antiguo (la lectura cae a la siguiente fuente). Su valor puede quedar recortado (el
       IPTC tiene límites de longitud) o con «?» (IPTC en Latin): por eso no se comprueban.
     - Un valor vacío es None ('normalize_value').
+    - Los campos de texto son la mayoría. Los del GPS (latitud, longitud, altitud y
+      dirección) son NÚMEROS ('kind' = NUMBER), con sus límites, y se escriben con otra
+      regla (ver docs/DECISIONES.md, 12/11/2026): en las etiquetas de GPS que ya tenga el
+      archivo y, si no tiene ninguna, en el EXIF; ahí 'legacy_tags' es su etiqueta EXIF.
+      La latitud y la longitud van siempre juntas ('PAIRED_COLUMNS').
     - El título no puede quedar vacío en el catálogo ('title' es NOT NULL): sin título vale
       el nombre del archivo sin extensión ('default_title'), y un título igual a ese nombre
       cuenta como «sin título» ('file_title'): es lo que se escribe en el archivo y lo que
@@ -35,6 +40,9 @@ Cómo añadir un campo:
     3. La clave del '.arca.json' tampoco se cambia después: está en los archivos de los
        usuarios.
 
+1.2.0 GPS: latitud, longitud, altitud y dirección (bits 512 a 4096), campos NUMÉRICOS con
+      sus límites ('kind', 'limits', 'circular'); la latitud y la longitud, juntas
+      ('PAIRED_COLUMNS', 'incomplete_pairs').
 1.1.0 'unless_pending_sql': asignación que no pisa una columna pendiente de escribir.
 1.0.0 Primera versión: título, pie de ilustración, creador, copyright y ubicación.
 
@@ -42,26 +50,35 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.editable_fields
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "ALL_EDIT_BITS",
     "EDITABLE_COLUMNS",
     "EDITABLE_FIELDS",
+    "NUMBER",
+    "PAIRED_COLUMNS",
+    "TEXT",
     "EditableField",
     "bits_for",
     "default_title",
     "field_for",
     "file_title",
+    "incomplete_pairs",
     "normalize_value",
     "pending_columns",
     "unless_pending_sql",
 ]
 
 # Librerías estándar
+import math
 import unicodedata
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+
+# Tipos de valor de un campo editable
+TEXT = "text"
+NUMBER = "number"
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,11 +89,16 @@ class EditableField:
         column: Columna de 'media_items' que guarda el valor.
         bit: Su bit en 'media_items.metadata_edit_pending' (una potencia de 2, fija).
         xmp_tag: Etiqueta XMP (con su grupo, como la pide ExifTool) que se escribe siempre
-            y se comprueba al releer.
+            y se comprueba al releer. En los numéricos (GPS), la del XMP, que se escribe
+            con la regla del GPS (ver la cabecera).
         legacy_tags: Etiquetas antiguas (IPTC, EXIF) que se actualizan solo si el archivo
-            ya las tiene.
+            ya las tiene. En los numéricos (GPS), su etiqueta EXIF.
         folder_key: Clave del valor en la entrada del archivo de carpeta ('.arca.json').
         multiline: True si admite saltos de línea (el pie de ilustración).
+        kind: TEXT (texto) o NUMBER (número decimal: el GPS).
+        limits: En los numéricos, (mínimo, máximo) admitidos; None = sin límites.
+        circular: En los numéricos con límites, True si el valor da la vuelta (la
+            dirección: 360° = 0°, −90° = 270°) en lugar de rechazarse.
     """
 
     column: str
@@ -85,6 +107,9 @@ class EditableField:
     legacy_tags: tuple[str, ...]
     folder_key: str
     multiline: bool = False
+    kind: str = TEXT
+    limits: tuple[float, float] | None = None
+    circular: bool = False
 
 
 # Los campos editables, en el orden en que se escriben. Las claves del '.arca.json' son
@@ -121,7 +146,29 @@ EDITABLE_FIELDS: tuple[EditableField, ...] = (
         ("IPTC:Country-PrimaryLocationCode",),
         "country_code",
     ),
-)
+    # GPS (números). La latitud y la longitud con signo (sur y oeste, negativos); la
+    # altitud en metros (bajo el nivel del mar, negativa); la dirección en grados
+    EditableField(
+        "latitude", 512, "XMP-exif:GPSLatitude", ("GPS:GPSLatitude",), "latitude",
+        kind=NUMBER, limits=(-90.0, 90.0),
+    ),
+    EditableField(
+        "longitude", 1024, "XMP-exif:GPSLongitude", ("GPS:GPSLongitude",), "longitude",
+        kind=NUMBER, limits=(-180.0, 180.0),
+    ),
+    EditableField(
+        "altitude", 2048, "XMP-exif:GPSAltitude", ("GPS:GPSAltitude",), "altitude",
+        kind=NUMBER,
+    ),
+    EditableField(
+        "gps_direction", 4096, "XMP-exif:GPSImgDirection", ("GPS:GPSImgDirection",),
+        "gps_direction", kind=NUMBER, limits=(0.0, 360.0), circular=True,
+    ),
+)  # fmt: skip
+
+# Columnas que se editan siempre juntas (una sola caja del inspector, «GPS»): o las dos
+# con valor, o las dos vacías. Media pareja no es una ubicación.
+PAIRED_COLUMNS: tuple[tuple[str, str], ...] = (("latitude", "longitude"),)
 
 # Columnas editables, en el mismo orden
 EDITABLE_COLUMNS: tuple[str, ...] = tuple(spec.column for spec in EDITABLE_FIELDS)
@@ -182,23 +229,32 @@ def unless_pending_sql(column: str) -> str:
     return f"{column} = CASE WHEN metadata_edit_pending & {bit} THEN {column} ELSE ? END"
 
 
-def normalize_value(column: str, value: object) -> str | None:
-    """Valor editado tal como se guarda: texto limpio, o None si queda vacío.
+def normalize_value(column: str, value: object) -> str | float | None:
+    """Valor editado tal como se guarda: texto limpio o número, o None si queda vacío.
 
+    Texto:
     - Los finales de línea pasan a ser '\\n'; en un campo de una línea, cada salto de
       línea pasa a ser un espacio.
     - Se quitan los caracteres de control (salvo el salto de línea y el tabulador) y los
       espacios del principio y del final.
 
+    Número (el GPS): un int o un float finito, dentro de los límites del campo (la
+    dirección da la vuelta: 360° = 0°). "" o solo espacios = vacío, que es como el
+    '.arca.json' guarda un campo vaciado. Un número escrito como texto ('41.3') NO se
+    acepta: lo que escribe el usuario lo interpreta el inspector.
+
     Args:
         column: Columna editable.
-        value: Texto escrito por el usuario (None = vacío).
+        value: Lo escrito por el usuario (None = vacío).
 
     Raises:
-        ValueError: Si la columna no es editable.
-        TypeError: Si el valor no es texto ni None.
+        ValueError: Si la columna no es editable, o el número no es finito o se sale de
+            los límites del campo.
+        TypeError: Si el valor no es del tipo del campo (texto, o número en el GPS).
     """
     spec = field_for(column)
+    if spec.kind == NUMBER:
+        return _normalize_number(spec, value)
     if value is None:
         return None
     if not isinstance(value, str):
@@ -211,6 +267,42 @@ def normalize_value(column: str, value: object) -> str | None:
     )
     text = text.strip()
     return text or None
+
+
+def _normalize_number(spec: EditableField, value: object) -> float | None:
+    """Valor de un campo numérico: float dentro de sus límites, o None si está vacío."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    # 'bool' es un 'int' en Python: True no es una altitud
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"Valor no válido para {spec.column!r}: {value!r} (se esperaba un número)")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"Valor no válido para {spec.column!r}: {value!r}")
+    if spec.limits is None:
+        return number
+    low, high = spec.limits
+    if spec.circular:
+        number = low + (number - low) % (high - low)
+    elif not low <= number <= high:
+        raise ValueError(f"{spec.column!r} debe estar entre {low:g} y {high:g}: {number:g}")
+    return number
+
+
+def incomplete_pairs(values: Mapping[str, object]) -> tuple[tuple[str, str], ...]:
+    """Parejas de 'PAIRED_COLUMNS' a las que les falta una mitad.
+
+    Una pareja está incompleta si solo viene una de sus columnas, o si una está vacía
+    (None) y la otra no. Las que no vienen en absoluto no cuentan.
+    """
+    incomplete = []
+    for pair in PAIRED_COLUMNS:
+        present = [column in values for column in pair]
+        if not any(present):
+            continue
+        if not all(present) or (values[pair[0]] is None) != (values[pair[1]] is None):
+            incomplete.append(pair)
+    return tuple(incomplete)
 
 
 def default_title(file_name: str) -> str:
@@ -243,7 +335,7 @@ if __name__ == "__main__":
     # 1. Bits: potencias de 2 distintas; columnas y claves sin repetir
     bits = [spec.bit for spec in EDITABLE_FIELDS]
     assert all(bit > 0 and bit & (bit - 1) == 0 for bit in bits), bits
-    assert len(set(bits)) == len(bits) and ALL_EDIT_BITS == sum(bits) == 511
+    assert len(set(bits)) == len(bits) and ALL_EDIT_BITS == sum(bits) == 8191
     assert len(set(EDITABLE_COLUMNS)) == len(EDITABLE_COLUMNS)
     assert len({spec.folder_key for spec in EDITABLE_FIELDS}) == len(EDITABLE_FIELDS)
     # Las claves de los datos del usuario que ya están en el '.arca.json' no se reutilizan
@@ -252,11 +344,17 @@ if __name__ == "__main__":
     }  # fmt: skip
     print("Campos editables:", ", ".join(EDITABLE_COLUMNS))
 
-    # 2. Se escribe en las mismas etiquetas de las que se lee, y en el mismo orden
+    # 2. Se escribe en las mismas etiquetas de las que se lee, y en el mismo orden. En el
+    #    GPS, la lectura empieza también por el XMP, y lo antiguo es su etiqueta EXIF (la
+    #    lectura usa el compuesto de ExifTool, que sale de ella)
     sources = {spec.column: spec.sources for spec in IMAGE_FIELDS}
     for spec in EDITABLE_FIELDS:
-        assert sources[spec.column] == (spec.xmp_tag, *spec.legacy_tags), spec.column
         assert spec.xmp_tag.startswith("XMP-"), spec.xmp_tag
+        if spec.kind == TEXT:
+            assert sources[spec.column] == (spec.xmp_tag, *spec.legacy_tags), spec.column
+        else:
+            assert spec.kind == NUMBER and sources[spec.column][0] == spec.xmp_tag, spec.column
+            assert len(spec.legacy_tags) == 1 and spec.legacy_tags[0].startswith("GPS:"), spec
     print("Etiquetas: las mismas que la lectura de imagen (IMAGE_FIELDS)")
 
     # 3. Máscaras de bits
@@ -264,7 +362,8 @@ if __name__ == "__main__":
     assert bits_for([]) == 0
     assert pending_columns(1 | 32) == ("title", "city")
     assert pending_columns(ALL_EDIT_BITS) == EDITABLE_COLUMNS
-    assert pending_columns(1024 | 2) == ("description",)  # un bit desconocido se ignora
+    assert pending_columns((1 << 20) | 2) == ("description",)  # un bit desconocido se ignora
+    assert pending_columns(512 | 1024 | 4096) == ("latitude", "longitude", "gps_direction")
     for bad in (lambda: bits_for(["rating"]), lambda: field_for("file_name")):
         try:
             bad()
@@ -307,6 +406,35 @@ if __name__ == "__main__":
         except (ValueError, TypeError):
             pass
     print("Valores: normalizados")
+
+    # 4b. Números (GPS): float, vacío = None, límites; la dirección da la vuelta
+    assert normalize_value("latitude", 41.3874) == 41.3874
+    assert normalize_value("longitude", -3) == -3.0 and isinstance(normalize_value("altitude", 100), float)
+    assert normalize_value("altitude", -430.5) == -430.5  # bajo el nivel del mar
+    for empty in (None, "", "   "):  # "" = vaciado en el '.arca.json'
+        assert normalize_value("latitude", empty) is None
+    assert normalize_value("gps_direction", 360) == 0.0
+    assert normalize_value("gps_direction", -90) == 270.0
+    assert normalize_value("gps_direction", 292.47) == 292.47
+    assert normalize_value("latitude", 90) == 90.0 and normalize_value("longitude", -180) == -180.0
+    for bad, error in ((("latitude", 90.5), ValueError), (("longitude", -181), ValueError),
+                       (("altitude", float("nan")), ValueError), (("altitude", float("inf")), ValueError),
+                       (("latitude", "41.3"), TypeError), (("altitude", True), TypeError),
+                       (("gps_direction", [90]), TypeError)):  # fmt: skip
+        try:
+            normalize_value(*bad)
+            raise AssertionError(f"debía rechazar {bad}")
+        except error:
+            pass
+    print("Números del GPS: normalizados y dentro de sus límites")
+
+    # 4c. La latitud y la longitud, siempre juntas
+    assert incomplete_pairs({"title": "x"}) == ()
+    assert incomplete_pairs({"latitude": 41.0, "longitude": 2.0}) == ()
+    assert incomplete_pairs({"latitude": None, "longitude": None}) == ()  # vaciar el GPS
+    for half in ({"latitude": 41.0}, {"longitude": 2.0}, {"latitude": 41.0, "longitude": None}):
+        assert incomplete_pairs(half) == (("latitude", "longitude"),), half
+    print("Latitud y longitud: juntas o ninguna")
 
     # 5. Título: sin título propio, el nombre del archivo
     assert default_title("IMG_0001.HEIC") == "IMG_0001"
