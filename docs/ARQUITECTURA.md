@@ -5,13 +5,13 @@
 
 ## Qué es y principios
 
-Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (Windows, macOS, Linux), inspirado en Lightroom, FastStone, Mp3tag y VisualDivX. Pensado para gestionar colecciones de **imágenes** (en curso), **vídeo, audio y ebooks** (previstos). Uso interno de la empresa; se empaqueta con PyInstaller.
+Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (Windows, macOS, Linux), inspirado en Lightroom, FastStone, Mp3tag y VisualDivX. Pensado para gestionar colecciones de **imágenes** (en curso), **vídeo, audio y ebooks** (previstos). Uso interno de la empresa; se empaquetará con PyInstaller (pendiente: [PENDIENTE.md](PENDIENTE.md), C.9).
 
 Principios:
 
 - **Los archivos originales no se mueven ni se modifican.** Las únicas excepciones: escribir la valoración, la marca, el color, las palabras clave y los metadatos descriptivos editados en la aplicación (título, pie de ilustración, creador, copyright y ubicación) con las reglas de `core/userdata/` (XMP incrustado, sidecar `.xmp` o `.arca.json`; ver su `LEEME.md`), y enviar a la papelera lo que el usuario pide eliminar del disco.
 - **Un catálogo es una carpeta autónoma**: `catalogo.db` (SQLite en modo WAL) + `cache/<tipo>/` + `media_assets/{backdrops,covers,posters}/` + `export/`.
-- **La referencia de metadatos es Lightroom Classic**: se leen los campos que muestran sus paneles EXIF y Ubicación (editarlos, más adelante).
+- **La referencia de metadatos es Lightroom Classic**: se leen los campos que muestran sus paneles EXIF y Ubicación.
 - La interfaz **nunca** toca la base de datos ni hace trabajo largo en el hilo principal.
 
 | Componente | Uso |
@@ -23,16 +23,15 @@ Principios:
 | `pillow-heif` (o su versión ligera `pi-heif`) | Decodificar HEIC en las miniaturas (sin ella, los HEIC no tienen miniatura) |
 | `puremagic` | Detección del tipo de archivo por contenido |
 | `loguru` | Registro |
-| PyInstaller | Empaquetado |
+| PyInstaller | Empaquetado (pendiente y sin probar; no está en `requirements.txt`) |
 
 
 ## Reglas de arquitectura
 
-- `core/` no usa Qt, salvo `core/database/db_manager.py` y `core/workers/*`.
-- Toda función que accede a la BD recibe la conexión (`conn`) como **primer parámetro**; así se envía tal cual a `CatalogDatabaseManager.execute_async` y se ejecuta en un hilo secundario con su propia conexión.
-- Los trabajos largos (`add_folder`, metadatos y miniaturas) hacen `commit` **por lotes**, obedecen un `threading.Event` de cancelación y avisan del progreso.
+Las reglas (qué puede usar Qt, cómo se accede a la base de datos, migraciones, archivos del usuario, colores, tamaño de las clases) están en un solo sitio: [CLAUDE.md](../CLAUDE.md), «Reglas de arquitectura», junto a las de trabajo y de estilo. Aquí, solo el porqué de dos de ellas:
 
-Las reglas de trabajo y de estilo están en [CLAUDE.md](../CLAUDE.md).
+- La conexión (`conn`) va como **primer parámetro** para que la función se envíe tal cual a `CatalogDatabaseManager.execute_async` y se ejecute en un hilo secundario con su propia conexión.
+- Los trabajos largos (`add_folder`, metadatos, miniaturas, escritura de los datos del usuario y eliminar) hacen `commit` **por lotes** para no bloquear la escritura al resto y conservar lo hecho si se cancelan (`threading.Event`); avisan del progreso.
 
 ## Mapa del proyecto (qué hace cada archivo)
 
@@ -43,8 +42,9 @@ config/
   app_paths.py                       Rutas y nombre (APP_NAME, APP_VERSION), carpeta de configuración por SO
   app_config.py                      Instancia única (singleton) de la configuración: `from config.app_config import config`
   app_config_manager.py              ConfigManager: settings.json (claves: catalogo_ruta, thumbnail_size, write_user_data_to_files,
-                                     main_splitter_state, show_subfolder_items, sidebar_state, inspector_metadata_preset, inspector_sections, active_module, filter_metadata_height, filter_presets...)
-  app_info.py                        Texto de ayuda en HTML (pendiente de implementar)
+                                     main_splitter_state, show_subfolder_items, sidebar_state, inspector_metadata_preset, inspector_sections, active_module, filter_metadata_height, filter_presets, confirm_multi_edit,
+                                     last_add_folder_parent, window_geometry; todas, con su valor por defecto, en DEFAULTS)
+  app_info.py                        Texto de ayuda en HTML (pendiente de implementar; hoy no lo usa nadie)
   app_constants.py                   Constantes, iconos (AppIcons), tamaños de miniatura, claves compartidas de settings.json
   app_logging_manager.py             setup_logging (loguru + InterceptHandler)
 controllers/
@@ -72,8 +72,11 @@ ui/main_window.ui, main_window.py    Interfaz de Qt Designer (main_window.py se 
                                      widget_organize_bar (OrganizeBar)
 ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_message), barra de estado (ui_status),
                                      iconos, tema, widgets/job_progress_widget.py
+  helpers/ui_file_dialogs.py         Diálogos de archivos y carpetas (QFileDialog): select_file, select_files, select_folder, save_file
+  helpers/ui_message.py              MessageBoxHelper: avisos, errores y preguntas (QMessageBox); question_with_checkbox («No volver a mostrar»)
+  helpers/ui_status.py               message_bar: mensaje con icono teñido y temporizador en la barra de estado
   helpers/ui_icons.py                tinted_icon: SVG monocromos del .qrc teñidos al dibujarse (paleta, color fijo o hover); menu_icon, para las opciones de los menús
-  helpers/ui_info.py                 show_info_window: ventana de información con HTML (QTextBrowser)
+  helpers/ui_info.py                 show_info_window: ventana de información con HTML (QTextBrowser); hoy no la usa nadie
   mixins/window_snap.py              WindowSnapMixin: ajuste magnético de la ventana a los bordes (desactivado en macOS)
   delegates/thumbnails_delegate.py   ThumbnailsDelegate: dibuja la tarjeta (miniatura o marcador por tipo, duración, nombre, estrellas, marca, fondo de color, aviso de no disponible y círculo de la selección rápida)
   models/media_roles.py              Roles compartidos modelo <-> delegado (ROLE_RATING, ROLE_FLAG, ROLE_COLOR_LABEL, ROLE_MEDIA_TYPE, ROLE_DURATION...)
@@ -207,12 +210,17 @@ core/
 tools/exiftool/                      ExifTool (no se versiona; ver tools/exiftool/LEEME.txt)
 scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc (genera resources/recursos_rc.py)
 scripts/export_qtbase_es.py          Copia la traducción al español de Qt (qtbase_es.qm) a resources/locales
+resources/                           recursos.qrc (lista de iconos e imágenes), images/ (SVG), icons/ (icono de la aplicación),
+                                     locales/qtbase_es.qm (traducción de Qt) y recursos_rc.py (se GENERA con build_ui.py; no editar)
+repomix.config.json                  Qué entra en el REPOMIX (ver la nota de abajo)
+.gitattributes                       Finales de línea LF (ver TRAMPAS.md)
+requirements.txt                     Dependencias de .venv (salida de 'pip freeze', en UTF-8; ver PRUEBAS.md)
 ruff.toml                            Configuración de Ruff (excluye tests/ y ui/)
 CLAUDE.md                            Reglas de trabajo para la IA (Claude Code): cómo leer el proyecto, convenciones y qué actualizar
 docs/                                Esta documentación (empieza por docs/INDEX.md)
 ```
 
-> El REPOMIX no incluye `build_ui.py`, `resources/` (SVG y `.qrc`) ni `tools/`: si hace falta revisarlos, hay que adjuntarlos aparte.
+> El REPOMIX no incluye `scripts/` (`build_ui.py`, `export_qtbase_es.py`), `resources/` (SVG y `.qrc`), `tools/` ni el `ui/main_window.py` generado (`repomix.config.json`): si hace falta revisarlos, hay que adjuntarlos aparte.
 
 
 ## Qué ocurre en cada hilo
@@ -220,4 +228,4 @@ docs/                                Esta documentación (empieza por docs/INDEX
 
 | Hilo principal | Hilo secundario |
 |---|---|
-| Menús, diálogos, barra de estado, widgets, señales, temporizador de escritura | `add_folder`, `process_pending_metadata`, `generate_pending_thumbnails` (con su grupo de hilos de generación), `write_pending_user_data`, ExifTool (subproceso), toda la BD, y la lectura de miniaturas de la cuadrícula (pool propio del modelo, solo lee un JPEG y devuelve una `QImage`) |
+| Menús, diálogos, barra de estado, widgets, señales, temporizador de escritura | `add_folder`, `process_pending_metadata`, `generate_pending_thumbnails` (con su grupo de hilos de generación), `write_pending_user_data`, `remove_media_items`, ExifTool (subproceso), toda la BD, la lectura de miniaturas de la cuadrícula (pool propio del modelo, solo lee un JPEG y devuelve una `QImage`) y la imagen grande de la vista individual (`FullImageLoader`, un hilo propio) |

@@ -10,12 +10,14 @@ El procesador siempre llama a 'extract_batch'.
 
 Cómo ampliar un extractor con campos nuevos: ver 'LEEME.md'.
 
+2.1.0 'library', 'library_manual' e 'in_quick_selection' en 'PROTECTED_COLUMNS': la biblioteca
+      la deciden el escáner y el usuario, y la selección rápida es del usuario.
 2.0.2 'metadata_edit_pending' (migración 2) en 'PROTECTED_COLUMNS'.
 2.0.1 Docstring de 'ExtractionResult': un título None ya no conserva el anterior (el
       procesador pone el nombre del archivo sin extensión).
 """
 
-__version__ = "2.0.2"
+__version__ = "2.1.0"
 __all__ = [
     "PROTECTED_COLUMNS",
     "ExtractionResult",
@@ -81,6 +83,11 @@ PROTECTED_COLUMNS: frozenset[str] = frozenset(
         "user_data_pending",
         "keywords_pending",
         "metadata_edit_pending",
+        # Biblioteca (la ponen el escáner, la clasificación de vídeos y el usuario)
+        "library",
+        "library_manual",
+        # Marcas de trabajo, solo en el catálogo (BLOQUE E)
+        "in_quick_selection",
     }
 )
 

@@ -12,7 +12,7 @@
 | Fecha de captura | EXIF `DateTimeOriginal` → EXIF `CreateDate` → XMP `DateCreated` → IPTC → EXIF `ModifyDate` → fecha del archivo (`content_date_source = 'file_mtime'`) |
 
 - **Sidecars**: se buscan `IMG_0001.xmp` (convención de Adobe) y `IMG_0001.CR3.xmp`. Del sidecar solo se toman etiquetas XMP, y pisan a las del XMP incrustado.
-- **ExifTool se invoca con** `-j -n -G1 -a -charset utf8 -charset filename=utf8`: JSON, valores numéricos sin traducir (programa de exposición, medición y flash se guardan como **códigos EXIF**; la interfaz los traducirá), etiquetas con su grupo (`IFD0:Make`, `XMP-photoshop:City`) y los nombres de archivo en UTF-8 mediante archivo temporal (`-@`).
+- **ExifTool se invoca con** `-j -n -G1 -a -charset utf8 -charset filename=utf8`: JSON, valores numéricos sin traducir (programa de exposición, medición y flash se guardan como **códigos EXIF**; la interfaz los traduce), etiquetas con su grupo (`IFD0:Make`, `XMP-photoshop:City`) y los nombres de archivo en UTF-8 mediante archivo temporal (`-@`).
 - **Dónde busca el ejecutable**: variable `EXIFTOOL_PATH` → carpeta `tools/exiftool` → `PATH`.
 - **Tamaño**: se guarda "de pantalla" (ya girado si la orientación EXIF es 5 a 8). En los **DNG**, `DefaultCropSize` manda sobre `Composite:ImageSize` (el sensor completo, algo mayor): es lo que Lightroom muestra como "Dimensiones de archivo" (verificado: 3200 × 2128 frente a 3264 × 2140). Solo existe en los DNG, así que no afecta a otros formatos.
 - **GPS**: se usa el compuesto de ExifTool (ya con signo); se descartan los fuera de rango y `0, 0`.

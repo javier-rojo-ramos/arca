@@ -12,7 +12,7 @@ Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto e
 2. Lee **solo** el documento del tema que vas a tocar (la tabla de `INDEX.md` dice cuál) y, si existe, el `LEEME.md` de su carpeta (`core/metadata/`, `core/thumbnails/`, `core/userdata/`).
 3. Para saber **dónde** está algo: el mapa de [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) y la tabla de [docs/COMO_AMPLIAR.md](docs/COMO_AMPLIAR.md). Después, busca (`grep`) el nombre concreto en lugar de abrir carpetas enteras.
 4. Cada `.py` explica en su **cabecera** qué hace, cómo se usa y su historial: léela antes que el resto del archivo.
-5. Archivos grandes: abre solo los métodos que necesites. Los más grandes son `controllers/main_window_controller.py` (~1 900 líneas), `ui_helpers/sidebars/catalog_sidebar.py` (~1 200), `core/catalog/keywords.py` (~1 200), `core/userdata/sync.py` (~1 050) y `core/metadata/processor.py` (~930).
+5. Archivos grandes: abre solo los métodos que necesites. Los más grandes son `controllers/main_window_controller.py` (~1 900 líneas), `ui_helpers/sidebars/catalog_sidebar.py` (~1 200), `core/catalog/keywords.py` (~1 200), `core/userdata/sync.py` (~1 250) y `core/metadata/processor.py` (~1 080).
 6. **No leas** `ui/main_window.py`: se genera desde `ui/main_window.ui` con `build_ui.py`. Para el nombre de un widget, búscalo con `grep`.
 7. Si el código y la documentación no coinciden, **manda el código**: corrige la documentación y avisa.
 
@@ -28,15 +28,17 @@ Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto e
 
 ## Convenciones del código
 
-- **Idioma**: nombres (variables, constantes, funciones, clases) en **inglés**; **docstrings y comentarios en español**, como el resto del proyecto. Textos de la interfaz en español. En el chat, en español.
+- **Idioma**: nombres (variables, constantes, funciones, clases) en **inglés**; **docstrings y comentarios en español**, como el resto del proyecto. Textos de la interfaz en español. En el chat, en español. Excepción: `main.py` y `controllers/main_window_controller.py` conservan nombres antiguos en español (`iniciar`, `_conectar_senales`, `mosaico_model`...); no los renombres de paso (se hará más adelante), pero lo nuevo va en inglés.
 - **Comentarios**: código bien comentado. Explica el **porqué** y lo que no es evidente, no lo que ya dice el código.
-- **Estilo**: PEP 8, comprobado con **ruff** (`ruff check <archivos tocados>`; configuración en `ruff.toml`). Líneas de hasta unos 100 caracteres, como el resto del código.
+- **Estilo**: PEP 8, comprobado con **ruff** (`ruff check <archivos tocados>`; configuración en `ruff.toml`). Líneas de hasta unos 100 caracteres, como el resto del código (es una costumbre: ruff no comprueba la longitud).
 - **Tipado**: *type hints* en todas las firmas (`def update_status(self, message: str) -> None:`).
 - **Cada módulo** lleva:
   - una cabecera con qué hace, cómo se usa y el historial de versiones (`1.2.0 Qué cambió.`, la más reciente arriba);
   - `__version__`: súbela al cambiar el módulo;
   - `__all__`;
-  - una **autoprueba** en `if __name__ == "__main__":` que termina imprimiendo «Autoprueba finalizada correctamente.».
+  - una **autoprueba** en `if __name__ == "__main__":` que termina imprimiendo «Autoprueba finalizada correctamente.», **solo si es un módulo nuevo con lógica comprobable sin ventana**. Muchos módulos existentes no la tienen (sobre todo de interfaz): no se la añadas de paso.
+
+  `controllers/main_window_controller.py` no tiene cabecera, `__version__` ni `__all__`: es una excepción conocida; no se los añadas de paso.
 - **Importaciones** agrupadas con estos comentarios: `# Librerías estándar`, `# Librerías de terceros`, `# Librerías de terceros (Qt)`, `# Módulos del proyecto`.
 - **Qt** siempre a través de `qtpy`, nunca de `PySide6` directamente (salvo el `.py` generado).
 
@@ -57,7 +59,14 @@ Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto e
 - **Archivos del usuario**: los originales no se mueven ni se modifican. La única excepción es escribir valoración, marca, color, palabras clave y los metadatos descriptivos editados en la aplicación (título, pie de ilustración, creador, copyright y ubicación) con las reglas de `core/userdata/` (ver su `LEEME.md`), y la papelera cuando el usuario la pide.
 - **Interfaz**: no edites `ui/main_window.py`. Cambia `ui/main_window.ui` y ejecuta `python scripts/build_ui.py` (desde la raíz). Los nombres de las bibliotecas salen siempre de `LIBRARY_NAMES`.
 - **Colores**: ningún color suelto en la interfaz (ni `"#rrggbb"`, ni `QColor(r, g, b)`, ni nombres como `"white"`), salvo en las autopruebas. Salen de `ui_helpers/helpers/theme_colors.py` (por su nombre de función; en el código, `COLORS`, `CARD_COLORS` y `MARK_COLORS` de `ui_theme.py`) o de la paleta de Qt (`palette(...)` en QSS); los estilos, en `ui_theme.py`. Los botones de opción y las casillas los dibuja `theme_style.py`: el QSS no puede tener reglas `::indicator`.
-- **Tamaño**: si una clase de interfaz pasa de unas **400 líneas**, propón dividirla en componentes, widgets propios o helpers. `main_window_controller.py` ya es demasiado grande: no le añadas lógica nueva. Ponla en su propio módulo (como `controllers/collection_actions.py` o `controllers/inspector_controller.py`) y deja en el controlador solo la conexión.
+- **Tamaño**: si una clase de interfaz pasa de unas **400 líneas**, propón dividirla en componentes, widgets propios o helpers. Vale para lo nuevo: no propongas dividir de paso los archivos grandes que ya existen. `main_window_controller.py` ya es demasiado grande: no le añadas lógica nueva. Ponla en su propio módulo (como `controllers/collection_actions.py` o `controllers/inspector_controller.py`) y deja en el controlador solo la conexión.
+
+## Comandos (desde la raíz, en Windows)
+
+- Arrancar la aplicación (solo el autor: abre una ventana): `.venv\Scripts\python.exe main.py`.
+- Regenerar la interfaz tras cambiar el `.ui` o el `.qrc`: `.venv\Scripts\python.exe scripts/build_ui.py`.
+- Dependencias: `requirements.txt` (UTF-8). Instalarlas o regenerar el archivo lo hace el autor; las órdenes, en [docs/PRUEBAS.md](docs/PRUEBAS.md).
+- **No hay empaquetado todavía** (ni `.spec` ni script de PyInstaller: [docs/PENDIENTE.md](docs/PENDIENTE.md), C.9) **ni pruebas automáticas** aparte de las autopruebas (no existe `tests/`).
 
 ## Cómo comprobar un cambio
 

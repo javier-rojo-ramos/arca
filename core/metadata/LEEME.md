@@ -115,16 +115,16 @@ common("color_label", ("XMP-photoshop:LabelColor", "XMP-xmp:Label"), normalize_c
 - Otro tipo de medio que tenga estos datos en su archivo define su propia lista
   `<TIPO>_USER_FIELDS` y la asigna a `user_fields` en su extractor.
 
-## Receta 2: añadir un tipo de medio nuevo (vídeo, audio, ebooks...)
+## Receta 2: añadir un tipo de medio nuevo (audio, ebooks...; el vídeo ya está hecho así, en `video/`)
 
 1. Crear `core/metadata/<tipo>/` con `__init__.py`, `fields.py` y `extractor.py`, copiando
    la estructura de `image/`:
-   - `fields.py`: la lista `VIDEO_FIELDS` y `VIDEO_FIELDS_VERSION` (empieza en 1).
+   - `fields.py`: la lista `AUDIO_FIELDS` y `AUDIO_FIELDS_VERSION` (empieza en 1).
    - `extractor.py`: una clase que hereda de `ExifToolExtractor` y define `media_type`,
      `version`, `details_table` y `fields` (y `apply_rules` si hace falta).
-2. Crear la tabla de detalles del tipo (`video_details`...) con una migración nueva:
+2. Crear la tabla de detalles del tipo (`audio_details`...) con una migración nueva:
    `media_id INTEGER PRIMARY KEY REFERENCES media_items(id) ON DELETE CASCADE` y sus columnas.
-3. Registrarlo en `registry.default_registry()`: `registry.register(VideoExtractor(runner))`.
+3. Registrarlo en `registry.default_registry()`: `registry.register(AudioExtractor(runner))`.
 
 Nada más: el procesador, el trabajo en segundo plano y la barra de progreso lo usan
 sin cambios. Los archivos de ese tipo, que hasta entonces estaban pendientes, se leerán

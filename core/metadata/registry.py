@@ -15,11 +15,12 @@ Tracks GPS (GPX): extractor propio, sin ExifTool (el GPX es XML y se lee directa
 Vídeos: solo con ExifTool (core/metadata/video/). Sin él, siguen pendientes y se leen
 solos en cuanto lo haya.
 
+2.2.1 Docstring de 'default_registry' al día (el vídeo ya tiene extractor).
 2.2.0 Se registra el extractor de vídeo (VideoExtractor), si hay ExifTool.
 2.1.0 Se registra el extractor de tracks (TrackExtractor).
 """
 
-__version__ = "2.2.0"
+__version__ = "2.2.1"
 __all__ = ["ExtractorRegistry", "default_registry"]
 
 # Librerías estándar
@@ -68,7 +69,7 @@ class ExtractorRegistry:
 def default_registry() -> ExtractorRegistry:
     """Crea el registro con todos los extractores disponibles.
 
-    Los tipos sin extractor (de momento vídeo, audio y ebooks) se ignoran: sus
+    Los tipos sin extractor (de momento audio y ebooks) se ignoran: sus
     archivos siguen pendientes hasta que se registre uno.
     """
     registry = ExtractorRegistry()

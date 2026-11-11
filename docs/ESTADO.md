@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 10/11/2026.
+**Actualizado**: 11/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes: añadir y sincronizar carpetas, metadatos con ExifTool, miniaturas, cuadrícula y vista individual, clasificación (valoración, marca, color y selección rápida) guardada también en los archivos, palabras clave, colecciones (también inteligentes, con grupos de reglas), barra de filtros («Texto», «Atributos», «Metadatos» y ajustes personalizados) e inspector, que edita las palabras clave en todos los módulos y, en las fotos y vídeos de Imagen, el título, el pie, el creador, el copyright y la ubicación (también guardados en los archivos). El módulo Imagen navega por carpetas y palabras clave. Vídeo, audio, GPX y ebooks se catalogan y se clasifican en bibliotecas, pero los módulos Vídeo y Audio aún son provisionales. Lo siguiente, en [PENDIENTE.md](PENDIENTE.md).
 
@@ -12,7 +12,8 @@
 | Entrega | Qué comprobar |
 |---|---|
 | **Cajas editables alineadas** (10/11; `base_section` 1.10.0, `editable_row` 1.2.0) | En «Metadatos», el texto de Título, Pie, Creador, Copyright y la ubicación empieza exactamente donde el de Dimensiones, Captura y los demás (también «Varios»); el recuadro, al pasar el ratón o al entrar, asoma un poco hacia la izquierda. Las demás filas del inspector («Selección», con sus iconos) no se mueven |
-| **Edición de metadatos, paso 2: relectura** (10/11; `processor` 2.3.0, `sync` 1.4.0, `folder_file` 1.3.0, `editable_fields` 1.1.0, `base` 2.0.1) | Sincronizar una carpeta y dejar que se lean los metadatos: todo igual que antes. Único cambio a la vista: una foto cuyo título se borró en otro programa (p. ej. Lightroom) pasa a tener como título el nombre del archivo, al releerla (antes conservaba el título viejo) || **Iconos de los menús** (09/11; `theme_qss` 1.3.0, `ui_icons` 1.3.0, `sidebar_icons` 1.1.0, `catalog_sidebar` 1.12.1) | Clic derecho en una colección inteligente: el icono de «Editar colección inteligente…» ya no va pegado al borde izquierdo, y con la opción resaltada (ámbar) es oscuro, como el texto. Igual en el «+» de Colecciones (crear conjunto, colección o colección inteligente) y en los cuadraditos del submenú de etiquetas de la cuadrícula (solo la posición) |
+| **Edición de metadatos, paso 2: relectura** (10/11; `processor` 2.3.0, `sync` 1.4.0, `folder_file` 1.3.0, `editable_fields` 1.1.0, `base` 2.0.1) | Sincronizar una carpeta y dejar que se lean los metadatos: todo igual que antes. Único cambio a la vista: una foto cuyo título se borró en otro programa (p. ej. Lightroom) pasa a tener como título el nombre del archivo, al releerla (antes conservaba el título viejo) |
+| **Iconos de los menús** (09/11; `theme_qss` 1.3.0, `ui_icons` 1.3.0, `sidebar_icons` 1.1.0, `catalog_sidebar` 1.12.1) | Clic derecho en una colección inteligente: el icono de «Editar colección inteligente…» ya no va pegado al borde izquierdo, y con la opción resaltada (ámbar) es oscuro, como el texto. Igual en el «+» de Colecciones (crear conjunto, colección o colección inteligente) y en los cuadraditos del submenú de etiquetas de la cuadrícula (solo la posición) |
 | **Colores, todos del tema** (09/11; `theme_colors` 1.6.0, `ui_theme` 1.14.0, `card_marks` 1.1.0, `card_glyphs` 1.2.0, `ui_color_labels` 1.1.0, `thumbnails_delegate` 2.14.0, `single_media_view` 1.0.1, `media_grid_view` 1.2.0, `organize_bar` 1.1.0, `selection_section` 1.3.2, `ui_icons` 1.2.1) | Todo se ve igual que antes (comprobado sin ventana, píxel a píxel: tarjetas en nueve estados, marcas, etiquetas, círculos de «Estado» del inspector, fila «Atributos» y vista individual), salvo dos cosas: **arrastrar tarjetas**, el número de la insignia ámbar es ahora oscuro (antes blanco); **barra inferior**, al pasar el ratón por una zona el fondo es algo más claro, y el anillo del color activo, gris claro en vez de blanco (los mismos que la fila «Atributos» de la barra de filtros) |
 
 ## Comprobaciones sueltas
@@ -64,6 +65,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 11/11/2026: auditoría de la documentación contra el código: erratas, reglas de `CLAUDE.md` ajustadas, arranque y dependencias documentados (`requirements.txt` en UTF-8) y `PRUEBAS.md`, `TRAMPAS.md` y `FLUJOS.md` reordenados; en el código, solo retoques (`qtpy` en el registro, frase final de cinco autopruebas, `PROTECTED_COLUMNS`). Detalle en [HISTORIAL.md](HISTORIAL.md).
 - 10/11/2026: el texto de las cajas editables de «Metadatos», alineado con el de los demás valores (las cajas empiezan 5 px antes).
 - 10/11/2026: el desplegable de vistas de «Metadatos», 2 px más a la izquierda (alineado con el resto del inspector).
 - 10/11/2026: edición de los metadatos descriptivos, paso 5 (último): la ubicación también se edita; en Opciones > Metadatos, la opción del aviso «Edición múltiple».
@@ -73,4 +75,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 10/11/2026: edición de los metadatos descriptivos, paso 2: al releer un archivo no se pisa lo editado pendiente de escribir; en los formatos sin XMP manda lo editado en el `.arca.json`; un archivo sin título deja el nombre del archivo.
 - 10/11/2026: edición de los metadatos descriptivos, paso 1: la lista de campos editables, la migración 2 (`metadata_edit_pending`) y la función que guarda lo editado; aún sin nada visible.
 - 10/11/2026: edición de los metadatos descriptivos (C.5), paso 0: prueba de escritura con ExifTool y Lightroom, sin tocar el código; decisiones, plan y resultados anotados.
-- 09/11/2026: los iconos de los menús ya no van pegados al borde izquierdo y, en la opción resaltada, son oscuros como el texto.

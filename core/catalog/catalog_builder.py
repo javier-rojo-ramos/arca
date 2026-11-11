@@ -29,7 +29,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.catalog_builder
 """
 
-__version__ = "1.02"
+__version__ = "1.03"
 # ruff: noqa: RUF022
 __all__ = ["CatalogBuilder", "CatalogAlreadyExistsError", "CatalogError"]
 
@@ -232,3 +232,5 @@ if __name__ == "__main__":
             CatalogBuilder(carpeta).build()
         except CatalogAlreadyExistsError as err:
             print("Segundo intento rechazado correctamente:", str(err).splitlines()[0])
+
+        print("Autoprueba finalizada correctamente.")

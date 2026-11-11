@@ -27,7 +27,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.scan_filter
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["ScanFilter", "SkipReason"]
 
 # Librerías estándar
@@ -324,4 +324,4 @@ if __name__ == "__main__":
         finally:
             _IS_WINDOWS = _IS_WINDOWS_REAL
 
-        print("Todas las pruebas pasaron.")
+        print("Autoprueba finalizada correctamente.")

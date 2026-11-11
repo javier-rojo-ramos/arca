@@ -33,7 +33,7 @@ Reglas para las funciones que se envían al gestor:
       en el hilo principal.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["CatalogDatabaseManager", "rows_to_dicts"]
 
 # Librerías estándar
@@ -339,4 +339,4 @@ if __name__ == "__main__":
 
         QTimer.singleShot(1500, terminar)
         app.exec()
-        print("Prueba finalizada.")
+        print("Autoprueba finalizada correctamente.")

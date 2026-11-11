@@ -24,7 +24,7 @@ un JPEG de iPhone exportado desde Lightroom (grupos IFD0, ExifIFD, GPS, IPTC, XM
 Composite). Las de otros formatos (HEIC, RAW) se comprobarán con sus propias salidas.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __all__ = ["IMAGE_FIELDS", "IMAGE_FIELDS_VERSION", "IMAGE_USER_FIELDS"]
 
 # Módulos del proyecto
@@ -224,3 +224,4 @@ if __name__ == "__main__":
         raise SystemExit(1)
     print(f"IMAGE_FIELDS correcta: {len(IMAGE_FIELDS)} campos, todas las columnas existen.")
     print(f"Versión de la lista: {IMAGE_FIELDS_VERSION}")
+    print("Autoprueba finalizada correctamente.")

@@ -42,6 +42,8 @@ Características principales:
 Requiere importar el nombre de la aplicación (APP_NAME) desde el archivo
 correspondiente.
 
+1.08 Qt solo a través de 'qtpy': se quita la alternativa de importar PySide6 directamente
+     (regla del proyecto); sin 'qtpy', los mensajes de Qt no se capturan.
 1.07 Se introcuce NOISY_LOGGERS como una lista de librerías que se limitan a WARNING.
 1.06 InterceptHandler.emit delega los fallos en handleError (registrar un mensaje
     nunca rompe el programa). Las librerías de NOISY_LOGGERS se limitan a WARNING.
@@ -57,7 +59,7 @@ correspondiente.
 1.01 Se preserva la profundidad de la pila de llamadas (stack trace)
 """
 
-__version__ = "1.07"
+__version__ = "1.08"
 __all__ = [
     "InterceptHandler",
     "setup_logging",
@@ -380,11 +382,8 @@ def _install_qt_message_handler() -> None:
     try:
         from qtpy.QtCore import QtMsgType, qInstallMessageHandler
     except ImportError:
-        # 'qtpy' no está disponible: se prueba con PySide6 directamente
-        try:
-            from PySide6.QtCore import QtMsgType, qInstallMessageHandler
-        except ImportError:
-            return
+        # Sin 'qtpy' no hay Qt que capturar: el proyecto solo usa Qt a través de él
+        return
 
     _QT_LEVELS.update(
         {

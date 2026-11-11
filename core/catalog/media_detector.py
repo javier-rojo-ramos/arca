@@ -24,6 +24,7 @@ La detección se hace en dos capas, de la más barata a la más cara:
 Dependencia externa:
     pip install puremagic
 
+1.2.1 La autoprueba termina con «Autoprueba finalizada correctamente.», como las demás.
 1.2.0 '.mts' y '.m2ts' (vídeo AVCHD de videocámara) como vídeo, con MIME 'video/mp2t'.
 1.1.0 Tracks GPS: '.gpx' -> MediaType.TRACK. MIME propio por extensión
       (DEFAULT_EXTENSION_MIME) para los formatos que 'mimetypes' no conoce o que cada
@@ -33,7 +34,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_detector
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["DetectionResult", "MediaTypeDetector"]
 
 # Librerías estándar
@@ -328,4 +329,4 @@ if __name__ == "__main__":
         assert track.is_supported and track.mime_type == "application/gpx+xml"
         assert MediaType.TRACK in CACHEABLE_MEDIA_TYPES
 
-        print("Todas las pruebas pasaron.")
+        print("Autoprueba finalizada correctamente.")

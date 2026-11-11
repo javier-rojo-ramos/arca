@@ -1,6 +1,6 @@
 # Arca Media — Índice de la documentación
 
-Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (Windows, macOS, Linux), inspirado en Lightroom, FastStone, Mp3tag y VisualDivX. Gestiona colecciones de **imágenes** (en curso), **vídeo, audio y ebooks** (previstos). Python 3.14 + PySide6 (vía `qtpy`), SQLite y ExifTool. Uso interno de la empresa; se empaqueta con PyInstaller.
+Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (Windows, macOS, Linux), inspirado en Lightroom, FastStone, Mp3tag y VisualDivX. Gestiona colecciones de **imágenes** (en curso), **vídeo, audio y ebooks** (previstos). Python 3.14 + PySide6 (vía `qtpy`), SQLite y ExifTool. Uso interno de la empresa; se empaquetará con PyInstaller (pendiente: [PENDIENTE.md](PENDIENTE.md), C.9).
 
 **¿En qué punto está el proyecto?** → [ESTADO.md](ESTADO.md) (qué está hecho, qué falta por verificar y los últimos cambios).
 **¿Qué viene después?** → [PENDIENTE.md](PENDIENTE.md).
@@ -11,10 +11,10 @@ Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (W
 | Documento | Qué contiene | Cuándo leerlo |
 |---|---|---|
 | [ESTADO.md](ESTADO.md) | Lo verificado, lo entregado pendiente de verificar, lo nunca probado y los últimos cambios | Siempre, al empezar |
-| [PENDIENTE.md](PENDIENTE.md) | Hoja de ruta por bloques (A: módulos e interfaz; B: verificaciones; C: resto) | Al decidir el siguiente paso |
+| [PENDIENTE.md](PENDIENTE.md) | Hoja de ruta por bloques (A: módulos e interfaz; B: mejoras anotadas; C: resto) | Al decidir el siguiente paso |
 | [ARQUITECTURA.md](ARQUITECTURA.md) | Principios, componentes, reglas de arquitectura, **mapa del proyecto (qué hace cada archivo)** y qué corre en cada hilo | Para orientarse o encontrar dónde está algo |
 | [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) | Convenciones de los datos, tablas, bloques de columnas (quién escribe cada una), migraciones | Al tocar la base de datos o una consulta |
-| [FLUJOS.md](FLUJOS.md) | Paso a paso de cada operación: arranque, catálogo, añadir carpeta, metadatos, miniaturas, cuadrícula, datos del usuario, opciones, barra lateral, módulos, inspector, eliminar | Al cambiar el comportamiento de una operación |
+| [FLUJOS.md](FLUJOS.md) | Paso a paso de cada operación: arranque, catálogo, añadir carpeta, metadatos, miniaturas, cuadrícula, datos del usuario, opciones, barra lateral, cierre, módulos, inspector, eliminar, barra inferior, barra de filtros | Al cambiar el comportamiento de una operación |
 | [METADATOS.md](METADATOS.md) | Mapa de campos (qué se extrae y dónde se ve), campos de imagen, vídeo y tracks, prioridad entre etiquetas, equivalencias con Lightroom | Al añadir o corregir un campo |
 | [MINIATURAS.md](MINIATURAS.md) | Tamaños, reglas, orígenes por formato, caché | Al tocar las miniaturas |
 | [COMO_AMPLIAR.md](COMO_AMPLIAR.md) | La tabla «Quiero... → toco...» | Antes de añadir algo nuevo |
