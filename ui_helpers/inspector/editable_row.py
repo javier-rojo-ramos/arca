@@ -12,7 +12,8 @@ común a todas:
       entrar se selecciona entero y lo que se escribe lo sustituye.
     - Intro o salir de la caja: si el texto ha cambiado, señal 'committed(valor)' (None =
       vacío). Un «Varios» sin tocar no cambia nada; borrado, sí (vaciar en todos). Quien
-      la usa decide y responde con 'mark_applied()' (se aplica) o 'revert()' (no). Con
+      la usa decide y responde con 'mark_applied()' (se aplica), 'revert()' (no) o
+      'reject(aviso)' (no vale: vuelve y muestra el aviso junto a la caja). Con
       Intro, además, la caja suelta el foco y vuelve a verse como texto (si siguiera con
       el borde de acento, parecería que no se ha aplicado; pedido por el autor).
     - Esc: vuelve al valor que se mostró. Tab: a la caja siguiente. En la de varias
@@ -28,6 +29,8 @@ Como en la caja de palabras clave ('keyword_editor_section.py'), las teclas se a
 en subclases ('keyPressEvent') y salir de la caja para abrir su menú contextual
 ('PopupFocusReason') no cuenta como salir.
 
+1.3.0 'reject(aviso)': lo escrito no vale (una ubicación imposible): la caja vuelve a su
+      valor y muestra el aviso junto a ella, unos segundos (decidido por el autor).
 1.2.0 El texto de la caja de varias líneas, a la misma distancia del borde que en la de
       una línea ('base_section.EDITOR_TEXT_INSET'; margen del documento de 2 px): la
       rejilla adelanta las cajas esa distancia y su texto queda alineado con el de las
@@ -40,13 +43,13 @@ Prueba rápida (sin ventana; necesita PySide6):
     python -m ui_helpers.inspector.editable_row
 """
 
-__version__ = "1.2.0"
-__all__ = ["MULTI_LINE_ROWS", "EditableValue"]
+__version__ = "1.3.0"
+__all__ = ["MULTI_LINE_ROWS", "REJECT_NOTICE_MS", "EditableValue"]
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import Qt, QTimer, Signal
+from qtpy.QtCore import QPoint, QRect, Qt, QTimer, Signal
 from qtpy.QtGui import QFocusEvent, QKeyEvent, QShowEvent
-from qtpy.QtWidgets import QLineEdit, QPlainTextEdit, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QLineEdit, QPlainTextEdit, QToolTip, QVBoxLayout, QWidget
 
 # Módulos del proyecto
 from ui_helpers.inspector.metadata_fields import MIXED_TEXT
@@ -56,6 +59,9 @@ from ui_helpers.inspector.metadata_fields import MIXED_TEXT
 MULTI_LINE_ROWS = 3
 
 _ENTER_KEYS = (Qt.Key.Key_Return, Qt.Key.Key_Enter)
+
+# Cuánto tiempo se ve el aviso de un valor no válido (milisegundos)
+REJECT_NOTICE_MS = 6000
 
 
 class _LineEditor(QLineEdit):
@@ -200,6 +206,16 @@ class EditableValue(QWidget):
     def revert(self) -> None:
         """Vuelve al valor que se mostró (Esc, o un cambio que no se aplica)."""
         self._set_text(self._shown)
+
+    def reject(self, notice: str) -> None:
+        """Lo escrito no vale: vuelve al valor mostrado y avisa junto a la caja.
+
+        El aviso es un texto emergente justo debajo de la caja, unos segundos
+        ('REJECT_NOTICE_MS'); no es la ayuda al pasar el ratón (las cajas no la tienen).
+        """
+        self.revert()
+        below = self._editor.mapToGlobal(QPoint(0, self._editor.height()))
+        QToolTip.showText(below, notice, self._editor, QRect(), REJECT_NOTICE_MS)
 
     def editor(self) -> QWidget:
         """La caja de texto (para el orden del tabulador y las pruebas)."""
@@ -436,6 +452,13 @@ if __name__ == "__main__":
         box.deleteLater()
     label.deleteLater()
     print(f"6. Con el tema, el texto de las cajas empieza a {EDITOR_TEXT_INSET} px del borde")
+
+    # 7. Un valor que no vale: vuelve al mostrado (y avisa junto a la caja)
+    line.set_value("42°40'55\" N 0°4'12\" E")
+    line.editor().setText("abc")
+    line.reject("No es una ubicación válida.")
+    assert line.text() == "42°40'55\" N 0°4'12\" E" and not line.is_editing()
+    print("7. Valor no válido: vuelve al de antes")
 
     for widget in (line, text, nested, focused):
         widget.deleteLater()

@@ -35,6 +35,13 @@ valoración. Si la caja mostraba «Varios», antes se pregunta («Edición múlt
 volver a mostrar»: SETTING_CONFIRM_MULTI_EDIT). Al refrescar, lo que el usuario está
 escribiendo no se pisa.
 
+El GPS, la altitud y la dirección (12/11/2026) también son cajas: muestran lo mismo que la
+fila y lo escrito se interpreta antes de guardarlo ('value_parsing.py'; la caja «GPS»
+cambia la latitud y la longitud). Si no vale, la caja vuelve a su valor y avisa junto a
+ella ('EditableValue.reject'), sin preguntar ni guardar nada.
+
+1.3.0 GPS, altitud y dirección editables: lo escrito se interpreta ('value_parsing.py');
+      lo que no vale, aviso junto a la caja.
 1.2.1 El desplegable de vistas, 2 px más a la izquierda (alineado con el resto del
       inspector; pedido por el autor).
 1.2.0 Título, pie, creador y copyright editables (cajas de 'editable_row.py'), con el
@@ -49,7 +56,7 @@ Prueba rápida (sin ventana; necesita PySide6):
     python -m ui_helpers.inspector.metadata_section
 """
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 __all__ = ["MetadataSection", "multi_edit_question"]
 
 # Librerías estándar
@@ -90,6 +97,7 @@ from ui_helpers.inspector.metadata_fields import (
     preset_rows,
     sources_for,
 )
+from ui_helpers.inspector.value_parsing import NUMERIC_COLUMNS, parse_numeric
 
 # Aviso «Edición múltiple» (textos decididos por el autor el 10/11/2026)
 MULTI_EDIT_TITLE = "Edición múltiple"
@@ -217,7 +225,7 @@ class MetadataSection(InspectorSection):
         for key, editor in self._editors.items():
             if same and editor.is_editing():
                 continue
-            text, mixed = editor_value(values.get(key, FieldValue()))
+            text, mixed = editor_value(key, values.get(key, FieldValue()))
             editor.set_value(text, mixed=mixed)
 
     # -------------------------------------------------------------------------
@@ -227,17 +235,27 @@ class MetadataSection(InspectorSection):
     def _on_committed(self, key: str, editor: EditableValue, value: str | None) -> None:
         """El usuario ha aplicado un texto en una caja: se guarda para los mostrados.
 
-        Si la caja mostraba «Varios», antes se pregunta; con «Cancelar», vuelve a «Varios».
+        En las cajas numéricas (el GPS), lo escrito se interpreta antes: si no vale, la caja
+        vuelve a su valor y avisa junto a ella. Si la caja mostraba «Varios», antes se
+        pregunta; con «Cancelar», vuelve a «Varios».
         """
         ids = self._ids
         if not ids:
             editor.revert()
             return
+        if key in NUMERIC_COLUMNS:
+            try:
+                values = parse_numeric(key, value or "")
+            except ValueError as error:
+                editor.reject(str(error))
+                return
+        else:
+            values = {key: value}
         if editor.mixed and not self.confirm_multi_edit(FIELDS[key].long_label, len(ids), value):
             editor.revert()
             return
         editor.mark_applied()
-        self.edit_requested.emit(update_metadata_fields, (list(ids), {key: value}))
+        self.edit_requested.emit(update_metadata_fields, (list(ids), values))
 
     def _ask_multi_edit(self, label: str, count: int, value: str | None) -> bool:
         """Aviso «Edición múltiple» (salvo que se pidiera no volver a mostrarlo)."""
@@ -274,7 +292,7 @@ class MetadataSection(InspectorSection):
                 continue
             field = FIELDS[key]
             if key in EDITABLE_KEYS:
-                multiline = field_for(key).multiline
+                multiline = key not in NUMERIC_COLUMNS and field_for(key).multiline
                 editor = EditableValue(multiline=multiline)
                 label = self._grid.add_editor_row(field.label, editor, align_top=multiline)
                 label.setToolTip(field.long_label)
@@ -368,6 +386,43 @@ if __name__ == "__main__":
     title.editor().commit_requested.emit()
     assert edits[-1][1] == ([7], {"title": "Última"})
     print("4. Otra selección: lo escrito va a los que se muestran")
+
+    # 4b. GPS, altitud y dirección: la caja muestra lo de la fila; lo escrito se interpreta
+    section.data_request(None, [3, 4])  # type: ignore[arg-type]
+    section.show_data({
+        "gps": FieldValue(VALUE, (42.682089, 0.069991)),
+        "altitude": FieldValue(VALUE, (1418.1,)),
+        "direction": FieldValue(MIXED),
+    })  # fmt: skip
+    gps, altitude = section._editors["gps"], section._editors["altitude"]
+    direction = section._editors["direction"]
+    assert gps.text() == "42°40'55,5204\" N 0°4'11,9676\" E" and altitude.text() == "1.418,1 m"
+    assert direction.text() == MIXED_TEXT
+    before = len(edits)
+    gps.editor().setText("41.3874, 2.1686")
+    gps.editor().commit_requested.emit()
+    assert edits[-1] == (update_metadata_fields, ([3, 4], {"latitude": 41.3874, "longitude": 2.1686}))
+    altitude.editor().setText("−12,5 m")
+    altitude.editor().commit_requested.emit()
+    assert edits[-1][1] == ([3, 4], {"altitude": -12.5})
+    # Vaciar el GPS: las dos columnas
+    gps.editor().setText("")
+    gps.editor().commit_requested.emit()
+    assert edits[-1][1] == ([3, 4], {"latitude": None, "longitude": None})
+    # Lo que no vale: la caja vuelve a su valor, no se pregunta ni se guarda nada
+    asked.clear()
+    count = len(edits)
+    for editor, bad in ((altitude, "mucho"), (gps, "0, 0"), (direction, "Nortee")):
+        shown = editor.text()
+        editor.editor().setText(bad)
+        editor.editor().commit_requested.emit()
+        assert editor.text() == shown and len(edits) == count and asked == [], bad
+    # La dirección con «Varios»: se pregunta, con lo escrito
+    direction.editor().setText("Sur")
+    direction.editor().commit_requested.emit()
+    assert asked == [("Dirección de la cámara", 2, "Sur")]
+    assert edits[-1][1] == ([3, 4], {"gps_direction": 180.0}) and len(edits) == before + 4
+    print("4b. GPS, altitud y dirección: interpretados; lo que no vale, de vuelta y sin guardar")
 
     # 5. Textos del aviso
     assert multi_edit_question("Título", 37, "Atardecer en León") == (

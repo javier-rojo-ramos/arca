@@ -35,6 +35,9 @@ Cómo añadir:
     - La vista personalizada (más adelante): una lista de claves guardada en
       'settings.json'; 'preset_rows' ya acepta cualquier lista de claves.
 
+1.7.0 GPS, altitud y dirección editables ('EDITABLE_KEYS'): sus cajas muestran lo mismo que
+      la fila ('editor_value' recibe ahora la clave del campo) y cambian las columnas de
+      'value_parsing.NUMERIC_COLUMNS' (la caja «GPS», latitud y longitud).
 1.6.2 Autoprueba: el GPS ya es editable por dentro, pero sus cajas llegan después.
 1.6.1 «Dirección» sale de 'media_items.gps_direction' (migración 3), como el resto del GPS.
 1.6.0 La ubicación (lugar, ciudad, región, país y código de país) también se edita
@@ -51,7 +54,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.metadata_fields
 """
 
-__version__ = "1.6.2"
+__version__ = "1.7.0"
 __all__ = [
     "COMMON_HEAD",
     "DEFAULT_PRESET",
@@ -96,6 +99,7 @@ from ui_helpers.inspector.formatting import (
     format_gps,
     format_iso,
 )
+from ui_helpers.inspector.value_parsing import NUMERIC_COLUMNS
 
 # Marca de "línea de separación" en las listas de campos de las vistas
 SEPARATOR = "-"
@@ -315,25 +319,32 @@ PRESETS: dict[str, MetadataPreset] = {
 }  # fmt: skip
 DEFAULT_PRESET = "default"
 
-# Campos que se EDITAN en la sección (con una caja en lugar de un texto; paso C.5). Su
-# clave es la columna de 'core/userdata/editable_fields.py', que dice además si admite
-# varias líneas. Se editan en todas las vistas donde aparecen
+# Campos que se EDITAN en la sección (con una caja en lugar de un texto; paso C.5). Los de
+# texto: su clave es la columna de 'core/userdata/editable_fields.py', que dice además si
+# admite varias líneas. Los numéricos (el GPS: 'value_parsing.NUMERIC_COLUMNS'): su caja
+# muestra lo mismo que la fila y lo escrito se interpreta antes de guardarlo (la caja
+# «GPS» cambia dos columnas). Se editan en todas las vistas donde aparecen
 EDITABLE_KEYS: tuple[str, ...] = (
     "title", "description", "creator", "copyright",
     "sublocation", "city", "region", "country", "country_code",
+    "gps", "altitude", "direction",
 )  # fmt: skip
-assert set(EDITABLE_KEYS) <= set(EDITABLE_COLUMNS) and set(EDITABLE_KEYS) <= set(FIELDS)
+assert set(EDITABLE_KEYS) <= set(FIELDS)
+assert all(key in EDITABLE_COLUMNS or key in NUMERIC_COLUMNS for key in EDITABLE_KEYS)
 
 
-def editor_value(value: FieldValue) -> tuple[str, bool]:
+def editor_value(key: str, value: FieldValue) -> tuple[str, bool]:
     """Lo que muestra la caja de un campo editable: (texto, hay valores distintos).
 
-    Sin formato: el texto tal cual está en el catálogo (con sus saltos de línea).
+    Texto: tal cual está en el catálogo (con sus saltos de línea). Numérico (el GPS): lo
+    mismo que la fila ('display_value': «42°40'55,5204" N...», «1.418,1 m», «Norte»).
     """
     if value.state == MIXED:
         return "", True
     if value.state != VALUE or not value.value or value.value[0] is None:
         return "", False
+    if key in NUMERIC_COLUMNS:
+        return display_value(key, value).text, False
     return str(value.value[0]), False
 
 
@@ -476,14 +487,19 @@ if __name__ == "__main__":
     values = fetch_field_values(db, [photo], sources_for(["description"]))
     assert display_value("description", values["description"]).tooltip == "Primera línea\nSegunda línea"
     # En su caja editable, tal cual (con el salto de línea); «Varios» y vacío
-    assert editor_value(values["description"]) == ("Primera línea\nSegunda línea", False)
-    assert editor_value(FieldValue(MIXED)) == ("", True)
-    assert editor_value(FieldValue()) == ("", False)
+    assert editor_value("description", values["description"]) == ("Primera línea\nSegunda línea", False)
+    assert editor_value("title", FieldValue(MIXED)) == ("", True)
+    assert editor_value("title", FieldValue()) == ("", False)
+    # El GPS, la altitud y la dirección: la caja muestra lo mismo que la fila
+    values = fetch_field_values(db, [photo], sources_for(["gps", "altitude", "direction"]))
+    for key in ("gps", "altitude", "direction"):
+        assert editor_value(key, values[key]) == (expected[key], False), key
+    assert editor_value("gps", FieldValue(MIXED)) == ("", True)
     # Todos los metadatos que se saben escribir se editan aquí, y en todas las vistas donde
-    # están (la ubicación, en «Por defecto» y «Ubicación»). El GPS, todavía no: sus cajas
-    # llegan en el paso 5 de su edición (docs/PENDIENTE.md, C.5)
-    gps_columns = {"latitude", "longitude", "altitude", "gps_direction"}
-    assert set(EDITABLE_KEYS) == set(EDITABLE_COLUMNS) - gps_columns
+    # están (la ubicación, en «Por defecto» y «Ubicación»), también el GPS (sus cajas cambian
+    # las columnas de 'NUMERIC_COLUMNS')
+    covered = {column for key in EDITABLE_KEYS for column in NUMERIC_COLUMNS.get(key, (key,))}
+    assert covered == set(EDITABLE_COLUMNS), covered ^ set(EDITABLE_COLUMNS)
     for preset in ("default", "location"):
         assert set(_PLACE_BLOCK) <= set(preset_rows(preset)) & set(EDITABLE_KEYS), preset
     print("3. Foto, vista por defecto: como el ejemplo")
