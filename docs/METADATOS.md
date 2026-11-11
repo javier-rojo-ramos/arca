@@ -63,7 +63,7 @@
 | `photo_details.exposure_program` | `ExifIFD:ExposureProgram` → `XMP-exif:ExposureProgram` | — | «Programa» (Por defecto, EXIF) | — | — |
 | `photo_details.metering_mode` | `ExifIFD:MeteringMode` → `XMP-exif:MeteringMode` | — | «Medición» (Por defecto, EXIF) | — | — |
 | `photo_details.flash_code` | `ExifIFD:Flash` | — | — | — | — |
-| `photo_details.gps_direction` | `GPS:GPSImgDirection` → `XMP-exif:GPSImgDirection` | — | «Dirección» (Por defecto, Ubicación) | — | — |
+| `gps_direction` | `GPS:GPSImgDirection` → `XMP-exif:GPSImgDirection` | — | «Dirección» (Por defecto, Ubicación) | — | — |
 | `photo_details.digitized_at` | `ExifIFD:CreateDate` → `XMP-xmp:CreateDate` | — | «Digitalización» (todas) | — | — |
 | `photo_details.exif_modified_at` | `IFD0:ModifyDate` → `XMP-xmp:ModifyDate` | — | «Modificación» (todas) | — | — |
 | `photo_details.flash_fired` | regla (bit 0 de `flash_code`) | — | «Flash» (Por defecto, EXIF) | Flash disparado | — |
@@ -121,7 +121,7 @@ Huecos a la vista (extraídos pero sin mostrar en ningún sitio): `intellectual_
 | `exposure_program` | photo_details | `ExifIFD:ExposureProgram` → `XMP-exif:ExposureProgram` | `integer` |
 | `metering_mode` | photo_details | `ExifIFD:MeteringMode` → `XMP-exif:MeteringMode` | `integer` |
 | `flash_code` | photo_details | `ExifIFD:Flash` | `integer` |
-| `gps_direction` | photo_details | `GPS:GPSImgDirection` → `XMP-exif:GPSImgDirection` | `real` |
+| `gps_direction` | media_items | `GPS:GPSImgDirection` → `XMP-exif:GPSImgDirection` | `real` |
 | `digitized_at` | photo_details | `ExifIFD:CreateDate` → `XMP-xmp:CreateDate` | `datetime_text` |
 | `exif_modified_at` | photo_details | `IFD0:ModifyDate` → `XMP-xmp:ModifyDate` | `datetime_text` |
 
@@ -139,7 +139,7 @@ Además, las reglas (`image/rules.py`) rellenan `orientation`, `content_created_
 | Flash, programa de exposición, modo de medición | `flash_fired` + `flash_code`, `exposure_program`, `metering_mode` (códigos). El inspector muestra «Flash» con `flash_fired`: «Disparado» / «No disparado» |
 | Marca, modelo, lente, nº de serie, software | `camera_make`, `camera_model`, `lens_model`, `body_serial_number`, `software` |
 | Artista, comentario del usuario | `creator`, `photo_details.user_comment` |
-| GPS, altitud, dirección | `latitude`/`longitude`, `altitude`, `photo_details.gps_direction` (grados) |
+| GPS, altitud, dirección | `latitude`/`longitude`, `altitude`, `gps_direction` (grados) |
 | Ubicación secundaria, ciudad, estado o región, país, código ISO | `sublocation`, `city`, `region`, `country`, `country_code` |
 | Título, pie de ilustración | `title`, `description` |
 | Género intelectual, escena | `intellectual_genre`, `scene` |

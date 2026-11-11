@@ -35,6 +35,7 @@ Cómo añadir:
     - La vista personalizada (más adelante): una lista de claves guardada en
       'settings.json'; 'preset_rows' ya acepta cualquier lista de claves.
 
+1.6.1 «Dirección» sale de 'media_items.gps_direction' (migración 3), como el resto del GPS.
 1.6.0 La ubicación (lugar, ciudad, región, país y código de país) también se edita
       (paso C.5, 5).
 1.5.0 'EDITABLE_KEYS' (los campos que se editan en la sección: título, pie, creador y
@@ -49,7 +50,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.metadata_fields
 """
 
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 __all__ = [
     "COMMON_HEAD",
     "DEFAULT_PRESET",
@@ -254,7 +255,7 @@ _FIELD_LIST: tuple[InspectorField, ...] = (
     InspectorField("gps", "GPS", "Coordenadas GPS", {_ANY: ("m.latitude", "m.longitude")}, format_gps, _gps_tooltip),
     InspectorField("altitude", "Altitud", "Altitud", {_ANY: ("m.altitude",)}, format_altitude),
     InspectorField("direction", "Dirección", "Dirección de la cámara",
-                   {"photo": ("photo.gps_direction",)}, format_direction, _direction_tooltip),
+                   {_ANY: ("m.gps_direction",)}, format_direction, _direction_tooltip),
 
     # --- Fechas EXIF ---
     InspectorField("digitized_at", "Digitalización", "Fecha de digitalización (EXIF)",
@@ -422,13 +423,14 @@ if __name__ == "__main__":
     photo = add("DSC_9140.dng", "photo", width=3200, height=2128,
                 content_created_at="2026-10-19 18:44:05", sublocation="Valle de Ordesa",
                 city="Torla", region="Huesca", country="España", country_code="ES",
-                latitude=42.682089, longitude=0.069991, altitude=1418.1)  # fmt: skip
+                latitude=42.682089, longitude=0.069991, altitude=1418.1,
+                gps_direction=2.3)  # fmt: skip
     db.execute(
         """INSERT INTO photo_details(media_id, camera_make, camera_model, lens_model,
                focal_length_mm, focal_length_35mm, exposure_time_s, f_number, iso,
-               exposure_bias_ev, flash_fired, exposure_program, metering_mode, gps_direction)
+               exposure_bias_ev, flash_fired, exposure_program, metering_mode)
            VALUES (?, 'NIKON CORPORATION', 'NIKON Df', 'AF-S NIKKOR 20mm f/1.8G ED',
-                   20, 20, 0.0008, 8, 100, -0.333, 0, 3, 5, 2.3)""",
+                   20, 20, 0.0008, 8, 100, -0.333, 0, 3, 5)""",
         (photo,),
     )
     # Sin título propio (el nombre del archivo), con pie de dos líneas y creador

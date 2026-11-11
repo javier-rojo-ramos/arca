@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Migración 3: la dirección, con el resto del GPS** (12/11; `catalog_schema` 2.3.0, `image/fields` 1.2.0, `metadata_fields` 1.6.1) | Abrir el catálogo: pasa solo a la v3 (probado con una copia: las 1 530 direcciones, iguales). La fila «Dirección» de «Metadatos» muestra lo mismo que antes; único cambio: con una foto con dirección y un vídeo sin ella seleccionados a la vez, «Varios» (como la altitud) |
 | **Limpieza de ruff** (12/11; 27 módulos, solo importaciones y comentarios) | Arrancar la aplicación y usarla un poco: todo igual que antes. Cambió el orden de algunas importaciones (barra lateral, cuadrícula, inspector, árbol de palabras clave, escritura de los datos del usuario) y se quitaron comentarios `# noqa`; nada de lo que hace |
 | **Cajas editables alineadas** (10/11; `base_section` 1.10.0, `editable_row` 1.2.0) | En «Metadatos», el texto de Título, Pie, Creador, Copyright y la ubicación empieza exactamente donde el de Dimensiones, Captura y los demás (también «Varios»); el recuadro, al pasar el ratón o al entrar, asoma un poco hacia la izquierda. Las demás filas del inspector («Selección», con sus iconos) no se mueven |
 | **Edición de metadatos, paso 2: relectura** (10/11; `processor` 2.3.0, `sync` 1.4.0, `folder_file` 1.3.0, `editable_fields` 1.1.0, `base` 2.0.1) | Sincronizar una carpeta y dejar que se lean los metadatos: todo igual que antes. Único cambio a la vista: una foto cuyo título se borró en otro programa (p. ej. Lightroom) pasa a tener como título el nombre del archivo, al releerla (antes conservaba el título viejo) |
@@ -66,6 +67,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: edición del GPS, la altitud y la dirección, paso 1: la dirección de la cámara pasa a `media_items` (migración 3, esquema v3); aún sin nada editable.
 - 12/11/2026: ruff con las reglas fijadas en `ruff.toml` (las mismas 407 de siempre) y líneas de 100; quitados los avisos inofensivos (importaciones sin ordenar y `# noqa` sin uso): de 101 avisos quedan 25.
 - 12/11/2026: ejecutadas las 89 autopruebas sin ventana; pasan todas menos una. La de `folder_actions`, al día con el texto del aviso; la de `core.thumbnails.cache` falla en Windows en su parte de concurrencia (la prueba, no la aplicación).
 - 11/11/2026: auditoría de la documentación contra el código: erratas, reglas de `CLAUDE.md` ajustadas, arranque y dependencias documentados (`requirements.txt` en UTF-8) y `PRUEBAS.md`, `TRAMPAS.md` y `FLUJOS.md` reordenados; en el código, solo retoques (`qtpy` en el registro, frase final de cinco autopruebas, `PROTECTED_COLUMNS`). Detalle en [HISTORIAL.md](HISTORIAL.md).
@@ -75,4 +77,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 10/11/2026: edición de los metadatos descriptivos, paso 4b: Título, Pie, Creador y Copyright se editan en «Metadatos» (Intro, Esc, Tab; «Varios» como en Lightroom, con el aviso «Edición múltiple») y se escriben en los archivos. Tras verlo el autor: Intro suelta el foco y no hay ayuda al pasar el ratón.
 - 10/11/2026: edición de los metadatos descriptivos, paso 4a: Título, Pie, Creador y Copyright en las vistas «Por defecto» y «Ubicación» de «Metadatos», aún de solo lectura; una foto sin título propio lo muestra en blanco.
 - 10/11/2026: edición de los metadatos descriptivos, paso 3: lo editado se escribe en los archivos (XMP con las etiquetas antiguas que existan, sidecar o `.arca.json`); el resumen IPTC queda al día, también al escribir palabras clave.
-- 10/11/2026: edición de los metadatos descriptivos, paso 2: al releer un archivo no se pisa lo editado pendiente de escribir; en los formatos sin XMP manda lo editado en el `.arca.json`; un archivo sin título deja el nombre del archivo.

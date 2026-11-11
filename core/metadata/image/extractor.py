@@ -13,9 +13,11 @@ ORF, RW2, PEF, RAF...).
 
 Prueba rápida (usa datos REALES de ExifTool y un ExifTool simulado):
     python -m core.metadata.image.extractor
+
+1.0.2 Autoprueba: la dirección de la cámara está en 'media_items' (migración 3).
 """
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __all__ = ["ImageExtractor"]
 
 # Librerías estándar
@@ -103,7 +105,8 @@ sys.stdout.buffer.write(json.dumps(out, ensure_ascii=False).encode("utf-8"))
         assert common["title"] is None and common["description"] is None  # "Título" y "Pie" vacíos
         assert common["iptc_created_at"] == "2026-08-27 21:33:57"  # "Fecha de creación"
         assert (common["latitude"], common["longitude"], common["altitude"]) == (43.5, -3.25, 3.0)
-        assert abs(details["gps_direction"] - 338.0218353) < 1e-9  # "Dirección": Norte
+        assert abs(common["gps_direction"] - 338.0218353) < 1e-9  # "Dirección": Norte
+        assert "gps_direction" not in details
         # Panel "EXIF"
         assert (details["camera_make"], details["camera_model"]) == ("Apple", "iPhone 17 Pro")
         assert details["lens_model"] == "iPhone 17 Pro back triple camera 16.891mm f/2.8"

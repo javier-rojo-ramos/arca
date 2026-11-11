@@ -22,9 +22,12 @@ columnas de esta lista existen en la base de datos.
 Las etiquetas de esta lista están comprobadas con la salida real de ExifTool 13.59 para
 un JPEG de iPhone exportado desde Lightroom (grupos IFD0, ExifIFD, GPS, IPTC, XMP-*,
 Composite). Las de otros formatos (HEIC, RAW) se comprobarán con sus propias salidas.
+
+1.2.0 'gps_direction' es una columna de 'media_items' (migración 3), junto al resto del
+      GPS. Sin subir 'IMAGE_FIELDS_VERSION': la migración copia lo ya leído.
 """
 
-__version__ = "1.1.1"
+__version__ = "1.2.0"
 __all__ = ["IMAGE_FIELDS", "IMAGE_FIELDS_VERSION", "IMAGE_USER_FIELDS"]
 
 # Módulos del proyecto
@@ -112,6 +115,8 @@ IMAGE_FIELDS: tuple[FieldSpec, ...] = (
         ("Composite:GPSAltitude", "GPS:GPSAltitude", "XMP-exif:GPSAltitude"),
         real,
     ),
+    # Hacia dónde apunta la cámara, en grados (la «Dirección» de Lightroom)
+    common("gps_direction", ("GPS:GPSImgDirection", "XMP-exif:GPSImgDirection"), real),
     # =========================================================================
     # Tamaño (columnas de 'media_items'). El giro por orientación está en 'rules.py'.
     # =========================================================================
@@ -177,7 +182,6 @@ IMAGE_FIELDS: tuple[FieldSpec, ...] = (
     detail("exposure_program", ("ExifIFD:ExposureProgram", "XMP-exif:ExposureProgram"), integer),
     detail("metering_mode", ("ExifIFD:MeteringMode", "XMP-exif:MeteringMode"), integer),
     detail("flash_code", ("ExifIFD:Flash",), integer),  # 'flash_fired' se deriva en rules.py
-    detail("gps_direction", ("GPS:GPSImgDirection", "XMP-exif:GPSImgDirection"), real),
     # --- Fechas EXIF ("digitalizadas" y "Fecha y hora" de Lightroom) ---
     detail("digitized_at", ("ExifIFD:CreateDate", "XMP-xmp:CreateDate"), datetime_text),
     detail("exif_modified_at", ("IFD0:ModifyDate", "XMP-xmp:ModifyDate"), datetime_text),

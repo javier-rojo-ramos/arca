@@ -25,6 +25,8 @@ de una canción...) van en tablas 1:1 con 'media_items' (photo_details,
 video_details, audio_details...), no en la tabla general. Las que falten se
 añadirán como migraciones nuevas, una por una.
 
+2.3.0 Migración 3: 'gps_direction' pasa de 'photo_details' a 'media_items' (dato de
+      ubicación, junto a la latitud, la longitud y la altitud; se podrá editar).
 2.2.0 Función SQL 'arca_file_title' (título propio de un archivo), registrada en cada
       conexión por 'configure_connection'.
 2.1.0 Migración 2: 'media_items.metadata_edit_pending' (metadatos descriptivos editados
@@ -50,7 +52,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.catalog_schema
 """
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 __all__ = [
     "APPLICATION_ID",
     "BUSY_TIMEOUT_SECONDS",
@@ -507,11 +509,31 @@ ALTER TABLE media_items ADD COLUMN metadata_edit_pending INTEGER NOT NULL DEFAUL
 CREATE INDEX idx_media_metadata_edit_pending ON media_items(id) WHERE metadata_edit_pending <> 0;
 """
 
+# Migración 3 (12/11/2026): la dirección de la cámara pasa a 'media_items', junto a la
+# latitud, la longitud y la altitud. Es un dato de ubicación (la vista de mapa lo usará con
+# el resto, también en vídeos) y así se edita con el mismo mecanismo que los demás
+# metadatos editables (core/userdata/editable_fields.py), que trabaja con 'media_items'.
+_MIGRATION_003_GPS_DIRECTION = """
+-- BLOQUE B. Grados 0-360 (hacia dónde apunta la cámara). Sin CHECK, como en 'photo_details':
+-- un valor raro de un archivo (360, negativo) haría fallar esta migración o la lectura.
+ALTER TABLE media_items ADD COLUMN gps_direction REAL;
+
+-- Se copia lo ya leído, así no hace falta releer las fotos. El trigger pone 'updated_at'
+-- de esas filas a la fecha de la migración (la fila cambia de verdad).
+UPDATE media_items
+   SET gps_direction = (SELECT d.gps_direction FROM photo_details d
+                         WHERE d.media_id = media_items.id)
+ WHERE id IN (SELECT media_id FROM photo_details WHERE gps_direction IS NOT NULL);
+
+ALTER TABLE photo_details DROP COLUMN gps_direction;
+"""
+
 # Lista ORDENADA de migraciones: la posición (empezando en 1) es la versión a la
 # que lleva cada una. Para evolucionar el esquema, añadir elementos AL FINAL.
 MIGRATIONS: tuple[str, ...] = (
     _MIGRATION_001_INITIAL_SCHEMA,
     _MIGRATION_002_METADATA_EDIT_PENDING,
+    _MIGRATION_003_GPS_DIRECTION,
 )
 
 # Versión actual del esquema: se deduce sola del número de migraciones, así no
@@ -660,7 +682,7 @@ if __name__ == "__main__":
 
     # 1. Un catálogo vacío pasa de la versión 0 a la actual, con la marca de la aplicación
     assert db.execute("PRAGMA user_version").fetchone()[0] == 0
-    assert apply_migrations(db) == SCHEMA_VERSION == 2
+    assert apply_migrations(db) == SCHEMA_VERSION == 3
     assert db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert db.execute("PRAGMA application_id").fetchone()[0] == APPLICATION_ID
     print(f"Esquema creado: v{SCHEMA_VERSION}, application_id = {APPLICATION_ID:#x}")
@@ -744,6 +766,9 @@ if __name__ == "__main__":
     # 9. Tablas de detalles: se borran con su elemento (ON DELETE CASCADE) y tienen las
     #    columnas que llegaron con migraciones posteriores en la fase de pruebas
     assert {"crop_width", "crop_height", "digitized_at"} <= columns_of(db, "photo_details")
+    # La dirección de la cámara está con el resto del GPS (migración 3), no en los detalles
+    assert "gps_direction" in columns_of(db, "media_items")
+    assert "gps_direction" not in columns_of(db, "photo_details")
     assert {"lens_model", "focal_length_35mm", "f_number"} <= columns_of(db, "video_details")
     db.execute("INSERT INTO photo_details(media_id, camera_make) VALUES (1, 'Nikon')")
     db.execute("INSERT INTO video_details(media_id, camera_make) VALUES (1, 'Apple')")
@@ -811,11 +836,45 @@ if __name__ == "__main__":
     )
     old.commit()
     assert "metadata_edit_pending" not in columns_of(old, "media_items")
-    assert apply_migrations(old) == 2
-    assert old.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert apply_migrations(old) == SCHEMA_VERSION
+    assert old.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     row = old.execute("SELECT rating, metadata_edit_pending FROM media_items").fetchone()
     assert row == (4, 0), row
     old.close()
     print("Migración 2: catálogo v1 al día, con 'metadata_edit_pending' = 0")
+
+    # 15. Un catálogo v2 pasa a la v3: la dirección leída se copia a 'media_items' (sin
+    #     tocar el resto de 'photo_details') y desaparece de la tabla de detalles
+    old = sqlite3.connect(":memory:")
+    configure_connection(old)
+    old.executescript(
+        f"BEGIN;\n{MIGRATIONS[0]}\n{MIGRATIONS[1]}\nPRAGMA application_id = {APPLICATION_ID};\n"
+        "PRAGMA user_version = 2;\nCOMMIT;"
+    )
+    old.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('Prueba', '/p')")
+    for name, media_type in (("con.jpg", "photo"), ("sin.jpg", "photo"), ("v.mov", "video")):
+        old.execute(
+            """INSERT INTO media_items(storage_location_id, relative_path, file_name,
+                   media_type, mime_type, file_size, file_mtime_ns, title, latitude)
+               VALUES (1, ?, ?, ?, 'x', 1, 0, 't', 42.5)""",
+            (name, name, media_type),
+        )
+    old.execute(
+        "INSERT INTO photo_details(media_id, camera_model, gps_direction) "
+        "VALUES (1, 'Df', 292.47)"
+    )
+    old.execute("INSERT INTO photo_details(media_id, camera_model) VALUES (2, 'Z6')")
+    old.commit()
+    assert apply_migrations(old) == SCHEMA_VERSION
+    assert old.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+    rows = old.execute("SELECT file_name, gps_direction, latitude FROM media_items ORDER BY id")
+    assert rows.fetchall() == [
+        ("con.jpg", 292.47, 42.5), ("sin.jpg", None, 42.5), ("v.mov", None, 42.5)
+    ]  # fmt: skip
+    assert "gps_direction" not in columns_of(old, "photo_details")
+    details = old.execute("SELECT media_id, camera_model FROM photo_details ORDER BY media_id")
+    assert details.fetchall() == [(1, "Df"), (2, "Z6")]
+    old.close()
+    print("Migración 3: catálogo v2 al día, con la dirección en 'media_items'")
 
     print("Autoprueba finalizada correctamente.")
