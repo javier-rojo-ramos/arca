@@ -11,7 +11,9 @@ leídos, y los ajustan en el sitio. Son cinco:
     2. Fecha de captura: depende de varias etiquetas a la vez (fecha, zona horaria,
        de dónde salió y con qué precisión) y tiene respaldo en la fecha del archivo.
     3. Flash: 'flash_fired' (0 o 1) se deriva del código de flash.
-    4. GPS: se descartan las coordenadas imposibles.
+    4. GPS: la latitud y la longitud salen de una sola fuente (el XMP si tiene las dos; si
+       no, el EXIF), la altitud del XMP lleva su referencia aparte (sobre o bajo el nivel
+       del mar) y se descartan las coordenadas imposibles.
 
 Si cambias algo aquí, sube 'IMAGE_FIELDS_VERSION' (en 'fields.py').
 
@@ -19,9 +21,12 @@ Pendiente de comprobar con archivos reales: el tamaño de los HEIC (si ExifTool 
 devuelve la imagen girada o no) y el de los RAW (varias imágenes dentro del archivo).
 Con 'python -m core.metadata.inspect_cli archivo.heic --campos' se ve qué guarda
 la aplicación y se compara con Lightroom.
+
+1.2.0 GPS: pareja de coordenadas de una sola fuente (primero el XMP) y altitud del XMP con
+      su referencia ('IMAGE_FIELDS_VERSION' 9).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["apply_image_rules", "crop_size"]
 
 # Librerías estándar
@@ -39,6 +44,14 @@ from core.metadata.field_spec import (
     parse_datetime,
     parse_offset,
     read_field,
+    real,
+)
+
+# Parejas de coordenadas, en orden: el XMP y, si no tiene las dos, el compuesto de ExifTool
+# (sale del EXIF). Son las mismas etiquetas, y en el mismo orden, que en 'fields.py'
+_GPS_PAIRS: tuple[tuple[str, str], ...] = (
+    ("XMP-exif:GPSLatitude", "XMP-exif:GPSLongitude"),
+    ("Composite:GPSLatitude", "Composite:GPSLongitude"),
 )
 
 # Orígenes de la fecha de captura, por orden de fiabilidad:
@@ -61,7 +74,7 @@ def apply_image_rules(
     _orientation_and_size(tags, common_values, details)
     _capture_date(tags, common_values, path)
     _flash(details)
-    _gps(common_values)
+    _gps(tags, common_values)
 
 
 def _orientation_and_size(
@@ -174,9 +187,23 @@ def _flash(details: dict[str, Any]) -> None:
     details["flash_fired"] = None if code is None else int(code) & 1
 
 
-def _gps(common_values: dict[str, Any]) -> None:
-    """Descarta coordenadas fuera de rango o '0, 0' (el valor que ponen algunas cámaras sin fix)."""
-    latitude, longitude = common_values.get("latitude"), common_values.get("longitude")
+def _gps(tags: Mapping[str, Any], common_values: dict[str, Any]) -> None:
+    """Coordenadas de una sola fuente, altitud del XMP con su signo y nada imposible.
+
+    - La latitud y la longitud salen de la MISMA fuente: del XMP si tiene las dos y, si
+      no, del compuesto de ExifTool (el EXIF). Campo a campo se podría juntar una latitud
+      del XMP con una longitud del EXIF.
+    - La altitud del XMP no lleva el signo: va en 'XMP-exif:GPSAltitudeRef' (1 = bajo el
+      nivel del mar; sin ella, sobre él, que es lo que escribe Lightroom). La del
+      compuesto ya lo lleva, y la de 'GPS:GPSAltitude' solo se usa sin referencia.
+    - Se descartan las coordenadas fuera de rango o '0, 0' (el valor que ponen algunas
+      cámaras sin cobertura).
+    """
+    latitude = longitude = None
+    for latitude_tag, longitude_tag in _GPS_PAIRS:
+        latitude, longitude = real(tags.get(latitude_tag)), real(tags.get(longitude_tag))
+        if latitude is not None and longitude is not None:
+            break
     invalid = (
         latitude is None
         or longitude is None
@@ -184,6 +211,18 @@ def _gps(common_values: dict[str, Any]) -> None:
         or abs(longitude) > 180
         or (latitude == 0 and longitude == 0)
     )
-    if invalid:
-        common_values["latitude"] = None
-        common_values["longitude"] = None
+    common_values["latitude"] = None if invalid else latitude
+    common_values["longitude"] = None if invalid else longitude
+
+    # La altitud salió del XMP si lo tiene (es su primera fuente en 'fields.py')
+    altitude = common_values.get("altitude")
+    if altitude is not None and real(tags.get("XMP-exif:GPSAltitude")) is not None:
+        common_values["altitude"] = (
+            -abs(altitude) if _below_sea_level(tags.get("XMP-exif:GPSAltitudeRef")) else abs(altitude)
+        )
+
+
+def _below_sea_level(ref: Any) -> bool:
+    """True si la referencia de la altitud dice «bajo el nivel del mar» (1, con '-n')."""
+    text = str(ref).strip().lower()
+    return text == "1" or text.startswith("below")

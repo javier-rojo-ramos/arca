@@ -14,10 +14,11 @@ ORF, RW2, PEF, RAF...).
 Prueba rápida (usa datos REALES de ExifTool y un ExifTool simulado):
     python -m core.metadata.image.extractor
 
+1.0.3 Autoprueba: GPS con el XMP primero, con los casos comprobados en Lightroom.
 1.0.2 Autoprueba: la dirección de la cámara está en 'media_items' (migración 3).
 """
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 __all__ = ["ImageExtractor"]
 
 # Librerías estándar
@@ -200,7 +201,44 @@ sys.stdout.buffer.write(json.dumps(out, ensure_ascii=False).encode("utf-8"))
             assert no_gps["latitude"] is None and no_gps["longitude"] is None
         south, _ = run_rules({"Composite:GPSLatitude": -33.5, "Composite:GPSLongitude": -70.6, "Composite:GPSAltitude": -10})
         assert (south["latitude"], south["longitude"], south["altitude"]) == (-33.5, -70.6, -10.0)
-        print("Reglas especiales: orientación, fecha, flash y GPS correctos")
+
+        # GPS con el XMP primero (casos comprobados con Lightroom Classic 16 el 12/11/2026)
+        exif = {"Composite:GPSLatitude": 40.4168, "Composite:GPSLongitude": -3.7038,
+                "Composite:GPSAltitude": 650, "GPS:GPSAltitude": 650, "GPS:GPSImgDirection": 90}
+        xmp = {"XMP-exif:GPSLatitude": 41.3874, "XMP-exif:GPSLongitude": 2.1686,
+               "XMP-exif:GPSAltitude": 12, "XMP-exif:GPSAltitudeRef": 0,
+               "XMP-exif:GPSImgDirection": 180}  # fmt: skip
+        # EXIF y XMP distintos: manda el XMP, como en Lightroom (Barcelona, 12 m, Sur)
+        both, _ = run_rules({**exif, **xmp})
+        assert (both["latitude"], both["longitude"], both["altitude"], both["gps_direction"]) == (
+            41.3874, 2.1686, 12.0, 180.0
+        )
+        # Solo el EXIF (una foto del móvil): como hasta ahora
+        only_exif, _ = run_rules(exif)
+        assert (only_exif["latitude"], only_exif["altitude"], only_exif["gps_direction"]) == (
+            40.4168, 650.0, 90.0
+        )
+        # Altitud del XMP bajo el nivel del mar (referencia 1, también como texto) y sin
+        # referencia (Lightroom no la escribe): sobre el nivel del mar
+        for ref, expected in ((1, -430.0), ("1", -430.0), (0, 430.0), (None, 430.0)):
+            sea, _ = run_rules({"XMP-exif:GPSLatitude": 31.559, "XMP-exif:GPSLongitude": 35.4732,
+                                "XMP-exif:GPSAltitude": 430, "XMP-exif:GPSAltitudeRef": ref})
+            assert sea["altitude"] == expected, (ref, sea["altitude"])
+        # EXIF sin 'GPSAltitudeRef' (Lightroom la borra): sin compuesto, la de 'GPS:GPSAltitude'
+        no_ref, _ = run_rules({"Composite:GPSLatitude": 41.3874, "Composite:GPSLongitude": 2.1686,
+                               "GPS:GPSAltitude": 100})
+        assert no_ref["altitude"] == 100.0
+        # Sidecar de un NEF guardado por Lightroom: fracciones y sin referencias
+        nef, _ = run_rules({**exif, "XMP-exif:GPSLatitude": 41.3874, "XMP-exif:GPSLongitude": 2.1686,
+                            "XMP-exif:GPSAltitude": "1000000/10000", "XMP-exif:GPSImgDirection": "0/10000"})
+        assert (nef["latitude"], nef["altitude"], nef["gps_direction"]) == (41.3874, 100.0, 0.0)
+        # El XMP con una sola coordenada: la pareja entera sale del EXIF (nunca mezcladas)
+        half, _ = run_rules({**exif, "XMP-exif:GPSLatitude": 41.3874})
+        assert (half["latitude"], half["longitude"]) == (40.4168, -3.7038)
+        # Un XMP imposible no se arregla con el EXIF: se descarta (es el que manda)
+        bad_xmp, _ = run_rules({**exif, "XMP-exif:GPSLatitude": 95.0, "XMP-exif:GPSLongitude": 2.0})
+        assert bad_xmp["latitude"] is None and bad_xmp["longitude"] is None
+        print("Reglas especiales: orientación, fecha, flash y GPS correctos (XMP primero)")
 
         # Recorte de Lightroom, con los datos REALES de dos archivos del autor y las
         # «Dimensiones actuales» que muestra Lightroom Classic 15.6 para cada uno

@@ -135,7 +135,8 @@ su motor lo agradece).
 ## Reglas que conviene recordar
 
 - **Prioridad entre fuentes**: datos descriptivos (título, pie, ubicación, autor) →
-  XMP, luego IPTC, luego EXIF. Datos técnicos de la toma → EXIF, luego XMP. El sidecar
+  XMP, luego IPTC, luego EXIF. GPS (coordenadas, altitud y dirección) → XMP, luego EXIF
+  (como Lightroom; reglas en `image/rules.py`). Datos técnicos de la toma → EXIF, luego XMP. El sidecar
   `.xmp` manda sobre el XMP incrustado. La prioridad es el orden de las etiquetas en
   cada línea de la lista.
 - **Columnas protegidas** (`base.PROTECTED_COLUMNS`): los extractores nunca escriben las

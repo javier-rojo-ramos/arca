@@ -7,6 +7,7 @@ Las etiquetas se prueban por orden: gana la primera que exista. Ese orden es la 
 de prioridad (la que recomienda el Metadata Working Group y sigue Lightroom):
 
     Datos descriptivos (título, pie de foto, ubicación, autor...):  XMP > IPTC > EXIF
+    GPS (coordenadas, altitud y dirección):                         XMP > EXIF
     Datos técnicos de la toma (cámara, exposición, ISO...):          EXIF > XMP
     Fecha de captura, tamaño y recorte: son reglas especiales (ver 'rules.py').
 
@@ -23,11 +24,13 @@ Las etiquetas de esta lista están comprobadas con la salida real de ExifTool 13
 un JPEG de iPhone exportado desde Lightroom (grupos IFD0, ExifIFD, GPS, IPTC, XMP-*,
 Composite). Las de otros formatos (HEIC, RAW) se comprobarán con sus propias salidas.
 
+1.3.0 GPS, altitud y dirección: primero el XMP (como Lightroom, y para que lo editado en
+      un RAW, que va a su sidecar, se lea). 'IMAGE_FIELDS_VERSION' 9.
 1.2.0 'gps_direction' es una columna de 'media_items' (migración 3), junto al resto del
       GPS. Sin subir 'IMAGE_FIELDS_VERSION': la migración copia lo ya leído.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["IMAGE_FIELDS", "IMAGE_FIELDS_VERSION", "IMAGE_USER_FIELDS"]
 
 # Módulos del proyecto
@@ -51,7 +54,8 @@ from core.metadata.field_spec import (
 # con Pillow; esta lista empieza en la 4 para que esas fotos se relean con ExifTool.)
 # 7: dimensiones del recorte de Lightroom (regla en 'rules.py').
 # 8: palabras clave (se leen como datos del usuario: ver core/metadata/keyword_tags.py).
-IMAGE_FIELDS_VERSION = 8
+# 9: GPS, altitud y dirección, primero del XMP; la altitud del XMP, con su referencia.
+IMAGE_FIELDS_VERSION = 9
 
 # Datos del USUARIO que viajan dentro del archivo (verificado con Lightroom Classic 15.6
 # sobre HEIC: valoración 3 y 5, etiqueta roja y azul, marca de rechazo y de aceptado).
@@ -107,16 +111,22 @@ IMAGE_FIELDS: tuple[FieldSpec, ...] = (
         ("XMP-iptcCore:CountryCode", "IPTC:Country-PrimaryLocationCode"),
         text,
     ),
-    # GPS: el compuesto de ExifTool ya lleva el signo (sur y oeste, negativos)
-    common("latitude", ("Composite:GPSLatitude", "XMP-exif:GPSLatitude"), real),
-    common("longitude", ("Composite:GPSLongitude", "XMP-exif:GPSLongitude"), real),
+    # GPS: primero el XMP. Lightroom Classic muestra el XMP cuando no coincide con el EXIF
+    # (comprobado el 12/11/2026), y lo editado en un RAW solo puede ir a su sidecar. El XMP
+    # y el compuesto de ExifTool ya llevan el signo (sur y oeste, negativos). La pareja
+    # latitud/longitud sale siempre de la misma fuente y la altitud del XMP lleva su
+    # referencia aparte: las dos cosas, en 'rules.py'.
+    common("latitude", ("XMP-exif:GPSLatitude", "Composite:GPSLatitude"), real),
+    common("longitude", ("XMP-exif:GPSLongitude", "Composite:GPSLongitude"), real),
+    # 'GPS:GPSAltitude' sin el compuesto: sin 'GPSAltitudeRef' (Lightroom la borra), ExifTool
+    # no calcula el compuesto, y sin referencia vale sobre el nivel del mar
     common(
         "altitude",
-        ("Composite:GPSAltitude", "GPS:GPSAltitude", "XMP-exif:GPSAltitude"),
+        ("XMP-exif:GPSAltitude", "Composite:GPSAltitude", "GPS:GPSAltitude"),
         real,
     ),
     # Hacia dónde apunta la cámara, en grados (la «Dirección» de Lightroom)
-    common("gps_direction", ("GPS:GPSImgDirection", "XMP-exif:GPSImgDirection"), real),
+    common("gps_direction", ("XMP-exif:GPSImgDirection", "GPS:GPSImgDirection"), real),
     # =========================================================================
     # Tamaño (columnas de 'media_items'). El giro por orientación está en 'rules.py'.
     # =========================================================================

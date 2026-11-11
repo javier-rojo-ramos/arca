@@ -8,6 +8,7 @@
 | Tipo de dato | Orden |
 |---|---|
 | Descriptivos (título, pie de foto, autor, copyright, ubicación) | XMP → IPTC → EXIF |
+| GPS: coordenadas, altitud y dirección (desde el 12/11/2026, `IMAGE_FIELDS_VERSION` 9) | XMP → EXIF |
 | Técnicos de la toma (cámara, objetivo, exposición, ISO, flash...) | EXIF → XMP |
 | Fecha de captura | EXIF `DateTimeOriginal` → EXIF `CreateDate` → XMP `DateCreated` → IPTC → EXIF `ModifyDate` → fecha del archivo (`content_date_source = 'file_mtime'`) |
 
@@ -15,7 +16,7 @@
 - **ExifTool se invoca con** `-j -n -G1 -a -charset utf8 -charset filename=utf8`: JSON, valores numéricos sin traducir (programa de exposición, medición y flash se guardan como **códigos EXIF**; la interfaz los traduce), etiquetas con su grupo (`IFD0:Make`, `XMP-photoshop:City`) y los nombres de archivo en UTF-8 mediante archivo temporal (`-@`).
 - **Dónde busca el ejecutable**: variable `EXIFTOOL_PATH` → carpeta `tools/exiftool` → `PATH`.
 - **Tamaño**: se guarda "de pantalla" (ya girado si la orientación EXIF es 5 a 8). En los **DNG**, `DefaultCropSize` manda sobre `Composite:ImageSize` (el sensor completo, algo mayor): es lo que Lightroom muestra como "Dimensiones de archivo" (verificado: 3200 × 2128 frente a 3264 × 2140). Solo existe en los DNG, así que no afecta a otros formatos.
-- **GPS**: se usa el compuesto de ExifTool (ya con signo); se descartan los fuera de rango y `0, 0`.
+- **GPS**: primero el XMP y después el compuesto de ExifTool (los dos, ya con signo), como Lightroom; la pareja latitud/longitud, siempre de la misma fuente (el XMP solo si tiene las dos); la altitud del XMP, con `XMP-exif:GPSAltitudeRef` (1 = bajo el nivel del mar; sin ella, sobre él); se descartan los fuera de rango y `0, 0` (`rules.py`).
 
 ## Mapa de campos: qué se extrae y dónde se ve
 
@@ -35,9 +36,9 @@
 | `region` | `XMP-photoshop:State` → `IPTC:Province-State` | — | «Región» (Por defecto, Ubicación) | Región o provincia | — |
 | `country` | `XMP-photoshop:Country` → `IPTC:Country-PrimaryLocationName` | — | «País» (Por defecto, Ubicación) | País | — |
 | `country_code` | `XMP-iptcCore:CountryCode` → `IPTC:Country-PrimaryLocationCode` | — | «Código país» (Por defecto, Ubicación) | — | — |
-| `latitude` | `Composite:GPSLatitude` → `XMP-exif:GPSLatitude` | `Composite:GPSLatitude` → `XMP-exif:GPSLatitude` → `GPSLatitude` | «GPS» (Por defecto, Ubicación) | Tiene coordenadas GPS | — |
-| `longitude` | `Composite:GPSLongitude` → `XMP-exif:GPSLongitude` | `Composite:GPSLongitude` → `XMP-exif:GPSLongitude` → `GPSLongitude` | «GPS» (Por defecto, Ubicación) | Tiene coordenadas GPS | — |
-| `altitude` | `Composite:GPSAltitude` → `GPS:GPSAltitude` → `XMP-exif:GPSAltitude` | `Composite:GPSAltitude` → `XMP-exif:GPSAltitude` → `GPSAltitude` | «Altitud» (Por defecto, Ubicación) | — | — |
+| `latitude` | `XMP-exif:GPSLatitude` → `Composite:GPSLatitude` | `Composite:GPSLatitude` → `XMP-exif:GPSLatitude` → `GPSLatitude` | «GPS» (Por defecto, Ubicación) | Tiene coordenadas GPS | — |
+| `longitude` | `XMP-exif:GPSLongitude` → `Composite:GPSLongitude` | `Composite:GPSLongitude` → `XMP-exif:GPSLongitude` → `GPSLongitude` | «GPS» (Por defecto, Ubicación) | Tiene coordenadas GPS | — |
+| `altitude` | `XMP-exif:GPSAltitude` (con su referencia) → `Composite:GPSAltitude` → `GPS:GPSAltitude` | `Composite:GPSAltitude` → `XMP-exif:GPSAltitude` → `GPSAltitude` | «Altitud» (Por defecto, Ubicación) | — | — |
 | `width` | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageWidth` … | `Composite:ImageSize` → `ImageWidth` → `SourceImageWidth` | «Dimensiones» (todas) | Ancho | proporción de la miniatura |
 | `height` | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageHeight` … | `Composite:ImageSize` → `ImageHeight` → `SourceImageHeight` | «Dimensiones» (todas) | Alto | proporción de la miniatura |
 | `duration` | — | `QuickTime:Duration` → `Composite:Duration` → `Duration` | «Duración» (EXIF) | — | marcador de duración en la tarjeta |
@@ -63,7 +64,7 @@
 | `photo_details.exposure_program` | `ExifIFD:ExposureProgram` → `XMP-exif:ExposureProgram` | — | «Programa» (Por defecto, EXIF) | — | — |
 | `photo_details.metering_mode` | `ExifIFD:MeteringMode` → `XMP-exif:MeteringMode` | — | «Medición» (Por defecto, EXIF) | — | — |
 | `photo_details.flash_code` | `ExifIFD:Flash` | — | — | — | — |
-| `gps_direction` | `GPS:GPSImgDirection` → `XMP-exif:GPSImgDirection` | — | «Dirección» (Por defecto, Ubicación) | — | — |
+| `gps_direction` | `XMP-exif:GPSImgDirection` → `GPS:GPSImgDirection` | — | «Dirección» (Por defecto, Ubicación) | — | — |
 | `photo_details.digitized_at` | `ExifIFD:CreateDate` → `XMP-xmp:CreateDate` | — | «Digitalización» (todas) | — | — |
 | `photo_details.exif_modified_at` | `IFD0:ModifyDate` → `XMP-xmp:ModifyDate` | — | «Modificación» (todas) | — | — |
 | `photo_details.flash_fired` | regla (bit 0 de `flash_code`) | — | «Flash» (Por defecto, EXIF) | Flash disparado | — |
@@ -100,9 +101,9 @@ Huecos a la vista (extraídos pero sin mostrar en ningún sitio): `intellectual_
 | `region` | media_items | `XMP-photoshop:State` → `IPTC:Province-State` | `text` |
 | `country` | media_items | `XMP-photoshop:Country` → `IPTC:Country-PrimaryLocationName` | `text` |
 | `country_code` | media_items | `XMP-iptcCore:CountryCode` → `IPTC:Country-PrimaryLocationCode` | `text` |
-| `latitude` | media_items | `Composite:GPSLatitude` → `XMP-exif:GPSLatitude` | `real` |
-| `longitude` | media_items | `Composite:GPSLongitude` → `XMP-exif:GPSLongitude` | `real` |
-| `altitude` | media_items | `Composite:GPSAltitude` → `GPS:GPSAltitude` → `XMP-exif:GPSAltitude` | `real` |
+| `latitude` | media_items | `XMP-exif:GPSLatitude` → `Composite:GPSLatitude` | `real` |
+| `longitude` | media_items | `XMP-exif:GPSLongitude` → `Composite:GPSLongitude` | `real` |
+| `altitude` | media_items | `XMP-exif:GPSAltitude` → `Composite:GPSAltitude` → `GPS:GPSAltitude` | `real` |
 | `width` | media_items | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageWidth` → `ExifIFD:ExifImageWidth` | `image_width` |
 | `height` | media_items | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageHeight` → `ExifIFD:ExifImageHeight` | `image_height` |
 | `camera_make` | photo_details | `IFD0:Make` → `XMP-tiff:Make` | `text` |
@@ -121,7 +122,7 @@ Huecos a la vista (extraídos pero sin mostrar en ningún sitio): `intellectual_
 | `exposure_program` | photo_details | `ExifIFD:ExposureProgram` → `XMP-exif:ExposureProgram` | `integer` |
 | `metering_mode` | photo_details | `ExifIFD:MeteringMode` → `XMP-exif:MeteringMode` | `integer` |
 | `flash_code` | photo_details | `ExifIFD:Flash` | `integer` |
-| `gps_direction` | media_items | `GPS:GPSImgDirection` → `XMP-exif:GPSImgDirection` | `real` |
+| `gps_direction` | media_items | `XMP-exif:GPSImgDirection` → `GPS:GPSImgDirection` | `real` |
 | `digitized_at` | photo_details | `ExifIFD:CreateDate` → `XMP-xmp:CreateDate` | `datetime_text` |
 | `exif_modified_at` | photo_details | `IFD0:ModifyDate` → `XMP-xmp:ModifyDate` | `datetime_text` |
 
@@ -198,3 +199,5 @@ Una palabra suelta va a la única del árbol con ese nombre; si hay varias, al p
 Aún **no** se extraen los ajustes de revelado (`XMP-crs`), salvo el recorte. Tampoco las **regiones de caras** de Lightroom (`XMP-mwg-rs:RegionName` = «Isa», «Javi», `RegionType` = `Face`, con su posición): idea para más adelante (personas).
 
 **Contrastado con Lightroom** (paneles EXIF y Ubicación) con un JPEG, dos HEIC (uno vertical) y un DNG: coinciden todos los campos. Diferencias que no son errores: la exposición se muestra redondeada (1/906 s → 1/900), la Dirección se traduce a 8 sectores de 45° (292,47° → "Oeste"), Lightroom abrevia la marca ("NIKON CORPORATION" → "Nikon"; aquí se guarda tal cual) y un campo borrado en Lightroom puede seguir en el archivo (la Dirección de un HEIC). Disponible pero sin columna: `OriginalRawFileName` ("Nombre de archivo original" de un DNG).
+
+**GPS en Lightroom Classic 16** (comprobado el 12/11/2026 con cinco JPEG de prueba y el sidecar de un NEF; para la edición del GPS, [PENDIENTE.md](PENDIENTE.md) C.5): con el EXIF y el XMP distintos, **muestra el XMP** (coordenadas, altitud y dirección). Al editar el GPS de un **JPEG**, lo escribe **en el EXIF** (lo crea si no hay), con sus referencias N/S y E/O, **borra el GPS del XMP** si lo había, **borra `GPSAltitudeRef`** (la altitud queda sin referencia: sobre el nivel del mar) y **no cambia la dirección** que ya había en el EXIF (solo la escribe al crear el GPS): tras «Leer metadatos del archivo», la dirección editada vuelve a la antigua. En el **sidecar de un RAW** lo escribe en el XMP (`exif:GPSLatitude="41,23.244N"`, grados y minutos con decimales; altitud y dirección como fracciones, sin referencia). Lee bien una altitud del XMP con `GPSAltitudeRef` = 1 (−430,0 m).

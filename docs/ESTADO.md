@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **GPS con el XMP primero** (12/11; `image/fields` 1.3.0, `image/rules` 1.2.0; `IMAGE_FIELDS_VERSION` 9) | Al abrir el catálogo se releen todas las fotos en segundo plano (como al subir la versión otras veces). Después, GPS, altitud y dirección igual que antes, salvo en las fotos cuyo XMP dice otra cosa que el EXIF (p. ej. un RAW con el GPS cambiado en Lightroom): ahora muestran lo mismo que Lightroom (comprobado con cinco fotos de prueba) |
 | **Migración 3: la dirección, con el resto del GPS** (12/11; `catalog_schema` 2.3.0, `image/fields` 1.2.0, `metadata_fields` 1.6.1) | Abrir el catálogo: pasa solo a la v3 (probado con una copia: las 1 530 direcciones, iguales). La fila «Dirección» de «Metadatos» muestra lo mismo que antes; único cambio: con una foto con dirección y un vídeo sin ella seleccionados a la vez, «Varios» (como la altitud) |
 | **Limpieza de ruff** (12/11; 27 módulos, solo importaciones y comentarios) | Arrancar la aplicación y usarla un poco: todo igual que antes. Cambió el orden de algunas importaciones (barra lateral, cuadrícula, inspector, árbol de palabras clave, escritura de los datos del usuario) y se quitaron comentarios `# noqa`; nada de lo que hace |
 | **Cajas editables alineadas** (10/11; `base_section` 1.10.0, `editable_row` 1.2.0) | En «Metadatos», el texto de Título, Pie, Creador, Copyright y la ubicación empieza exactamente donde el de Dimensiones, Captura y los demás (también «Varios»); el recuadro, al pasar el ratón o al entrar, asoma un poco hacia la izquierda. Las demás filas del inspector («Selección», con sus iconos) no se mueven |
@@ -67,6 +68,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: edición del GPS, la altitud y la dirección, paso 2: el GPS, la altitud y la dirección se leen primero del XMP, como Lightroom (`IMAGE_FIELDS_VERSION` 9: se releen las fotos).
 - 12/11/2026: edición del GPS, la altitud y la dirección, paso 1: la dirección de la cámara pasa a `media_items` (migración 3, esquema v3); aún sin nada editable.
 - 12/11/2026: ruff con las reglas fijadas en `ruff.toml` (las mismas 407 de siempre) y líneas de 100; quitados los avisos inofensivos (importaciones sin ordenar y `# noqa` sin uso): de 101 avisos quedan 25.
 - 12/11/2026: ejecutadas las 89 autopruebas sin ventana; pasan todas menos una. La de `folder_actions`, al día con el texto del aviso; la de `core.thumbnails.cache` falla en Windows en su parte de concurrencia (la prueba, no la aplicación).
@@ -76,4 +78,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 10/11/2026: edición de los metadatos descriptivos, paso 5 (último): la ubicación también se edita; en Opciones > Metadatos, la opción del aviso «Edición múltiple».
 - 10/11/2026: edición de los metadatos descriptivos, paso 4b: Título, Pie, Creador y Copyright se editan en «Metadatos» (Intro, Esc, Tab; «Varios» como en Lightroom, con el aviso «Edición múltiple») y se escriben en los archivos. Tras verlo el autor: Intro suelta el foco y no hay ayuda al pasar el ratón.
 - 10/11/2026: edición de los metadatos descriptivos, paso 4a: Título, Pie, Creador y Copyright en las vistas «Por defecto» y «Ubicación» de «Metadatos», aún de solo lectura; una foto sin título propio lo muestra en blanco.
-- 10/11/2026: edición de los metadatos descriptivos, paso 3: lo editado se escribe en los archivos (XMP con las etiquetas antiguas que existan, sidecar o `.arca.json`); el resumen IPTC queda al día, también al escribir palabras clave.
