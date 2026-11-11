@@ -264,7 +264,7 @@ class Ui_MainWindow(object):
         self.widget_bottom_right.setObjectName(u"widget_bottom_right")
         self.layout_bottom_right = QHBoxLayout(self.widget_bottom_right)
         self.layout_bottom_right.setObjectName(u"layout_bottom_right")
-        self.layout_bottom_right.setContentsMargins(0, 0, 0, 0)
+        self.layout_bottom_right.setContentsMargins(0, 1, 0, 0)
         self.spacer_bottom_right = QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.layout_bottom_right.addItem(self.spacer_bottom_right)

@@ -5,11 +5,16 @@ fila actual ('currentIndex') y, como la selección es la misma, el inspector, la
 inferior y los atajos de clasificación siguen funcionando sin cambios.
 
 Qué dibuja (todo sobre el fondo de la cuadrícula, 'CARD_COLORS.grid_bg'):
-    - La imagen ajustada al espacio, centrada y sin deformar. Sale de la caché: la de
-      2560 px o la mayor que haya, leída en segundo plano ('FullImageLoader'). Mientras
-      llega, la miniatura que ya tiene la cuadrícula, ampliada. Para que se vea nítida en
-      pantallas escaladas, se reescala en alta calidad a los píxeles FÍSICOS (mientras se
-      redimensiona, un escalado rápido; el bueno, al pararse: '_HQ_DELAY_MS').
+    - La imagen centrada y sin deformar. Sale de la caché: la de 2560 px o la mayor que
+      haya, leída en segundo plano ('FullImageLoader'). Si cabe en el espacio, a SU
+      tamaño: un píxel de la imagen en un píxel físico de la pantalla, sin reescalar
+      (ampliarla la emborronaría, p. ej. la vista previa de 1024 px de un DNG; el zoom
+      llegará más adelante). Si no cabe, reducida para que quepa: para que se vea nítida
+      en pantallas escaladas, se reescala en alta calidad a los píxeles FÍSICOS (mientras
+      se redimensiona, un escalado rápido; el bueno, al pararse: '_HQ_DELAY_MS'). Se
+      decide en cada dibujo, así que al maximizar o estrechar la ventana pasa de un caso
+      al otro. Mientras llega, la miniatura que ya tiene la cuadrícula, ajustada al
+      espacio (aún no se sabe el tamaño de la grande).
     - Sin miniatura: el marcador de su tipo ('card_glyphs') con el nombre debajo.
     - Archivo no disponible: la imagen oscurecida, como en la tarjeta, y el indicador con
       su explicación: «Ausente (archivo no encontrado)» o «Sin conexión (disco
@@ -22,6 +27,9 @@ Solo carga imágenes cuando se dibuja: oculta (en la cuadrícula) no lee nada.
 Uso (en el .ui es un widget promocionado, 'widget_single_view', dentro de 'page_single'):
     self.widget_single_view.attach(self.list_view_grid, self.mosaico_model)
 
+1.1.0 La imagen que cabe se muestra a su tamaño (un píxel de la imagen, uno de la
+      pantalla) en vez de ampliarla hasta llenar el espacio, que la emborronaba; la que no
+      cabe se reduce como antes (pedido por el autor).
 1.0.1 El velo y el fondo del aviso, con los colores del tema ('CARD_COLORS'; los mismos
       valores que antes).
 1.0.0 Primera versión (paso A.1, subpaso 4). Entrar, salir y navegar con el teclado
@@ -31,14 +39,14 @@ Prueba rápida (desde la raíz del proyecto; dibuja en una imagen, no abre venta
     python -m ui_helpers.widgets.single_media_view
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = ["SingleMediaView"]
 
 # Librerías estándar
 from typing import Any
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QModelIndex, QRect, QRectF, QSize, Qt, QTimer
+from qtpy.QtCore import QModelIndex, QPointF, QRect, QRectF, QSize, QSizeF, Qt, QTimer
 from qtpy.QtGui import (
     QColor,
     QFont,
@@ -93,8 +101,9 @@ class SingleMediaView(QWidget):
         self._grid: QListView | None = None
         self._model: Any = None  # MediaGridModel (o uno compatible, en la autoprueba)
         self._loader: FullImageLoader | None = None
-        # Imagen ya reescalada en alta calidad: ((id, ancho, alto, clave de la imagen), pixmap)
-        self._scaled: tuple[tuple[int, int, int, int], QPixmap] | None = None
+        # Imagen ya preparada para dibujar (reescalada en alta calidad o a su tamaño):
+        # ((id, ancho y alto físicos, clave de la imagen, escala de la pantalla), pixmap)
+        self._scaled: tuple[tuple[int, int, int, int, float], QPixmap] | None = None
         self._hq_timer = QTimer(self)
         self._hq_timer.setSingleShot(True)
         self._hq_timer.setInterval(_HQ_DELAY_MS)
@@ -195,20 +204,21 @@ class SingleMediaView(QWidget):
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
         image = self._loader.image(media_type, media_id)
+        target = QRectF()  # dónde ha quedado lo dibujado (vacío: solo el fondo)
         if image is not None and not image.isNull():
-            target = self._fit(area, image.size())
-            painter.drawPixmap(target, self._scaled_pixmap(media_id, image, target))
+            target = self._draw_image(painter, area, media_id, image)
         else:
             interim = index.data(Qt.ItemDataRole.DecorationRole)
             if image is None and isinstance(interim, QPixmap) and not interim.isNull():
-                # Mientras llega la grande: la de la cuadrícula, ampliada
-                target = self._fit(area, interim.size())
-                painter.drawPixmap(target, interim)
+                # Mientras llega la grande: la de la cuadrícula, ajustada al espacio
+                fitted = self._fit(area, interim.size())
+                painter.drawPixmap(fitted, interim)
+                target = QRectF(fitted)
             elif image is not None:
                 # Sin miniatura: el marcador de su tipo y el nombre
-                target = self._draw_placeholder(painter, area, media_type, str(index.data() or ""))
-            else:
-                target = QRect()  # todavía nada que mostrar: solo el fondo
+                target = QRectF(
+                    self._draw_placeholder(painter, area, media_type, str(index.data() or ""))
+                )
 
         availability = index.data(ROLE_AVAILABILITY) or card_glyphs.AVAILABLE
         if availability != card_glyphs.AVAILABLE and target.isValid():
@@ -222,6 +232,25 @@ class SingleMediaView(QWidget):
                 other_index = self._model.index(other, 0)
                 neighbours.append((other_index.data(ROLE_MEDIA_TYPE) or "", other_index.data(ROLE_MEDIA_ID)))
         self._loader.prefetch(neighbours)
+
+    def _draw_image(self, painter: QPainter, area: QRect, media_id: int, image: QImage) -> QRectF:
+        """Dibuja la imagen grande en 'area' y devuelve dónde ha quedado (px lógicos).
+
+        Si cabe, a su tamaño: un píxel de la imagen en un píxel físico, sin reescalar, y
+        con la esquina en un píxel físico entero (entre dos, Qt la suavizaría). Si no
+        cabe, reducida para que quepa ('_fit' y '_scaled_pixmap').
+        """
+        ratio = self.devicePixelRatioF()
+        natural = QSizeF(image.width() / ratio, image.height() / ratio)
+        if natural.width() <= area.width() and natural.height() <= area.height():
+            left = round((area.x() + (area.width() - natural.width()) / 2) * ratio) / ratio
+            top = round((area.y() + (area.height() - natural.height()) / 2) * ratio) / ratio
+            corner = QPointF(left, top)
+            painter.drawPixmap(corner, self._native_pixmap(media_id, image))
+            return QRectF(corner, natural)
+        fitted = self._fit(area, image.size())
+        painter.drawPixmap(fitted, self._scaled_pixmap(media_id, image, fitted))
+        return QRectF(fitted)
 
     @staticmethod
     def _fit(area: QRect, size: QSize) -> QRect:
@@ -241,7 +270,7 @@ class SingleMediaView(QWidget):
         """
         ratio = self.devicePixelRatioF()
         width, height = round(target.width() * ratio), round(target.height() * ratio)
-        key = (media_id, width, height, image.cacheKey())
+        key = (media_id, width, height, image.cacheKey(), ratio)
         if self._scaled is not None and self._scaled[0] == key:
             return self._scaled[1]
         if self._hq_timer.isActive():
@@ -250,6 +279,22 @@ class SingleMediaView(QWidget):
             image.scaled(width, height, Qt.AspectRatioMode.IgnoreAspectRatio,
                          Qt.TransformationMode.SmoothTransformation)
         )  # fmt: skip
+        pixmap.setDevicePixelRatio(ratio)
+        self._scaled = (key, pixmap)
+        return pixmap
+
+    def _native_pixmap(self, media_id: int, image: QImage) -> QPixmap:
+        """La imagen tal cual, para dibujarla a su tamaño: cada píxel, en uno físico.
+
+        Lleva la escala de la pantalla ('devicePixelRatio'): así Qt la pinta con su ancho
+        en píxeles físicos y no la amplía. Se guarda como la reescalada (una conversión
+        por imagen, no una por dibujo).
+        """
+        ratio = self.devicePixelRatioF()
+        key = (media_id, image.width(), image.height(), image.cacheKey(), ratio)
+        if self._scaled is not None and self._scaled[0] == key:
+            return self._scaled[1]
+        pixmap = QPixmap.fromImage(image)
         pixmap.setDevicePixelRatio(ratio)
         self._scaled = (key, pixmap)
         return pixmap
@@ -272,7 +317,7 @@ class SingleMediaView(QWidget):
         painter.drawText(name_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, elided)
         return target
 
-    def _draw_unavailable(self, painter: QPainter, target: QRect, availability: int) -> None:
+    def _draw_unavailable(self, painter: QPainter, target: QRectF, availability: int) -> None:
         """Velo oscuro (como la tarjeta), indicador y su explicación en la esquina."""
         painter.save()
         painter.setPen(Qt.PenStyle.NoPen)
@@ -375,6 +420,47 @@ if __name__ == "__main__":
     assert QColor(CARD_COLORS.placeholder_bg).name() in {
         image.pixelColor(x, y).name() for x in range(150, 450, 10) for y in range(100, 300, 10)
     }
+
+    # Imagen grande ya leída y MÁS PEQUEÑA que el espacio (600 x 400 menos 16 de margen):
+    # a su tamaño, centrada y píxel a píxel (rayas de 1 px: si se reescalara, se mezclarían)
+    small = QImage(200, 100, QImage.Format.Format_RGB32)
+    for x in range(200):
+        for y in range(100):
+            small.setPixelColor(x, y, QColor("#ffffff" if x % 2 else "#0000ff"))
+    add(model, 4, "photo", card_glyphs.AVAILABLE, "#ff0000")
+    view._loader._images[4] = small
+    grid.setCurrentIndex(model.index(3, 0))
+    image = shot()
+    left, top = 16 + (568 - 200) // 2, 16 + (368 - 100) // 2  # 200, 150
+    assert image.pixelColor(left - 1, top + 50).name() == bg
+    assert image.pixelColor(left + 200, top + 50).name() == bg
+    assert image.pixelColor(left + 50, top - 1).name() == bg
+    assert all(
+        image.pixelColor(left + x, top + y) == small.pixelColor(x, y)
+        for x in range(200) for y in (0, 37, 99)
+    ), "la imagen pequeña no se ha dibujado píxel a píxel"  # fmt: skip
+
+    # MÁS GRANDE que el espacio (1200 x 800): reducida para que quepa (552 x 368), centrada
+    big = QImage(1200, 800, QImage.Format.Format_RGB32)
+    big.fill(QColor("#ffff00"))
+    add(model, 5, "photo", card_glyphs.AVAILABLE, "#ff0000")
+    view._loader._images[5] = big
+    grid.setCurrentIndex(model.index(4, 0))
+    image = shot()
+    assert image.pixelColor(24, 16).name() == "#ffff00"  # esquina: 16 + (568 - 552) / 2
+    assert image.pixelColor(575, 383).name() == "#ffff00"
+    assert image.pixelColor(22, 200).name() == bg and image.pixelColor(578, 200).name() == bg
+
+    # La ventana se maximiza: ahora cabe y se ve a su tamaño, sin ampliarla
+    view.resize(1600, 1000)
+    image = shot()
+    left, top = 16 + (1568 - 1200) // 2, 16 + (968 - 800) // 2  # 200, 100
+    assert image.pixelColor(left, top).name() == "#ffff00"
+    assert image.pixelColor(left - 1, top).name() == bg
+    assert image.pixelColor(left + 1199, top + 799).name() == "#ffff00"
+    assert image.pixelColor(left + 1200, top + 799).name() == bg
+    assert image.pixelColor(left, top - 1).name() == bg
+    view.resize(600, 400)
 
     # Se vacía lo que se ve: otra vez «No hay archivos»
     model.clear()
