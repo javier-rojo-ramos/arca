@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 11/11/2026.
+**Actualizado**: 12/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes: añadir y sincronizar carpetas, metadatos con ExifTool, miniaturas, cuadrícula y vista individual, clasificación (valoración, marca, color y selección rápida) guardada también en los archivos, palabras clave, colecciones (también inteligentes, con grupos de reglas), barra de filtros («Texto», «Atributos», «Metadatos» y ajustes personalizados) e inspector, que edita las palabras clave en todos los módulos y, en las fotos y vídeos de Imagen, el título, el pie, el creador, el copyright y la ubicación (también guardados en los archivos). El módulo Imagen navega por carpetas y palabras clave. Vídeo, audio, GPX y ebooks se catalogan y se clasifican en bibliotecas, pero los módulos Vídeo y Audio aún son provisionales. Lo siguiente, en [PENDIENTE.md](PENDIENTE.md).
 
@@ -65,6 +65,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: ejecutadas las 89 autopruebas sin ventana; pasan todas menos una. La de `folder_actions`, al día con el texto del aviso; la de `core.thumbnails.cache` falla en Windows en su parte de concurrencia (la prueba, no la aplicación).
 - 11/11/2026: auditoría de la documentación contra el código: erratas, reglas de `CLAUDE.md` ajustadas, arranque y dependencias documentados (`requirements.txt` en UTF-8) y `PRUEBAS.md`, `TRAMPAS.md` y `FLUJOS.md` reordenados; en el código, solo retoques (`qtpy` en el registro, frase final de cinco autopruebas, `PROTECTED_COLUMNS`). Detalle en [HISTORIAL.md](HISTORIAL.md).
 - 10/11/2026: el texto de las cajas editables de «Metadatos», alineado con el de los demás valores (las cajas empiezan 5 px antes).
 - 10/11/2026: el desplegable de vistas de «Metadatos», 2 px más a la izquierda (alineado con el resto del inspector).
@@ -74,4 +75,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 10/11/2026: edición de los metadatos descriptivos, paso 3: lo editado se escribe en los archivos (XMP con las etiquetas antiguas que existan, sidecar o `.arca.json`); el resumen IPTC queda al día, también al escribir palabras clave.
 - 10/11/2026: edición de los metadatos descriptivos, paso 2: al releer un archivo no se pisa lo editado pendiente de escribir; en los formatos sin XMP manda lo editado en el `.arca.json`; un archivo sin título deja el nombre del archivo.
 - 10/11/2026: edición de los metadatos descriptivos, paso 1: la lista de campos editables, la migración 2 (`metadata_edit_pending`) y la función que guarda lo editado; aún sin nada visible.
-- 10/11/2026: edición de los metadatos descriptivos (C.5), paso 0: prueba de escritura con ExifTool y Lightroom, sin tocar el código; decisiones, plan y resultados anotados.

@@ -20,10 +20,11 @@ El controlador principal solo tiene que crearlo, pasándole tres funciones:
     - busy_reason(): por qué ahora no se puede quitar nada (o None);
     - start_removal(trabajo, *args): lanza el trabajo de quitar.
 
+1.0.1 Autoprueba al día con el texto del aviso («con sus subcarpetas si existen»).
 1.0.0 Primera versión: "Quitar del catálogo..." de una carpeta.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["FolderActions", "confirmation_text"]
 
 # Librerías estándar
@@ -129,8 +130,8 @@ if __name__ == "__main__":
     # Ejecutar desde la raíz del proyecto:  python -m controllers.folder_actions
     assert confirmation_text("Viaje", 12) == (
         "Se va a quitar del catálogo la carpeta «Viaje» y sus 12 archivos, con sus "
-        "subcarpetas.\n\nSi continúa, los archivos se quitarán del catálogo (y de las "
-        "colecciones) pero permanecerán en el disco."
+        "subcarpetas si existen.\n\nSi continúa, los archivos se quitarán del catálogo (y de "
+        "las colecciones) pero permanecerán en el disco."
     ), confirmation_text("Viaje", 12)
     assert "«Viaje» y su archivo," in confirmation_text("Viaje", 1)
     assert "«Viaje», con sus" in confirmation_text("Viaje", 0)
