@@ -20,6 +20,9 @@ Cada fila lleva, en roles propios:
                  atenuado (EMPHASIS_PARTIAL). Lo usa el árbol con casillas del inspector
                  para las palabras con hijas asignadas («Familia» si la foto tiene «Ana»).
 
+1.4.0 'name_indent' (en 'CountDelegate' y 'SidebarTreeView'): el nombre, unos px más a la
+      derecha de donde lo pone Qt. Lo usa el árbol de palabras clave de la barra de Imagen
+      para que sus nombres caigan en la columna de las flechas de las subcarpetas.
 1.3.0 El hueco para la subclase pasa a estar ANTES del contador ('badge_width',
       'paint_badge'; antes, 'trailing_width' / 'paint_trailing', a su derecha): la flecha
       «ver sus fotos» va delante del número (lo prefirió el autor).
@@ -30,7 +33,7 @@ Cada fila lleva, en roles propios:
       seguía oculto por la derecha (el árbol pedía ~256 px y se salía del área visible).
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "EMPHASIS_FULL",
     "EMPHASIS_PARTIAL",
@@ -42,7 +45,7 @@ __all__ = [
 ]
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QModelIndex, QRect, QSize, Qt
+from qtpy.QtCore import QModelIndex, QObject, QRect, QSize, Qt
 from qtpy.QtGui import QColor, QPainter, QPalette, QWheelEvent
 from qtpy.QtWidgets import (
     QAbstractItemView,
@@ -87,10 +90,17 @@ class CountDelegate(QStyledItemDelegate):
     Una subclase puede reservar 'badge_width' px justo DELANTE del contador (en las filas
     que tienen número) y dibujar ahí lo que quiera con 'paint_badge' (p. ej. una flecha).
     El nombre se recorta contando siempre con ese hueco, así no se mueve al aparecer.
+
+    'name_indent' aparta el nombre esos px a la derecha de donde lo pone Qt (por defecto,
+    0), p. ej. para alinearlo con algo de otro árbol.
     """
 
     # Ancho (px lógicos) que se reserva delante del contador (0 = nada)
     badge_width = 0
+
+    def __init__(self, parent: QObject | None = None, *, name_indent: int = 0) -> None:
+        super().__init__(parent)
+        self.name_indent = name_indent
 
     def paint_badge(self, painter: QPainter, rect: QRect, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         """Dibuja lo de delante del contador en 'rect' (coordenadas de la vista; por
@@ -145,7 +155,7 @@ class CountDelegate(QStyledItemDelegate):
         # 2. Nombre, recortado con "…" para no pisar el contador. Resaltado con el color
         #    de acento ('Highlight' de la paleta del tema) si la fila lo pide
         reserved = count_width + badge + _COUNT_GAP + _COUNT_RIGHT_MARGIN if count_text else 0
-        name_rect = text_rect.adjusted(2, 0, -reserved, 0)
+        name_rect = text_rect.adjusted(2 + self.name_indent, 0, -reserved, 0)
         elided = metrics.elidedText(name, Qt.TextElideMode.ElideRight, max(0, name_rect.width()))
         name_color = opt.palette.color(group, name_role)
         emphasis = index.data(ROLE_EMPHASIS)
@@ -171,9 +181,10 @@ class SidebarTreeView(QTreeView):
     Configuración para la barra lateral: sin cabecera ni marco, selección de una sola
     fila, sin edición, y el delegado del contador. Las filas se pueden desplegar (el
     árbol de carpetas) o no ('setRootIsDecorated(False)' para listas planas).
+    'name_indent': px de más delante del nombre (ver 'CountDelegate').
     """
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, *, name_indent: int = 0) -> None:
         super().__init__(parent)
         self.setHeaderHidden(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -181,7 +192,7 @@ class SidebarTreeView(QTreeView):
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setIndentation(14)
-        self.setItemDelegate(CountDelegate(self))
+        self.setItemDelegate(CountDelegate(self, name_indent=name_indent))
 
         # Sin barras propias: el alto se ajusta al contenido (sizeHint) y el ancho, al de
         # la barra lateral (los nombres largos se recortan con "…")

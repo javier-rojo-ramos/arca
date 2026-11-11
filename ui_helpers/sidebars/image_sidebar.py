@@ -46,6 +46,10 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula; lo une
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
 'scroll_image_sidebar', 'widget_image_sidebar_content' y 'edit_keyword_filter'.
 
+1.7.3 El filtro de palabras clave, a 8 px de los lados (antes, 6) en su propia fila; el
+      árbol, a todo el ancho como el de carpetas (sus números, alineados con los de las
+      carpetas) y con los nombres en la columna de las flechas de las subcarpetas
+      ('_KEYWORD_NAME_INDENT'). Pedido por el autor.
 1.7.2 El filtro de palabras clave, a 8 px de la cabecera de la sección (antes, 4).
 1.7.1 La fila elegida por código (p. ej. con la flecha del inspector) se repinta al
       momento: antes no se veía marcada hasta pasar el ratón por encima.
@@ -68,7 +72,7 @@ El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres 
       también el árbol con casillas del inspector (paso K4b).
 """
 
-__version__ = "1.7.2"
+__version__ = "1.7.3"
 __all__ = ["ImageSidebar", "filter_keyword_tree"]
 
 # Librerías estándar
@@ -78,7 +82,15 @@ from pathlib import Path
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QModelIndex, QPoint, Qt, Signal
 from qtpy.QtGui import QBrush, QPalette, QStandardItem, QStandardItemModel
-from qtpy.QtWidgets import QFrame, QLineEdit, QMenu, QScrollArea, QVBoxLayout, QWidget
+from qtpy.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLineEdit,
+    QMenu,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 # Módulos del proyecto
 from core.catalog.folder_tree import FolderNode, LocationNode
@@ -115,6 +127,14 @@ _ROLE_FOLDER_KEY = Qt.ItemDataRole.UserRole + 41
 _ROLE_PATH = Qt.ItemDataRole.UserRole + 42
 _ROLE_ONLINE = Qt.ItemDataRole.UserRole + 43
 _ROLE_ICON_KEY = Qt.ItemDataRole.UserRole + 44
+
+# Distancia del filtro de palabras clave a los lados de la barra (px lógicos): la misma que
+# a la cabecera de su sección y que la del contenido del inspector
+_FILTER_SIDE_MARGIN = 8
+# Cuánto se apartan los nombres del árbol de palabras clave de donde los pone Qt (px
+# lógicos): así caen en la columna de las flechas de las subcarpetas y de los iconos de las
+# carpetas (pedido por el autor; medido en una captura el 11/11/2026: sin esto, 3 px antes)
+_KEYWORD_NAME_INDENT = 3
 
 
 # 'filter_keyword_tree' está en 'core/catalog/keywords.py' (la usa también el inspector)
@@ -208,17 +228,25 @@ class ImageSidebar(QWidget):
         self.section_keywords = CollapsibleSection("Lista de palabras clave", content)
         box = QWidget(content)
         box_layout = QVBoxLayout(box)
-        # Arriba, 6: con los 2 del cuerpo de la sección, el filtro queda a 8 px de la
-        # cabecera (pedido por el autor el 11/11/2026 para toda caja bajo un título)
-        box_layout.setContentsMargins(6, 6, 6, 4)
+        # Sin márgenes a los lados: el árbol ocupa todo el ancho, como el de carpetas, y sus
+        # flechas y números quedan alineados con los de las carpetas. Arriba, 6: con los 2
+        # del cuerpo de la sección, el filtro queda a 8 px de la cabecera (pedido por el
+        # autor el 11/11/2026 para toda caja bajo un título)
+        box_layout.setContentsMargins(0, 6, 0, 4)
         box_layout.setSpacing(4)
+        # El filtro, en su fila: a 8 px de los lados, como de la cabecera
+        filter_row = QHBoxLayout()
+        filter_row.setContentsMargins(_FILTER_SIDE_MARGIN, 0, _FILTER_SIDE_MARGIN, 0)
         self._filter = QLineEdit(box)
         self._filter.setObjectName("edit_keyword_filter")
         self._filter.setPlaceholderText("Filtrar palabras clave")
         self._filter.setClearButtonEnabled(True)
         self._filter.textChanged.connect(self._rebuild_keywords)
-        box_layout.addWidget(self._filter)
-        self._keyword_view, self._keyword_model = self._new_tree()
+        filter_row.addWidget(self._filter)
+        box_layout.addLayout(filter_row)
+        self._keyword_view, self._keyword_model = self._new_tree(
+            name_indent=_KEYWORD_NAME_INDENT
+        )
         self._keyword_view.expanded.connect(lambda index: self._on_expanded(index, True))
         self._keyword_view.collapsed.connect(lambda index: self._on_expanded(index, False))
         box_layout.addWidget(self._keyword_view)
@@ -227,10 +255,14 @@ class ImageSidebar(QWidget):
 
         layout.addStretch(1)
 
-    def _new_tree(self) -> tuple[SidebarTreeView, QStandardItemModel]:
-        """Un árbol con su modelo, conectado a la selección común de la barra."""
+    def _new_tree(self, *, name_indent: int = 0) -> tuple[SidebarTreeView, QStandardItemModel]:
+        """Un árbol con su modelo, conectado a la selección común de la barra.
+
+        Args:
+            name_indent: px de más delante de los nombres (ver 'CountDelegate').
+        """
         model = QStandardItemModel(self)
-        view = SidebarTreeView()
+        view = SidebarTreeView(name_indent=name_indent)
         view.setModel(model)
         view.selectionModel().selectionChanged.connect(
             lambda selected, _deselected, v=view: self._on_selection_changed(v, selected)

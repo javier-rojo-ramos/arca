@@ -105,7 +105,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/signal_blocker.py          blocked_signals: bloquear las señales de varios objetos Qt en un 'with'
   helpers/keyword_menu.py            Menú contextual de los árboles de palabras clave (crear, renombrar, mover, borrar, purgar): pregunta y devuelve la operación
   helpers/keyword_expansion.py       KeywordExpansion: palabras desplegadas de cada árbol (SIDEBAR, INSPECTOR), para recuperarlas al abrir
-  widgets/sidebar_tree_view.py       SidebarTreeView (alto ajustado, sin scroll propio, ROLE_SOURCE / ROLE_COUNT / ROLE_EMPHASIS) + CountDelegate
+  widgets/sidebar_tree_view.py       SidebarTreeView (alto ajustado, sin scroll propio, ROLE_SOURCE / ROLE_COUNT / ROLE_EMPHASIS) + CountDelegate (name_indent: el nombre, unos px más a la derecha)
   widgets/collapsible_section.py     CollapsibleSection: sección plegable con cabecera y botones ("+")
   widgets/elided_label.py            ElidedLabel: etiqueta de una línea que recorta con «…» (por la derecha, la izquierda o el centro)
   widgets/organize_bar.py            OrganizeBar: barra inferior para clasificar la selección (marcar, rechazar, estrellas, colores, selección rápida); attach(vista, modelo)
