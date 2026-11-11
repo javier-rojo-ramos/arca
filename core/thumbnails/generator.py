@@ -49,7 +49,6 @@ from core.thumbnails.sources.base import (
     UnsupportedSourceError,
 )
 
-
 # Versión de lo que genera este motor. Se guarda en 'media_items.thumbnail_version' de cada
 # archivo procesado. SÚBELA cada vez que cambie el RESULTADO: los tamaños o su calidad
 # (sizes.py), el formato de la caché (cache.py), el tratamiento del color o la orientación

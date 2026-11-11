@@ -132,7 +132,7 @@ def fetch_folder_tree(conn: sqlite3.Connection, library: str | None = None) -> t
                   COUNT(*)
              FROM media_items
              {where}
-         GROUP BY storage_location_id, folder""",  # noqa: S608 - 'where' es fijo
+         GROUP BY storage_location_id, folder""",  # 'where' es fijo
         params,
     ).fetchall()
 

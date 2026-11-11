@@ -105,13 +105,13 @@ from core.catalog.color_labels import (
     color_label_from_xmp,
     normalize_color_label,
 )
+from core.catalog.keywords import flat_keyword_names, same_keywords
 from core.metadata.exiftool_runner import (
     ExifToolError,
     ExifToolFileError,
     ExifToolLaunchError,
     ExifToolRunner,
 )
-from core.catalog.keywords import flat_keyword_names, same_keywords
 from core.metadata.field_spec import common, pick_flag, rating_value, read_field, text
 from core.metadata.keyword_tags import HIERARCHY_SEPARATOR, read_keywords
 from core.userdata.editable_fields import EDITABLE_FIELDS, field_for
@@ -513,7 +513,7 @@ class XmpUserDataWriter:
         ]
         try:
             self.calls += 1
-            completed = subprocess.run(  # noqa: S603 - comando fijo, sin shell
+            completed = subprocess.run(  # comando fijo, sin shell
                 command,
                 capture_output=True,
                 timeout=_WRITE_TIMEOUT_SECONDS,

@@ -72,10 +72,10 @@ def reveal_in_file_manager(path: str | Path) -> bool:
             # si van justo después de la coma ('/select,"ruta con espacios"'); con una lista,
             # Python pondría las comillas alrededor de todo el argumento.
             native = os.path.normpath(str(target))  # barras invertidas
-            subprocess.Popen(f'explorer /select,"{native}"')  # noqa: S602, S607
+            subprocess.Popen(f'explorer /select,"{native}"')
             return True
         if sys.platform == "darwin":
-            subprocess.Popen(["open", "-R", str(target)])  # noqa: S603, S607
+            subprocess.Popen(["open", "-R", str(target)])
             return True
     except OSError:
         logger.opt(exception=True).warning(f"No se pudo abrir el explorador para: {target}")

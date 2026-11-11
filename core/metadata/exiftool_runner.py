@@ -284,7 +284,7 @@ class ExifToolRunner:
     def version(self) -> str:
         """Devuelve la versión de ExifTool (p. ej. '12.76')."""
         try:
-            completed = subprocess.run(  # noqa: S603 - comando fijo, sin shell
+            completed = subprocess.run(  # comando fijo, sin shell
                 [*self._command, "-ver"],
                 capture_output=True,
                 timeout=self._timeout,
@@ -350,7 +350,7 @@ class ExifToolRunner:
 
         try:
             self.calls += 1
-            completed = subprocess.run(  # noqa: S603 - comando fijo, sin shell
+            completed = subprocess.run(  # comando fijo, sin shell
                 [*self._command, *_BASE_ARGS, *tags, "-@", list_name],
                 capture_output=True,
                 timeout=self._timeout,

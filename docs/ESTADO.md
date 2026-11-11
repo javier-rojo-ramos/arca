@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Limpieza de ruff** (12/11; 27 módulos, solo importaciones y comentarios) | Arrancar la aplicación y usarla un poco: todo igual que antes. Cambió el orden de algunas importaciones (barra lateral, cuadrícula, inspector, árbol de palabras clave, escritura de los datos del usuario) y se quitaron comentarios `# noqa`; nada de lo que hace |
 | **Cajas editables alineadas** (10/11; `base_section` 1.10.0, `editable_row` 1.2.0) | En «Metadatos», el texto de Título, Pie, Creador, Copyright y la ubicación empieza exactamente donde el de Dimensiones, Captura y los demás (también «Varios»); el recuadro, al pasar el ratón o al entrar, asoma un poco hacia la izquierda. Las demás filas del inspector («Selección», con sus iconos) no se mueven |
 | **Edición de metadatos, paso 2: relectura** (10/11; `processor` 2.3.0, `sync` 1.4.0, `folder_file` 1.3.0, `editable_fields` 1.1.0, `base` 2.0.1) | Sincronizar una carpeta y dejar que se lean los metadatos: todo igual que antes. Único cambio a la vista: una foto cuyo título se borró en otro programa (p. ej. Lightroom) pasa a tener como título el nombre del archivo, al releerla (antes conservaba el título viejo) |
 | **Iconos de los menús** (09/11; `theme_qss` 1.3.0, `ui_icons` 1.3.0, `sidebar_icons` 1.1.0, `catalog_sidebar` 1.12.1) | Clic derecho en una colección inteligente: el icono de «Editar colección inteligente…» ya no va pegado al borde izquierdo, y con la opción resaltada (ámbar) es oscuro, como el texto. Igual en el «+» de Colecciones (crear conjunto, colección o colección inteligente) y en los cuadraditos del submenú de etiquetas de la cuadrícula (solo la posición) |
@@ -65,6 +66,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: ruff con las reglas fijadas en `ruff.toml` (las mismas 407 de siempre) y líneas de 100; quitados los avisos inofensivos (importaciones sin ordenar y `# noqa` sin uso): de 101 avisos quedan 25.
 - 12/11/2026: ejecutadas las 89 autopruebas sin ventana; pasan todas menos una. La de `folder_actions`, al día con el texto del aviso; la de `core.thumbnails.cache` falla en Windows en su parte de concurrencia (la prueba, no la aplicación).
 - 11/11/2026: auditoría de la documentación contra el código: erratas, reglas de `CLAUDE.md` ajustadas, arranque y dependencias documentados (`requirements.txt` en UTF-8) y `PRUEBAS.md`, `TRAMPAS.md` y `FLUJOS.md` reordenados; en el código, solo retoques (`qtpy` en el registro, frase final de cinco autopruebas, `PROTECTED_COLUMNS`). Detalle en [HISTORIAL.md](HISTORIAL.md).
 - 10/11/2026: el texto de las cajas editables de «Metadatos», alineado con el de los demás valores (las cajas empiezan 5 px antes).
@@ -74,4 +76,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 10/11/2026: edición de los metadatos descriptivos, paso 4a: Título, Pie, Creador y Copyright en las vistas «Por defecto» y «Ubicación» de «Metadatos», aún de solo lectura; una foto sin título propio lo muestra en blanco.
 - 10/11/2026: edición de los metadatos descriptivos, paso 3: lo editado se escribe en los archivos (XMP con las etiquetas antiguas que existan, sidecar o `.arca.json`); el resumen IPTC queda al día, también al escribir palabras clave.
 - 10/11/2026: edición de los metadatos descriptivos, paso 2: al releer un archivo no se pisa lo editado pendiente de escribir; en los formatos sin XMP manda lo editado en el `.arca.json`; un archivo sin título deja el nombre del archivo.
-- 10/11/2026: edición de los metadatos descriptivos, paso 1: la lista de campos editables, la migración 2 (`metadata_edit_pending`) y la función que guarda lo editado; aún sin nada visible.

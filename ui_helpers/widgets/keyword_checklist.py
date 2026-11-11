@@ -97,9 +97,9 @@ from qtpy.QtWidgets import (
 
 # Módulos del proyecto
 from core.catalog.keywords import KeywordTreeNode, SelectionKeywords, filter_keyword_tree
+from ui_helpers.helpers.keyword_expansion import INSPECTOR, KeywordExpansion, keyword_expansion
 from ui_helpers.helpers.keyword_menu import ask_keyword_operation
 from ui_helpers.models.media_mime import MEDIA_IDS_MIME, decode_media_ids
-from ui_helpers.helpers.keyword_expansion import INSPECTOR, KeywordExpansion, keyword_expansion
 from ui_helpers.widgets.sidebar_tree_view import (
     EMPHASIS_FULL,
     EMPHASIS_PARTIAL,
@@ -366,7 +366,7 @@ class KeywordChecklist(QWidget):
 
     # --- Soltar tarjetas de la cuadrícula sobre una palabra ---
 
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 - Qt
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # nombre de Qt
         """Arrastrar y soltar sobre el árbol (su 'viewport'): solo tarjetas de la
         cuadrícula (MEDIA_IDS_MIME), sobre cualquier palabra. Como el árbol de colecciones
         del Catálogo ('catalog_sidebar.py')."""

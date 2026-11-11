@@ -376,7 +376,7 @@ class SmartCollectionDialog(QDialog):
             return
         self.accept()
 
-    def done(self, result: int) -> None:  # noqa: D401 - nombre de Qt
+    def done(self, result: int) -> None:  # nombre de Qt
         """Al cerrar, los recuentos que lleguen después se ignoran."""
         self._alive = False
         self._count_timer.stop()

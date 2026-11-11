@@ -568,15 +568,15 @@ class MediaGridModel(QAbstractListModel):
             flags |= Qt.ItemFlag.ItemIsDragEnabled
         return flags
 
-    def mimeTypes(self) -> list[str]:  # noqa: N802 - nombre de Qt
+    def mimeTypes(self) -> list[str]:  # nombre de Qt
         return [MEDIA_IDS_MIME]
 
-    def mimeData(self, indexes: list[QModelIndex]) -> QMimeData:  # noqa: N802 - nombre de Qt
+    def mimeData(self, indexes: list[QModelIndex]) -> QMimeData:  # nombre de Qt
         """Empaqueta los 'id' de las tarjetas arrastradas (en el orden de la cuadrícula)."""
         rows = sorted({index.row() for index in indexes if index.isValid()})
         return encode_media_ids(self._catalog_key, self.media_ids(rows))
 
-    def supportedDragActions(self) -> Qt.DropAction:  # noqa: N802 - nombre de Qt
+    def supportedDragActions(self) -> Qt.DropAction:  # nombre de Qt
         return Qt.DropAction.CopyAction
 
     def setData(self, index: QModelIndex, value: Any, role: int = Qt.ItemDataRole.EditRole) -> bool:

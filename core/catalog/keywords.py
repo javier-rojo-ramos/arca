@@ -245,7 +245,7 @@ def _mark_pending(conn: sqlite3.Connection, media_ids: Iterable[int]) -> None:
         chunk = ids[start : start + _CHUNK]
         marks = ", ".join("?" * len(chunk))
         conn.execute(
-            f"UPDATE media_items SET keywords_pending = 1, updated_at = CURRENT_TIMESTAMP "  # noqa: S608
+            f"UPDATE media_items SET keywords_pending = 1, updated_at = CURRENT_TIMESTAMP "
             f"WHERE id IN ({marks})",
             chunk,
         )
@@ -272,7 +272,7 @@ def assign_keyword(conn: sqlite3.Connection, media_ids: Sequence[int], keyword_i
         have = {
             row[0]
             for row in conn.execute(
-                f"SELECT media_id FROM media_keywords WHERE keyword_id = ? AND media_id IN ({marks})",  # noqa: S608
+                f"SELECT media_id FROM media_keywords WHERE keyword_id = ? AND media_id IN ({marks})",
                 (keyword_id, *chunk),
             )
         }
@@ -309,7 +309,7 @@ def remove_keyword(conn: sqlite3.Connection, media_ids: Sequence[int], keyword_i
         had = [
             row[0]
             for row in conn.execute(
-                f"SELECT media_id FROM media_keywords WHERE keyword_id = ? AND media_id IN ({marks})",  # noqa: S608
+                f"SELECT media_id FROM media_keywords WHERE keyword_id = ? AND media_id IN ({marks})",
                 (keyword_id, *chunk),
             )
         ]
@@ -376,7 +376,7 @@ def fetch_selection_keywords(conn: sqlite3.Connection, media_ids: Sequence[int])
         chunk = ids[start : start + _CHUNK]
         marks = ", ".join("?" * len(chunk))
         rows = conn.execute(
-            f"SELECT keyword_id, COUNT(*) FROM media_keywords WHERE media_id IN ({marks}) "  # noqa: S608
+            f"SELECT keyword_id, COUNT(*) FROM media_keywords WHERE media_id IN ({marks}) "
             "GROUP BY keyword_id",
             chunk,
         )
@@ -711,7 +711,7 @@ def fetch_descendant_marks(
         chunk = ids[start : start + _CHUNK]
         marks = ", ".join("?" * len(chunk))
         rows = conn.execute(
-            f"SELECT media_id, keyword_id FROM media_keywords WHERE media_id IN ({marks})",  # noqa: S608
+            f"SELECT media_id, keyword_id FROM media_keywords WHERE media_id IN ({marks})",
             chunk,
         )
         for media_id, keyword_id in rows:
@@ -816,7 +816,7 @@ def _media_with_any(conn: sqlite3.Connection, keyword_ids: Sequence[int]) -> lis
         found.update(
             row[0]
             for row in conn.execute(
-                f"SELECT DISTINCT media_id FROM media_keywords WHERE keyword_id IN ({marks})",  # noqa: S608
+                f"SELECT DISTINCT media_id FROM media_keywords WHERE keyword_id IN ({marks})",
                 chunk,
             )
         )
@@ -949,7 +949,7 @@ def purge_unused_keywords(conn: sqlite3.Connection) -> int:
     for start in range(0, len(unused), _CHUNK):
         chunk = unused[start : start + _CHUNK]
         marks = ", ".join("?" * len(chunk))
-        conn.execute(f"DELETE FROM keywords WHERE id IN ({marks})", chunk)  # noqa: S608
+        conn.execute(f"DELETE FROM keywords WHERE id IN ({marks})", chunk)
     return len(unused)
 
 
@@ -1131,7 +1131,7 @@ if __name__ == "__main__":
     set_media_keywords(db, media[1], [("Amigos", "Luis")])
     familia = _find_child(db, None, "Familia")
     ana = _find_child(db, familia, "Ana")
-    pending = lambda: [r[0] for r in db.execute("SELECT id FROM media_items WHERE keywords_pending = 1 ORDER BY id")]  # noqa: E731
+    pending = lambda: [r[0] for r in db.execute("SELECT id FROM media_items WHERE keywords_pending = 1 ORDER BY id")]
     # Crear: vacía, con nombre limpio; repetida o con separadores, no
     javi = create_keyword(db, familia, "  Javi  ")
     assert keyword_path(db, javi) == ("Familia", "Javi")

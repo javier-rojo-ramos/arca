@@ -58,11 +58,11 @@ class ElidedLabel(QLabel):
     # Qt
     # -------------------------------------------------------------------------
 
-    def resizeEvent(self, event) -> None:  # noqa: N802 - nombre de Qt
+    def resizeEvent(self, event) -> None:  # nombre de Qt
         super().resizeEvent(event)
         self._update_elided()
 
-    def minimumSizeHint(self) -> QSize:  # noqa: N802 - nombre de Qt
+    def minimumSizeHint(self) -> QSize:  # nombre de Qt
         # Solo el alto: a lo ancho puede encoger (el texto se recorta)
         hint = super().minimumSizeHint()
         return QSize(10, hint.height())

@@ -138,8 +138,8 @@ from core.catalog.grid_source import (
 from core.catalog.smart_rules import describe_rules
 from core.catalog.system_collections import SYSTEM_COLLECTIONS, SystemCollection
 from core.catalog.user_collections import KIND_SET, KIND_SMART, KIND_STATIC, CollectionNode
-from ui_helpers.helpers.ui_color_labels import label_icon
 from ui_helpers.helpers.sidebar_icons import load_sidebar_icons
+from ui_helpers.helpers.ui_color_labels import label_icon
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_theme import ACCENT_COLOR
@@ -1105,7 +1105,7 @@ class CatalogSidebar(QWidget):
     # Soltar tarjetas de la cuadrícula sobre una colección
     # -------------------------------------------------------------------------
 
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Arrastrar y soltar sobre el árbol de colecciones (su 'viewport').
 
         Solo se aceptan tarjetas de la cuadrícula (formato MEDIA_IDS_MIME) y solo sobre una

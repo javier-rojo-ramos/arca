@@ -30,7 +30,7 @@ Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto e
 
 - **Idioma**: nombres (variables, constantes, funciones, clases) en **inglés**; **docstrings y comentarios en español**, como el resto del proyecto. Textos de la interfaz en español. En el chat, en español. Excepción: `main.py` y `controllers/main_window_controller.py` conservan nombres antiguos en español (`iniciar`, `_conectar_senales`, `mosaico_model`...); no los renombres de paso (se hará más adelante), pero lo nuevo va en inglés.
 - **Comentarios**: código bien comentado. Explica el **porqué** y lo que no es evidente, no lo que ya dice el código.
-- **Estilo**: PEP 8, comprobado con **ruff** (`ruff check <archivos tocados>`; configuración en `ruff.toml`). Líneas de hasta unos 100 caracteres, como el resto del código (es una costumbre: ruff no comprueba la longitud).
+- **Estilo**: PEP 8, comprobado con **ruff** (`ruff check <archivos tocados>`; configuración en `ruff.toml`). Líneas de hasta unos 100 caracteres (`line-length = 100`: ruff lo usa al ordenar las importaciones, pero no avisa de las líneas largas). Las reglas están fijadas en `ruff.toml`: no las cambies sin preguntar. Un `# noqa` solo para una regla activa; si se explica el porqué, en un comentario normal.
 - **Tipado**: *type hints* en todas las firmas (`def update_status(self, message: str) -> None:`).
 - **Cada módulo** lleva:
   - una cabecera con qué hace, cómo se usa y el historial de versiones (`1.2.0 Qué cambió.`, la más reciente arriba);

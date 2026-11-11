@@ -269,7 +269,7 @@ def fetch_grid_rows(
               FROM media_items AS m
               JOIN storage_locations AS l ON l.id = m.storage_location_id
              WHERE {where_sql}
-          ORDER BY {order_by_sql(order, "m")}""",  # noqa: S608 - todo sale de listas cerradas
+          ORDER BY {order_by_sql(order, "m")}""",  # todo sale de listas cerradas
         where_params,
     ).fetchall()
     keys = (
@@ -302,7 +302,7 @@ def count_grid_items(
     for source in dict.fromkeys(sources):  # sin repetidos y en el mismo orden
         where_sql, where_params = _source_condition(source)
         row = conn.execute(
-            f"SELECT COUNT(*) FROM media_items AS m WHERE {where_sql}",  # noqa: S608
+            f"SELECT COUNT(*) FROM media_items AS m WHERE {where_sql}",
             where_params,
         ).fetchone()
         counts[source] = int(row[0])
@@ -360,7 +360,7 @@ def update_user_field(
         marks = ",".join("?" * len(chunk))
         # 'field' ya está validado contra una lista cerrada: es seguro ponerlo en el SQL
         cursor = conn.execute(
-            f"UPDATE media_items SET {field} = ?, user_data_pending = user_data_pending | ?, "  # noqa: S608
+            f"UPDATE media_items SET {field} = ?, user_data_pending = user_data_pending | ?, "
             f"updated_at = CURRENT_TIMESTAMP WHERE id IN ({marks})",
             (value, bit, *chunk),
         )
@@ -460,7 +460,7 @@ def set_quick_selection(
         chunk = ids[start : start + _CHUNK]
         marks = ",".join("?" * len(chunk))
         cursor = conn.execute(
-            f"UPDATE media_items SET in_quick_selection = ? "  # noqa: S608 - solo marcas '?'
+            f"UPDATE media_items SET in_quick_selection = ? "  # solo marcas '?'
             f"WHERE in_quick_selection <> ? AND id IN ({marks})",
             (value, value, *chunk),
         )

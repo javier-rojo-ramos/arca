@@ -146,11 +146,11 @@ class OrganizeBar(QWidget):
         model.rowsRemoved.connect(self._schedule_refresh)
         self._schedule_refresh()
 
-    def sizeHint(self) -> QSize:  # noqa: N802 - nombre de Qt
+    def sizeHint(self) -> QSize:  # nombre de Qt
         right = max(rect.right() for rect in self._zones.values())
         return QSize(right + 1 + _HIT_PAD, _HEIGHT)
 
-    def minimumSizeHint(self) -> QSize:  # noqa: N802 - nombre de Qt
+    def minimumSizeHint(self) -> QSize:  # nombre de Qt
         return self.sizeHint()
 
     # -------------------------------------------------------------------------
@@ -243,7 +243,7 @@ class OrganizeBar(QWidget):
     # Dibujo
     # -------------------------------------------------------------------------
 
-    def paintEvent(self, _event: object) -> None:  # noqa: N802 - nombre de Qt
+    def paintEvent(self, _event: object) -> None:  # nombre de Qt
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if not self.isEnabled():
@@ -305,7 +305,7 @@ class OrganizeBar(QWidget):
     # Ratón
     # -------------------------------------------------------------------------
 
-    def mouseMoveEvent(self, event) -> None:  # noqa: N802 - nombre de Qt
+    def mouseMoveEvent(self, event) -> None:  # nombre de Qt
         zone = self._zone_at(event.position().toPoint())
         if zone != self._hovered:
             self._hovered = zone
@@ -315,7 +315,7 @@ class OrganizeBar(QWidget):
             self.update()
         super().mouseMoveEvent(event)
 
-    def leaveEvent(self, event) -> None:  # noqa: N802 - nombre de Qt
+    def leaveEvent(self, event) -> None:  # nombre de Qt
         self._hovered = None
         self.update()
         super().leaveEvent(event)
@@ -332,7 +332,7 @@ class OrganizeBar(QWidget):
             return True
         return super().event(event)
 
-    def mousePressEvent(self, event) -> None:  # noqa: N802 - nombre de Qt
+    def mousePressEvent(self, event) -> None:  # nombre de Qt
         if event.button() != Qt.MouseButton.LeftButton or not self._state:
             super().mousePressEvent(event)
             return

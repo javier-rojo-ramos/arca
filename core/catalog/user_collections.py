@@ -389,7 +389,7 @@ def remove_from_collection(
         chunk = ids[start : start + _CHUNK]
         marks = ",".join("?" * len(chunk))
         cursor = conn.execute(
-            f"DELETE FROM collection_items WHERE collection_id = ? AND media_id IN ({marks})",  # noqa: S608
+            f"DELETE FROM collection_items WHERE collection_id = ? AND media_id IN ({marks})",
             (collection_id, *chunk),
         )
         removed += cursor.rowcount

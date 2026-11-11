@@ -284,7 +284,7 @@ if __name__ == "__main__":
     # el módulo importado para comparar objetos de la misma clase
     import json
 
-    from core.catalog.grid_source import (  # noqa: F811 - a propósito (ver arriba)
+    from core.catalog.grid_source import (  # a propósito (ver arriba)
         ALL_ITEMS,
         QUICK_SELECTION,
         GridSource,

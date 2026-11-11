@@ -116,7 +116,7 @@ def _capture_date(tags: Mapping[str, Any], common_values: dict[str, Any], path: 
     # (c) Sin fecha en el archivo: la de modificación (hora local), como en las fotos
     try:
         # Hora local del equipo, a propósito (como las fechas EXIF): sin zona
-        modified = datetime.fromtimestamp(path.stat().st_mtime)  # noqa: DTZ006
+        modified = datetime.fromtimestamp(path.stat().st_mtime)
         common_values.update(
             content_created_at=modified.replace(microsecond=0).isoformat(sep=" "),
             content_date_precision="second",

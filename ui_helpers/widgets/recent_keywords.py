@@ -112,7 +112,7 @@ class _ElidedButton(QPushButton):
         self._full_text = text
         self._update_text()
 
-    def resizeEvent(self, event) -> None:  # noqa: N802 - nombre de Qt
+    def resizeEvent(self, event) -> None:  # nombre de Qt
         super().resizeEvent(event)
         self._update_text()
 

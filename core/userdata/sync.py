@@ -102,8 +102,8 @@ from core.userdata.editable_fields import (
     unless_pending_sql,
 )
 from core.userdata.folder_file import (
-    FolderData,
     KEYWORDS_KEY,
+    FolderData,
     FolderFileError,
     edited_values_from_entry,
     find_entry_key,
@@ -606,7 +606,7 @@ def _save_results(conn: sqlite3.Connection, items: Iterable[_Item]) -> None:
             # Nombres de columna de una lista cerrada (los pone este módulo): sin inyección
             assignments = ", ".join(f"{column} = ?" for column in item.db_updates)
             conn.execute(
-                f"UPDATE media_items SET {assignments} WHERE id = ?",  # noqa: S608
+                f"UPDATE media_items SET {assignments} WHERE id = ?",
                 (*item.db_updates.values(), item.media_id),
             )
             if "file_mtime_ns" in item.db_updates and not item.rescan:
@@ -638,7 +638,7 @@ def _save_results(conn: sqlite3.Connection, items: Iterable[_Item]) -> None:
                 if column not in USER_FIELD_BITS:
                     continue  # las palabras clave y los metadatos van aparte (abajo)
                 conn.execute(
-                    f"UPDATE media_items SET user_data_pending = user_data_pending & ? "  # noqa: S608
+                    f"UPDATE media_items SET user_data_pending = user_data_pending & ? "
                     f"WHERE id = ? AND {column} IS ?",
                     (~USER_FIELD_BITS[column] & 7, item.media_id, value),
                 )
@@ -739,7 +739,7 @@ def apply_file_user_data(
     # Nombres de columna de una lista cerrada: sin inyección SQL
     assignments = ", ".join(f"{column} = ?" for column in updates)
     conn.execute(
-        f"UPDATE media_items SET {assignments} WHERE id = ?",  # noqa: S608
+        f"UPDATE media_items SET {assignments} WHERE id = ?",
         (*updates.values(), media_id),
     )
     return True
@@ -842,7 +842,7 @@ def apply_folder_files(
         if updates:
             assignments = ", ".join(f"{column} = ?" for column in updates)
             conn.execute(
-                f"UPDATE media_items SET {assignments} WHERE id = ?",  # noqa: S608
+                f"UPDATE media_items SET {assignments} WHERE id = ?",
                 (*updates.values(), row[0]),
             )
         # Metadatos editados: solo los que la entrada trae (sin la clave, manda lo que
@@ -942,9 +942,9 @@ if __name__ == "__main__":
     from core.catalog.catalog_schema import apply_migrations, configure_connection
     from core.catalog.folder_importer import add_folder
     from core.catalog.media_queries import update_metadata_fields, update_user_field
+    from core.metadata.image.extractor import ImageExtractor
     from core.metadata.processor import process_pending_metadata
     from core.metadata.registry import ExtractorRegistry
-    from core.metadata.image.extractor import ImageExtractor
     from core.userdata.folder_file import BACKUP_FILE_NAME, FOLDER_FILE_NAME
     from core.userdata.xmp_writer import XMP_READ_TAGS
 

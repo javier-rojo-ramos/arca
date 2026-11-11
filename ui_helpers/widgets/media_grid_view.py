@@ -31,10 +31,12 @@ Lo que se arrastra (los 'id' de las tarjetas) no cambia: lo sigue preparando el 
 __version__ = "1.2.0"
 __all__ = ["MediaGridView"]
 
+# Librerías de terceros
+from loguru import logger
+
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QEvent, QPoint, QRectF, Qt
 from qtpy.QtGui import QColor, QDrag, QFont, QIcon, QImage, QMouseEvent, QPainter, QPen, QPixmap
-from loguru import logger
 from qtpy.QtWidgets import QListView, QWidget
 
 # Módulos del proyecto
@@ -95,28 +97,28 @@ class MediaGridView(QListView):
             return delegate.is_active_zone(rect, index, pos)
         return delegate.handle_click(pos, event.modifiers(), self.model(), rect, index, self)
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 - nombre de Qt
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # nombre de Qt
         if self._active_zone_click(event):
             self._swallowing_click = True
             event.accept()
             return
         super().mousePressEvent(event)
 
-    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802 - nombre de Qt
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # nombre de Qt
         if self._active_zone_click(event):
             self._swallowing_click = True
             event.accept()
             return
         super().mouseDoubleClickEvent(event)
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802 - nombre de Qt
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # nombre de Qt
         if self._swallowing_click and event.buttons() != Qt.MouseButton.NoButton:
             event.accept()  # arrastrar desde una estrella no selecciona ni arrastra tarjetas
             return
         self._swallowing_click = False
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802 - nombre de Qt
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # nombre de Qt
         if self._swallowing_click:
             self._swallowing_click = False
             event.accept()
@@ -127,7 +129,7 @@ class MediaGridView(QListView):
     # Arrastre
     # -------------------------------------------------------------------------
 
-    def startDrag(self, supported_actions: Qt.DropAction) -> None:  # noqa: N802 - nombre de Qt
+    def startDrag(self, supported_actions: Qt.DropAction) -> None:  # nombre de Qt
         """Empieza a arrastrar las tarjetas seleccionadas, con una imagen pequeña.
 
         Hace lo mismo que 'QAbstractItemView.startDrag' (datos del modelo, solo copiar),

@@ -197,7 +197,7 @@ class SidebarTreeView(QTreeView):
     # Alto ajustado al contenido
     # -------------------------------------------------------------------------
 
-    def setModel(self, model) -> None:  # noqa: N802 - nombre de Qt
+    def setModel(self, model) -> None:  # nombre de Qt
         """Asigna el modelo y vigila sus cambios (filas nuevas o borradas cambian el alto)."""
         super().setModel(model)
         if model is not None:
@@ -225,7 +225,7 @@ class SidebarTreeView(QTreeView):
         row_height = self.sizeHintForRow(0) if rows else 0
         return rows * max(row_height, _MIN_ROW_HEIGHT) + 2 * self.frameWidth()
 
-    def sizeHint(self) -> QSize:  # noqa: N802 - nombre de Qt
+    def sizeHint(self) -> QSize:  # nombre de Qt
         """Alto = el de las filas visibles; ancho = el mínimo (lo pone la barra lateral).
 
         El ancho NO puede ser el que propone 'QTreeView' (unos 256 px): la barra lateral
@@ -236,7 +236,7 @@ class SidebarTreeView(QTreeView):
         """
         return QSize(_MIN_WIDTH, self._content_height())
 
-    def minimumSizeHint(self) -> QSize:  # noqa: N802 - nombre de Qt
+    def minimumSizeHint(self) -> QSize:  # nombre de Qt
         return QSize(_MIN_WIDTH, self._content_height())
 
     def _update_height(self, *_args) -> None:
@@ -247,6 +247,6 @@ class SidebarTreeView(QTreeView):
     # Rueda del ratón
     # -------------------------------------------------------------------------
 
-    def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 - nombre de Qt
+    def wheelEvent(self, event: QWheelEvent) -> None:  # nombre de Qt
         """La rueda no desplaza el árbol (no tiene barra): se deja pasar a la barra lateral."""
         event.ignore()

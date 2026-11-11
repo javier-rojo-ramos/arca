@@ -161,7 +161,7 @@ class GridActions(QObject):
     # Teclado
     # -------------------------------------------------------------------------
 
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched not in self._watched or event.type() != QEvent.Type.KeyPress:
             return False
         # Con cualquier modificador (salvo el del teclado numérico) no se interviene

@@ -176,7 +176,7 @@ class KeywordTextEdit(QPlainTextEdit):
 
     # --- Qt ---
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 - nombre de Qt
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # nombre de Qt
         key = event.key()
         if self.popup_visible() and key in _POPUP_KEYS:
             # 'QCompleter' reenvía la tecla aquí ANTES de atenderla: se ignora para que
@@ -196,7 +196,7 @@ class KeywordTextEdit(QPlainTextEdit):
             return
         super().keyPressEvent(event)
 
-    def focusOutEvent(self, event: QFocusEvent) -> None:  # noqa: N802 - nombre de Qt
+    def focusOutEvent(self, event: QFocusEvent) -> None:  # nombre de Qt
         super().focusOutEvent(event)
         # Al abrirse la lista de sugerencias la caja pierde el foco: eso no es salir
         if event.reason() == Qt.FocusReason.PopupFocusReason or self.popup_visible():

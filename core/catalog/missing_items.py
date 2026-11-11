@@ -87,7 +87,7 @@ def count_missing_items(
         Número de elementos ausentes. 0 si la ubicación está desconectada.
     """
     where, params = _missing_condition(location_id, relative_folder)
-    row = conn.execute(f"SELECT COUNT(*) FROM media_items WHERE {where}", params).fetchone()  # noqa: S608
+    row = conn.execute(f"SELECT COUNT(*) FROM media_items WHERE {where}", params).fetchone()
     return int(row[0])
 
 
@@ -120,7 +120,7 @@ def remove_missing_items(
 
     where, params = _missing_condition(location_id, relative_folder)
     rows = conn.execute(
-        f"SELECT id, media_type, relative_path FROM media_items WHERE {where}",  # noqa: S608
+        f"SELECT id, media_type, relative_path FROM media_items WHERE {where}",
         params,
     ).fetchall()
     if not rows:
@@ -131,7 +131,7 @@ def remove_missing_items(
     for start in range(0, len(ids), _CHUNK):
         chunk = ids[start : start + _CHUNK]
         marks = ",".join("?" * len(chunk))
-        conn.execute(f"DELETE FROM media_items WHERE id IN ({marks})", chunk)  # noqa: S608
+        conn.execute(f"DELETE FROM media_items WHERE id IN ({marks})", chunk)
     conn.executemany(
         "DELETE FROM scan_errors WHERE storage_location_id = ? AND relative_path = ?",
         ((location_id, row[2]) for row in rows),

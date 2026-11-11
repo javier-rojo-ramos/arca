@@ -112,7 +112,7 @@ def check_availability(
         marks = ",".join("?" * len(chunk))
         rows = conn.execute(
             "SELECT id, storage_location_id, relative_path, is_missing, file_size, "
-            f"file_mtime_ns FROM media_items WHERE id IN ({marks})",  # noqa: S608
+            f"file_mtime_ns FROM media_items WHERE id IN ({marks})",
             chunk,
         ).fetchall()
         for media_id, location_id, relative_path, is_missing, size, mtime_ns in rows:

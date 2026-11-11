@@ -47,18 +47,17 @@ from typing import Any
 from qtpy.QtWidgets import QVBoxLayout, QWidget
 
 # Módulos del proyecto
+from core.catalog.grid_source import keyword_source
 from core.catalog.keywords import (
     KeywordChanges,
     KeywordEditorData,
     apply_keyword_changes,
     fetch_keyword_editor_data,
 )
-from core.catalog.grid_source import keyword_source
 from core.catalog.selection_summary import SelectionSummary
 from ui_helpers.inspector.base_section import InspectorSection
 from ui_helpers.models.media_mime import MediaDrag
 from ui_helpers.widgets.keyword_checklist import KeywordChecklist
-
 
 
 class KeywordListSection(InspectorSection):

@@ -197,21 +197,21 @@ class IconCell(QLabel):
 
     # --- Qt ---
 
-    def changeEvent(self, event) -> None:  # noqa: N802 - nombre de Qt
+    def changeEvent(self, event) -> None:  # nombre de Qt
         super().changeEvent(event)
         self._update_pixmap()  # activado / desactivado
 
-    def enterEvent(self, event) -> None:  # noqa: N802 - nombre de Qt
+    def enterEvent(self, event) -> None:  # nombre de Qt
         super().enterEvent(event)
         self._hovered = True
         self._update_pixmap()
 
-    def leaveEvent(self, event) -> None:  # noqa: N802 - nombre de Qt
+    def leaveEvent(self, event) -> None:  # nombre de Qt
         super().leaveEvent(event)
         self._hovered = False
         self._update_pixmap()
 
-    def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - nombre de Qt
+    def mouseReleaseEvent(self, event) -> None:  # nombre de Qt
         super().mouseReleaseEvent(event)
         inside = self.rect().contains(event.position().toPoint())
         if self._clickable and self.isEnabled() and inside:
