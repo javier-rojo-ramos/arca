@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Inspector con 8 px a cada lado y raya bajo el menú** (11/11; `base_section` 1.10.1, `keyword_editor_section` 1.3.1, `keyword_list_section` 1.5.1, `metadata_section` 1.3.1, `theme_qss` 1.3.1) | En el inspector, la caja de palabras clave, los botones de «Últimas palabras clave», la extensión («JPG»), los iconos de Carpeta y Biblioteca, el desplegable de vistas y las rayas de «Metadatos» quedan a 8 px del borde derecho, como por la izquierda (medido sin ventana). También el filtro y el árbol de «Lista de palabras clave», con sus números, 4 px más a la izquierda. Bajo Archivo / Ayuda, la misma raya gris que encima de la barra de estado, a todo el ancho |
 | **GPS, altitud y dirección editables** (12/11; `value_parsing` 1.0.0, `metadata_section` 1.3.0, `metadata_fields` 1.7.0, `editable_row` 1.3.0) | En «Metadatos» (vistas «Por defecto» y «Ubicación»), las filas GPS, Altitud y Dirección son cajas, como el título, y muestran lo mismo que antes. Probar: pegar unas coordenadas de Google Maps («42.682089, 0.069991»); escribir en grados, minutos y segundos (con N/S y E/O o W); una altitud («−12,5», «1.418,5 m»); una dirección («Oeste», «SO», «270»). Algo que no vale («abc», «95, 10», «0, 0», «Nortee»): la caja vuelve a lo de antes y aparece un aviso debajo unos segundos. Vaciar el GPS. Con varias fotos distintas, «Varios» y el aviso «Edición múltiple». Después, que se escriba en los archivos y que Lightroom lo vea («Leer metadatos del archivo»); también en un vídeo del móvil (va al `.arca.json`) |
 | **GPS editable por dentro** (12/11; `editable_fields` 1.2.0, `media_queries` 2.3.0, `folder_file` 1.5.0, `sync` 1.6.0, `xmp_writer` 1.2.1, `metadata_fields` 1.6.2) | Nada visible: todo igual que antes (el GPS aún no se edita en el inspector) |
 | **GPS con el XMP primero** (12/11; `image/fields` 1.3.0, `image/rules` 1.2.0; `IMAGE_FIELDS_VERSION` 9) | Al abrir el catálogo se releen todas las fotos en segundo plano (como al subir la versión otras veces). Después, GPS, altitud y dirección igual que antes, salvo en las fotos cuyo XMP dice otra cosa que el EXIF (p. ej. un RAW con el GPS cambiado en Lightroom): ahora muestran lo mismo que Lightroom (comprobado con cinco fotos de prueba) |
@@ -71,6 +72,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 11/11/2026: el contenido del inspector, a 8 px de los dos bordes (antes, 4 a la derecha), y una raya de 1 px bajo la barra de menús, como la de encima de la barra de estado.
 - 12/11/2026: edición del GPS, la altitud y la dirección, paso 5 (último): las cajas del inspector (lo escrito se interpreta; lo que no vale vuelve con un aviso).
 - 12/11/2026: edición del GPS, la altitud y la dirección, paso 4: el GPS editado se escribe en las fotos (donde ya esté o, si no, en el EXIF; en los RAW, el sidecar), con sus referencias.
 - 12/11/2026: edición del GPS, la altitud y la dirección, paso 3: los cuatro campos, editables por dentro (guardar, proteger al releer, `.arca.json` con números); aún sin nada visible.
@@ -80,4 +82,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 12/11/2026: ejecutadas las 89 autopruebas sin ventana; pasan todas menos una. La de `folder_actions`, al día con el texto del aviso; la de `core.thumbnails.cache` falla en Windows en su parte de concurrencia (la prueba, no la aplicación).
 - 11/11/2026: auditoría de la documentación contra el código: erratas, reglas de `CLAUDE.md` ajustadas, arranque y dependencias documentados (`requirements.txt` en UTF-8) y `PRUEBAS.md`, `TRAMPAS.md` y `FLUJOS.md` reordenados; en el código, solo retoques (`qtpy` en el registro, frase final de cinco autopruebas, `PROTECTED_COLUMNS`). Detalle en [HISTORIAL.md](HISTORIAL.md).
 - 10/11/2026: el texto de las cajas editables de «Metadatos», alineado con el de los demás valores (las cajas empiezan 5 px antes).
-- 10/11/2026: el desplegable de vistas de «Metadatos», 2 px más a la izquierda (alineado con el resto del inspector).

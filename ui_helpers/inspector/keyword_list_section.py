@@ -26,6 +26,7 @@ La sección no toca la base de datos: lee con 'data_request'
 ('keywords.fetch_keyword_editor_data') y pide los cambios con 'edit_requested'
 ('keywords.apply_keyword_changes'), que atiende el controlador del inspector.
 
+1.5.1 Margen derecho de 8 px, como el izquierdo (antes, 4), igual que 'InfoGrid'.
 1.5.0 En todos los módulos, siempre (también sin selección: para navegar con la flecha o
       soltar tarjetas); recuentos de la biblioteca de lo resumido o de todas; la flecha
       pide la palabra SIN biblioteca: la limita el módulo que la muestra (paso A.2).
@@ -36,7 +37,7 @@ La sección no toca la base de datos: lee con 'data_request'
 1.1.0 Datos con 'KeywordEditorData'; los padres de las palabras asignadas, resaltados.
 """
 
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 __all__ = ["KeywordListSection"]
 
 # Librerías estándar
@@ -72,7 +73,7 @@ class KeywordListSection(InspectorSection):
 
         layout = QVBoxLayout(self)
         # Mismos márgenes que las filas de las demás secciones ('InfoGrid')
-        layout.setContentsMargins(8, 2, 4, 2)
+        layout.setContentsMargins(8, 2, 8, 2)
         layout.setSpacing(0)
 
         self._checklist = KeywordChecklist(self)

@@ -54,6 +54,8 @@ pegados al borde DERECHO, igual que la etiqueta de la extensión de la cabecera,
 de una línea de texto queda por encima del de las letras, por el hueco de los
 descendentes).
 
+1.10.1 Margen derecho de las filas de 8 px, como el izquierdo (antes, 4): el contenido del
+       inspector queda a la misma distancia de los dos bordes (pedido por el autor).
 1.10.0 Las cajas editables empiezan 'EDITOR_TEXT_INSET' px antes que los valores: su
        texto queda alineado con el de las demás filas (pedido por el autor). Las
        separaciones entre columnas pasan a ser columnas fijas (sin cambio para el resto de
@@ -79,7 +81,7 @@ descendentes).
       entre filas de 6 px ('ROW_SPACING'), como las filas de la barra izquierda.
 """
 
-__version__ = "1.10.0"
+__version__ = "1.10.1"
 __all__ = [
     "ICON_SIZE",
     "IconCell",
@@ -236,8 +238,9 @@ class InfoGrid(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._layout = QGridLayout(self)
-        # Márgenes como los de las filas de la barra izquierda
-        self._layout.setContentsMargins(8, 2, 4, 2)
+        # 8 px a cada lado, simétrico (pedido por el autor el 11/11/2026; antes, 4 a la
+        # derecha). Las secciones que no usan la rejilla repiten estos márgenes
+        self._layout.setContentsMargins(8, 2, 8, 2)
         # Columnas: etiqueta | hueco | margen de las cajas | valor | hueco | icono. Los
         # huecos son columnas fijas (ver '_KEY_COLUMN'...): hueco + margen = COLUMN_SPACING
         self._layout.setHorizontalSpacing(0)

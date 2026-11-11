@@ -49,6 +49,7 @@ La sección no toca la base de datos: lee con 'data_request'
 Solo aparece en el módulo Imagen ('modules'); en los demás está la de solo lectura
 ('keywords_section.py').
 
+1.3.1 Margen derecho de 8 px, como el izquierdo (antes, 4), igual que 'InfoGrid'.
 1.3.0 En todos los módulos, también el Catálogo, y con selecciones de varias bibliotecas
       (paso A.2): las palabras clave son comunes a todos los tipos. El árbol de las
       sugerencias, con los recuentos de la biblioteca de la selección (o de todas).
@@ -61,7 +62,7 @@ Prueba rápida de la lógica (sin Qt):
     python -m ui_helpers.inspector.keyword_editor_section
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = ["KeywordEditorSection", "KeywordTextEdit", "completion_names", "current_token_bounds"]
 
 # Librerías estándar
@@ -219,7 +220,7 @@ class KeywordEditorSection(InspectorSection):
 
         layout = QVBoxLayout(self)
         # Mismos márgenes que las filas de las demás secciones ('InfoGrid')
-        layout.setContentsMargins(8, 2, 4, 2)
+        layout.setContentsMargins(8, 2, 8, 2)
         layout.setSpacing(6)
 
         # Caja de texto: las palabras separadas por comas (con saltos de línea automáticos,

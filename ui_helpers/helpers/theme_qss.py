@@ -16,6 +16,8 @@ QSS con bordes obliga a Qt a redibujar el control entero (y se pierden sus flech
       (aquí no puede haber reglas '::indicator', o Qt dejaría de pasárselos).
     - QToolTip: va por la paleta ('ui_theme.apply_tooltip_style').
 
+1.3.1 Raya de 1 px ('divider') bajo la barra de menús, como la de encima de la barra de
+      estado (pedido por el autor el 11/11/2026).
 1.3.0 Icono de las opciones de los menús, separado del borde izquierdo ('MENU_ICON_LEFT';
       antes, pegado al borde).
 1.2.1 Asa del deslizador con el ratón: en el acento (con el texto sobre el acento ya
@@ -27,7 +29,7 @@ Prueba rápida (que la hoja se construye y que todas las llaves están cerradas)
     python -m ui_helpers.helpers.theme_qss
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = ["CONTROL_RADIUS", "MENU_ICON_LEFT", "SCROLLBAR_WIDTH", "SPLITTER_WIDTH", "general_stylesheet"]
 
 # Módulos del proyecto
@@ -190,10 +192,14 @@ QMenu::separator {{
 }}
 
 /* ===== Barra de menús y barra de estado: del color del marco (como la toolbar lateral),
-   para que el contenido quede "dentro" */
+   para que el contenido quede "dentro". Bajo los menús, la raya de 1 px entre zonas, la
+   misma que hay encima de la barra de estado ('frame_separator_bottom'). En macOS los
+   menús van en la barra del sistema y esta raya no se ve */
 QMenuBar {{
     background: {c.bg_base};
     color: {c.text};
+    border: none;
+    border-bottom: 1px solid {c.divider};
 }}
 QMenuBar::item {{
     background: transparent;

@@ -40,6 +40,8 @@ fila y lo escrito se interpreta antes de guardarlo ('value_parsing.py'; la caja 
 cambia la latitud y la longitud). Si no vale, la caja vuelve a su valor y avisa junto a
 ella ('EditableValue.reject'), sin preguntar ni guardar nada.
 
+1.3.1 El desplegable de vistas, 4 px más a la izquierda: a 8 px del borde, como el resto
+      del inspector (pedido por el autor).
 1.3.0 GPS, altitud y dirección editables: lo escrito se interpreta ('value_parsing.py');
       lo que no vale, aviso junto a la caja.
 1.2.1 El desplegable de vistas, 2 px más a la izquierda (alineado con el resto del
@@ -56,7 +58,7 @@ Prueba rápida (sin ventana; necesita PySide6):
     python -m ui_helpers.inspector.metadata_section
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = ["MetadataSection", "multi_edit_question"]
 
 # Librerías estándar
@@ -111,8 +113,10 @@ _QUOTED_MAX = 60
 # para alinearlo con el resto del inspector (pedido por el autor el 10/11/2026). El margen
 # de la cabecera es común a todas las secciones plegables (también las de la barra
 # izquierda) y un QSS con márgenes haría que Qt dibujara el desplegable de otra forma: por
-# eso va en un contenedor propio
-_COMBO_RIGHT_INSET = 2
+# eso va en un contenedor propio. Con el margen de la cabecera (1 px), el marco queda a
+# 8 px del borde, como la caja de palabras clave (medido en una captura el 11/11/2026:
+# Fusion pinta el marco 1 px por dentro del desplegable)
+_COMBO_RIGHT_INSET = 6
 
 
 def multi_edit_question(label: str, count: int, value: str | None) -> str:
