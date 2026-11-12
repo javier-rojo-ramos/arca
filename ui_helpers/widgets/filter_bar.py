@@ -28,6 +28,8 @@ Uso (en el .ui es un widget promocionado, 'widget_filter_bar', dentro de 'frame_
     bar.set_available({"text"})
     bar.set_state(frozenset({"text"}), locked=False)
 
+1.2.1 La fila de las pestañas, de 34 px (antes, 30): 2 más arriba y 2 más abajo, con todo
+      centrado (pedido por el autor el 12/11/2026).
 1.2.0 El desplegable de los ajustes personalizados, antes del candado ('preset_button').
 1.1.0 Raya gris de 1 px entre dos paneles encendidos (p. ej. entre «Texto» y «Atributos»);
       lo pidió el autor el 09/11/2026.
@@ -39,7 +41,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.filter_bar
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["LOCK_TOOLTIPS", "TAB_TEXTS", "TITLE_TEXT", "FilterBar"]
 
 # Librerías estándar
@@ -82,7 +84,7 @@ LOCK_TOOLTIPS: tuple[str, str] = (
 )
 
 # Medidas (px lógicos)
-HEADER_HEIGHT = 30  # fila de las pestañas
+HEADER_HEIGHT = 34  # fila de las pestañas (y de las filas de los paneles: «Texto», «Atributos»)
 LOCK_BUTTON_SIZE = 24
 LOCK_ICON_SIZE = 16
 _TAB_SPACING = 14  # entre las palabras del centro

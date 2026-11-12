@@ -25,6 +25,9 @@ Uso (lo crea el controlador principal y se lo pasa al 'FilterController'):
     row.set_media_types(("photo", "video"))
     row.attribute_filter_changed.connect(...)
 
+1.0.2 De 34 px de alto (antes, 30), como la fila de las pestañas; los iconos, las
+      estrellas y el fondo bajo el ratón, del mismo tamaño que antes y centrados
+      ('_STAR_HEIGHT', '_HOVER_HEIGHT'; pedido por el autor el 12/11/2026).
 1.0.1 «Sin valoración» = «=» sin estrellas (lo decide el motor); texto emergente del
       desplegable que lo explica.
 1.0.0 Primera versión (paso A.3, «Atributos», subpaso 2).
@@ -33,7 +36,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.attribute_filter_row
 """
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __all__ = ["OPERATOR_TEXTS", "OPERATOR_TOOLTIP", "TYPE_TEXTS", "AttributeFilterRow"]
 
 # Librerías estándar
@@ -77,7 +80,9 @@ def _star_text(stars: int) -> str:
 
 
 # --- Medidas (px lógicos; las de las marcas, como en la barra inferior) ---
-ROW_HEIGHT = 30  # la misma que la fila de las pestañas
+ROW_HEIGHT = 34  # la misma que la fila de las pestañas (lo de dentro va centrado)
+_STAR_HEIGHT = 22  # zona de cada estrella
+_HOVER_HEIGHT = 24  # fondo bajo el ratón (no crece con la fila: va centrado)
 _FLAG_W, _FLAG_H = 10, 14
 _STAR_W = 16
 _SWATCH = 12
@@ -148,8 +153,8 @@ class _ZoneStrip(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if self._hovered is not None and self.isEnabled():
             rect = self._zones[self._hovered].adjusted(-_HIT_PAD, 0, _HIT_PAD, 0)
-            rect.setTop(3)
-            rect.setBottom(ROW_HEIGHT - 4)
+            rect.setTop((ROW_HEIGHT - _HOVER_HEIGHT) // 2)
+            rect.setHeight(_HOVER_HEIGHT)
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(_HOVER_BG))
             painter.drawRoundedRect(QRectF(rect), 3, 3)
@@ -267,7 +272,7 @@ class AttributeFilterRow(QWidget):
     def _rest_zones(self) -> list[_Zone]:
         zones: list[_Zone] = []
         for stars in range(1, 6):
-            zones.append((f"star:{stars}", _STAR_W, ROW_HEIGHT - 8, _star_text(stars)))
+            zones.append((f"star:{stars}", _STAR_W, _STAR_HEIGHT, _star_text(stars)))
         zones.append((None, _GROUP_GAP, 0, ""))
         for i, name in enumerate((*COLOR_LABELS, COLOR_NONE)):
             if i:

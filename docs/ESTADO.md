@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Franjas de 34 px** (12/11; `filter_bar` 1.2.1, `text_filter_row` 1.0.1, `attribute_filter_row` 1.0.2; `.ui`: `frame_main_bottom` 35 px) | La fila de las pestañas («Filtro activo»), la de «Texto», la de «Atributos» y la barra inferior miden 34 px (antes, 30): 2 más arriba y 2 más abajo, con lo de dentro del mismo tamaño y centrado (también el fondo gris bajo el ratón en «Atributos» y en la barra inferior). Comprobado sin ventana: cada franja, idéntica a la de antes y 2 px más abajo. Mirar que nada quede cortado ni descentrado, también con «Metadatos» encendido |
 | **«Lista de palabras clave» del inspector con los márgenes de la barra izquierda** (12/11; `keyword_list_section` 1.5.3, `keyword_checklist` 1.6.0) | En el inspector, el árbol ocupa todo el ancho, como el de la barra izquierda: las casillas, 8 px más a la izquierda; los números, más a la derecha, terminando donde la caja del filtro; la fila bajo el ratón, de borde a borde. El filtro, igual (a 8 px de los lados y de la cabecera). Medido sin ventana al mismo ancho que la barra izquierda: filtro y números, en las mismas columnas. La flecha «ver sus fotos», las casillas, el menú y soltar tarjetas funcionan igual |
 
 ## Comprobaciones sueltas
@@ -65,6 +66,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: las franjas de la barra de filtros (pestañas, «Texto», «Atributos») y la barra inferior, de 34 px (antes, 30), con lo de dentro centrado.
 - 12/11/2026: «Lista de palabras clave» del inspector, con los márgenes de la de la barra izquierda (árbol a todo el ancho; filtro a 8 px).
 - 12/11/2026: sección «Fechas» del módulo Imagen, paso 3 (último): la sección, debajo de «Carpetas» (años, «01 Enero», «10 Miércoles» y «Sin fecha», con sus recuentos).
 - 12/11/2026: sección «Fechas» del módulo Imagen, paso 2: la barra de Imagen, dividida en un archivo por sección (`ui_helpers/sidebars/sections/`); nada cambia a la vista.
@@ -74,4 +76,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 11/11/2026: barra de Imagen, «Lista de palabras clave» alineada con «Carpetas» (filtro a 8 px; nombres en la columna de las flechas de las subcarpetas; números con los de las carpetas).
 - 11/11/2026: las cajas de texto bajo el título de una sección, a 8 px de la cabecera (antes, 4); corregidas las fechas de lo hecho hoy, que decían 12/11.
 - 11/11/2026: el contenido del inspector, a 8 px de los dos bordes (antes, 4 a la derecha), y una raya de 1 px bajo la barra de menús, como la de encima de la barra de estado.
-- 11/11/2026: edición del GPS, la altitud y la dirección, paso 5 (último): las cajas del inspector (lo escrito se interpreta; lo que no vale vuelve con un aviso).

@@ -21,13 +21,14 @@ Uso (lo crea el controlador principal y se lo pasa al 'FilterController'):
     row.text_filter_changed.connect(...)
     row.set_filter(TextFilter())
 
+1.0.1 De 34 px de alto (antes, 30), como la fila de las pestañas; lo de dentro, centrado.
 1.0.0 Primera versión (paso A.3, subpaso 4).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.text_filter_row
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["FIELD_TEXTS", "OPERATOR_TEXTS", "TYPING_DELAY_MS", "TextFilterRow"]
 
 # Librerías de terceros (Qt)
@@ -61,7 +62,7 @@ OPERATOR_TEXTS: tuple[tuple[str, str] | None, ...] = (
 TYPING_DELAY_MS = 300
 
 # Medidas (px lógicos)
-ROW_HEIGHT = 30  # la misma que la fila de las pestañas
+ROW_HEIGHT = 34  # la misma que la fila de las pestañas (lo de dentro va centrado)
 TEXT_WIDTH = 320  # caja de texto
 _SPACING = 6
 
