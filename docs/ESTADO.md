@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| — | Nada pendiente: todo lo entregado está verificado (12/11/2026) |
+| **El archivo actual, recordado por módulo y al recargar** (12/11; `module_view_state` 1.3.0, `module_host` 1.10.0, `center_view_controller` 1.4.0) | Seleccionar una foto, cerrar el catálogo (o la aplicación) y volver a abrirlo: la misma foto, seleccionada y a la vista, en la cuadrícula y en la vista individual (también en Imagen con una carpeta o una fecha elegida). En el Catálogo una foto y en Imagen otra: al cambiar de módulo, cada uno vuelve a la suya. Borrar desde el Catálogo la foto recordada en Imagen (o filtrarla) y volver a Imagen: la primera. Varias seleccionadas y cambiar el orden o el filtro: siguen seleccionadas las que se vean, sin saltar al principio. Eliminar las seleccionadas: queda seleccionada la siguiente (la cuadrícula no salta arriba); igual con Supr en la vista individual. Elegir algo en una barra: la primera, como antes. Un catálogo nuevo o sin nada recordado: la primera |
 
 ## Comprobaciones sueltas
 
@@ -67,6 +67,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: cada módulo recuerda su archivo actual (al abrir el catálogo y al volver al módulo); al recargar se conserva la selección o queda el que ocupa su lugar.
 - 12/11/2026: al elegir algo en una barra, la primera foto queda seleccionada y el teclado sigue en las fotos (las barras no lo cogen), como Lightroom.
 - 12/11/2026: en los árboles de las barras, una letra o un número ya no elige otra fila (sin «búsqueda al teclear»).
 - 12/11/2026: la cuadrícula vacía dice «No hay archivos» (como la vista individual).
@@ -76,4 +77,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 12/11/2026: la rueda del ratón en la vista individual: foto anterior o siguiente; Ctrl + rueda, zoom 1:1; a 1:1, mueve la foto.
 - 12/11/2026: vista individual a 1:1, sin lupa en una foto de la que no se puede leer nada mayor que su caché (un DNG con una vista previa pequeña).
 - 12/11/2026: vista individual a 1:1, paso 3 (último): lupa, clic, arrastre con la mano, Z, el original en segundo plano y vuelta a la vista ajustada.
-- 12/11/2026: vista individual a 1:1, paso 2: las cuentas del zoom, sin Qt (`ui_helpers/helpers/zoom_geometry.py`); aún sin nada visible.

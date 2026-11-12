@@ -26,6 +26,9 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       «Ninguno» ('GridFilter.cleared': sin borrar lo escrito). No cuenta como cambio de
       origen cambiar de módulo ni lo que emiten las barras al restaurarse (al abrir el
       catálogo, el filtro queda como estaba). 'filter_changed' avisa a la barra de filtros.
+    - El ARCHIVO ACTUAL de cada módulo ('set_current_media', 'active_current_media'): lo
+      apunta y lo usa el 'CenterViewController' (al volver al módulo o al abrir el
+      catálogo, vuelve a quedar seleccionado); se guarda igual que el orden ('current').
     - El estado visual de cada módulo, guardado POR CATÁLOGO en settings.json (clave
       'sidebar_state'), con los órdenes elegidos en 'orders':
 
@@ -39,6 +42,8 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.10.0 El archivo actual de cada módulo: 'set_current_media', 'active_current_media'; se
+       guarda por catálogo ('current').
 1.9.0 Señal 'source_chosen': el usuario ha elegido otra cosa en la barra del módulo activo
       (también con la flecha «ver sus fotos» del inspector); no al restaurar las barras ni
       al cambiar de módulo. La usa el 'CenterViewController' (la primera foto, seleccionada).
@@ -68,7 +73,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -173,7 +178,8 @@ class ModuleHost(QObject):
         self._attached = False  # True mientras hay un catálogo abierto
         # Módulos cuya barra hay que releer al activarlos (no se refrescaron por no verse)
         self._dirty: set[str] = set()
-        # Lo elegido en cada módulo (orden, vista y filtro) para el catálogo abierto
+        # Lo elegido en cada módulo (orden, vista, filtro y archivo actual) para el catálogo
+        # abierto
         self._view_state = ModuleViewState()
         # True mientras las barras restauran su estado: lo que emiten entonces no es un
         # cambio de origen del usuario (no devuelve el filtro a «Ninguno»)
@@ -321,6 +327,19 @@ class ModuleHost(QObject):
             return
         if self._attached:
             self._grid_model.set_filter(grid_filter)
+
+    @property
+    def active_current_media(self) -> int | None:
+        """'id' del archivo actual que recuerda el módulo activo (None si ninguno). Puede
+        que ya no esté en la lista (borrado, filtrado...): se busca al cargarla."""
+        if self._active is None:
+            return None
+        return self._view_state.current_for(self._active)
+
+    def set_current_media(self, media_id: int | None) -> None:
+        """Apunta el archivo actual del módulo activo (sin catálogo abierto, nada)."""
+        if self._active is not None and self._attached:
+            self._view_state.set_current(self._active, media_id)
 
     def show_source(self, source: GridSource) -> None:
         """Muestra un origen pedido desde fuera de la barra (p. ej. la flecha «ver sus

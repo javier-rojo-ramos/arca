@@ -1676,7 +1676,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
 
     def _on_removal_finished(self, result: object) -> None:
         """Terminó de eliminar: cuadrícula, contadores, aviso de fallos y trabajos en espera."""
-        # Lo quitado desaparece de la cuadrícula (se pierde la selección, como al añadir)
+        # Lo quitado desaparece de la cuadrícula (queda seleccionado el que ocupa su lugar:
+        # 'CenterViewController')
         self.mosaico_model.reload()
         self._refresh_sidebar_counts()
 

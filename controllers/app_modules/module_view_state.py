@@ -4,13 +4,20 @@ Este módulo NO depende de Qt: es Python puro.
 
 Guarda, para cada módulo, el ORDEN de la cuadrícula, la VISTA del centro y el FILTRO de
 la barra de filtros que elige el usuario (los módulos sin nada elegido usan su
-'default_order', su 'default_view' y «Ninguno»). Lo usa el 'ModuleHost', que decide cuándo
-se aplica y lo escribe en settings.json junto al estado de las barras laterales:
+'default_order', su 'default_view' y «Ninguno»), y su ARCHIVO ACTUAL (el 'id' del que
+tenía seleccionado: al volver al módulo o al abrir el catálogo, vuelve a quedar
+seleccionado). Lo usa el 'ModuleHost', que decide cuándo se aplica y lo escribe en
+settings.json junto al estado de las barras laterales:
 
     {"<carpeta del catálogo>": {"modules": {...},
                                 "orders": {"image": {"field": ..., "descending": ...}},
                                 "views": {"image": "single"},
-                                "filters": {"image": {"active": ["text"], ...}}}}
+                                "filters": {"image": {"active": ["text"], ...}},
+                                "current": {"image": 1234}}}
+
+El archivo actual no se comprueba ni se mantiene al día si se borra o deja de verse (en
+otro módulo, con un filtro...): quien lo usa lo busca al cargar la lista y, si ya no
+está, elige otro (decidido por el autor el 12/11/2026: la estrategia más sencilla).
 
 Uso:
     state = ModuleViewState()
@@ -20,12 +27,15 @@ Uso:
     state.set_view(module, view)            # igual que 'set_order'
     state.filter_for(module)                # el filtro del módulo ('NO_FILTER' si nada)
     state.set_filter(module, grid_filter)   # True si cambia
+    state.current_for(module)               # 'id' del archivo actual (None si ninguno)
+    state.set_current(module, media_id)     # lo recuerda (None lo olvida)
     entry.update(state.to_state())          # al cerrar el catálogo
     state.restore(entry, modules_by_key)    # al abrirlo
 
 Un módulo es cualquier objeto con 'key', 'sort_fields()', 'default_order()', 'views()' y
 'default_view()' (como 'AppModule'): así este módulo no depende de la interfaz.
 
+1.3.0 El archivo actual de cada módulo ('current_for', 'set_current'; clave 'current').
 1.2.0 El filtro de la barra de filtros de cada módulo ('filter_for', 'set_filter'; clave
       'filters'; paso A.3).
 1.1.0 La vista del centro de cada módulo ('view_for', 'set_view'; clave 'views').
@@ -37,7 +47,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m controllers.app_modules.module_view_state
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["ModuleViewState", "ViewStateModule"]
 
 # Librerías estándar
@@ -60,6 +70,8 @@ _ORDERS_KEY = "orders"
 _VIEWS_KEY = "views"
 # Clave con los filtros de la barra de filtros por módulo
 _FILTERS_KEY = "filters"
+# Clave con el 'id' del archivo actual de cada módulo
+_CURRENT_KEY = "current"
 
 
 class ViewStateModule(Protocol):
@@ -87,6 +99,8 @@ class ModuleViewState:
         self._views: dict[str, CenterView] = {}
         # Filtro de cada módulo (los que no están aquí, «Ninguno» sin nada escrito)
         self._filters: dict[str, GridFilter] = {}
+        # 'id' del archivo actual de cada módulo (los que no están aquí, ninguno)
+        self._currents: dict[str, int] = {}
 
     # -------------------------------------------------------------------------
     # Orden de la cuadrícula
@@ -171,6 +185,25 @@ class ModuleViewState:
         return True
 
     # -------------------------------------------------------------------------
+    # Archivo actual
+    # -------------------------------------------------------------------------
+
+    def current_for(self, module: ViewStateModule) -> int | None:
+        """'id' del archivo actual de un módulo (None si no tiene ninguno)."""
+        return self._currents.get(module.key)
+
+    def set_current(self, module: ViewStateModule, media_id: int | None) -> None:
+        """Recuerda el archivo actual de un módulo (None lo olvida).
+
+        No se comprueba que exista: se busca al cargar la lista (ver el docstring del
+        archivo).
+        """
+        if media_id is None:
+            self._currents.pop(module.key, None)
+        else:
+            self._currents[module.key] = media_id
+
+    # -------------------------------------------------------------------------
     # Estado guardado por catálogo
     # -------------------------------------------------------------------------
 
@@ -179,6 +212,7 @@ class ModuleViewState:
         self._orders.clear()
         self._views.clear()
         self._filters.clear()
+        self._currents.clear()
 
     def to_state(self) -> dict[str, Any]:
         """Lo que se añade a la entrada del catálogo en settings.json (vacío si nada)."""
@@ -189,6 +223,8 @@ class ModuleViewState:
             state[_VIEWS_KEY] = {key: view.value for key, view in self._views.items()}
         if self._filters:
             state[_FILTERS_KEY] = {key: filter_to_dict(f) for key, f in self._filters.items()}
+        if self._currents:
+            state[_CURRENT_KEY] = dict(self._currents)
         return state
 
     def restore(self, entry: object, modules: Mapping[str, ViewStateModule]) -> None:
@@ -197,13 +233,13 @@ class ModuleViewState:
         Descarta lo que ya no vale: un módulo que no existe o que no decide el orden, un
         campo desconocido o que el módulo ya no ofrece, una vista que no se entiende o que
         el módulo no tiene, un filtro de un módulo que no existe (lo que no se entienda de
-        un filtro se queda con su valor de partida: 'filter_from_dict').
+        un filtro se queda con su valor de partida: 'filter_from_dict'), un archivo actual
+        que no es un número entero.
         """
-        self._orders.clear()
-        self._views.clear()
-        self._filters.clear()
+        self.clear()
         self._restore_views(entry, modules)
         self._restore_filters(entry, modules)
+        self._restore_currents(entry, modules)
         saved = entry.get(_ORDERS_KEY) if isinstance(entry, dict) else None
         if not isinstance(saved, dict):
             return
@@ -225,6 +261,16 @@ class ModuleViewState:
             grid_filter = filter_from_dict(data)
             if key in modules and grid_filter != NO_FILTER:
                 self._filters[key] = grid_filter
+
+    def _restore_currents(self, entry: object, modules: Mapping[str, ViewStateModule]) -> None:
+        """Recupera el archivo actual de cada módulo (los de módulos que ya no existen, no)."""
+        saved = entry.get(_CURRENT_KEY) if isinstance(entry, dict) else None
+        if not isinstance(saved, dict):
+            return
+        for key, media_id in saved.items():
+            # 'bool' es un 'int' en Python: un True guardado a mano no es un 'id'
+            if key in modules and isinstance(media_id, int) and not isinstance(media_id, bool):
+                self._currents[key] = media_id
 
     def _restore_views(self, entry: object, modules: Mapping[str, ViewStateModule]) -> None:
         """Recupera las vistas elegidas (las que ya no valen se descartan)."""
@@ -362,6 +408,28 @@ if __name__ == "__main__":
     assert again.to_state() == {}
     filters.clear()
     assert filters.to_state() == {} and filters.filter_for(catalog) == NO_FILTER
+
+    # Archivo actual: ninguno al principio; cada módulo el suyo; None lo olvida
+    currents = ModuleViewState()
+    assert currents.current_for(image) is None
+    currents.set_current(image, 1234)
+    currents.set_current(catalog, 7)
+    currents.set_current(catalog, 8)
+    assert currents.current_for(image) == 1234 and currents.current_for(catalog) == 8
+    saved = currents.to_state()
+    assert saved == {"current": {"image": 1234, "catalog": 8}}, saved
+    again = ModuleViewState()
+    again.restore(saved, modules)
+    assert again.current_for(image) == 1234 and again.current_for(catalog) == 8
+    currents.set_current(catalog, None)
+    assert currents.to_state() == {"current": {"image": 1234}}
+    # Lo que no vale se descarta: módulo que no existe, texto, True, lista
+    again.restore({"current": {"borrado": 5, "image": "12", "catalog": True, "video": [1]}}, modules)
+    assert again.to_state() == {} and again.current_for(image) is None
+    again.restore({"current": [1, 2]}, modules)
+    assert again.to_state() == {}
+    currents.clear()
+    assert currents.to_state() == {}
 
     # Al cerrar el catálogo se olvida todo
     state.clear()

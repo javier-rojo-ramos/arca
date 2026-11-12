@@ -23,13 +23,27 @@ Al elegir otra cosa en una barra (decidido por el autor el 12/11/2026, como Ligh
 teclado vuelve a la vista del centro (los árboles de las barras no lo cogen: 'NoFocus') y,
 al terminar de cargar, en la cuadrícula queda seleccionada la PRIMERA foto que se ve (la
 primera que cumple el filtro): el inspector la muestra y un atajo («3», «P»...) se le
-aplica. En la vista individual ya era así. Lo avisa el 'ModuleHost' ('source_chosen'):
-no al abrir el catálogo ni al cambiar de módulo.
+aplica. Lo avisa el 'ModuleHost' ('source_chosen'): no al abrir el catálogo ni al cambiar
+de módulo (entonces, el archivo que recuerda el módulo: ver abajo).
 Al entrar en la vista individual queda seleccionado SOLO el archivo que se ve (decidido
 por el autor el 08/11/2026): así la barra inferior, los atajos de clasificación y el
-inspector actúan sobre él sin cambios. Si se recarga la lista estando en ella: con otro
-origen (barra izquierda), el primer archivo; con el mismo (otro orden, una recarga), el
-que se veía, si sigue ahí.
+inspector actúan sobre él sin cambios.
+
+Al recargar la lista, siempre queda un archivo actual si hay alguno (decidido por el autor
+el 12/11/2026, como Lightroom), en la cuadrícula y en la vista individual:
+    - recién elegido en una barra ('source_chosen'): el primero;
+    - el mismo origen (otro orden, otro filtro, archivos quitados, metadatos leídos...): en
+      la cuadrícula, lo seleccionado que siga en la lista; si no queda nada, el archivo
+      actual de antes, el que recuerda el módulo o, si tampoco están, el que ocupa su
+      lugar (al borrar, el siguiente: la cuadrícula no salta al principio);
+    - otro origen (al volver a un módulo, al abrir el catálogo): el que recuerda el módulo
+      ('ModuleHost.active_current_media', guardado por catálogo), si está en la lista;
+    - si no, el primero. Este primero «de reserva» no se apunta como el del módulo: al abrir
+      el catálogo, Imagen recibe antes otra lista (todo el catálogo), y lo recordado tiene
+      que seguir valiendo cuando llegue la suya.
+Cada vez que cambia el archivo actual (el último pulsado, o el que se ve en la vista
+individual), el módulo activo lo apunta ('ModuleHost.set_current_media'). Lo recordado no
+se mantiene al día: si se borra o deja de verse, se busca al cargar y no se encuentra.
 
 Uso (en el controlador principal, que solo lo crea):
     CenterViewController(
@@ -37,6 +51,8 @@ Uso (en el controlador principal, que solo lo crea):
         size_slider=..., grid=list_view_grid, single=widget_single_view, parent=window,
     )
 
+1.4.0 Al recargar, siempre un archivo actual: el que recuerda cada módulo (al volver a él y
+      al abrir el catálogo), la selección que había (mismo origen) o el que ocupa su lugar.
 1.3.0 Al elegir otra cosa en una barra, el teclado vuelve al centro y la primera foto de la
       cuadrícula queda seleccionada ('source_chosen' del 'ModuleHost').
 1.2.0 La rueda del ratón en la vista individual: foto anterior o siguiente.
@@ -45,7 +61,7 @@ Uso (en el controlador principal, que solo lo crea):
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -56,7 +72,7 @@ from typing import Any
 from loguru import logger
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QEvent, QItemSelectionModel, QModelIndex, QObject, Qt
+from qtpy.QtCore import QEvent, QItemSelection, QItemSelectionModel, QModelIndex, QObject, Qt
 from qtpy.QtWidgets import QAbstractItemView, QListView, QStackedWidget, QWidget
 
 # Módulos del proyecto
@@ -114,11 +130,16 @@ class CenterViewController(QObject):
         self._single = single
         self._model: Any = grid.model()
         self._shown: CenterView | None = None  # vista que está en pantalla
-        # Para volver al archivo visto tras recargar la lista: su 'id' y el origen de antes
+        # Para volver a lo que se veía tras recargar la lista (el mismo origen): el 'id' del
+        # archivo actual, los 'id' seleccionados y la primera fila seleccionada (o la actual)
         self._id_before_reset: int | None = None
+        self._ids_selected_before_reset: list[int] = []
+        self._row_before_reset: int | None = None
         # El usuario ha elegido otra cosa en una barra: al recargar, la primera, seleccionada
         self._select_first = False
         self._last_source: object = getattr(self._model, "source", None)
+        # True mientras se elige el primero «de reserva»: el módulo no lo apunta
+        self._choosing_fallback = False
 
         buttons.view_requested.connect(self._on_view_requested)
         host.view_changed.connect(self._show)
@@ -134,6 +155,9 @@ class CenterViewController(QObject):
             step_requested.connect(self._on_step_requested)
         self._model.modelAboutToBeReset.connect(self._remember_shown)
         self._model.modelReset.connect(self._on_rows_reset)
+        # El archivo actual, apuntado en el módulo activo (al recargar, el modelo de
+        # selección se vacía SIN avisar: lo apuntado sigue siendo el de antes)
+        grid.selectionModel().currentChanged.connect(self._on_current_changed)
         self._show()  # el módulo inicial ya se activó al crear el host
 
     # -------------------------------------------------------------------------
@@ -250,10 +274,49 @@ class CenterViewController(QObject):
         )
         self._grid.scrollTo(index, QAbstractItemView.ScrollHint.EnsureVisible)
 
+    def _select_rows(self, rows: list[int], current: int) -> None:
+        """Deja seleccionadas esas filas (por tramos seguidos), con 'current' como actual."""
+        ordered = sorted(rows)
+        selection = QItemSelection()
+        start = end = ordered[0]
+        for row in ordered[1:]:
+            if row != end + 1:  # fin de un tramo
+                selection.select(self._model.index(start, 0), self._model.index(end, 0))
+                start = row
+            end = row
+        selection.select(self._model.index(start, 0), self._model.index(end, 0))
+        selection_model = self._grid.selectionModel()
+        selection_model.select(selection, QItemSelectionModel.SelectionFlag.ClearAndSelect)
+        index = self._model.index(current, 0)
+        selection_model.setCurrentIndex(index, QItemSelectionModel.SelectionFlag.NoUpdate)
+        self._grid.scrollTo(index, QAbstractItemView.ScrollHint.EnsureVisible)
+
+    def _select_fallback(self) -> None:
+        """El primero, porque no se encontró lo que tocaba: sin que el módulo lo apunte."""
+        self._choosing_fallback = True
+        try:
+            self._select_only(0)
+        finally:
+            self._choosing_fallback = False
+
+    def _on_current_changed(self, current: QModelIndex, _previous: QModelIndex) -> None:
+        """Otro archivo actual: el módulo activo lo apunta (salvo el primero «de reserva»)."""
+        if current.isValid() and not self._choosing_fallback:
+            self._host.set_current_media(self._media_id(current.row()))
+
     def _remember_shown(self) -> None:
-        """Antes de recargar la lista: qué archivo se estaba viendo."""
-        row = self._current_row()
-        self._id_before_reset = self._media_id(row) if row >= 0 else None
+        """Antes de recargar la lista: el archivo actual y lo seleccionado."""
+        current = self._grid.currentIndex()
+        # Por tramos: 'selectedIndexes' pregunta al modelo por cada fila (con un Ctrl+A de
+        # 20 000, unas 20 veces más lento)
+        spans = self._grid.selectionModel().selection()
+        selected = sorted({row for span in spans for row in range(span.top(), span.bottom() + 1)})
+        self._id_before_reset = self._media_id(current.row()) if current.isValid() else None
+        self._ids_selected_before_reset = self._media_ids(selected)
+        if selected:
+            self._row_before_reset = selected[0]
+        else:
+            self._row_before_reset = current.row() if current.isValid() else None
 
     def _on_source_chosen(self) -> None:
         """El usuario ha elegido otra cosa en una barra: el teclado, a la vista del centro
@@ -265,29 +328,53 @@ class CenterViewController(QObject):
             self._grid.setFocus()
 
     def _on_rows_reset(self) -> None:
-        """Lista recargada: en la vista individual, otro origen -> el primer archivo; el
-        mismo origen -> el que se veía (si sigue). En la cuadrícula, si se acaba de elegir
-        otra cosa en una barra, el primero (si no, nada: se queda sin selección)."""
+        """Lista recargada: qué queda seleccionado (las reglas, en el docstring del archivo)."""
         source = getattr(self._model, "source", None)
         same_source, self._last_source = source == self._last_source, source
         select_first, self._select_first = self._select_first, False
-        if self._shown != CenterView.SINGLE:
-            if select_first and self._model.rowCount():
-                self._select_only(0)
+        before, self._id_before_reset = self._id_before_reset, None
+        selected, self._ids_selected_before_reset = self._ids_selected_before_reset, []
+        row_before, self._row_before_reset = self._row_before_reset, None
+        count = self._model.rowCount()
+        if count == 0:
+            return  # nada que seleccionar (la vista dirá «No hay archivos»)
+        if select_first:
+            self._select_only(0)  # recién elegido en una barra (el módulo lo apunta)
             return
-        if self._model.rowCount() == 0:
-            return
-        row = 0
-        if same_source and self._id_before_reset is not None and hasattr(self._model, "row_of_id"):
-            found = self._model.row_of_id(self._id_before_reset)
-            row = found if found is not None else 0
-        self._select_only(row)
+        if same_source and self._shown != CenterView.SINGLE:
+            rows = [row for row in map(self._row_of_id, selected) if row is not None]
+            if rows:
+                current = self._row_of_id(before)
+                self._select_rows(rows, current if current is not None else min(rows))
+                return
+        remembered = self._host.active_current_media
+        candidates = (before, remembered) if same_source else (remembered,)
+        row = next((r for r in map(self._row_of_id, candidates) if r is not None), None)
+        if row is None and same_source and row_before is not None:
+            row = min(row_before, count - 1)  # ya no está: el que ocupa su lugar
+        if row is not None:
+            self._select_only(row)
+        else:
+            self._select_fallback()
 
     def _media_id(self, row: int) -> int | None:
         if hasattr(self._model, "media_ids"):
             ids = self._model.media_ids([row])
             return ids[0] if ids else None
         return row  # modelos de prueba sin 'media_ids'
+
+    def _media_ids(self, rows: list[int]) -> list[int]:
+        if hasattr(self._model, "media_ids"):
+            return list(self._model.media_ids(rows))
+        return list(rows)  # modelos de prueba sin 'media_ids'
+
+    def _row_of_id(self, media_id: int | None) -> int | None:
+        """Fila de ese 'id' en la lista recién cargada (None si no está o si es None)."""
+        if media_id is None:
+            return None
+        if hasattr(self._model, "row_of_id"):
+            return self._model.row_of_id(media_id)
+        return media_id if 0 <= media_id < self._model.rowCount() else None
 
 
 if __name__ == "__main__":
@@ -310,10 +397,18 @@ if __name__ == "__main__":
             super().__init__()
             self.views = (CenterView.GRID, CenterView.SINGLE)
             self.view = CenterView.GRID
+            self.current_media: int | None = None  # el archivo que recuerda el módulo
 
         @property
         def active_view(self) -> CenterView:
             return self.view
+
+        @property
+        def active_current_media(self) -> int | None:
+            return self.current_media
+
+        def set_current_media(self, media_id: int | None) -> None:
+            self.current_media = media_id
 
         def active_views(self) -> tuple[CenterView, ...]:
             return self.views
@@ -409,13 +504,27 @@ if __name__ == "__main__":
     event = QKeyEvent(QEvent.Type.KeyPress, _KEY.Key_3, Qt.KeyboardModifier.NoModifier)
     assert controller.eventFilter(single, event) is False
 
+    # El módulo apunta el archivo actual cada vez que cambia
+    assert host.current_media == 30
     # Recarga con el mismo origen (otro orden): sigue en el mismo archivo (id 30)
     model.fill([40, 30, 20, 10])
     assert selected_rows() == [1] and model.media_ids([grid.currentIndex().row()]) == [30]
-    # Otro origen: el primer archivo
+    # Otro origen (al volver a un módulo, al abrir el catálogo): el que recuerda el módulo
+    host.current_media = 60
     model.source = "carpeta B"
     model.fill([50, 30, 60])
-    assert selected_rows() == [0]
+    assert selected_rows() == [2] and host.current_media == 60
+    # Otro origen sin lo recordado: el primero, «de reserva», que el módulo no apunta...
+    model.source = "carpeta D"
+    model.fill([70, 80])
+    assert selected_rows() == [0] and host.current_media == 60
+    # ...para que valga cuando llegue su lista (Imagen, al abrir el catálogo)
+    model.source = "carpeta B"
+    model.fill([50, 30, 60])
+    assert selected_rows() == [2]
+    # Mismo origen, el archivo visto borrado: el que ocupa su lugar (no el primero)
+    model.fill([50, 30])
+    assert selected_rows() == [1] and host.current_media == 30
     # Origen vacío: nada seleccionado (la vista dirá «No hay archivos»)
     model.source = "carpeta C"
     model.fill([])
@@ -451,16 +560,50 @@ if __name__ == "__main__":
     press(grid, _KEY.Key_Return)
     assert host.view is CenterView.GRID and buttons.isHidden()
 
-    # En la cuadrícula: una recarga normal deja la lista sin selección; si se acaba de elegir
-    # otra cosa en una barra ('source_chosen'), queda seleccionada la primera
-    grid.selectionModel().clearSelection()
-    model.fill([50, 60, 70])
-    assert selected_rows() == []
+    # En la cuadrícula, una recarga con el mismo origen conserva TODA la selección que siga
+    # en la lista, con la misma actual (otro orden)
+    def selected_ids() -> list[int]:
+        return sorted(model.media_ids(selected_rows()))
+
+    def current_id() -> int:
+        return model.media_ids([grid.currentIndex().row()])[0]
+
+    selection = grid.selectionModel()
+    model.fill([10, 20, 30, 40, 50])
+    for row in (0, 1, 3):
+        selection.select(model.index(row, 0), QItemSelectionModel.SelectionFlag.Select)
+    selection.setCurrentIndex(model.index(3, 0), QItemSelectionModel.SelectionFlag.NoUpdate)
+    assert selected_ids() == [10, 20, 40] and host.current_media == 40
+    model.fill([50, 40, 30, 20, 10])
+    assert selected_ids() == [10, 20, 40] and current_id() == 40
+    # Un filtro deja fuera parte (también la actual): lo que queda, y la actual, la primera
+    model.fill([30, 20, 10])
+    assert selected_ids() == [10, 20] and current_id() == 20 and host.current_media == 20
+    # Se borran las seleccionadas: el siguiente, en su lugar (el módulo lo apunta)
+    model.fill([10, 20, 30, 40, 50])
+    selection.clearSelection()
+    for row in (1, 2):
+        selection.select(model.index(row, 0), QItemSelectionModel.SelectionFlag.Select)
+    selection.setCurrentIndex(model.index(2, 0), QItemSelectionModel.SelectionFlag.NoUpdate)
+    model.fill([10, 40, 50])
+    assert selected_ids() == [40] and host.current_media == 40
+    # Lista vacía antes (al abrir el catálogo con el mismo origen): el que recuerda el módulo
+    model.fill([])
+    host.current_media = 50
+    model.fill([40, 50])
+    assert selected_ids() == [50]
+    # Sin nada antes ni recordado: el primero, sin apuntarlo
+    model.fill([])
+    host.current_media = None
+    model.fill([7, 8])
+    assert selected_ids() == [7] and host.current_media is None
+    # Si se acaba de elegir otra cosa en una barra ('source_chosen'): la primera, apuntada
+    host.current_media = 8
     host.source_chosen.emit()
-    model.fill([80, 90])
-    assert selected_rows() == [0] and grid.currentIndex().row() == 0
-    model.fill([81, 91])  # la siguiente recarga, ya normal: sin selección
-    assert selected_rows() == []
+    model.fill([80, 90, 8])
+    assert selected_rows() == [0] and grid.currentIndex().row() == 0 and host.current_media == 80
+    model.fill([81, 91])  # la siguiente recarga, ya normal: la 80 no está, la que ocupa su lugar
+    assert selected_rows() == [0] and host.current_media == 81
     host.source_chosen.emit()
     model.fill([])  # lo elegido no tiene nada: nada que seleccionar
     assert selected_rows() == []

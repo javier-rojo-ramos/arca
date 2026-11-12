@@ -78,14 +78,15 @@
 
 - En el delegado, el rectángulo de lo que se dibuja (miniatura o marcador) sale SIEMPRE de `_content_rect`, tanto en `paint` como en `_zone_at`: si uno de los dos usara otro cálculo, el círculo de la selección rápida se pulsaría en un sitio distinto del que se ve.
 - Con el orden por hora de captura, los elementos con `content_created_at` NULL (metadatos aún sin leer, o sin EXIF) van al final de la cuadrícula hasta que se lean.
-- Al añadir una carpeta la cuadrícula se recarga entera y se pierde la selección.
+- Al añadir una carpeta la cuadrícula se recarga entera (la selección se recupera después: `CenterViewController._on_rows_reset`).
 - Un cambio de rating/marca/color se muestra al instante pero se guarda de forma asíncrona; si el guardado falla se recarga la lista desde la BD.
-- La cuadrícula se **recarga entera** al terminar el trabajo de metadatos (para mostrar rating, marca y color leídos de los archivos y el orden por fecha de captura): se pierde la selección. Mejora posible: refresco por filas.
+- La cuadrícula se **recarga entera** al terminar el trabajo de metadatos (para mostrar rating, marca y color leídos de los archivos y el orden por fecha de captura): la selección se recupera, pero se relee la lista entera. Mejora posible: refresco por filas.
 - Una miniatura borrada de la caché a mano no se detecta (no se comprueba el disco): usar "Regenerar todas las miniaturas".
 - Sin `pillow-heif`, los HEIC quedan con error de miniatura (estado 2) y no se reintentan solos: tras instalarla, "Regenerar miniaturas con error".
 - Un RAW cuya vista previa incrustada es pequeña da miniaturas de hasta ese tamaño, y los tamaños mayores contienen esa misma imagen (DNG de Lightroom: 1024 px; las vistas previas JPEG XL no se leen).
 - Una colección inteligente que se está viendo **no se recarga sola** si un elemento deja de cumplir las reglas (p. ej. al quitarle las estrellas): sigue en la cuadrícula hasta volver a pulsarla. El contador sí se actualiza.
-- Cambiar la biblioteca con «Sin clasificar» a la vista **recarga la cuadrícula** (para que los vídeos salgan de ella): se pierde la selección.
+- Cambiar la biblioteca con «Sin clasificar» a la vista **recarga la cuadrícula** (para que los vídeos salgan de ella): se recupera la selección que siga en ella.
+- Al recargar el modelo (`modelReset`), Qt vacía la selección **sin emitir** `currentChanged` ni `selectionChanged`: lo seleccionado hay que leerlo antes, en `modelAboutToBeReset` (como `CenterViewController._remember_shown`). Y leerlo por tramos (`selectionModel().selection()`), no con `selectedIndexes()`, que pregunta al modelo por cada fila (con un Ctrl+A de 20 000, unas 20 veces más lento).
 - `ThumbnailCache.resolve` y las comprobaciones de existencia miran el disco: no llamarlas miles de veces por repintado; cachear el resultado en el modelo de la cuadrícula.
 
 - **Las dimensiones del catálogo no siempre son lo que se puede leer**: de un DNG de Lightroom solo se lee una vista previa de 1024 px aunque `width` y `height` digan 6000 × 4000 (o el `DefaultCropSize`). Lo delata la caché: si su imagen grande mide menos de 2560 px, no había nada mayor (la escalera nunca amplía). La vista 1:1 lo tiene en cuenta (`single_view_zoom._full_pixels`).
