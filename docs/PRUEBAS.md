@@ -52,6 +52,7 @@ python -m core.catalog.smart_fields
 python -m core.catalog.smart_rules
 python -m core.catalog.storage_locations
 python -m core.catalog.system_collections
+python -m core.catalog.timeline                                (cada fila muestra lo que cuenta)
 python -m core.catalog.user_collections
 
 # core.metadata

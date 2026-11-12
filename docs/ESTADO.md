@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 11/11/2026.
+**Actualizado**: 12/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes: añadir y sincronizar carpetas, metadatos con ExifTool, miniaturas, cuadrícula y vista individual, clasificación (valoración, marca, color y selección rápida) guardada también en los archivos, palabras clave, colecciones (también inteligentes, con grupos de reglas), barra de filtros («Texto», «Atributos», «Metadatos» y ajustes personalizados) e inspector, que edita las palabras clave en todos los módulos y, en las fotos y vídeos de Imagen, el título, el pie, el creador, el copyright, la ubicación y el GPS (también guardados en los archivos). El módulo Imagen navega por carpetas y palabras clave. Vídeo, audio, GPX y ebooks se catalogan y se clasifican en bibliotecas, pero los módulos Vídeo y Audio aún son provisionales. Lo siguiente, en [PENDIENTE.md](PENDIENTE.md).
 
@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| — | Nada pendiente: todo lo entregado está verificado (11/11/2026) |
+| **Sección «Fechas», paso 1: los datos** (12/11; `timeline` 1.0.0, nuevo) | Nada visible todavía: la aplicación, igual que antes. La autoprueba `python -m core.catalog.timeline` pasa (cada fila muestra en la cuadrícula lo que cuenta) |
 
 ## Comprobaciones sueltas
 
@@ -64,6 +64,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: sección «Fechas» del módulo Imagen, paso 1: los años, meses y días con sus recuentos, y el origen de la cuadrícula de cada fila (`core/catalog/timeline.py`); aún sin nada visible.
 - 11/11/2026: vista individual, la imagen que cabe se ve a su tamaño (sin ampliarla); el deslizador de la barra inferior, centrado (1 px más abajo).
 - 11/11/2026: la barra inferior, del alto de la franja de «Atributos» (30 px bajo la raya; botones de vista de 22 px).
 - 11/11/2026: barra de Imagen, «Lista de palabras clave» alineada con «Carpetas» (filtro a 8 px; nombres en la columna de las flechas de las subcarpetas; números con los de las carpetas).
@@ -73,4 +74,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 11/11/2026: edición del GPS, la altitud y la dirección, paso 4: el GPS editado se escribe en las fotos (donde ya esté o, si no, en el EXIF; en los RAW, el sidecar), con sus referencias.
 - 11/11/2026: edición del GPS, la altitud y la dirección, paso 3: los cuatro campos, editables por dentro (guardar, proteger al releer, `.arca.json` con números); aún sin nada visible.
 - 11/11/2026: edición del GPS, la altitud y la dirección, paso 2: el GPS, la altitud y la dirección se leen primero del XMP, como Lightroom (`IMAGE_FIELDS_VERSION` 9: se releen las fotos).
-- 11/11/2026: edición del GPS, la altitud y la dirección, paso 1: la dirección de la cámara pasa a `media_items` (migración 3, esquema v3); aún sin nada editable.
