@@ -31,6 +31,8 @@ Las secciones que no tienen nada que mostrar para lo seleccionado se ocultan ent
 El título de cada sección puede cambiar con lo que se ve ('InspectorSection.title_for'):
 p. ej. «SELECCIÓN» con algo seleccionado y «SELECCIÓN (VISTA ACTUAL)» sin selección.
 
+1.6.1 El área con desplazamiento no coge el teclado: un clic en el inspector (fuera de
+      una caja) no se lo quita a las fotos; las cajas, sí lo cogen (12/11/2026).
 1.6.0 Las secciones, según la biblioteca de lo resumido ('fits'), no según el módulo
       (fuera 'set_module'); las palabras clave se editan en todos los módulos y la sección
       de solo lectura ('KeywordsSection') deja de usarse (paso A.2).
@@ -51,7 +53,7 @@ El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.p
 nombres de objeto 'scroll_inspector', 'widget_inspector_content' y los 'lbl_inspector_*'.
 """
 
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 __all__ = ["DEFAULT_SECTIONS", "InspectorPanel"]
 
 # Librerías estándar
@@ -122,6 +124,9 @@ class InspectorPanel(QWidget):
         scroll.setObjectName("scroll_inspector")
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # Sin teclado: un clic en la barra (fuera de una caja de texto) no se lo quita a las
+        # fotos; si no, Qt se lo daría a esta área (la primera de más arriba que lo acepta)
+        scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         outer.addWidget(scroll)
 

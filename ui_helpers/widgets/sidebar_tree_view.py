@@ -20,6 +20,10 @@ Cada fila lleva, en roles propios:
                  atenuado (EMPHASIS_PARTIAL). Lo usa el árbol con casillas del inspector
                  para las palabras con hijas asignadas («Familia» si la foto tiene «Ana»).
 
+1.6.0 No coge el teclado ('NoFocus'; decidido por el autor el 12/11/2026, como Lightroom):
+      un clic elige la fila o marca la casilla, pero el teclado se queda en las fotos (los
+      atajos van siempre a la cuadrícula o a la vista individual) y las flechas no
+      recorren las barras.
 1.5.0 Sin «búsqueda al teclear» ('keyboardSearch'): con el foco en el árbol, una letra o
       un número elegía la siguiente fila que empieza por ella y la cuadrícula cambiaba de
       origen sin querer (lo vio el autor: «G» tras elegir una palabra clave mostraba
@@ -37,7 +41,7 @@ Cada fila lleva, en roles propios:
       seguía oculto por la derecha (el árbol pedía ~256 px y se salía del área visible).
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = [
     "EMPHASIS_FULL",
     "EMPHASIS_PARTIAL",
@@ -197,6 +201,8 @@ class SidebarTreeView(QTreeView):
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setIndentation(14)
         self.setItemDelegate(CountDelegate(self, name_indent=name_indent))
+        # Sin teclado: el clic elige, pero los atajos siguen yendo a las fotos (ver 1.6.0)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         # Sin barras propias: el alto se ajusta al contenido (sizeHint) y el ancho, al de
         # la barra lateral (los nombres largos se recortan con "…")

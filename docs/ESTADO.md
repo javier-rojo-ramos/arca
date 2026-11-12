@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Sin «búsqueda al teclear» en los árboles de las barras** (12/11; `sidebar_tree_view` 1.5.0) | Elegir una palabra clave (o una carpeta, una fecha, una colección) en la barra izquierda y pulsar «G», un número o una letra: lo elegido NO cambia (antes saltaba a la siguiente fila que empezaba por esa letra y la cuadrícula mostraba otras fotos). Las flechas siguen moviéndose por el árbol. Igual en el árbol de palabras del inspector |
+| — | Nada pendiente: todo lo entregado está verificado (12/11/2026) |
 
 ## Comprobaciones sueltas
 
@@ -61,11 +61,13 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Edición del GPS, pasos 1 a 5** (11/11): el catálogo pasa solo al esquema v3 (la dirección, en `media_items`); GPS, altitud y dirección leídos primero del XMP, como Lightroom (`IMAGE_FIELDS_VERSION` 9: se releyeron las fotos); los cuatro campos, editables y protegidos al releer; cuatro fotos escritas por el escritor de la aplicación (solo EXIF, EXIF y XMP distintos, sin GPS y solo XMP, con hemisferio sur, oeste y altitudes bajo el nivel del mar) se ven en Lightroom Classic 16 exactamente como las lee la aplicación; las cajas de GPS, Altitud y Dirección en «Metadatos» (lo escrito se interpreta; lo que no vale vuelve con su aviso), con lo editado escrito en los archivos. Antes (paso 0), cómo lee y escribe Lightroom el GPS ([METADATOS.md](METADATOS.md)).
 - **Limpieza de ruff** (11/11; solo importaciones y comentarios en 27 módulos): la aplicación, igual que antes.
 - **Sección «Fechas» del módulo Imagen** (12/11): debajo de «Carpetas», los años (el más reciente arriba) con sus meses («01 Enero») y sus días («10 Miércoles»), y «Sin fecha»; cada fila muestra lo que cuenta, con los mismos números que la columna «Fecha de captura»; lo desplegado y el día elegido, recordados. Antes, la barra de Imagen dividida en un archivo por sección (`ui_helpers/sidebars/sections/`), con todo igual que antes.
+- **Las barras no cogen el teclado** (12/11): al elegir algo en una barra (una carpeta, una fecha, una palabra, una colección o la flecha «ver sus fotos» del inspector), la primera foto queda seleccionada (la primera que cumple el filtro) y los atajos («3», «P», «G», Z...) van a las fotos sin otro clic; las flechas mueven la selección de fotos, no la barra; una letra ya no elige otra fila de un árbol.
 
 ## Últimos cambios
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: al elegir algo en una barra, la primera foto queda seleccionada y el teclado sigue en las fotos (las barras no lo cogen), como Lightroom.
 - 12/11/2026: en los árboles de las barras, una letra o un número ya no elige otra fila (sin «búsqueda al teclear»).
 - 12/11/2026: la cuadrícula vacía dice «No hay archivos» (como la vista individual).
 - 12/11/2026: «Purgar palabras clave no usadas…» dice cuántas se van a borrar y cuáles (todas, en «Mostrar los detalles…»).
@@ -75,4 +77,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 12/11/2026: vista individual a 1:1, sin lupa en una foto de la que no se puede leer nada mayor que su caché (un DNG con una vista previa pequeña).
 - 12/11/2026: vista individual a 1:1, paso 3 (último): lupa, clic, arrastre con la mano, Z, el original en segundo plano y vuelta a la vista ajustada.
 - 12/11/2026: vista individual a 1:1, paso 2: las cuentas del zoom, sin Qt (`ui_helpers/helpers/zoom_geometry.py`); aún sin nada visible.
-- 12/11/2026: vista individual a 1:1, paso 1: leer el original a tamaño completo con el color de la caché (`core/thumbnails/full_image.py`); aún sin nada visible.

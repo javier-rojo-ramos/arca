@@ -55,11 +55,11 @@ controllers/
   filter_controller.py               FilterController: barra de filtros <-> filtro del módulo activo (ModuleHost.set_filter / filter_changed); Ctrl+L; oculta la franja en la vista individual
   filter_preset_controller.py        FilterPresetController: desplegable de ajustes personalizados <-> lista (settings.json, filter_presets) y filtro del módulo activo; pide el nombre al guardar y si se reemplaza
   metadata_filter_controller.py      MetadataFilterController: panel «Metadatos» <-> recuentos en segundo plano (columnas de partida del módulo, solo lo que cambia, respuestas tardías fuera, alto guardado)
-  center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula) y navegación (doble clic / Intro, Esc / G, flechas, Inicio, Fin; un solo archivo seleccionado en la vista individual)
+  center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula) y navegación (doble clic / Intro, Esc / G, flechas, Inicio, Fin, rueda; un solo archivo seleccionado en la vista individual); al elegir algo en una barra (source_chosen), el teclado al centro y la primera foto seleccionada
   app_modules/                       ── Módulos de la aplicación (Catálogo, Imagen, Vídeo, Audio) ── ([FLUJOS.md §11](FLUJOS.md))
     base.py                            AppModule (clase base: barra izquierda, qué muestra la cuadrícula, orden, vistas, tipos y columnas de partida del filtro, ciclo de vida) y ModuleContext
     registry.py                      ► LISTA de módulos en el orden de la toolbar (aquí se da de alta uno nuevo)
-    module_host.py                     ModuleHost: toolbar de modos, barras laterales, módulo activo -> cuadrícula, estado por catálogo
+    module_host.py                     ModuleHost: toolbar de modos, barras laterales, módulo activo -> cuadrícula, estado por catálogo; source_chosen (el usuario elige otra cosa en una barra)
     module_view_state.py               ModuleViewState: lo elegido en cada módulo (orden, vista del centro y filtro) y cómo se guarda por catálogo (claves 'orders', 'views' y 'filters'); sin Qt
     center_views.py                    CenterView: vistas del centro (cuadrícula, individual, lista, mapa) con su texto emergente e icono; sin Qt
     catalog_module.py                  CatalogModule: barra CatalogSidebar (contadores, árboles, colecciones, opción de subcarpetas, estado)
@@ -111,7 +111,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/signal_blocker.py          blocked_signals: bloquear las señales de varios objetos Qt en un 'with'
   helpers/keyword_menu.py            Menú contextual de los árboles de palabras clave (crear, renombrar, mover, borrar, purgar): pregunta y devuelve la operación; «Borrar» devuelve el recuento (fetch_keyword_usage) y confirm_keyword_deletion pregunta después; «Purgar», la lista (fetch_unused_keywords) y ask_keyword_purge pregunta enseñándola
   helpers/keyword_expansion.py       KeywordExpansion: palabras desplegadas de cada árbol (SIDEBAR, INSPECTOR), para recuperarlas al abrir
-  widgets/sidebar_tree_view.py       SidebarTreeView (alto ajustado, sin scroll propio, ROLE_SOURCE / ROLE_COUNT / ROLE_EMPHASIS) + CountDelegate (name_indent: el nombre, unos px más a la derecha)
+  widgets/sidebar_tree_view.py       SidebarTreeView (alto ajustado, sin scroll propio, sin teclado ni «búsqueda al teclear», ROLE_SOURCE / ROLE_COUNT / ROLE_EMPHASIS) + CountDelegate (name_indent: el nombre, unos px más a la derecha)
   widgets/collapsible_section.py     CollapsibleSection: sección plegable con cabecera y botones ("+")
   widgets/elided_label.py            ElidedLabel: etiqueta de una línea que recorta con «…» (por la derecha, la izquierda o el centro)
   widgets/organize_bar.py            OrganizeBar: barra inferior para clasificar la selección (marcar, rechazar, estrellas, colores, selección rápida); attach(vista, modelo)

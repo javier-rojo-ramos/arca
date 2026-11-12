@@ -19,6 +19,12 @@ Teclado y ratón (sin Ctrl, Alt ni Mayús):
                        (en el orden de la cuadrícula); también la rueda del ratón:
                        hacia delante la anterior, hacia atrás la siguiente (la cuenta
                        la vista: 'step_requested'; a 1:1 y con Ctrl la usa el zoom)
+Al elegir otra cosa en una barra (decidido por el autor el 12/11/2026, como Lightroom): el
+teclado vuelve a la vista del centro (los árboles de las barras no lo cogen: 'NoFocus') y,
+al terminar de cargar, en la cuadrícula queda seleccionada la PRIMERA foto que se ve (la
+primera que cumple el filtro): el inspector la muestra y un atajo («3», «P»...) se le
+aplica. En la vista individual ya era así. Lo avisa el 'ModuleHost' ('source_chosen'):
+no al abrir el catálogo ni al cambiar de módulo.
 Al entrar en la vista individual queda seleccionado SOLO el archivo que se ve (decidido
 por el autor el 08/11/2026): así la barra inferior, los atajos de clasificación y el
 inspector actúan sobre él sin cambios. Si se recarga la lista estando en ella: con otro
@@ -31,13 +37,15 @@ Uso (en el controlador principal, que solo lo crea):
         size_slider=..., grid=list_view_grid, single=widget_single_view, parent=window,
     )
 
+1.3.0 Al elegir otra cosa en una barra, el teclado vuelve al centro y la primera foto de la
+      cuadrícula queda seleccionada ('source_chosen' del 'ModuleHost').
 1.2.0 La rueda del ratón en la vista individual: foto anterior o siguiente.
 1.1.0 Navegación (paso A.1, subpaso 5): doble clic / Intro, Esc / G, flechas, Inicio y
       Fin; selección de un solo archivo en la vista individual y vuelta a él al recargar.
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -108,10 +116,15 @@ class CenterViewController(QObject):
         self._shown: CenterView | None = None  # vista que está en pantalla
         # Para volver al archivo visto tras recargar la lista: su 'id' y el origen de antes
         self._id_before_reset: int | None = None
+        # El usuario ha elegido otra cosa en una barra: al recargar, la primera, seleccionada
+        self._select_first = False
         self._last_source: object = getattr(self._model, "source", None)
 
         buttons.view_requested.connect(self._on_view_requested)
         host.view_changed.connect(self._show)
+        source_chosen = getattr(host, "source_chosen", None)
+        if source_chosen is not None:
+            source_chosen.connect(self._on_source_chosen)
         grid.doubleClicked.connect(lambda index: self.open_single(index.row()))
         grid.installEventFilter(self)
         single.installEventFilter(self)
@@ -242,12 +255,27 @@ class CenterViewController(QObject):
         row = self._current_row()
         self._id_before_reset = self._media_id(row) if row >= 0 else None
 
+    def _on_source_chosen(self) -> None:
+        """El usuario ha elegido otra cosa en una barra: el teclado, a la vista del centro
+        (los atajos, a las fotos) y, al recargar, la primera foto seleccionada."""
+        self._select_first = True
+        if self._shown == CenterView.SINGLE:
+            self._single.setFocus()
+        else:
+            self._grid.setFocus()
+
     def _on_rows_reset(self) -> None:
         """Lista recargada: en la vista individual, otro origen -> el primer archivo; el
-        mismo origen -> el que se veía (si sigue)."""
+        mismo origen -> el que se veía (si sigue). En la cuadrícula, si se acaba de elegir
+        otra cosa en una barra, el primero (si no, nada: se queda sin selección)."""
         source = getattr(self._model, "source", None)
         same_source, self._last_source = source == self._last_source, source
-        if self._shown != CenterView.SINGLE or self._model.rowCount() == 0:
+        select_first, self._select_first = self._select_first, False
+        if self._shown != CenterView.SINGLE:
+            if select_first and self._model.rowCount():
+                self._select_only(0)
+            return
+        if self._model.rowCount() == 0:
             return
         row = 0
         if same_source and self._id_before_reset is not None and hasattr(self._model, "row_of_id"):
@@ -276,6 +304,7 @@ if __name__ == "__main__":
 
     class _FakeHost(QObject):
         view_changed = Signal(object)
+        source_chosen = Signal()
 
         def __init__(self) -> None:
             super().__init__()
@@ -421,6 +450,20 @@ if __name__ == "__main__":
     host.view_changed.emit(CenterView.GRID)
     press(grid, _KEY.Key_Return)
     assert host.view is CenterView.GRID and buttons.isHidden()
+
+    # En la cuadrícula: una recarga normal deja la lista sin selección; si se acaba de elegir
+    # otra cosa en una barra ('source_chosen'), queda seleccionada la primera
+    grid.selectionModel().clearSelection()
+    model.fill([50, 60, 70])
+    assert selected_rows() == []
+    host.source_chosen.emit()
+    model.fill([80, 90])
+    assert selected_rows() == [0] and grid.currentIndex().row() == 0
+    model.fill([81, 91])  # la siguiente recarga, ya normal: sin selección
+    assert selected_rows() == []
+    host.source_chosen.emit()
+    model.fill([])  # lo elegido no tiene nada: nada que seleccionar
+    assert selected_rows() == []
 
     window.deleteLater()
     print("Autoprueba finalizada correctamente.")

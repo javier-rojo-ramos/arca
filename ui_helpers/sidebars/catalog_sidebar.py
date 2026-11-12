@@ -52,6 +52,8 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.12.2 El área con desplazamiento no coge el teclado: un clic en la barra no se lo
+       quita a las fotos (decidido por el autor el 12/11/2026, como Lightroom).
 1.12.1 Iconos de los menús de colecciones con su variante ':menu' (en la opción
        resaltada, oscuros sobre el acento, como el texto).
 1.12.0 'show_source': un origen pedido desde el inspector; si no tiene fila (una palabra
@@ -87,7 +89,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.12.1"
+__version__ = "1.12.2"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -281,6 +283,9 @@ class CatalogSidebar(QWidget):
         scroll.setObjectName("scroll_catalog_sidebar")
         scroll.setWidgetResizable(True)  # el contenido toma el ancho de la barra
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # Sin teclado: un clic en la barra (fuera de una caja de texto) no se lo quita a las
+        # fotos; si no, Qt se lo daría a esta área (la primera de más arriba que lo acepta)
+        scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         outer.addWidget(scroll)
 

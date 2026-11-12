@@ -39,6 +39,9 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.9.0 Señal 'source_chosen': el usuario ha elegido otra cosa en la barra del módulo activo
+      (también con la flecha «ver sus fotos» del inspector); no al restaurar las barras ni
+      al cambiar de módulo. La usa el 'CenterViewController' (la primera foto, seleccionada).
 1.8.3 'active_filter_metadata_fields': las columnas de partida de «Metadatos».
 1.8.2 'active_filter_media_types': los tipos de la fila «Atributos» del módulo activo.
 1.8.1 Propiedad 'attached' (hay un catálogo abierto) y 'filter_changed' también en
@@ -65,7 +68,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.8.3"
+__version__ = "1.9.0"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -113,6 +116,9 @@ class ModuleHost(QObject):
             Se emite en los mismos momentos que 'order_changed', en 'attach' y cuando el
             filtro vuelve a «Ninguno» al cambiar de origen (no al llamar a 'set_filter': lo pide quien
             ya lo sabe).
+        source_chosen(): el usuario ha elegido otra cosa en la barra del módulo activo (o la
+            flecha «ver sus fotos» del inspector): la cuadrícula se va a recargar con ella.
+            No se emite al restaurar las barras, al cambiar de módulo ni si ya se veía.
     """
 
     module_changed = Signal(str)
@@ -120,6 +126,7 @@ class ModuleHost(QObject):
     order_changed = Signal(object)
     view_changed = Signal(object)
     filter_changed = Signal(object)
+    source_chosen = Signal()
 
     def __init__(
         self,
@@ -331,6 +338,7 @@ class ModuleHost(QObject):
         before = self._grid_model.source
         self._active.show_source(source)
         if self._grid_model.source == before:
+            self.source_chosen.emit()  # se pide verlo: como si se eligiera otra vez
             self._grid_model.reload()
 
     def set_active(self, key: str) -> None:
@@ -537,15 +545,17 @@ class ModuleHost(QObject):
         self._awaiting_source.discard(module.key)
         if module is not self._active:
             return
-        current = self._view_state.filter_for(module)
-        if (
+        # Elegido por el usuario (no al restaurar las barras) y distinto de lo que se ve
+        chosen = (
             not self._restoring
             and not restored_late
             and self._attached
             and source != self._grid_model.source
-            and not current.locked
-            and not current.is_none
-        ):
+        )
+        if chosen:
+            self.source_chosen.emit()  # antes de recargar
+        current = self._view_state.filter_for(module)
+        if chosen and not current.locked and not current.is_none:
             cleared = current.cleared()
             self._view_state.set_filter(module, cleared)
             self._grid_model.set_filter(cleared, reload=False)

@@ -35,6 +35,8 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula; lo une
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
 'scroll_image_sidebar' y 'widget_image_sidebar_content' (y los de cada sección).
 
+2.1.1 El área con desplazamiento no coge el teclado: un clic en la barra no se lo quita
+      a las fotos (decidido por el autor el 12/11/2026, como Lightroom).
 2.1.0 Sección «Fechas» debajo de «Carpetas» ('sections/date_section.py', 'set_date_tree';
       paso A.4).
 2.0.0 Dividida en un archivo por sección (pedido por el autor el 12/11/2026): las
@@ -68,7 +70,7 @@ El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres 
       también el árbol con casillas del inspector (paso K4b).
 """
 
-__version__ = "2.1.0"
+__version__ = "2.1.1"
 __all__ = ["ALL_IMAGES", "IMAGE_QUICK", "LIBRARY", "ImageSidebar"]
 
 # Librerías estándar
@@ -142,6 +144,9 @@ class ImageSidebar(QWidget):
         scroll.setObjectName("scroll_image_sidebar")
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # Sin teclado: un clic en la barra (fuera de una caja de texto) no se lo quita a las
+        # fotos; si no, Qt se lo daría a esta área (la primera de más arriba que lo acepta)
+        scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         outer.addWidget(scroll)
         content = QWidget(scroll)

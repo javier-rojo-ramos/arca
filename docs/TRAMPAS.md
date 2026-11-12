@@ -23,6 +23,8 @@
 
 - **«Búsqueda al teclear» de los árboles de Qt**: con el foco en una `QTreeView`/`QListView`, una letra elige la siguiente fila que empieza por ella. En las barras eso cambiaba lo que muestra la cuadrícula (p. ej. «G» o un atajo de valoración tras hacer clic en la barra): `SidebarTreeView.keyboardSearch` lo anula. Un árbol nuevo de las barras debe ser un `SidebarTreeView` (o anularlo igual).
 
+- **Un widget sin foco no basta para no quitarle el teclado a otro**: al pulsar un widget `NoFocus`, Qt da el foco al primer contenedor de más arriba que lo acepte (p. ej. el `QScrollArea` de una barra). Para que un clic en las barras deje el teclado en las fotos, los árboles Y sus áreas con desplazamiento son `NoFocus`.
+
 ## ExifTool y escritura en los archivos
 
 - ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.
