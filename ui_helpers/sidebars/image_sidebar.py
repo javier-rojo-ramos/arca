@@ -1,10 +1,12 @@
-"""Barra lateral del módulo Imagen (columna izquierda): biblioteca, carpetas y palabras clave.
+"""Barra lateral del módulo Imagen (columna izquierda): biblioteca, carpetas, fechas y
+palabras clave.
 
 Secciones plegables, una debajo de otra, dentro de un área con desplazamiento (como la
 barra del Catálogo):
 
     ▼ BIBLIOTECA - IMAGEN       «Todas las imágenes» y «Selección rápida», con sus contadores
     ▼ CARPETAS                  ubicaciones y carpetas con imágenes ('sections/folder_section.py')
+    ▼ FECHAS                    años ▸ meses ▸ días, y «Sin fecha» ('sections/date_section.py')
     ▼ LISTA DE PALABRAS CLAVE   filtro y árbol de palabras ('sections/keyword_section.py')
 
 Esta barra es el CONTENEDOR: cada sección con árbol está en su archivo de 'sections/' (ver
@@ -24,8 +26,8 @@ se hace en el inspector, en su «Lista de palabras clave».
 Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula; lo une
 'controllers/app_modules/image_module.py'):
     - Cada fila lleva un 'GridSource' (ROLE_SOURCE). Al elegirla, emite 'source_selected'.
-    - 'set_library_count', 'set_folder_tree' y 'set_keyword_tree' reciben lo que el módulo
-      lee en segundo plano. Si un árbol no ha cambiado, no se reconstruye (no se pierde lo
+    - 'set_library_count', 'set_folder_tree', 'set_date_tree' y 'set_keyword_tree' reciben
+      lo que el módulo lee en segundo plano. Si un árbol no ha cambiado, no se reconstruye (no se pierde lo
       desplegado).
     - 'save_state' / 'restore_state': secciones plegadas, lo desplegado y la fila elegida
       (el módulo lo guarda por catálogo).
@@ -33,6 +35,8 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula; lo une
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
 'scroll_image_sidebar' y 'widget_image_sidebar_content' (y los de cada sección).
 
+2.1.0 Sección «Fechas» debajo de «Carpetas» ('sections/date_section.py', 'set_date_tree';
+      paso A.4).
 2.0.0 Dividida en un archivo por sección (pedido por el autor el 12/11/2026): las
       «Carpetas» pasan a 'sections/folder_section.py' y la «Lista de palabras clave», a
       'sections/keyword_section.py'; aquí queda el contenedor. Nada cambia a la vista y lo
@@ -64,7 +68,7 @@ El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres 
       también el árbol con casillas del inspector (paso K4b).
 """
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 __all__ = ["ALL_IMAGES", "IMAGE_QUICK", "LIBRARY", "ImageSidebar"]
 
 # Librerías estándar
@@ -87,9 +91,11 @@ from core.catalog.grid_source import (
 )
 from core.catalog.keywords import KeywordTreeNode
 from core.catalog.libraries import Library
+from core.catalog.metadata_values import MetadataValue
 from ui_helpers.helpers.keyword_expansion import KeywordExpansion
 from ui_helpers.helpers.sidebar_icons import load_sidebar_icons
 from ui_helpers.helpers.signal_blocker import blocked_signals as _blocked
+from ui_helpers.sidebars.sections.date_section import DateSection
 from ui_helpers.sidebars.sections.folder_section import FolderSection
 from ui_helpers.sidebars.sections.keyword_section import KeywordSection
 from ui_helpers.sidebars.sections.tree_section import TreeSection, make_item
@@ -147,9 +153,10 @@ class ImageSidebar(QWidget):
 
         self._folders = FolderSection(LIBRARY, self._icons, content)
         self._folders.reveal_folder_requested.connect(self.reveal_folder_requested)
+        self._dates = DateSection(LIBRARY, content)
         self._keywords = KeywordSection(LIBRARY, expansion, content)
         # Las secciones con árbol (en 'sections/'): la fila elegida se busca en ellas
-        self._sections: tuple[TreeSection, ...] = (self._folders, self._keywords)
+        self._sections: tuple[TreeSection, ...] = (self._folders, self._dates, self._keywords)
 
         # Las secciones plegables, de arriba abajo: (clave en el estado guardado, título,
         # contenido). Para cambiar el orden basta con cambiar esta lista
@@ -157,6 +164,7 @@ class ImageSidebar(QWidget):
         for key, title, widget in (
             ("library", "Biblioteca - Imagen", self._build_library(content)),
             ("folders", "Carpetas", self._folders),
+            ("dates", "Fechas", self._dates),
             ("keywords", "Lista de palabras clave", self._keywords),
         ):
             section = CollapsibleSection(title, content)
@@ -210,6 +218,11 @@ class ImageSidebar(QWidget):
     def set_folder_tree(self, locations: Iterable[LocationNode]) -> None:
         """Pone el árbol de carpetas (no hace nada si no ha cambiado)."""
         self._folders.set_tree(locations)
+
+    def set_date_tree(self, values: Iterable[MetadataValue]) -> None:
+        """Pone los años, meses y días ('fetch_timeline(...).values'; no hace nada si no
+        han cambiado)."""
+        self._dates.set_tree(tuple(values))
 
     def set_include_subfolders(self, include: bool) -> None:
         """Opción del Catálogo «Mostrar los elementos de las subcarpetas»: cambia los
@@ -270,8 +283,8 @@ class ImageSidebar(QWidget):
 
     def save_state(self) -> dict:
         """Secciones plegadas, lo de cada sección (lo desplegado) y la fila elegida (para
-        JSON). Las claves son las de siempre: 'sections', 'expanded_folders',
-        'known_locations', 'expanded_keywords' y 'selected'."""
+        JSON). Claves: 'sections', 'expanded_folders', 'known_locations', 'expanded_dates'
+        (desde la 2.1.0), 'expanded_keywords' y 'selected'."""
         state: dict = {
             "sections": {key: section.is_expanded() for key, section in self._collapsibles.items()}
         }

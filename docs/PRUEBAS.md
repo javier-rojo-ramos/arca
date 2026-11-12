@@ -111,6 +111,7 @@ python -m ui_helpers.inspector.keywords_section
 python -m ui_helpers.inspector.metadata_fields                 (todas las vistas sobre una foto y un vídeo de ejemplo)
 python -m ui_helpers.inspector.metadata_section                (su aviso «Edición múltiple»; sin ventana)
 python -m ui_helpers.inspector.value_parsing                   (lo escrito en las cajas del GPS, la altitud y la dirección; sin Qt)
+python -m ui_helpers.sidebars.sections.date_section            (textos de las fechas, árbol, orígenes y lo desplegado; sin ventana)
 python -m ui_helpers.models.full_image_loader                  (caché temporal: la mayor miniatura, sin miniatura, memoria; sin ventana)
 python -m ui_helpers.widgets.attribute_filter_row              (clics en marcas, estrellas, colores, selección rápida y tipos; operador; dibujo; sin ventana)
 python -m ui_helpers.widgets.filter_bar                        (pestañas, «Ninguno», candado y paneles; sin ventana)

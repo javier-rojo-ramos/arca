@@ -39,6 +39,8 @@ Uso (lo crea el panel de «Metadatos»):
     column.set_values(fetch_metadata_values(...), chosen)
     column.values_changed.connect(...)
 
+1.2.1 Los nombres de los meses y de los días, de 'formatting' ('MONTH_NAMES',
+      'WEEKDAY_NAMES'; también los usa la sección «Fechas»). Se ven igual que antes.
 1.2.0 Al volver a poner los valores del mismo campo (un recuento nuevo), la lista se
       queda donde estaba (no vuelve arriba).
 1.1.0 'column_separator': raya fina entre columnas; el engranaje, en el acento con el
@@ -51,7 +53,7 @@ Vista de ejemplo (abre una ventana y espera a que se cierre): tres columnas con 
     python -m ui_helpers.widgets.metadata_column --ventana
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = [
     "ADD_COLUMN_TEXT",
     "ALL_TEXT",
@@ -101,6 +103,8 @@ from core.catalog.smart_rules import format_value
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_theme import COLORS
 from ui_helpers.inspector.formatting import (
+    MONTH_NAMES,
+    WEEKDAY_NAMES,
     format_focal_length,
     format_iso,
     format_shutter,
@@ -122,11 +126,6 @@ _UNKNOWN_TEXTS: dict[str, str] = {
 }
 _NO_RATING_TEXT = "Sin valoración"  # la valoración 0 (no es «sin dato»: es su valor)
 _BOOL_TEXTS = {1: "Sí", 0: "No"}
-_MONTHS = (
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
-    "Septiembre", "Octubre", "Noviembre", "Diciembre",
-)  # fmt: skip
-_WEEKDAYS = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
 
 # Números con su formato (los demás, con el de las reglas: 'smart_rules.format_value').
 # El tiempo de exposición, EXACTO: cada fila filtra por su valor, y con el nominal dos
@@ -189,9 +188,10 @@ def value_text(field_key: str, value: Any) -> str:
 def _date_text(value: str) -> str:
     """'2024' (año), 'Junio' (mes) o '15 - sábado' (día)."""
     if len(value) == 7:
-        return _MONTHS[int(value[5:]) - 1]
+        return MONTH_NAMES[int(value[5:]) - 1]
     if len(value) == 10:
-        return f"{int(value[8:])} - {_WEEKDAYS[date.fromisoformat(value).weekday()]}"
+        weekday = WEEKDAY_NAMES[date.fromisoformat(value).weekday()].lower()
+        return f"{int(value[8:])} - {weekday}"
     return value
 
 

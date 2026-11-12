@@ -15,12 +15,14 @@ suyo; lo común lo hace la barra que la contiene (p. ej. 'ImageSidebar'):
 
 Una sección no sabe nada de SQL: los datos se los pone su módulo a través de la barra.
 
+1.1.0 'TEXT_NAME_INDENT' (antes, en 'keyword_section.py'): lo usan las palabras clave y
+      las fechas.
 1.0.0 Primera versión: sale de 'image_sidebar.py' al dividirla en un archivo por sección
       (12/11/2026).
 """
 
-__version__ = "1.0.0"
-__all__ = ["TreeSection", "make_item"]
+__version__ = "1.1.0"
+__all__ = ["TEXT_NAME_INDENT", "TreeSection", "make_item"]
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import Signal
@@ -30,6 +32,12 @@ from qtpy.QtWidgets import QWidget
 # Módulos del proyecto
 from core.catalog.grid_source import GridSource
 from ui_helpers.widgets.sidebar_tree_view import ROLE_COUNT, ROLE_SOURCE, SidebarTreeView
+
+# En los árboles sin iconos (palabras clave, fechas), cuánto se apartan los nombres de donde
+# los pone Qt (px lógicos): así caen en la columna de las flechas de las subcarpetas y de
+# los iconos de las carpetas (pedido por el autor; medido en una captura el 11/11/2026: sin
+# esto, 3 px antes). Se pasa como 'name_indent' a 'SidebarTreeView'
+TEXT_NAME_INDENT = 3
 
 
 def make_item(text: str, source: GridSource | None, count: int | None = None) -> QStandardItem:

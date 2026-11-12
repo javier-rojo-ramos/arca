@@ -63,7 +63,7 @@ controllers/
     module_view_state.py               ModuleViewState: lo elegido en cada módulo (orden, vista del centro y filtro) y cómo se guarda por catálogo (claves 'orders', 'views' y 'filters'); sin Qt
     center_views.py                    CenterView: vistas del centro (cuadrícula, individual, lista, mapa) con su texto emergente e icono; sin Qt
     catalog_module.py                  CatalogModule: barra CatalogSidebar (contadores, árboles, colecciones, opción de subcarpetas, estado)
-    image_module.py                    ImageModule: barra ImageSidebar (Biblioteca - Imagen con su selección rápida, carpetas con imágenes y árbol de palabras clave con recuentos), estado
+    image_module.py                    ImageModule: barra ImageSidebar (Biblioteca - Imagen con su selección rápida, carpetas con imágenes, fechas y árbol de palabras clave con recuentos), estado
     placeholder_module.py              PlaceholderModule: botón sin módulo todavía (página «próximamente»)
 ui/main_window.ui, main_window.py    Interfaz de Qt Designer (main_window.py se GENERA con build_ui.py; no editar a mano).
                                      Widgets promocionados: widget_catalog_sidebar (CatalogSidebar), list_view_grid (MediaGridView),
@@ -98,9 +98,10 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   dialogs/folder_content_dialog.py   FolderContentDialog: «¿Qué contiene esta carpeta?» al añadir una carpeta (FOLDER_CONTENT_TEXTS)
   dialogs/remove_dialog.py           RemoveDialog: «Eliminar N archivos del catálogo», como Lightroom: explicación y botones «Eliminar del disco» / «Eliminar del catálogo» (por defecto) / «Cancelar»
   sidebars/catalog_sidebar.py        CatalogSidebar: barra lateral del catálogo (Catálogo, Carpetas, Colecciones); emite GridSource
-  sidebars/image_sidebar.py          ImageSidebar: barra del módulo Imagen, solo para navegar. Es el contenedor: Biblioteca - Imagen, las secciones en orden (una lista), una sola fila elegida y el estado guardado; cada sección con árbol, en sections/
-  sidebars/sections/tree_section.py  TreeSection: base de las secciones con árbol de la barra de un módulo (views, find_item, owns, reveal, save_state / restore_state, reset; señal rebuilt) y make_item
+  sidebars/image_sidebar.py          ImageSidebar: barra del módulo Imagen, solo para navegar (Biblioteca - Imagen, Carpetas, Fechas y Lista de palabras clave). Es el contenedor: Biblioteca - Imagen, las secciones en orden (una lista), una sola fila elegida y el estado guardado; cada sección con árbol, en sections/
+  sidebars/sections/tree_section.py  TreeSection: base de las secciones con árbol de la barra de un módulo (views, find_item, owns, reveal, save_state / restore_state, reset; señal rebuilt), make_item y TEXT_NAME_INDENT
   sidebars/sections/folder_section.py  FolderSection: «Carpetas» con lo de una biblioteca (recuentos, opción de subcarpetas, lo desplegado, menú «Mostrar en el Explorador»)
+  sidebars/sections/date_section.py  DateSection: «Fechas» (años ▸ meses ▸ días con recuentos y «Sin fecha»; filas con date_source; lo desplegado en expanded_dates); date_label, date_tooltip
   sidebars/sections/keyword_section.py KeywordSection: «Lista de palabras clave» (filtro y árbol con recuentos que incluyen las hijas; lo desplegado en KeywordExpansion)
   helpers/sidebar_icons.py           load_sidebar_icons: iconos de unidades, carpetas y colecciones (barras del Catálogo e Imagen), con sus variantes ':open' y ':menu'
   widgets/keyword_checklist.py       KeywordChecklist: filtro + árbol de palabras con casillas de tres estados (editor del inspector); padres de lo asignado resaltados; menú contextual y soltar tarjetas
@@ -133,7 +134,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
     editable_row.py                    EditableValue: caja editable de una línea o de varias (Intro, Esc, Tab, Mayús+Intro; «Varios» como Lightroom; señal committed; reject: vuelve y avisa junto a la caja)
     value_parsing.py                   Lo escrito en las cajas del GPS, la altitud y la dirección (formas aceptadas, límites, avisos INVALID_TEXTS); NUMERIC_COLUMNS: las columnas de cada caja; sin Qt
     selection_section.py               Sección «Selección»: nombre, carpeta, tamaño, fecha, contenido, biblioteca y estado
-    formatting.py                      Textos: tamaños (24,3 MB), fechas por precisión, rangos, tipos («434 fotos · 20 vídeos»), origen de la fecha; metadatos: dimensiones, exposición, compensación, GPS, dirección, programa y medición (códigos EXIF), duración, fps, códec
+    formatting.py                      Textos: tamaños (24,3 MB), fechas por precisión, rangos, nombres de meses y días (MONTH_NAMES, WEEKDAY_NAMES), tipos («434 fotos · 20 vídeos»), origen de la fecha; metadatos: dimensiones, exposición, compensación, GPS, dirección, programa y medición (códigos EXIF), duración, fps, códec
   ► metadata_fields.py                 CAMPOS y VISTAS de la sección «Metadatos» (aquí se añaden): InspectorField (etiqueta, columnas por tipo de medio, formato), PRESETS, COMMON_HEAD, display_value; EDITABLE_KEYS (los que se editan) y editor_value
   widgets/media_grid_view.py         MediaGridView: QListView de la cuadrícula con imagen de arrastre pequeña y semitransparente
   models/media_mime.py               MIME propio del arrastre (application/x-arca-media-ids: {catalog, ids})

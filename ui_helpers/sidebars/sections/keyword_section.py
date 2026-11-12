@@ -30,11 +30,13 @@ Uso (lo hace la barra, p. ej. 'ImageSidebar'; ver 'tree_section.py'):
     keywords = KeywordSection("image", parent=parent)
     keywords.set_tree(tree)   # 'fetch_keyword_tree(conn, "image")', del módulo
 
+1.0.1 La sangría de los nombres, 'TEXT_NAME_INDENT' de 'tree_section.py' (la comparte con
+      las fechas); antes, '_KEYWORD_NAME_INDENT' aquí. El mismo valor.
 1.0.0 Primera versión: sale de 'image_sidebar.py' (1.7.3) al dividirla en un archivo por
       sección (12/11/2026); hace lo mismo que antes.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["KeywordSection"]
 
 # Librerías estándar
@@ -50,7 +52,7 @@ from core.catalog.grid_source import GridSource, SourceKind, keyword_source
 from core.catalog.keywords import KeywordTreeNode, filter_keyword_tree
 from ui_helpers.helpers.keyword_expansion import SIDEBAR, KeywordExpansion, keyword_expansion
 from ui_helpers.helpers.signal_blocker import blocked_signals as _blocked
-from ui_helpers.sidebars.sections.tree_section import TreeSection, make_item
+from ui_helpers.sidebars.sections.tree_section import TEXT_NAME_INDENT, TreeSection, make_item
 from ui_helpers.widgets.sidebar_tree_view import SidebarTreeView
 
 # Rol propio: id de la palabra de la fila (para recordar lo desplegado)
@@ -59,10 +61,6 @@ _ROLE_KEYWORD_ID = Qt.ItemDataRole.UserRole + 40
 # Distancia del filtro a los lados de la barra (px lógicos): la misma que a la cabecera de
 # su sección y que la del contenido del inspector
 _FILTER_SIDE_MARGIN = 8
-# Cuánto se apartan los nombres del árbol de donde los pone Qt (px lógicos): así caen en la
-# columna de las flechas de las subcarpetas y de los iconos de las carpetas (pedido por el
-# autor; medido en una captura el 11/11/2026: sin esto, 3 px antes)
-_KEYWORD_NAME_INDENT = 3
 
 
 class KeywordSection(TreeSection):
@@ -106,7 +104,8 @@ class KeywordSection(TreeSection):
         filter_row.addWidget(self._filter)
         layout.addLayout(filter_row)
         self._model = QStandardItemModel(self)
-        self._view = SidebarTreeView(self, name_indent=_KEYWORD_NAME_INDENT)
+        # Los nombres, en la columna de las flechas de las subcarpetas ('TEXT_NAME_INDENT')
+        self._view = SidebarTreeView(self, name_indent=TEXT_NAME_INDENT)
         self._view.setModel(self._model)
         self._view.expanded.connect(lambda index: self._on_expanded(index, True))
         self._view.collapsed.connect(lambda index: self._on_expanded(index, False))

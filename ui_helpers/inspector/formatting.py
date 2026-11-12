@@ -14,6 +14,9 @@ Metadatos (sección «Metadatos»), como los muestra Lightroom pero con coma dec
     fotogramas    '29,97 fps'                  códec          'HEVC (H.265)'
     fecha         '19/10/2026 18:44:05'
 
+1.5.0 'MONTH_NAMES' y 'WEEKDAY_NAMES': los nombres de los meses y de los días, para las
+      fechas en árbol (columna «Fecha de captura» de «Metadatos» y sección «Fechas» de la
+      barra de Imagen).
 1.4.0 'format_shutter': el tiempo de exposición solo (nominal o exacto); lo usan las
       columnas de «Metadatos» de la barra de filtros, que filtran por el valor exacto.
 1.1.1 Focal con hasta dos decimales y programa «Normal», como Lightroom.
@@ -23,12 +26,14 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.formatting
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "DATE_SOURCE_TEXTS",
     "EXPOSURE_PROGRAMS",
     "FLASH_STATES",
     "METERING_MODES",
+    "MONTH_NAMES",
+    "WEEKDAY_NAMES",
     "format_altitude",
     "format_bytes_exact",
     "format_camera",
@@ -58,6 +63,15 @@ from collections.abc import Iterable
 
 # Unidades de tamaño (base 1024, como el Explorador de Windows y el Finder antiguo)
 _SIZE_UNITS = ("B", "KB", "MB", "GB", "TB")
+
+# Nombres de los meses (de enero a diciembre) y de los días de la semana (de lunes a
+# domingo, en el orden de 'date.weekday()'), con mayúscula: quien los quiera en minúscula
+# (p. ej. «martes, 1 de enero»), con '.lower()'
+MONTH_NAMES = (
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
+    "Septiembre", "Octubre", "Noviembre", "Diciembre",
+)  # fmt: skip
+WEEKDAY_NAMES = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
 
 # De dónde salió la fecha de un elemento ('media_items.content_date_source'): texto del
 # tooltip de la fila «Fecha». Si aparece un origen nuevo, se muestra tal cual
@@ -424,6 +438,11 @@ if __name__ == "__main__":
     assert format_date("2024-06-01 00:00:00", "day") == "01/06/2024"
     assert format_date("2024-06-01 00:00:00", "month") == "06/2024"
     assert format_date("2024-01-01 00:00:00", "year") == "2024"
+    # Nombres de meses y días, en el orden de 'date' (el 1 de enero de 2024 fue lunes)
+    from datetime import date
+
+    assert len(MONTH_NAMES) == 12 and MONTH_NAMES[date(2024, 6, 1).month - 1] == "Junio"
+    assert WEEKDAY_NAMES[date(2024, 1, 1).weekday()] == "Lunes" and len(WEEKDAY_NAMES) == 7
     assert format_date(None) == "" and format_date("") == ""
     assert format_date_range("2024-06-01 12:00:00", "2024-06-01 12:00:30") == "01/06/2024 12:00"
     assert format_date_range("2024-06-01 10:00:00", "2024-06-01 12:30:00") == "01/06/2024 10:00 – 12:30"

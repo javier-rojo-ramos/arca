@@ -1,18 +1,20 @@
 """Módulo Imagen: las fotos y los vídeos del móvil (biblioteca Imagen).
 
-Es el segundo módulo (botón 'btn_image'). De momento tiene su barra lateral izquierda
-('ImageSidebar': «Todas las imágenes» y el árbol de PALABRAS CLAVE, paso K3) y usa el
-inspector y la cuadrícula comunes. Llegarán: línea de tiempo (año → mes → día), vista
-individual, y la edición de palabras clave y ubicación en su panel derecho (K4).
+Es el segundo módulo (botón 'btn_image'). Tiene su barra lateral izquierda ('ImageSidebar':
+«Biblioteca - Imagen», «Carpetas», «Fechas» y «Lista de palabras clave») y usa el
+inspector y la cuadrícula comunes.
 
 Qué hace este módulo (la barra no sabe nada de la base de datos):
     - Pasa al 'ModuleHost' lo que se elige en la barra ('source_selected').
-    - 'refresh' lee en segundo plano el contador de «Todas las imágenes» y el árbol de
-      palabras clave con sus recuentos ('keywords.fetch_keyword_tree').
+    - 'refresh' lee en segundo plano los contadores de la biblioteca, el árbol de carpetas,
+      los años, meses y días ('timeline.fetch_timeline') y el árbol de palabras clave con
+      sus recuentos ('keywords.fetch_keyword_tree').
     - Lo desplegado y la fila elegida, guardados por catálogo ('save_state' /
       'restore_state'; el 'ModuleHost' los escribe en settings.json). Lo desplegado del
       árbol con casillas del inspector ya no es de este módulo: lo guarda el inspector.
 
+1.13.0 «Fechas» en la barra: '_fetch_sidebar_data' lee también la línea de tiempo
+       ('fetch_timeline') y '_on_sidebar_data' se la pasa (paso A.4).
 1.12.0 'filter_metadata_fields': Fecha de captura, Modelo de la cámara y Objetivo, como
        Lightroom (decidido por el autor el 09/11/2026). Paso A.3.
 1.11.0 'filter_media_types': foto y vídeo (lo que entra en Imagen). Paso A.3.
@@ -32,7 +34,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.12.0"
+__version__ = "1.13.0"
 __all__ = ["ImageModule"]
 
 # Librerías estándar
@@ -57,23 +59,26 @@ from core.catalog.keywords import fetch_keyword_tree
 from core.catalog.libraries import Library
 from core.catalog.media_queries import count_grid_items
 from core.catalog.media_types import MediaType
+from core.catalog.timeline import fetch_timeline
 from ui_helpers.helpers.mode_toolbar import MODE_IMAGE
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME, reveal_in_file_manager
 from ui_helpers.sidebars.image_sidebar import ALL_IMAGES, IMAGE_QUICK, LIBRARY, ImageSidebar
 
 
-def _fetch_sidebar_data(conn: Any) -> tuple[int, int, tuple, tuple]:
+def _fetch_sidebar_data(conn: Any) -> tuple[int, int, tuple, tuple, tuple]:
     """Lo que necesita la barra: el número de imágenes y el de su selección rápida, el
-    árbol de carpetas (solo con lo de Imagen) y el de palabras clave.
+    árbol de carpetas (solo con lo de Imagen), los años con sus meses y días, y el árbol de
+    palabras clave.
 
     Una sola función (una sola visita al hilo de la base de datos) para que todo llegue a
-    la vez (así se sabe si la carpeta o la palabra elegida sigue existiendo).
+    la vez (así se sabe si la carpeta, la fecha o la palabra elegida sigue existiendo).
     """
     counts = count_grid_items(conn, [ALL_IMAGES, IMAGE_QUICK])
     return (
         counts.get(ALL_IMAGES, 0),
         counts.get(IMAGE_QUICK, 0),
         fetch_folder_tree(conn, LIBRARY),
+        fetch_timeline(conn, LIBRARY).values,
         fetch_keyword_tree(conn, LIBRARY),
     )
 
@@ -197,17 +202,18 @@ class ImageModule(AppModule):
         if not reveal_in_file_manager(folder):
             self.context.message_box.warning(f"No se pudo abrir {FILE_MANAGER_NAME}:\n{folder}")
 
-    def _on_sidebar_data(self, generation: int, data: tuple[int, int, tuple, tuple]) -> None:
+    def _on_sidebar_data(self, generation: int, data: tuple[int, int, tuple, tuple, tuple]) -> None:
         """Pone el contador y los árboles (si siguen siendo del catálogo abierto).
 
-        Si la carpeta o la palabra elegida ya no existe (se borró, o ya no tiene
+        Si la carpeta, la fecha o la palabra elegida ya no existe (se borró, o ya no tiene
         imágenes), se vuelve a «Todas las imágenes».
         """
         if generation != self._generation or self._db is None:
             return
-        count, quick_count, folders, tree = data
+        count, quick_count, folders, dates, tree = data
         self.sidebar.set_library_count(count, quick_count)
         self.sidebar.set_folder_tree(folders)
+        self.sidebar.set_date_tree(dates)
         self.sidebar.set_keyword_tree(tree)
         current = self.sidebar.current_source()
         if current != ALL_IMAGES and not self.sidebar.is_filtering() and not self.sidebar.has_source(current):
