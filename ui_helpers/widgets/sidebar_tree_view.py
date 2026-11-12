@@ -20,6 +20,10 @@ Cada fila lleva, en roles propios:
                  atenuado (EMPHASIS_PARTIAL). Lo usa el árbol con casillas del inspector
                  para las palabras con hijas asignadas («Familia» si la foto tiene «Ana»).
 
+1.5.0 Sin «búsqueda al teclear» ('keyboardSearch'): con el foco en el árbol, una letra o
+      un número elegía la siguiente fila que empieza por ella y la cuadrícula cambiaba de
+      origen sin querer (lo vio el autor: «G» tras elegir una palabra clave mostraba
+      otras fotos). Las flechas siguen funcionando.
 1.4.0 'name_indent' (en 'CountDelegate' y 'SidebarTreeView'): el nombre, unos px más a la
       derecha de donde lo pone Qt. Lo usa el árbol de palabras clave de la barra de Imagen
       para que sus nombres caigan en la columna de las flechas de las subcarpetas.
@@ -33,7 +37,7 @@ Cada fila lleva, en roles propios:
       seguía oculto por la derecha (el árbol pedía ~256 px y se salía del área visible).
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "EMPHASIS_FULL",
     "EMPHASIS_PARTIAL",
@@ -261,3 +265,12 @@ class SidebarTreeView(QTreeView):
     def wheelEvent(self, event: QWheelEvent) -> None:  # nombre de Qt
         """La rueda no desplaza el árbol (no tiene barra): se deja pasar a la barra lateral."""
         event.ignore()
+
+    # -------------------------------------------------------------------------
+    # Teclado
+    # -------------------------------------------------------------------------
+
+    def keyboardSearch(self, search: str) -> None:  # nombre de Qt
+        """Sin «búsqueda al teclear»: en Qt, una letra con el foco en el árbol elige la
+        siguiente fila que empieza por ella, y en una barra eso cambia lo que muestra la
+        cuadrícula (p. ej. «G», o «3» pensado como valoración). Las flechas, sí."""

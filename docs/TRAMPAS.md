@@ -21,6 +21,8 @@
 - Un color translúcido en texto es `"#aarrggbb"` en Qt (`QColor("#a5000000")`: primero la opacidad), al revés que en CSS y en otros programas (`#rrggbbaa`). Escrito al estilo CSS, Qt lo leería como otro color. En el QSS, mejor `rgba(r, g, b, a)`.
 - **Iconos en los menús**: con un `padding` en `QMenu::item` (el QSS del tema lo tiene), Qt dibuja el icono pegado al borde izquierdo: solo aparta el texto. Lo coloca la regla `QMenu::icon` de `theme_qss.py`. Y Qt pide el icono de la opción resaltada en modo `Active` (el mismo que «ratón encima» en un botón), no `Selected` como en las listas: un `tinted_icon` se queda con su color claro sobre el acento; por eso, en los menús, `menu_icon`.
 
+- **«Búsqueda al teclear» de los árboles de Qt**: con el foco en una `QTreeView`/`QListView`, una letra elige la siguiente fila que empieza por ella. En las barras eso cambiaba lo que muestra la cuadrícula (p. ej. «G» o un atajo de valoración tras hacer clic en la barra): `SidebarTreeView.keyboardSearch` lo anula. Un árbol nuevo de las barras debe ser un `SidebarTreeView` (o anularlo igual).
+
 ## ExifTool y escritura en los archivos
 
 - ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.
