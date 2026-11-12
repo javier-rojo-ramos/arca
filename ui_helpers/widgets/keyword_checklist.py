@@ -59,6 +59,8 @@ OJO: al rehacer el árbol NO se bloquean las señales del MODELO (sí se ignoran
 ellas bloqueadas, la vista seguía dibujando filas que ya no existían (huecos, alto de una
 sola fila) y acababa cerrando el programa sin aviso (versión 1.0.0).
 
+1.6.0 'filter_margin': el filtro, en su fila, con esos px a los lados; el árbol, a todo el
+      ancho (como la «Lista de palabras clave» de la barra izquierda; pedido por el autor).
 1.5.1 La flecha, delante del número; el clic se comprueba contra el sitio exacto donde se
       dibujó ('_KeywordDelegate.arrow_rects').
 1.5.0 Flecha «ver sus fotos» ('show_keyword_requested') y árbol sin selección (casillas
@@ -77,7 +79,7 @@ Prueba rápida de la lógica (sin Qt):
     python -m ui_helpers.widgets.keyword_checklist
 """
 
-__version__ = "1.5.1"
+__version__ = "1.6.0"
 __all__ = ["KeywordChecklist", "check_states", "descendant_text", "emphasis_level"]
 
 # Librerías estándar
@@ -88,6 +90,7 @@ from qtpy.QtCore import QEvent, QModelIndex, QObject, QPoint, QPointF, QRect, Qt
 from qtpy.QtGui import QBrush, QColor, QPainter, QPalette, QPen, QStandardItem, QStandardItemModel
 from qtpy.QtWidgets import (
     QAbstractItemView,
+    QHBoxLayout,
     QLineEdit,
     QStyle,
     QStyleOptionViewItem,
@@ -216,8 +219,19 @@ class KeywordChecklist(QWidget):
     media_dropped = Signal(int, object)
 
     def __init__(
-        self, parent: QWidget | None = None, expansion: KeywordExpansion | None = None
+        self,
+        parent: QWidget | None = None,
+        expansion: KeywordExpansion | None = None,
+        *,
+        filter_margin: int = 0,
     ) -> None:
+        """Crea el filtro y el árbol (vacío hasta 'set_data').
+
+        Args:
+            parent: Widget padre.
+            expansion: Lo desplegado (por defecto, el estado 'INSPECTOR').
+            filter_margin: px a cada lado del filtro (el árbol ocupa siempre todo el ancho).
+        """
         super().__init__(parent)
         self._tree: tuple[KeywordTreeNode, ...] = ()
         self._states: dict[int, int] = {}
@@ -238,12 +252,16 @@ class KeywordChecklist(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
+        # El filtro, en su fila (con sus márgenes a los lados)
+        filter_row = QHBoxLayout()
+        filter_row.setContentsMargins(filter_margin, 0, filter_margin, 0)
         self._filter = QLineEdit(self)
         self._filter.setObjectName("edit_keyword_checklist_filter")
         self._filter.setPlaceholderText("Filtrar palabras clave")
         self._filter.setClearButtonEnabled(True)
         self._filter.textChanged.connect(self._rebuild)
-        layout.addWidget(self._filter)
+        filter_row.addWidget(self._filter)
+        layout.addLayout(filter_row)
 
         self._model = QStandardItemModel(self)
         self._model.itemChanged.connect(self._on_item_changed)

@@ -26,6 +26,8 @@ La sección no toca la base de datos: lee con 'data_request'
 ('keywords.fetch_keyword_editor_data') y pide los cambios con 'edit_requested'
 ('keywords.apply_keyword_changes'), que atiende el controlador del inspector.
 
+1.5.3 Márgenes como los de la barra izquierda: el árbol, a todo el ancho (antes, a 8 px de
+      los lados), y el filtro, a 8 px de los lados (pedido por el autor).
 1.5.2 El filtro, a 8 px de la cabecera de la sección (antes, 4), como de los lados.
 1.5.1 Margen derecho de 8 px, como el izquierdo (antes, 4), igual que 'InfoGrid'.
 1.5.0 En todos los módulos, siempre (también sin selección: para navegar con la flecha o
@@ -38,7 +40,7 @@ La sección no toca la base de datos: lee con 'data_request'
 1.1.0 Datos con 'KeywordEditorData'; los padres de las palabras asignadas, resaltados.
 """
 
-__version__ = "1.5.2"
+__version__ = "1.5.3"
 __all__ = ["KeywordListSection"]
 
 # Librerías estándar
@@ -61,6 +63,9 @@ from ui_helpers.inspector.base_section import InspectorSection
 from ui_helpers.models.media_mime import MediaDrag
 from ui_helpers.widgets.keyword_checklist import KeywordChecklist
 
+# Distancia del filtro a los lados del inspector (px lógicos): la de las demás secciones
+_FILTER_SIDE_MARGIN = 8
+
 
 class KeywordListSection(InspectorSection):
     """Árbol de palabras con casillas para lo seleccionado (ver el docstring del módulo)."""
@@ -73,13 +78,15 @@ class KeywordListSection(InspectorSection):
         self._pending_ids: tuple[int, ...] = ()   # los de la última petición de datos
 
         layout = QVBoxLayout(self)
-        # A los lados, los de las filas de las demás secciones ('InfoGrid'). Arriba, 6: con
-        # los 2 del cuerpo de la sección, el filtro del árbol queda a 8 px de la cabecera,
-        # como de los lados (pedido por el autor el 11/11/2026)
-        layout.setContentsMargins(8, 6, 8, 2)
+        # Como la «Lista de palabras clave» de la barra izquierda (pedido por el autor el
+        # 12/11/2026): el árbol, a todo el ancho (sus números terminan donde la caja del
+        # filtro), y el filtro, a 8 px de los lados, los de las filas de las demás secciones
+        # ('InfoGrid'). Arriba, 6: con los 2 del cuerpo de la sección, el filtro queda a
+        # 8 px de la cabecera, como de los lados (11/11/2026)
+        layout.setContentsMargins(0, 6, 0, 2)
         layout.setSpacing(0)
 
-        self._checklist = KeywordChecklist(self)
+        self._checklist = KeywordChecklist(self, filter_margin=_FILTER_SIDE_MARGIN)
         self._checklist.keyword_toggled.connect(self._on_keyword_toggled)
         # Menú contextual del árbol: va por el mismo camino que los demás cambios
         self._checklist.operation_requested.connect(self.edit_requested)
