@@ -13,9 +13,9 @@
     │ Purgar palabras clave no usadas…             │
     └──────────────────────────────────────────────┘
 
-Lo usan los dos árboles del módulo Imagen: la «Lista de palabras clave» de la barra
-izquierda ('ImageSidebar') y la del inspector ('KeywordChecklist'). Pulsando en un hueco
-del árbol (sin palabra), solo «Crear en el primer nivel» y «Purgar».
+Lo usa el árbol con casillas del inspector ('KeywordChecklist'); la barra izquierda no
+tiene menú desde el 04/11/2026 (solo navega). Pulsando en un hueco del árbol (sin
+palabra), solo «Crear en el primer nivel» y «Purgar».
 
 Aquí solo se pregunta (el nombre, el destino, la confirmación); la base de datos NO se
 toca: 'ask_keyword_operation' devuelve (función, argumentos) de 'core/catalog/keywords.py'
@@ -23,15 +23,42 @@ y el árbol la emite ('operation_requested'). La ejecuta el controlador del insp
 cola de cambios (como el resto de cambios del usuario), que avisa si falla (p. ej. «Ya hay
 una palabra clave "Ana" dentro de "Familia"») y refresca los árboles al terminar.
 
+«Borrar» es la excepción (12/11/2026): la pregunta tiene que decir cuántos archivos de
+TODO el catálogo la tienen (también vídeos, canciones o tracks, que los recuentos del
+árbol no cuentan), y eso hay que leerlo de la base de datos. Así que el menú devuelve el
+recuento ('fetch_keyword_usage'); el controlador del inspector, al recibir el
+'KeywordUsage', pregunta con 'confirm_keyword_deletion' y, si se acepta, borra.
+
+«Purgar» igual (pedido por el autor el 12/11/2026): el menú devuelve la lista de las
+palabras sin usar ('fetch_unused_keywords') y el controlador pregunta con
+'ask_keyword_purge', que las nombra (las PURGE_SHOWN primeras; todas, en «Mostrar
+detalles…») y devuelve la operación que borra exactamente esas.
+
 Los archivos que tienen una palabra renombrada, movida o borrada (o alguna de sus hijas)
 quedan pendientes de escribir: su jerarquía en el XMP ha cambiado.
+
+1.2.0 «Purgar»: la pregunta dice cuántas palabras se borran y cuáles ('purge_question',
+      'ask_keyword_purge'); sin ninguna sin usar, un aviso.
+1.1.0 «Borrar»: la pregunta cuenta los archivos de todo el catálogo, por tipo (antes,
+      solo las imágenes del árbol: unos vídeos con la palabra perdían la palabra sin
+      aviso). 'delete_question' y 'confirm_keyword_deletion'.
 
 Prueba rápida de la lógica (sin Qt):
     python -m ui_helpers.helpers.keyword_menu
 """
 
-__version__ = "1.0.0"
-__all__ = ["ROOT_LABEL", "ask_keyword_operation", "move_targets", "tree_index"]
+__version__ = "1.2.0"
+__all__ = [
+    "PURGE_SHOWN",
+    "ROOT_LABEL",
+    "ask_keyword_operation",
+    "ask_keyword_purge",
+    "confirm_keyword_deletion",
+    "delete_question",
+    "move_targets",
+    "purge_question",
+    "tree_index",
+]
 
 # Librerías estándar
 from collections.abc import Callable, Iterable
@@ -46,14 +73,21 @@ from core.catalog.catalog_schema import fold_text
 from core.catalog.keywords import (
     PATH_SEPARATOR,
     KeywordTreeNode,
+    KeywordUsage,
+    UnusedKeywords,
     create_keyword,
-    delete_keyword,
+    delete_unused_keywords,
+    fetch_keyword_usage,
+    fetch_unused_keywords,
     mark_keyword_reviewed,
     move_keyword,
-    purge_unused_keywords,
     rename_keyword,
 )
 from ui_helpers.helpers.ui_message import MessageBoxHelper
+from ui_helpers.inspector.formatting import format_media_types
+
+# Palabras que se nombran en la pregunta de «Purgar» (todas, en «Mostrar detalles…»)
+PURGE_SHOWN = 20
 
 # Destino «primer nivel» en la lista de «Mover a…»
 ROOT_LABEL = "(Primer nivel)"
@@ -98,24 +132,30 @@ def move_targets(nodes: Iterable[KeywordTreeNode], keyword_id: int) -> list[tupl
     return [(ROOT_LABEL, None), *targets]
 
 
-def _count_descendants(node: KeywordTreeNode) -> int:
-    return sum(1 + _count_descendants(child) for child in node.children)
-
-
-def _delete_question(node: KeywordTreeNode) -> str:
-    """Texto de la confirmación de borrar (con sus hijas y sus fotos de Imagen)."""
-    children = _count_descendants(node)
-    what = f"«{node.name}»"
+def delete_question(usage: KeywordUsage) -> str:
+    """Texto de la confirmación de borrar: sus hijas y los archivos de TODO el catálogo que
+    la tienen (o alguna de sus hijas), por tipo."""
+    children = usage.descendants
+    what = f"«{usage.name}»"
     if children:
         what += f" y {'su palabra hija' if children == 1 else f'sus {children} palabras hijas'}"
     text = f"¿Borrar {what}?"
-    if node.count:
-        photos = "1 imagen la tiene" if node.count == 1 else f"{node.count} imágenes las tienen"
+    if usage.media:
+        verb = "la tiene" if usage.media == 1 else "la tienen"
+        which = " (o alguna de sus hijas)" if children else ""
         text += (
-            f"\n\n{photos} (o alguna de sus hijas): se les quitará, también en sus archivos "
-            "si está activado «Guardar en los archivos»."
+            f"\n\n{format_media_types(usage.media_types)} {verb}{which}: se les quitará, también "
+            "en sus archivos si está activado «Guardar en los archivos»."
         )
     return text + "\n\nNo se puede deshacer."
+
+
+def confirm_keyword_deletion(parent: QWidget, usage: KeywordUsage) -> bool:
+    """Pregunta si se borra la palabra (con lo que afecta: 'delete_question')."""
+    answer = MessageBoxHelper(parent).warning(
+        delete_question(usage), title="Borrar palabra clave", buttons=["Borrar", "Cancelar"]
+    )
+    return answer == "Borrar"
 
 
 def _ask_name(parent: QWidget, title: str, label: str, text: str = "") -> str | None:
@@ -176,15 +216,8 @@ def ask_keyword_operation(
         name = _ask_name(parent, "Crear palabra clave", "Nombre (en el primer nivel):")
         return (create_keyword, (None, name)) if name else None
     if key == "purge":
-        answer = MessageBoxHelper(parent).question(
-            "¿Borrar las palabras clave que no tiene ningún archivo del catálogo (ni ellas ni "
-            "sus hijas)?\n\nUn padre que agrupa palabras usadas se queda.",
-            title="Purgar palabras clave no usadas",
-            buttons=["Purgar", "Cancelar"],
-        )
-        # Devuelve el número de palabras borradas, no de archivos: se envuelve para que
-        # no se tome por archivos cambiados
-        return (_purge_without_count, ()) if answer == "Purgar" else None
+        # Antes de preguntar, cuáles son (ver el docstring del módulo)
+        return fetch_unused_keywords, ()
 
     assert entry is not None
     node, path, parent_id = entry
@@ -211,16 +244,51 @@ def ask_keyword_operation(
     if key == "reviewed":
         return mark_keyword_reviewed, (node.id,)
     if key == "delete":
-        answer = MessageBoxHelper(parent).warning(
-            _delete_question(node), title="Borrar palabra clave", buttons=["Borrar", "Cancelar"]
-        )
-        return (delete_keyword, (node.id,)) if answer == "Borrar" else None
+        # Antes de preguntar, lo que tiene todo el catálogo (ver el docstring del módulo)
+        return fetch_keyword_usage, (node.id,)
     return None
 
 
-def _purge_without_count(conn: Any) -> int:
-    """'purge_unused_keywords' sin devolver el número de palabras (ningún archivo cambia)."""
-    purge_unused_keywords(conn)
+def purge_question(unused: UnusedKeywords) -> tuple[str, str | None]:
+    """La pregunta de «Purgar»: cuántas palabras y cuáles (las PURGE_SHOWN primeras), y la
+    lista entera para «Mostrar detalles…» si no caben (None si caben)."""
+    names = [f" {PATH_SEPARATOR} ".join(path) for path in unused.paths]
+    count = len(names)
+    if count == 1:
+        head = (
+            "¿Borrar esta palabra clave? No la tiene ningún archivo del catálogo "
+            "(ni ella ni sus hijas):"
+        )
+    else:
+        head = (
+            f"¿Borrar estas {count} palabras clave? No las tiene ningún archivo del catálogo "
+            "(ni ellas ni sus hijas):"
+        )
+    listed = ", ".join(names[:PURGE_SHOWN])
+    if count > PURGE_SHOWN:
+        listed += f" y {count - PURGE_SHOWN} más"
+    text = f"{head}\n\n{listed}.\n\nUn padre que agrupa palabras usadas se queda."
+    return text, ("\n".join(names) if count > PURGE_SHOWN else None)
+
+
+def ask_keyword_purge(parent: QWidget, unused: UnusedKeywords) -> Operation | None:
+    """Pregunta si se purgan esas palabras ('purge_question') y devuelve la operación que
+    borra exactamente esas (None si se cancela). Sin ninguna sin usar, solo lo avisa."""
+    title = "Purgar palabras clave no usadas"
+    if not unused.ids:
+        MessageBoxHelper(parent).info("No hay palabras clave sin usar.", title=title)
+        return None
+    text, details = purge_question(unused)
+    answer = MessageBoxHelper(parent).question(
+        text, title=title, buttons=["Purgar", "Cancelar"], details=details
+    )
+    return (_delete_unused_without_count, (unused.ids,)) if answer == "Purgar" else None
+
+
+def _delete_unused_without_count(conn: Any, keyword_ids: tuple[int, ...]) -> int:
+    """'delete_unused_keywords' sin devolver el número de palabras: no se tomaría por el
+    de archivos cambiados (ninguno cambia)."""
+    delete_unused_keywords(conn, keyword_ids)
     return 0
 
 
@@ -236,7 +304,28 @@ if __name__ == "__main__":
     # Mover «Abuelos»: ni ella ni su hija; el primer nivel, el primero
     labels = [label for label, _id in move_targets(tree, 3)]
     assert labels == [ROOT_LABEL, "Coche", "Familia", "Familia > Ana"], labels
-    assert "dos" not in _delete_question(tree[1]) and "1 imagen la tiene" in _delete_question(tree[1])
-    assert "sus 3 palabras hijas" in _delete_question(tree[0]) and "5 imágenes" in _delete_question(tree[0])
-    assert "su palabra hija" in _delete_question(abuelos) and "imagen" not in _delete_question(abuelos)
+    # La pregunta de borrar: hijas y archivos de todo el catálogo, por tipo
+    coche = KeywordUsage(1, 0, 5, "Coche", (("photo", 1),))
+    expected = "¿Borrar «Coche»?\n\n1 foto la tiene: se les quitará"
+    assert delete_question(coche).startswith(expected), delete_question(coche)
+    familia = KeywordUsage(8, 3, 1, "Familia", (("photo", 5), ("video", 3)))
+    text = delete_question(familia)
+    assert "¿Borrar «Familia» y sus 3 palabras hijas?" in text, text
+    assert "5 fotos · 3 vídeos la tienen (o alguna de sus hijas)" in text, text
+    # Solo vídeos (antes, sin aviso): ahora lo dice
+    clips = delete_question(KeywordUsage(3, 0, 6, "Viaje", (("video", 3),)))
+    assert "3 vídeos la tienen:" in clips, clips
+    # Sin archivos: solo la pregunta
+    alone = delete_question(KeywordUsage(0, 1, 3, "Abuelos"))
+    assert alone == "¿Borrar «Abuelos» y su palabra hija?\n\nNo se puede deshacer.", alone
+    # La pregunta de purgar: cuántas y cuáles (con su ruta); las que no caben, en detalles
+    one, details = purge_question(UnusedKeywords((7,), (("Abel",),)))
+    assert one.startswith("¿Borrar esta palabra clave? No la tiene") and "\n\nAbel.\n\n" in one
+    assert details is None
+    few, details = purge_question(UnusedKeywords((1, 2), (("Abel",), ("Familia", "Abuelos"))))
+    assert "¿Borrar estas 2 palabras clave?" in few and "Abel, Familia > Abuelos." in few, few
+    many_paths = tuple((f"P{i:02}",) for i in range(25))
+    many, details = purge_question(UnusedKeywords(tuple(range(25)), many_paths))
+    assert "P19 y 5 más." in many and "P20" not in many, many
+    assert details is not None and details.splitlines() == [f"P{i:02}" for i in range(25)]
     print("Autoprueba finalizada correctamente.")

@@ -6,6 +6,9 @@ configuración de iconos, textos y roles de botones para mensajes de informació
 advertencias, errores críticos y preguntas, garantizando además la compatibilidad
 retroactiva en la ejecución de diálogos entre distintas versiones de Qt.
 
+1.10 'details' (opcional, en todos los avisos): un texto largo (p. ej. una lista) que se
+     despliega con el botón «Mostrar detalles…» de QMessageBox ('setDetailedText'; el
+     texto del botón lo traduce Qt). Sin él, todo igual que antes.
 1.09 'question_with_checkbox': pregunta con una casilla debajo (p. ej. «No volver a
      mostrar»); devuelve el botón pulsado y si se marcó la casilla.
 1.08 Se armonizan los nombres de las variables y métodos para mantener consistencia.
@@ -22,7 +25,7 @@ retroactiva en la ejecución de diálogos entre distintas versiones de Qt.
 1.01 Se incorpora el título de la aplicación como título por defecto.
 """
 
-__version__ = "1.09"
+__version__ = "1.10"
 __all__ = ["MessageBoxHelper"]
 
 # Librerías de terceros (Qt)
@@ -56,8 +59,9 @@ class MessageBoxHelper:
         title: str | None = None,
         buttons: list[str] | None = None,
         centered: bool | None = None,
+        details: str | None = None,
     ) -> str | None:
-        return self._show("info", text, title, buttons, centered)
+        return self._show("info", text, title, buttons, centered, details=details)
 
     def warning(
         self,
@@ -65,8 +69,9 @@ class MessageBoxHelper:
         title: str | None = None,
         buttons: list[str] | None = None,
         centered: bool | None = None,
+        details: str | None = None,
     ) -> str | None:
-        return self._show("warning", text, title, buttons, centered)
+        return self._show("warning", text, title, buttons, centered, details=details)
 
     def critical(
         self,
@@ -74,8 +79,9 @@ class MessageBoxHelper:
         title: str | None = None,
         buttons: list[str] | None = None,
         centered: bool | None = None,
+        details: str | None = None,
     ) -> str | None:
-        return self._show("critical", text, title, buttons, centered)
+        return self._show("critical", text, title, buttons, centered, details=details)
 
     def question(
         self,
@@ -83,8 +89,9 @@ class MessageBoxHelper:
         title: str | None = None,
         buttons: list[str] | None = None,
         centered: bool | None = None,
+        details: str | None = None,
     ) -> str | None:
-        return self._show("question", text, title, buttons, centered)
+        return self._show("question", text, title, buttons, centered, details=details)
 
     def question_with_checkbox(
         self,
@@ -112,10 +119,12 @@ class MessageBoxHelper:
         centered: bool | None = None,
         checkbox: str | None = None,
         checked: list[bool] | None = None,
+        details: str | None = None,
     ) -> str | None:
         """Muestra el mensaje y devuelve el texto del botón pulsado.
 
         Con 'checkbox', pone una casilla con ese texto y deja en 'checked' si se marcó.
+        Con 'details', un texto que se despliega con «Mostrar detalles…».
         """
         title_to_show = title if title is not None else self.app_name
 
@@ -137,6 +146,8 @@ class MessageBoxHelper:
         box = QCheckBox(checkbox, msg) if checkbox else None
         if box is not None:
             msg.setCheckBox(box)
+        if details:
+            msg.setDetailedText(details)
 
         if buttons:
             for i, btn_text in enumerate(buttons):

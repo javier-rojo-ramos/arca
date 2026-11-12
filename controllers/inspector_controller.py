@@ -36,8 +36,15 @@ Cambios pedidos por las secciones ('edit_requested', p. ej. asignar una palabra 
 se ejecutan en segundo plano DE UNO EN UNO y en orden (marcar y desmarcar deprisa no se
 adelantan entre sí). Si cambian algo, se avisa con 'user_data_changed' (el controlador
 principal programa la escritura en los archivos y refresca la barra lateral) y el
-inspector se recalcula.
+inspector se recalcula. «Borrar» una palabra clave llega primero como un recuento
+('fetch_keyword_usage', de todo el catálogo): al recibirlo se pregunta
+('confirm_keyword_deletion') con la cola parada y, si se acepta, el borrado va el primero.
+«Purgar» igual: llega la lista de las palabras sin usar ('UnusedKeywords') y se pregunta
+('ask_keyword_purge').
 
+1.10.0 «Purgar»: pregunta con la lista de lo que se va a borrar ('UnusedKeywords').
+1.9.0 «Borrar» una palabra clave: pregunta con lo que tiene todo el catálogo (llega un
+      'KeywordUsage' por la cola; si se acepta, 'delete_keyword' el primero).
 1.8.0 Sin selección, el resumen lleva el filtro de la barra de filtros (paso A.3).
 1.7.0 Fuera 'set_module': las secciones dependen de la selección, no del módulo (A.2).
 1.6.0 Guarda y recupera lo desplegado del árbol de palabras clave ('save_state',
@@ -56,7 +63,7 @@ inspector se recalcula.
 Acciones del panel: «Mostrar en el Explorador» (botón de la carpeta) se atiende aquí.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.10.0"
 __all__ = ["STATE_KEY", "InspectorController"]
 
 # Librerías estándar
@@ -71,13 +78,14 @@ from qtpy.QtCore import QObject, QTimer, Signal
 from qtpy.QtWidgets import QListView
 
 # Módulos del proyecto
-from core.catalog.keywords import KeywordError
+from core.catalog.keywords import KeywordError, KeywordUsage, UnusedKeywords, delete_keyword
 from core.catalog.selection_summary import (
     SelectionSummary,
     fetch_selection_summary,
     fetch_source_summary,
 )
 from ui_helpers.helpers.keyword_expansion import INSPECTOR, keyword_expansion
+from ui_helpers.helpers.keyword_menu import ask_keyword_purge, confirm_keyword_deletion
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME, reveal_in_file_manager
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.inspector.inspector_panel import InspectorPanel
@@ -307,12 +315,36 @@ class InspectorController(QObject):
 
     def _on_edit_done(self, changed: Any) -> None:
         """Cambio guardado: aviso (escritura en archivos, barra lateral) y recálculo."""
+        if isinstance(changed, KeywordUsage):
+            self._confirm_deletion(changed)
+            return
+        if isinstance(changed, UnusedKeywords):
+            self._confirm_purge(changed)
+            return
         self._edit_running = False
         count = changed if isinstance(changed, int) else 0
         if count:
             self.user_data_changed.emit(count)
         self.edit_finished.emit()
         self._schedule()  # también sin cambios: la sección vuelve a mostrar lo que hay
+        self._run_next_edit()
+
+    def _confirm_deletion(self, usage: KeywordUsage) -> None:
+        """«Borrar» una palabra: ya se sabe lo que tiene todo el catálogo; se pregunta. La
+        cola sigue parada mientras ('_edit_running'), así que nada se adelanta; si se
+        acepta, el borrado va el primero."""
+        if self._db is not None and confirm_keyword_deletion(self._panel, usage):
+            self._edits.appendleft((delete_keyword, (usage.keyword_id,)))
+        self._edit_running = False
+        self._run_next_edit()
+
+    def _confirm_purge(self, unused: UnusedKeywords) -> None:
+        """«Purgar»: ya se sabe qué palabras están sin usar; se pregunta enseñándolas (con
+        la cola parada, como al borrar) y, si se acepta, se borran esas las primeras."""
+        operation = ask_keyword_purge(self._panel, unused) if self._db is not None else None
+        if operation is not None:
+            self._edits.appendleft(operation)
+        self._edit_running = False
         self._run_next_edit()
 
     def _on_edit_error(self, error: Exception) -> None:

@@ -23,24 +23,43 @@ Lo que se arrastra (los 'id' de las tarjetas) no cambia: lo sigue preparando el 
 ('MediaGridModel.mimeData'). Se promociona en el .ui: 'list_view_grid' es un
 'MediaGridView' (cabecera 'ui_helpers/widgets/media_grid_view.h').
 
+Cuadrícula vacía: «No hay archivos» en el centro, en gris (el mismo texto que la vista
+individual). Solo cuando el modelo ha terminado de cargar sin nada ('rows_loaded(0)') o
+se han quitado todas las tarjetas: no mientras carga ni sin catálogo (al vaciarse la lista
+con 'modelReset' se esconde hasta que el modelo diga cuántas hay).
+
+1.3.0 «No hay archivos» en la cuadrícula vacía (p. ej. al elegir una palabra clave sin
+      fotos; lo pidió el autor el 12/11/2026).
 1.2.0 Colores del tema: el borde de la imagen arrastrada ('CARD_COLORS.drag_border') y el
       número de la insignia, oscuro sobre el acento ('text_on_accent'; antes blanco, que
       sobre el ámbar no se leía).
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["MediaGridView"]
 
 # Librerías de terceros
 from loguru import logger
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QEvent, QPoint, QRectF, Qt
-from qtpy.QtGui import QColor, QDrag, QFont, QIcon, QImage, QMouseEvent, QPainter, QPen, QPixmap
+from qtpy.QtCore import QAbstractItemModel, QEvent, QPoint, QRectF, Qt
+from qtpy.QtGui import (
+    QColor,
+    QDrag,
+    QFont,
+    QIcon,
+    QImage,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QPixmap,
+)
 from qtpy.QtWidgets import QListView, QWidget
 
 # Módulos del proyecto
 from ui_helpers.helpers.ui_theme import ACCENT_COLOR, CARD_COLORS, COLORS, GRID_BG
+from ui_helpers.widgets.single_media_view import EMPTY_TEXT
 
 # Lado máximo de la miniatura arrastrada (píxeles lógicos)
 DRAG_THUMB_SIDE = 72
@@ -62,6 +81,48 @@ class MediaGridView(QListView):
         # True desde que se pulsa en una zona activa hasta que se suelta el botón: los
         # eventos de ese clic (mover, soltar) no llegan a Qt (no seleccionan ni arrastran)
         self._swallowing_click = False
+        # True si la lista cargada está vacía de verdad («No hay archivos»; ver el docstring)
+        self._empty = False
+
+    # -------------------------------------------------------------------------
+    # Cuadrícula vacía
+    # -------------------------------------------------------------------------
+
+    def setModel(self, model: QAbstractItemModel | None) -> None:  # nombre de Qt
+        """Asigna el modelo y vigila cuándo queda vacío (para «No hay archivos»)."""
+        super().setModel(model)
+        self._empty = False
+        if model is None:
+            return
+        model.modelReset.connect(self._on_model_reset)
+        model.rowsRemoved.connect(self._on_rows_removed)
+        rows_loaded = getattr(model, "rows_loaded", None)
+        if rows_loaded is not None:
+            rows_loaded.connect(self._on_rows_loaded)
+
+    def _set_empty(self, empty: bool) -> None:
+        if empty != self._empty:
+            self._empty = empty
+            self.viewport().update()
+
+    def _on_model_reset(self) -> None:
+        self._set_empty(False)  # cargando o sin catálogo: hasta que diga cuántas hay
+
+    def _on_rows_loaded(self, count: int) -> None:
+        self._set_empty(count == 0)
+
+    def _on_rows_removed(self, *_args: object) -> None:
+        model = self.model()
+        self._set_empty(model is not None and model.rowCount() == 0)
+
+    def paintEvent(self, event: QPaintEvent) -> None:  # nombre de Qt
+        super().paintEvent(event)
+        model = self.model()
+        if self._empty and model is not None and model.rowCount() == 0:
+            painter = QPainter(self.viewport())
+            painter.setPen(QColor(COLORS.text_dim))
+            painter.drawText(self.viewport().rect(), Qt.AlignmentFlag.AlignCenter, EMPTY_TEXT)
+            painter.end()
 
     # -------------------------------------------------------------------------
     # Clics en las zonas activas de la tarjeta (estrellas, marca, círculo)

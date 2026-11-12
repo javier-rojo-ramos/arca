@@ -11,7 +11,9 @@ Como la «Lista de palabras clave» de Lightroom (paso K3):
     - Los recuentos INCLUYEN las hijas: «Coche» cuenta las fotos de todos los modelos,
       aunque no lleven «Coche» asignada (cada foto una vez). Lightroom cuenta solo las
       asignadas directamente; aquí se prefirió así (decidido el 03/11/2026, a revisar por
-      el autor al verlo). Las palabras sin nada de la biblioteca no muestran número.
+      el autor al verlo). Las palabras sin nada de la biblioteca (ni ellas ni sus hijas)
+      no muestran número y salen en gris, como una carpeta de un disco desconectado
+      (decidido por el autor el 12/11/2026); se pueden elegir igual.
     - Al elegir una palabra, la cuadrícula muestra lo suyo Y lo de sus hijas, solo de la
       biblioteca del módulo ('grid_source.keyword_source').
     - La caja de arriba filtra el árbol mientras se escribe, sin distinguir mayúsculas ni
@@ -30,13 +32,14 @@ Uso (lo hace la barra, p. ej. 'ImageSidebar'; ver 'tree_section.py'):
     keywords = KeywordSection("image", parent=parent)
     keywords.set_tree(tree)   # 'fetch_keyword_tree(conn, "image")', del módulo
 
+1.1.0 Las palabras sin nada de la biblioteca, en gris (el «desactivado» de la paleta).
 1.0.1 La sangría de los nombres, 'TEXT_NAME_INDENT' de 'tree_section.py' (la comparte con
       las fechas); antes, '_KEYWORD_NAME_INDENT' aquí. El mismo valor.
 1.0.0 Primera versión: sale de 'image_sidebar.py' (1.7.3) al dividirla en un archivo por
       sección (12/11/2026); hace lo mismo que antes.
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = ["KeywordSection"]
 
 # Librerías estándar
@@ -44,7 +47,7 @@ from collections.abc import Iterable
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QModelIndex, Qt
-from qtpy.QtGui import QStandardItem, QStandardItemModel
+from qtpy.QtGui import QBrush, QPalette, QStandardItem, QStandardItemModel
 from qtpy.QtWidgets import QHBoxLayout, QLineEdit, QVBoxLayout, QWidget
 
 # Módulos del proyecto
@@ -190,7 +193,10 @@ class KeywordSection(TreeSection):
         view, model = self._view, self._model
         with _blocked(view.selectionModel(), view):
             model.clear()
-            self._append(model.invisibleRootItem(), shown)
+            # Las palabras sin nada de la biblioteca, con el gris de lo desactivado
+            disabled = QPalette.ColorGroup.Disabled
+            dim = QBrush(view.palette().color(disabled, QPalette.ColorRole.Text))
+            self._append(model.invisibleRootItem(), shown, dim)
             # Con filtro, todo desplegado (se ve dónde está cada coincidencia); sin filtro,
             # lo que el usuario tenía desplegado
             if filtering:
@@ -200,11 +206,13 @@ class KeywordSection(TreeSection):
         view.updateGeometry()
         self.rebuilt.emit()
 
-    def _append(self, parent: QStandardItem, nodes: Iterable[KeywordTreeNode]) -> None:
-        """Añade las palabras (y sus hijas) bajo 'parent'."""
+    def _append(self, parent: QStandardItem, nodes: Iterable[KeywordTreeNode], dim: QBrush) -> None:
+        """Añade las palabras (y sus hijas) bajo 'parent'; las que no tienen nada, en 'dim'."""
         for node in nodes:
-            # Sin nada en la biblioteca: sin número (como una carpeta vacía)
+            # Sin nada en la biblioteca: sin número (como una carpeta vacía) y en gris
             item = make_item(node.name, keyword_source(node.id, self._library), node.count or None)
+            if not node.count:
+                item.setForeground(dim)
             item.setData(node.id, _ROLE_KEYWORD_ID)
             tooltip = f"{node.name}\n{node.count} con esta palabra o sus hijas"
             if node.direct_count != node.count:
@@ -213,7 +221,7 @@ class KeywordSection(TreeSection):
                 tooltip += "\nPalabra suelta con el nombre de otras del árbol: revisar dónde va."
             item.setToolTip(tooltip)
             parent.appendRow(item)
-            self._append(item, node.children)
+            self._append(item, node.children, dim)
 
     def _expand_saved(self, parent: QStandardItem) -> None:
         """Despliega las filas que el usuario tenía desplegadas."""

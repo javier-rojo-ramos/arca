@@ -27,19 +27,28 @@ Dónde va cada palabra leída (ver 'core/metadata/keyword_tags.py'):
 Los nombres se comparan sin mayúsculas ni acentos ('fold_text'): «árbol» encuentra
 «Árbol». Se conserva cómo se escribió la primera vez.
 
+1.8.0 «Purgar» enseña antes lo que va a borrar: 'fetch_unused_keywords' (las palabras sin
+      usar, con su ruta) y 'delete_unused_keywords' (borra esas, salvo las que se hayan
+      usado entretanto). 'purge_unused_keywords' sigue igual.
+1.7.0 'fetch_keyword_usage' (para la pregunta de «Borrar»): también el nombre y los
+      elementos por tipo ('KeywordUsage.media_types'), de TODAS las bibliotecas.
+
 Prueba rápida:
     python -m core.catalog.keywords
 """
 
-__version__ = "1.6.1"
+__version__ = "1.8.0"
 __all__ = [
     "KEYWORD_MEDIA_SQL",
     "KeywordChanges",
     "KeywordError",
     "KeywordUsage",
+    "UnusedKeywords",
     "create_keyword",
     "delete_keyword",
+    "delete_unused_keywords",
     "fetch_keyword_usage",
+    "fetch_unused_keywords",
     "mark_keyword_reviewed",
     "move_keyword",
     "purge_unused_keywords",
@@ -79,6 +88,7 @@ from dataclasses import dataclass
 
 # Módulos del proyecto
 from core.catalog.catalog_schema import fold_text
+from core.catalog.media_types import MediaType
 from core.metadata.keyword_tags import HIERARCHY_SEPARATOR
 
 
@@ -778,10 +788,17 @@ class KeywordUsage:
     Attributes:
         media: Elementos (de TODAS las bibliotecas) con la palabra o alguna de sus hijas.
         descendants: Cuántas palabras hay debajo (hijas, nietas...).
+        keyword_id: La palabra.
+        name: Su nombre.
+        media_types: Esos elementos por tipo ((tipo, cuántos), en el orden de
+            'MediaType': fotos, vídeos, audio...).
     """
 
     media: int = 0
     descendants: int = 0
+    keyword_id: int = 0
+    name: str = ""
+    media_types: tuple[tuple[str, int], ...] = ()
 
 
 def validate_keyword_name(name: str) -> str:
@@ -908,9 +925,30 @@ def mark_keyword_reviewed(conn: sqlite3.Connection, keyword_id: int) -> int:
 
 
 def fetch_keyword_usage(conn: sqlite3.Connection, keyword_id: int) -> KeywordUsage:
-    """Cuántos elementos y cuántas palabras afectaría borrar esta palabra."""
+    """Cuántos elementos (de TODAS las bibliotecas, por tipo) y cuántas palabras afectaría
+    borrar esta palabra: lo que dice la pregunta de «Borrar» antes de hacerlo.
+
+    Raises:
+        KeywordError: Si la palabra ya no existe.
+    """
+    _parent, name = _require(conn, keyword_id)
     subtree = _subtree_ids(conn, keyword_id)
-    return KeywordUsage(media=len(_media_with_any(conn, subtree)), descendants=len(subtree) - 1)
+    media = _media_with_any(conn, subtree)
+    by_type: dict[str, int] = {}
+    for start in range(0, len(media), _CHUNK):
+        chunk = media[start : start + _CHUNK]
+        marks = ", ".join("?" * len(chunk))
+        for media_type, count in conn.execute(
+            f"SELECT media_type, COUNT(*) FROM media_items WHERE id IN ({marks}) GROUP BY 1", chunk
+        ):
+            by_type[media_type] = by_type.get(media_type, 0) + count
+    # En el orden de los tipos (fotos, vídeos, audio...); uno desconocido, al final
+    order = {kind.value: index for index, kind in enumerate(MediaType)}
+    ordered = sorted(by_type.items(), key=lambda item: (order.get(item[0], len(order)), item[0]))
+    return KeywordUsage(
+        media=len(media), descendants=len(subtree) - 1, keyword_id=keyword_id, name=name,
+        media_types=tuple(ordered),
+    )  # fmt: skip
 
 
 def delete_keyword(conn: sqlite3.Connection, keyword_id: int) -> int:
@@ -926,14 +964,23 @@ def delete_keyword(conn: sqlite3.Connection, keyword_id: int) -> int:
     return len(media)
 
 
-def purge_unused_keywords(conn: sqlite3.Connection) -> int:
-    """Borra las palabras que no tiene ningún elemento, ni ellas ni sus hijas (como
-    «Purgar palabras clave no utilizadas» de Lightroom). Un padre que solo sirve para
-    agrupar hijas usadas se queda.
+@dataclass(frozen=True, slots=True)
+class UnusedKeywords:
+    """Lo que borraría «Purgar» (para enseñarlo en la pregunta antes de hacerlo).
 
-    Returns:
-        Cuántas palabras se han borrado (ningún archivo cambia).
+    Attributes:
+        ids: Las palabras sin usar (ni ellas ni sus hijas), en el orden de 'paths'.
+        paths: Su ruta de la raíz a la palabra, en orden alfabético (sin mayúsculas ni
+            acentos).
     """
+
+    ids: tuple[int, ...] = ()
+    paths: tuple[tuple[str, ...], ...] = ()
+
+
+def _unused_ids(conn: sqlite3.Connection) -> list[int]:
+    """Las palabras que no tiene ningún elemento, ni ellas ni sus hijas (un padre que solo
+    agrupa hijas usadas no está entre ellas)."""
     rows = conn.execute("SELECT id, parent_id FROM keywords").fetchall()
     used = {row[0] for row in conn.execute("SELECT DISTINCT keyword_id FROM media_keywords")}
     parent_of = {row[0]: row[1] for row in rows}
@@ -945,12 +992,66 @@ def purge_unused_keywords(conn: sqlite3.Connection) -> int:
             keep.add(current)
             current = parent_of.get(current)
             steps += 1
-    unused = [keyword_id for keyword_id in parent_of if keyword_id not in keep]
-    for start in range(0, len(unused), _CHUNK):
-        chunk = unused[start : start + _CHUNK]
+    return [keyword_id for keyword_id in parent_of if keyword_id not in keep]
+
+
+def _delete_ids(conn: sqlite3.Connection, keyword_ids: Sequence[int]) -> None:
+    """Borra esas palabras (sus hijas, en cascada), por lotes."""
+    ids = list(keyword_ids)
+    for start in range(0, len(ids), _CHUNK):
+        chunk = ids[start : start + _CHUNK]
         marks = ", ".join("?" * len(chunk))
         conn.execute(f"DELETE FROM keywords WHERE id IN ({marks})", chunk)
+
+
+def purge_unused_keywords(conn: sqlite3.Connection) -> int:
+    """Borra las palabras que no tiene ningún elemento, ni ellas ni sus hijas (como
+    «Purgar palabras clave no utilizadas» de Lightroom). Un padre que solo sirve para
+    agrupar hijas usadas se queda.
+
+    Returns:
+        Cuántas palabras se han borrado (ningún archivo cambia).
+    """
+    unused = _unused_ids(conn)
+    _delete_ids(conn, unused)
     return len(unused)
+
+
+def fetch_unused_keywords(conn: sqlite3.Connection) -> UnusedKeywords:
+    """Las palabras que borraría 'purge_unused_keywords', con su ruta, en orden alfabético
+    (para enseñarlas en la pregunta de «Purgar» antes de borrarlas)."""
+    unused = _unused_ids(conn)
+    rows = conn.execute("SELECT id, parent_id, name FROM keywords").fetchall()
+    parent_of = {row[0]: row[1] for row in rows}
+    name_of = {row[0]: row[2] for row in rows}
+
+    def path(keyword_id: int) -> tuple[str, ...]:
+        names: list[str] = []
+        current: int | None = keyword_id
+        while current is not None and current in name_of and len(names) < 100:  # por si un ciclo
+            names.append(name_of[current])
+            current = parent_of.get(current)
+        return tuple(reversed(names))
+
+    found = sorted(((path(keyword_id), keyword_id) for keyword_id in unused),
+                   key=lambda item: tuple(fold_text(name) for name in item[0]))  # fmt: skip
+    return UnusedKeywords(
+        ids=tuple(keyword_id for _path, keyword_id in found),
+        paths=tuple(found_path for found_path, _id in found),
+    )
+
+
+def delete_unused_keywords(conn: sqlite3.Connection, keyword_ids: Sequence[int]) -> int:
+    """Borra esas palabras (las que enseñó la pregunta de «Purgar»), salvo las que ya no
+    estén sin usar (p. ej. se asignaron a una foto mientras se contestaba).
+
+    Returns:
+        Cuántas se han borrado (ningún archivo cambia).
+    """
+    still = set(_unused_ids(conn))
+    chosen = [keyword_id for keyword_id in keyword_ids if keyword_id in still]
+    _delete_ids(conn, chosen)
+    return len(chosen)
 
 
 def keyword_tree(conn: sqlite3.Connection) -> list[KeywordNode]:
@@ -1163,17 +1264,35 @@ if __name__ == "__main__":
     except KeywordError:
         pass
     # Uso y borrado: «Amigos» tiene 2 hijas y está en 2 fotos
-    assert fetch_keyword_usage(db, amigos) == KeywordUsage(media=2, descendants=2)
+    usage = fetch_keyword_usage(db, amigos)
+    summary = (usage.media, usage.descendants, usage.keyword_id, usage.name)
+    assert summary == (2, 2, amigos, "Amigos"), summary
+    assert sum(count for _type, count in usage.media_types) == 2, usage.media_types
     db.execute("UPDATE media_items SET keywords_pending = 0")
     assert delete_keyword(db, amigos) == 2 and pending() == [media[0], media[1]]
     assert media_keyword_paths(db, media[0]) == [] and _find_child(db, amigos, "Ana") is None
     # Purgar: quedan solo las usadas y sus padres
     set_media_keywords(db, media[2], [("Coche", "Opel Astra")])
     before = {n.path for n in keyword_tree(db)}
+    # Lo que se purgaría, con su ruta y en orden; si entretanto se usa una, esa se queda
+    unused = fetch_unused_keywords(db)
+    assert len(unused.ids) == len(before) - 2 and len(unused.ids) == len(unused.paths)
+    assert list(unused.paths) == sorted(unused.paths, key=lambda path: [fold_text(n) for n in path])
+    assert ("Coche",) not in unused.paths and ("Coche", "Opel Astra") not in unused.paths
+    rescued_path = unused.paths[0]
+    rescued = unused.ids[0]
+    db.execute(
+        "INSERT INTO media_keywords(media_id, keyword_id) VALUES (?, ?)", (media[2], rescued)
+    )
+    removed = delete_unused_keywords(db, unused.ids)
+    after = {n.path for n in keyword_tree(db)}
+    assert rescued_path in after and removed == len(before) - len(after), (removed, after)
+    db.execute("DELETE FROM media_keywords WHERE keyword_id = ?", (rescued,))
+    # Y la purga de siempre, sin preguntar: quedan solo las usadas y sus padres
     removed = purge_unused_keywords(db)
     after = {n.path for n in keyword_tree(db)}
     assert after == {("Coche",), ("Coche", "Opel Astra")}, after
-    assert removed == len(before) - len(after)
+    assert fetch_unused_keywords(db) == UnusedKeywords()
     # Revisada: sin la marca
     loose = _create(db, None, "Suelta", review=True)
     mark_keyword_reviewed(db, loose)

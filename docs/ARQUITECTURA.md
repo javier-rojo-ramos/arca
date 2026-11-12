@@ -73,7 +73,7 @@ ui/main_window.ui, main_window.py    Interfaz de Qt Designer (main_window.py se 
 ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_message), barra de estado (ui_status),
                                      iconos, tema, widgets/job_progress_widget.py
   helpers/ui_file_dialogs.py         Diálogos de archivos y carpetas (QFileDialog): select_file, select_files, select_folder, save_file
-  helpers/ui_message.py              MessageBoxHelper: avisos, errores y preguntas (QMessageBox); question_with_checkbox («No volver a mostrar»)
+  helpers/ui_message.py              MessageBoxHelper: avisos, errores y preguntas (QMessageBox); question_with_checkbox («No volver a mostrar»); details (texto largo en «Mostrar los detalles…»)
   helpers/ui_status.py               message_bar: mensaje con icono teñido y temporizador en la barra de estado
   helpers/ui_icons.py                tinted_icon: SVG monocromos del .qrc teñidos al dibujarse (paleta, color fijo o hover); menu_icon, para las opciones de los menús
   helpers/ui_info.py                 show_info_window: ventana de información con HTML (QTextBrowser); hoy no la usa nadie
@@ -104,12 +104,12 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   sidebars/sections/tree_section.py  TreeSection: base de las secciones con árbol de la barra de un módulo (views, find_item, owns, reveal, save_state / restore_state, reset; señal rebuilt), make_item y TEXT_NAME_INDENT
   sidebars/sections/folder_section.py  FolderSection: «Carpetas» con lo de una biblioteca (recuentos, opción de subcarpetas, lo desplegado, menú «Mostrar en el Explorador»)
   sidebars/sections/date_section.py  DateSection: «Fechas» (años ▸ meses ▸ días con recuentos y «Sin fecha»; filas con date_source; lo desplegado en expanded_dates); date_label, date_tooltip
-  sidebars/sections/keyword_section.py KeywordSection: «Lista de palabras clave» (filtro y árbol con recuentos que incluyen las hijas; lo desplegado en KeywordExpansion)
+  sidebars/sections/keyword_section.py KeywordSection: «Lista de palabras clave» (filtro y árbol con recuentos que incluyen las hijas; las que no tienen nada, en gris; lo desplegado en KeywordExpansion)
   helpers/sidebar_icons.py           load_sidebar_icons: iconos de unidades, carpetas y colecciones (barras del Catálogo e Imagen), con sus variantes ':open' y ':menu'
   widgets/keyword_checklist.py       KeywordChecklist: filtro + árbol de palabras con casillas de tres estados (editor del inspector); padres de lo asignado resaltados; menú contextual y soltar tarjetas
   widgets/recent_keywords.py         RecentKeywords: «Últimas palabras clave», 6 botones de ancho fijo (asignar / quitar con un clic)
   helpers/signal_blocker.py          blocked_signals: bloquear las señales de varios objetos Qt en un 'with'
-  helpers/keyword_menu.py            Menú contextual de los árboles de palabras clave (crear, renombrar, mover, borrar, purgar): pregunta y devuelve la operación
+  helpers/keyword_menu.py            Menú contextual de los árboles de palabras clave (crear, renombrar, mover, borrar, purgar): pregunta y devuelve la operación; «Borrar» devuelve el recuento (fetch_keyword_usage) y confirm_keyword_deletion pregunta después; «Purgar», la lista (fetch_unused_keywords) y ask_keyword_purge pregunta enseñándola
   helpers/keyword_expansion.py       KeywordExpansion: palabras desplegadas de cada árbol (SIDEBAR, INSPECTOR), para recuperarlas al abrir
   widgets/sidebar_tree_view.py       SidebarTreeView (alto ajustado, sin scroll propio, ROLE_SOURCE / ROLE_COUNT / ROLE_EMPHASIS) + CountDelegate (name_indent: el nombre, unos px más a la derecha)
   widgets/collapsible_section.py     CollapsibleSection: sección plegable con cabecera y botones ("+")
@@ -139,7 +139,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
     selection_section.py               Sección «Selección»: nombre, carpeta, tamaño, fecha, contenido, biblioteca y estado
     formatting.py                      Textos: tamaños (24,3 MB), fechas por precisión, rangos, nombres de meses y días (MONTH_NAMES, WEEKDAY_NAMES), tipos («434 fotos · 20 vídeos»), origen de la fecha; metadatos: dimensiones, exposición, compensación, GPS, dirección, programa y medición (códigos EXIF), duración, fps, códec
   ► metadata_fields.py                 CAMPOS y VISTAS de la sección «Metadatos» (aquí se añaden): InspectorField (etiqueta, columnas por tipo de medio, formato), PRESETS, COMMON_HEAD, display_value; EDITABLE_KEYS (los que se editan) y editor_value
-  widgets/media_grid_view.py         MediaGridView: QListView de la cuadrícula con imagen de arrastre pequeña y semitransparente
+  widgets/media_grid_view.py         MediaGridView: QListView de la cuadrícula con imagen de arrastre pequeña y semitransparente; «No hay archivos» si está vacía
   models/media_mime.py               MIME propio del arrastre (application/x-arca-media-ids: {catalog, ids})
   helpers/ui_file_manager.py         "Mostrar en el Explorador/Finder" multiplataforma (reveal_in_file_manager) y papelera del sistema (move_to_trash, con QFile.moveToTrash)
 core/
@@ -150,7 +150,7 @@ core/
     media_queries.py                   SQL de la cuadrícula (fetch_grid_rows, count_grid_items); _source_condition traduce
                                        el GridSource a SQL (ÚNICO sitio; pública como source_condition); guardado de rating/flag/color (update_user_field) y de los metadatos editados (update_metadata_fields); fetch_media_file (ruta y dimensiones de UN archivo); sin Qt
     selection_summary.py               Resumen para el inspector: fetch_selection_summary (ids) y fetch_source_summary (origen); SelectionSummary
-    keywords.py                        Palabras clave en el catálogo: ensure_keyword_path, resolve_flat_keyword (sueltas), set_media_keywords (manda el archivo), keyword_tree, fetch_keyword_tree, filter_keyword_tree; edición: assign_keyword, remove_keyword, diff_keyword_text, apply_keyword_changes; sin Qt
+    keywords.py                        Palabras clave en el catálogo: ensure_keyword_path, resolve_flat_keyword (sueltas), set_media_keywords (manda el archivo), keyword_tree, fetch_keyword_tree, filter_keyword_tree; edición: assign_keyword, remove_keyword, diff_keyword_text, apply_keyword_changes; árbol: create, rename, move, delete_keyword, purge_unused_keywords, fetch_keyword_usage (lo que afecta borrar, de todo el catálogo y por tipo), fetch_unused_keywords / delete_unused_keywords (lo que purgaría, con su ruta, y borrar exactamente eso); sin Qt
     selection_metadata.py              Valores comunes de unos campos en la selección (común / «Varios» / vacío); FieldSource dice de qué columnas sale cada campo por tipo de medio
     grid_source.py                     GridSource (ALL / FOLDER / SMART / COLLECTION / QUICK / KEYWORD): qué muestra la cuadrícula; inmutable; source_to_dict / source_from_dict. UNCLASSIFIED = «Sin clasificar»
     grid_filter.py                   ► FILTRO de la barra de filtros: GridFilter (pestañas encendidas, candado, filas de Texto y Atributos, columnas de Metadatos: MetadataFilter, metadata_rule) -> rule_sets() (conjuntos de reglas con AND, que se suman al origen); filter_to_dict / filter_from_dict; sin Qt

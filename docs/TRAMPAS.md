@@ -88,6 +88,8 @@
 
 - **Cortes horizontales («tearing») al mover deprisa algo grande**: Qt Widgets en Windows dibuja sin esperar al refresco de la pantalla. Dibujar no es lento (una foto de 6000 × 4000 a 1:1, menos de 2 ms, y sin remuestrear a ninguna escala): no se arregla optimizando el dibujo, sino componiendo con la GPU (OpenGL o QML; ver PENDIENTE.md, B).
 
+- **Los recuentos de los árboles de palabras clave son de UNA biblioteca** (la del módulo, o la de lo resumido en el inspector): para lo que afecta a todo el catálogo (borrar una palabra) hay que contar aparte (`fetch_keyword_usage`), o se avisará de menos.
+
 ## Módulos, configuración y arranque
 
 - `ConfigManager.set` compara el valor antiguo con el nuevo: para cambiar un diccionario (p. ej. `sidebar_state`) hay que pasar una COPIA nueva, no modificar el que devuelve `get`.
@@ -101,6 +103,6 @@
 - Las autopruebas que usan `default_registry()` dependen de lo que haya instalado (ExifTool...): deben pasar un registro explícito. Falló la del procesador en un equipo con ExifTool.
 - **Tras cambiar el .ui hay que ejecutar `build_ui.py`**: si no, `ui/main_window.py` sigue con la versión anterior (p. ej. `list_view_grid` como `QListView` normal y las tarjetas se arrastran a tamaño real; o sin `widget_organize_bar`: la barra inferior no aparece y el registro avisa).
 - Un icono nuevo tiene que estar en el `.qrc` (y recompilado con `build_ui.py`) y en `AppIcons`; si no, la barra usa los iconos estándar.
-- **Finales de línea**: el repositorio usa LF (`.gitattributes`: `* text=auto eol=lf`, salvo `*.bat`). Si un archivo vuelve a aparecer con CRLF, `git checkout-index -f` no lo reescribe mientras Git lo dé por igual (lo compara por la fecha): hay que cambiarle antes la fecha de modificación y después `git add` para quitar la marca de «modificado».
+- **Finales de línea**: el repositorio usa LF (`.gitattributes`: `* text=auto eol=lf`, salvo `*.bat`). Si un archivo vuelve a aparecer con CRLF, `git checkout-index -f` no lo reescribe mientras Git lo dé por igual (lo compara por la fecha): hay que cambiarle antes la fecha de modificación y después `git add` para quitar la marca de «modificado». Ojo con los guiones de Python que retocan archivos: en Windows, `Path.write_text` escribe CRLF; hay que pasarle `newline="\n"` (el 12/11/2026 dejó 23 archivos con CRLF). `build_ui.py` también deja CRLF en lo que genera (`ui/main_window.py`, `resources/recursos_rc.py`); git lo normaliza al hacer `git add`.
 - **`ruff check --fix` de las importaciones (`I001`)** mueve el comentario de grupo (`# Módulos del proyecto`...) con la importación que tiene debajo: si otra importación pasa a ir antes, queda por encima del comentario. Mirar antes con `--diff` y, si pasa, ordenar ese bloque a mano. Y `loguru` va en su propio `# Librerías de terceros`, no dentro del de Qt.
 - **Comprobar los `# noqa` sobrantes (`RUF100`) con la configuración del proyecto**, nunca con `--select RUF100` a secas: así ruff ve como sobrantes todos los `# noqa` (también los de reglas activas) y `--fix` los borraría. Para arreglar solo una regla: `ruff check . --fix --fixable RUF100`.
