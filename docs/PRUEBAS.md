@@ -105,6 +105,7 @@ python -m ui_helpers.helpers.keyword_menu                      (l√≥gica del men√
 python -m ui_helpers.helpers.theme_colors                      (contraste y formato de los colores del tema; marcas legibles sobre la banda)
 python -m ui_helpers.helpers.theme_qss                         (la hoja general, solo con colores del tema)
 python -m ui_helpers.helpers.theme_style                       (colores de los indicadores y una ventana con todos sus estados)
+python -m ui_helpers.helpers.zoom_geometry                     (cuentas del zoom 1:1 de la vista individual; sin Qt)
 python -m ui_helpers.inspector.editable_row                    (cajas editables; sin ventana)
 python -m ui_helpers.inspector.formatting
 python -m ui_helpers.inspector.keyword_editor_section

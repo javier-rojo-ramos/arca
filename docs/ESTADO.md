@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Vista individual a 1:1, paso 2: las cuentas del zoom** (12/11; nuevo `zoom_geometry` 1.0.0) | Nada visible todavía. Pasa su autoprueba (`python -m ui_helpers.helpers.zoom_geometry`) |
 | **Vista individual a 1:1, paso 1: leer el original** (12/11; nuevo `full_image` 1.0.0; `generator` 1.2.0) | Nada visible todavía: la aplicación, igual que antes (las miniaturas se generan como siempre). Pasan las autopruebas de `full_image`, `generator` y `job` |
 
 ## Comprobaciones sueltas
@@ -65,6 +66,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: vista individual a 1:1, paso 2: las cuentas del zoom, sin Qt (`ui_helpers/helpers/zoom_geometry.py`); aún sin nada visible.
 - 12/11/2026: vista individual a 1:1, paso 1: leer el original a tamaño completo con el color de la caché (`core/thumbnails/full_image.py`); aún sin nada visible.
 - 12/11/2026: las franjas de la barra de filtros (pestañas, «Texto», «Atributos») y la barra inferior, de 34 px (antes, 30), con lo de dentro centrado.
 - 12/11/2026: «Lista de palabras clave» del inspector, con los márgenes de la de la barra izquierda (árbol a todo el ancho; filtro a 8 px).
@@ -74,4 +76,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 11/11/2026: vista individual, la imagen que cabe se ve a su tamaño (sin ampliarla); el deslizador de la barra inferior, centrado (1 px más abajo).
 - 11/11/2026: la barra inferior, del alto de la franja de «Atributos» (30 px bajo la raya; botones de vista de 22 px).
 - 11/11/2026: barra de Imagen, «Lista de palabras clave» alineada con «Carpetas» (filtro a 8 px; nombres en la columna de las flechas de las subcarpetas; números con los de las carpetas).
-- 11/11/2026: las cajas de texto bajo el título de una sección, a 8 px de la cabecera (antes, 4); corregidas las fechas de lo hecho hoy, que decían 12/11.
