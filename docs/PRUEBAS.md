@@ -74,6 +74,7 @@ python -m core.metadata.video.rules
 
 # core.thumbnails
 python -m core.thumbnails.cache
+python -m core.thumbnails.full_image                          (el original entero, derecho y en sRGB; RAW con ExifTool simulado)
 python -m core.thumbnails.generator
 python -m core.thumbnails.imaging
 python -m core.thumbnails.job

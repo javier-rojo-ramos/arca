@@ -207,7 +207,8 @@ core/
     sizes.py                           ThumbnailSize: 160 / 480 / 1200 / 2560 px (lado largo) y calidad JPEG
     cache.py                           ThumbnailCache: ruta derivada del id, escritura atómica, resolve(); ThumbnailStorageError
     imaging.py                         Orientación, modos de color, conversión a sRGB, escalera sin ampliar
-    generator.py                       generate_thumbnails (UN archivo) y THUMBNAIL_VERSION
+    generator.py                       generate_thumbnails (UN archivo), load_source_image (prueba los orígenes) y THUMBNAIL_VERSION
+    full_image.py                      load_full_image: el original a tamaño completo (RAW: su mayor vista previa), derecho y en sRGB como la caché, para la vista individual a 1:1; sin Qt
     registry.py                      ► qué origen lee cada tipo de medio y extensión
     sources/                           base.py, pillow_source.py, heif_source.py (HEIC), raw_preview_source.py (RAW, vía ExifTool)
     job.py                             generate_pending_thumbnails (trabajo) e invalidate_thumbnails (regenerar a demanda)

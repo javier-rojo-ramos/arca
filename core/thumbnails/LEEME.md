@@ -10,7 +10,9 @@ core/thumbnails/
 ├── sizes.py               Los 4 tamaños (160 / 480 / 1200 / 2560) y su calidad JPEG
 ├── cache.py               Dónde se guarda cada miniatura (ruta derivada del id), escritura atómica
 ├── imaging.py             Lo común a todo: orientación, modos de color, sRGB, escalera sin ampliar
-├── generator.py           generate_thumbnails(): UN archivo -> todos sus tamaños en la caché; THUMBNAIL_VERSION
+├── generator.py           generate_thumbnails(): UN archivo -> todos sus tamaños en la caché; THUMBNAIL_VERSION;
+│                          load_source_image() (prueba los orígenes en orden)
+├── full_image.py          load_full_image(): el original a tamaño completo, con el color de la caché (vista 1:1)
 ├── job.py                 Trabajo en segundo plano (miniaturas pendientes) e invalidate_thumbnails() para regenerar
 ├── registry.py          ► AQUÍ se registra qué origen lee cada tipo de medio y extensión
 ├── sources/

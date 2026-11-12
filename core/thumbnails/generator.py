@@ -19,12 +19,15 @@ No toca la base de datos ni decide QUÉ archivos procesar: eso es del trabajo en
 segundo plano (siguiente paso). Aquí solo hay una función por archivo, segura para
 llamar desde varios hilos a la vez.
 
+1.2.0 'load_source_image' pública (antes, '_load_source_image'): la usa también
+      'full_image.py' (el original a tamaño completo para la vista individual a 1:1).
+
 Prueba rápida (desde la raíz del proyecto):
     python -m core.thumbnails.generator
 """
 
-__version__ = "1.1.0"
-__all__ = ["THUMBNAIL_VERSION", "ThumbnailResult", "generate_thumbnails"]
+__version__ = "1.2.0"
+__all__ = ["THUMBNAIL_VERSION", "ThumbnailResult", "generate_thumbnails", "load_source_image"]
 
 # Librerías estándar
 import time
@@ -114,7 +117,7 @@ def generate_thumbnails(
     if not wanted:
         raise ValueError("Hay que indicar al menos un tamaño de miniatura.")
 
-    loaded = _load_source_image(request, registry, wanted[-1].max_side)
+    loaded = load_source_image(request, registry, wanted[-1].max_side)
     try:
         # Se reduce primero (es lo más barato) y solo después se convierte el color
         image = to_working_mode(loaded.image)
@@ -141,10 +144,21 @@ def generate_thumbnails(
     )
 
 
-def _load_source_image(
+def load_source_image(
     request: ThumbnailRequest, registry: SourceRegistry, target_side: int
 ) -> LoadedImage:
-    """Prueba los orígenes del archivo, en orden, hasta que uno entregue la imagen."""
+    """Prueba los orígenes del archivo, en orden, hasta que uno entregue la imagen.
+
+    Args:
+        request: El elemento: su id, su tipo de medio y la ruta del archivo.
+        registry: Orígenes disponibles.
+        target_side: Lado largo que hace falta (pista para decodificar reducido; ver
+            'ThumbnailSource.load').
+
+    Raises:
+        FileNotFoundError, UnsupportedSourceError, ThumbnailError: como
+            'generate_thumbnails'.
+    """
     chain = registry.chain_for(request.media_type, request.extension)
     if not chain:
         raise UnsupportedSourceError(
