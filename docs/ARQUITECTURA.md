@@ -98,7 +98,10 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   dialogs/folder_content_dialog.py   FolderContentDialog: «¿Qué contiene esta carpeta?» al añadir una carpeta (FOLDER_CONTENT_TEXTS)
   dialogs/remove_dialog.py           RemoveDialog: «Eliminar N archivos del catálogo», como Lightroom: explicación y botones «Eliminar del disco» / «Eliminar del catálogo» (por defecto) / «Cancelar»
   sidebars/catalog_sidebar.py        CatalogSidebar: barra lateral del catálogo (Catálogo, Carpetas, Colecciones); emite GridSource
-  sidebars/image_sidebar.py          ImageSidebar: barra del módulo Imagen, solo para navegar (Biblioteca - Imagen, Carpetas con imágenes y Lista de palabras clave con su filtro)
+  sidebars/image_sidebar.py          ImageSidebar: barra del módulo Imagen, solo para navegar. Es el contenedor: Biblioteca - Imagen, las secciones en orden (una lista), una sola fila elegida y el estado guardado; cada sección con árbol, en sections/
+  sidebars/sections/tree_section.py  TreeSection: base de las secciones con árbol de la barra de un módulo (views, find_item, owns, reveal, save_state / restore_state, reset; señal rebuilt) y make_item
+  sidebars/sections/folder_section.py  FolderSection: «Carpetas» con lo de una biblioteca (recuentos, opción de subcarpetas, lo desplegado, menú «Mostrar en el Explorador»)
+  sidebars/sections/keyword_section.py KeywordSection: «Lista de palabras clave» (filtro y árbol con recuentos que incluyen las hijas; lo desplegado en KeywordExpansion)
   helpers/sidebar_icons.py           load_sidebar_icons: iconos de unidades, carpetas y colecciones (barras del Catálogo e Imagen), con sus variantes ':open' y ':menu'
   widgets/keyword_checklist.py       KeywordChecklist: filtro + árbol de palabras con casillas de tres estados (editor del inspector); padres de lo asignado resaltados; menú contextual y soltar tarjetas
   widgets/recent_keywords.py         RecentKeywords: «Últimas palabras clave», 6 botones de ancho fijo (asignar / quitar con un clic)

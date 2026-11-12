@@ -1,51 +1,43 @@
-"""Barra lateral del módulo Imagen (columna izquierda): biblioteca y palabras clave.
+"""Barra lateral del módulo Imagen (columna izquierda): biblioteca, carpetas y palabras clave.
 
 Secciones plegables, una debajo de otra, dentro de un área con desplazamiento (como la
 barra del Catálogo):
 
-    ▼ BIBLIOTECA - IMAGEN  «Todas las imágenes» y «Selección rápida», con sus contadores
-    ▼ CARPETAS          ubicaciones y carpetas con imágenes, con sus contadores
-    ▼ LISTA DE PALABRAS CLAVE   [ Filtrar palabras clave       ]
-                        ▸ Coche                    12
-                            Opel Astra               10
-                            Toyota Corolla            2
-                        ▸ Familia                  ...
+    ▼ BIBLIOTECA - IMAGEN       «Todas las imágenes» y «Selección rápida», con sus contadores
+    ▼ CARPETAS                  ubicaciones y carpetas con imágenes ('sections/folder_section.py')
+    ▼ LISTA DE PALABRAS CLAVE   filtro y árbol de palabras ('sections/keyword_section.py')
 
-Árbol de palabras clave (paso K3, como la «Lista de palabras clave» de Lightroom):
-    - Los recuentos INCLUYEN las hijas: «Coche» cuenta las fotos de todos los modelos,
-      aunque no lleven «Coche» asignada (cada foto una vez). Lightroom cuenta solo las
-      asignadas directamente; aquí se prefirió así (decidido el 03/11/2026, a revisar por
-      el autor al verlo). Las palabras sin fotos de la biblioteca no muestran número.
-    - Al elegir una palabra, la cuadrícula muestra sus fotos Y las de sus hijas
-      ('grid_source.keyword_source').
-    - La caja de arriba filtra el árbol mientras se escribe, sin distinguir mayúsculas ni
-      acentos: quedan las palabras que coinciden y sus padres (desplegados). Al vaciarla,
-      el árbol vuelve a como estaba.
+Esta barra es el CONTENEDOR: cada sección con árbol está en su archivo de 'sections/' (ver
+'tree_section.py') y aquí solo queda lo común:
+    - «Biblioteca - Imagen» (dos filas fijas: no merece un archivo propio). «Selección
+      rápida» (04/11/2026) es la misma del Catálogo (una sola para todo el catálogo), pero
+      solo se ven sus imágenes y vídeos del móvil ('quick_source("image")'). Sin menú:
+      «Vaciar selección rápida» vaciaría también lo que no se ve; está en el Catálogo.
+    - Las secciones, en el orden de '_build_ui' (una lista: cambiarlo es cambiar la lista).
+    - Una sola fila elegida en toda la barra; al elegirla, emite 'source_selected'.
+    - La fila elegida, otra vez marcada cuando una sección rehace su árbol ('rebuilt').
+    - El estado por catálogo: secciones plegadas, lo de cada sección y la fila elegida.
+
+Esta barra es para NAVEGAR (decidido por el autor el 04/11/2026): editar las palabras clave
+se hace en el inspector, en su «Lista de palabras clave».
 
 Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula; lo une
 'controllers/app_modules/image_module.py'):
     - Cada fila lleva un 'GridSource' (ROLE_SOURCE). Al elegirla, emite 'source_selected'.
-    - 'set_library_count' y 'set_keyword_tree' reciben lo que el módulo lee en segundo
-      plano. Si el árbol no ha cambiado, no se reconstruye (no se pierde lo desplegado).
-    - 'save_state' / 'restore_state': secciones plegadas, palabras desplegadas y la fila
-      elegida (el módulo lo guarda por catálogo).
-    - «Selección rápida» (04/11/2026): la misma del Catálogo (una sola para todo el
-      catálogo), pero solo se ven sus imágenes y vídeos del móvil ('quick_source("image")').
-      Sin menú: «Vaciar selección rápida» vaciaría también lo que no se ve; está en el
-      Catálogo.
-    - «Carpetas» (04/11/2026): el árbol de ubicaciones y carpetas, como en el Catálogo,
-      pero solo con las que tienen algo de la biblioteca Imagen (por su CONTENIDO, no por
-      el tipo declarado al añadirlas; decidido por el autor) y contando solo eso. Al
-      elegir una, la cuadrícula muestra solo sus imágenes ('folder_source(...,
-      library="image")'), con o sin subcarpetas según la opción del Catálogo. Menú: solo
-      «Mostrar en el Explorador» ('reveal_folder_requested').
-    - Esta barra es para NAVEGAR (decidido por el autor el 04/11/2026): editar las
-      palabras (asignar, soltar tarjetas, crear, renombrar, mover, borrar) se hace en el
-      inspector, en su «Lista de palabras clave».
+    - 'set_library_count', 'set_folder_tree' y 'set_keyword_tree' reciben lo que el módulo
+      lee en segundo plano. Si un árbol no ha cambiado, no se reconstruye (no se pierde lo
+      desplegado).
+    - 'save_state' / 'restore_state': secciones plegadas, lo desplegado y la fila elegida
+      (el módulo lo guarda por catálogo).
 
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
-'scroll_image_sidebar', 'widget_image_sidebar_content' y 'edit_keyword_filter'.
+'scroll_image_sidebar' y 'widget_image_sidebar_content' (y los de cada sección).
 
+2.0.0 Dividida en un archivo por sección (pedido por el autor el 12/11/2026): las
+      «Carpetas» pasan a 'sections/folder_section.py' y la «Lista de palabras clave», a
+      'sections/keyword_section.py'; aquí queda el contenedor. Nada cambia a la vista y lo
+      guardado por catálogo tiene las mismas claves. 'filter_keyword_tree' ya no se exporta
+      desde aquí (nadie la importaba: está en 'core/catalog/keywords.py').
 1.7.3 El filtro de palabras clave, a 8 px de los lados (antes, 6) en su propia fila; el
       árbol, a todo el ancho como el de carpetas (sus números, alineados con los de las
       carpetas) y con los nombres en la columna de las flechas de las subcarpetas
@@ -72,44 +64,35 @@ El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres 
       también el árbol con casillas del inspector (paso K4b).
 """
 
-__version__ = "1.7.3"
-__all__ = ["ImageSidebar", "filter_keyword_tree"]
+__version__ = "2.0.0"
+__all__ = ["ALL_IMAGES", "IMAGE_QUICK", "LIBRARY", "ImageSidebar"]
 
 # Librerías estándar
 from collections.abc import Iterable
-from pathlib import Path
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QModelIndex, QPoint, Qt, Signal
-from qtpy.QtGui import QBrush, QPalette, QStandardItem, QStandardItemModel
-from qtpy.QtWidgets import (
-    QFrame,
-    QHBoxLayout,
-    QLineEdit,
-    QMenu,
-    QScrollArea,
-    QVBoxLayout,
-    QWidget,
-)
+from qtpy.QtCore import Qt, Signal
+from qtpy.QtGui import QStandardItem, QStandardItemModel
+from qtpy.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 # Módulos del proyecto
-from core.catalog.folder_tree import FolderNode, LocationNode
+from core.catalog.folder_tree import LocationNode
 from core.catalog.grid_source import (
     GridSource,
     SourceKind,
-    folder_source,
-    keyword_source,
     library_source,
     quick_source,
     source_from_dict,
     source_to_dict,
 )
-from core.catalog.keywords import KeywordTreeNode, filter_keyword_tree
+from core.catalog.keywords import KeywordTreeNode
 from core.catalog.libraries import Library
-from ui_helpers.helpers.keyword_expansion import SIDEBAR, KeywordExpansion, keyword_expansion
+from ui_helpers.helpers.keyword_expansion import KeywordExpansion
 from ui_helpers.helpers.sidebar_icons import load_sidebar_icons
 from ui_helpers.helpers.signal_blocker import blocked_signals as _blocked
-from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME
+from ui_helpers.sidebars.sections.folder_section import FolderSection
+from ui_helpers.sidebars.sections.keyword_section import KeywordSection
+from ui_helpers.sidebars.sections.tree_section import TreeSection, make_item
 from ui_helpers.widgets.collapsible_section import CollapsibleSection
 from ui_helpers.widgets.sidebar_tree_view import ROLE_COUNT, ROLE_SOURCE, SidebarTreeView
 
@@ -118,26 +101,6 @@ LIBRARY = Library.IMAGE.value
 ALL_IMAGES = library_source(LIBRARY)
 # La selección rápida, solo con lo de la biblioteca Imagen
 IMAGE_QUICK = quick_source(LIBRARY)
-
-# Rol propio: id de la palabra de la fila (para recordar lo desplegado)
-_ROLE_KEYWORD_ID = Qt.ItemDataRole.UserRole + 40
-# Roles propios de las carpetas: (ubicación, ruta relativa) para recordar lo desplegado,
-# ruta absoluta (para «Mostrar en el Explorador»), si está conectada y clave del icono
-_ROLE_FOLDER_KEY = Qt.ItemDataRole.UserRole + 41
-_ROLE_PATH = Qt.ItemDataRole.UserRole + 42
-_ROLE_ONLINE = Qt.ItemDataRole.UserRole + 43
-_ROLE_ICON_KEY = Qt.ItemDataRole.UserRole + 44
-
-# Distancia del filtro de palabras clave a los lados de la barra (px lógicos): la misma que
-# a la cabecera de su sección y que la del contenido del inspector
-_FILTER_SIDE_MARGIN = 8
-# Cuánto se apartan los nombres del árbol de palabras clave de donde los pone Qt (px
-# lógicos): así caen en la columna de las flechas de las subcarpetas y de los iconos de las
-# carpetas (pedido por el autor; medido en una captura el 11/11/2026: sin esto, 3 px antes)
-_KEYWORD_NAME_INDENT = 3
-
-
-# 'filter_keyword_tree' está en 'core/catalog/keywords.py' (la usa también el inspector)
 
 
 class ImageSidebar(QWidget):
@@ -157,29 +120,16 @@ class ImageSidebar(QWidget):
     ) -> None:
         super().__init__(parent)
         self._current: GridSource = ALL_IMAGES
-        self._tree: tuple[KeywordTreeNode, ...] = ()
-        # Palabras desplegadas (sin filtro); el árbol del inspector tiene las suyas
-        self._expansion = expansion if expansion is not None else keyword_expansion(SIDEBAR)
-        self._expansion.changed.connect(self._apply_expansion)
-        self._views: list[SidebarTreeView] = []
-        # Carpetas: el árbol mostrado, si se ven también las subcarpetas (opción del
-        # Catálogo), lo desplegado ((ubicación, ruta)) y las ubicaciones ya vistas (una
-        # nueva aparece desplegada)
-        self._folder_tree: tuple[LocationNode, ...] = ()
-        self._include_subfolders = True
-        self._expanded_folders: set[tuple[int, str]] = set()
-        self._known_locations: set[int] = set()
         self._icons = load_sidebar_icons(self)
-        self._build_ui()
-        self.set_keyword_tree(())
+        self._build_ui(expansion)
         self.select_source(ALL_IMAGES, emit=False)
 
     # -------------------------------------------------------------------------
     # Construcción
     # -------------------------------------------------------------------------
 
-    def _build_ui(self) -> None:
-        """Área con desplazamiento y las dos secciones."""
+    def _build_ui(self, expansion: KeywordExpansion | None) -> None:
+        """Área con desplazamiento y las secciones, en su orden."""
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         scroll = QScrollArea(self)
@@ -195,89 +145,54 @@ class ImageSidebar(QWidget):
         layout.setSpacing(2)
         scroll.setWidget(content)
 
-        # --- Biblioteca: «Todas las imágenes» ---
-        self.section_library = CollapsibleSection("Biblioteca - Imagen", content)
-        self._library_view, self._library_model = self._new_tree()
-        self._all_item = self._make_item("Todas las imágenes", ALL_IMAGES)
+        self._folders = FolderSection(LIBRARY, self._icons, content)
+        self._folders.reveal_folder_requested.connect(self.reveal_folder_requested)
+        self._keywords = KeywordSection(LIBRARY, expansion, content)
+        # Las secciones con árbol (en 'sections/'): la fila elegida se busca en ellas
+        self._sections: tuple[TreeSection, ...] = (self._folders, self._keywords)
+
+        # Las secciones plegables, de arriba abajo: (clave en el estado guardado, título,
+        # contenido). Para cambiar el orden basta con cambiar esta lista
+        self._collapsibles: dict[str, CollapsibleSection] = {}
+        for key, title, widget in (
+            ("library", "Biblioteca - Imagen", self._build_library(content)),
+            ("folders", "Carpetas", self._folders),
+            ("keywords", "Lista de palabras clave", self._keywords),
+        ):
+            section = CollapsibleSection(title, content)
+            section.set_content(widget)
+            layout.addWidget(section)
+            self._collapsibles[key] = section
+        layout.addStretch(1)
+
+        # Una sola fila elegida en toda la barra; al rehacer un árbol, la elegida se marca
+        self._views: list[SidebarTreeView] = [self._library_view]
+        for tree_section in self._sections:
+            self._views.extend(tree_section.views())
+            tree_section.rebuilt.connect(self._remark_current)
+        for view in self._views:
+            view.selectionModel().selectionChanged.connect(
+                lambda selected, _deselected, v=view: self._on_selection_changed(v, selected)
+            )
+
+    def _build_library(self, parent: QWidget) -> SidebarTreeView:
+        """«Todas las imágenes» y «Selección rápida»."""
+        self._library_model = QStandardItemModel(self)
+        self._library_view = SidebarTreeView(parent)
+        self._library_view.setModel(self._library_model)
+        self._all_item = make_item("Todas las imágenes", ALL_IMAGES)
         self._all_item.setToolTip("Todas las fotos y los vídeos de la biblioteca Imagen")
-        self._library_model.appendRow(self._all_item)
-        self._quick_item = self._make_item("Selección rápida", IMAGE_QUICK)
+        self._quick_item = make_item("Selección rápida", IMAGE_QUICK)
         self._quick_item.setToolTip(
             "Selección rápida\n\nLas imágenes marcadas con el círculo de su tarjeta (esquina\n"
             "superior derecha). Es la misma del Catálogo: aquí solo se ven las de Imagen."
         )
-        self._library_model.appendRow(self._quick_item)
         # El mismo icono que «Todos los archivos» y «Selección rápida» en el Catálogo (así
         # los nombres quedan alineados con los de las carpetas)
-        self._set_icon(self._all_item, "smart")
-        self._set_icon(self._quick_item, "smart")
-        self.section_library.set_content(self._library_view)
-        layout.addWidget(self.section_library)
-
-        # --- Carpetas: las que tienen imágenes ---
-        self.section_folders = CollapsibleSection("Carpetas", content)
-        self._folder_view, self._folder_model = self._new_tree()
-        self._folder_view.expanded.connect(lambda index: self._on_folder_expanded(index, True))
-        self._folder_view.collapsed.connect(lambda index: self._on_folder_expanded(index, False))
-        self._folder_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self._folder_view.customContextMenuRequested.connect(self._show_folder_menu)
-        self.section_folders.set_content(self._folder_view)
-        layout.addWidget(self.section_folders)
-
-        # --- Palabras clave: filtro + árbol ---
-        self.section_keywords = CollapsibleSection("Lista de palabras clave", content)
-        box = QWidget(content)
-        box_layout = QVBoxLayout(box)
-        # Sin márgenes a los lados: el árbol ocupa todo el ancho, como el de carpetas, y sus
-        # flechas y números quedan alineados con los de las carpetas. Arriba, 6: con los 2
-        # del cuerpo de la sección, el filtro queda a 8 px de la cabecera (pedido por el
-        # autor el 11/11/2026 para toda caja bajo un título)
-        box_layout.setContentsMargins(0, 6, 0, 4)
-        box_layout.setSpacing(4)
-        # El filtro, en su fila: a 8 px de los lados, como de la cabecera
-        filter_row = QHBoxLayout()
-        filter_row.setContentsMargins(_FILTER_SIDE_MARGIN, 0, _FILTER_SIDE_MARGIN, 0)
-        self._filter = QLineEdit(box)
-        self._filter.setObjectName("edit_keyword_filter")
-        self._filter.setPlaceholderText("Filtrar palabras clave")
-        self._filter.setClearButtonEnabled(True)
-        self._filter.textChanged.connect(self._rebuild_keywords)
-        filter_row.addWidget(self._filter)
-        box_layout.addLayout(filter_row)
-        self._keyword_view, self._keyword_model = self._new_tree(
-            name_indent=_KEYWORD_NAME_INDENT
-        )
-        self._keyword_view.expanded.connect(lambda index: self._on_expanded(index, True))
-        self._keyword_view.collapsed.connect(lambda index: self._on_expanded(index, False))
-        box_layout.addWidget(self._keyword_view)
-        self.section_keywords.set_content(box)
-        layout.addWidget(self.section_keywords)
-
-        layout.addStretch(1)
-
-    def _new_tree(self, *, name_indent: int = 0) -> tuple[SidebarTreeView, QStandardItemModel]:
-        """Un árbol con su modelo, conectado a la selección común de la barra.
-
-        Args:
-            name_indent: px de más delante de los nombres (ver 'CountDelegate').
-        """
-        model = QStandardItemModel(self)
-        view = SidebarTreeView(name_indent=name_indent)
-        view.setModel(model)
-        view.selectionModel().selectionChanged.connect(
-            lambda selected, _deselected, v=view: self._on_selection_changed(v, selected)
-        )
-        self._views.append(view)
-        return view, model
-
-    @staticmethod
-    def _make_item(text: str, source: GridSource | None, count: int | None = None) -> QStandardItem:
-        """Una fila (sin añadirla a ningún sitio)."""
-        item = QStandardItem(text)
-        item.setEditable(False)
-        item.setData(source, ROLE_SOURCE)
-        item.setData(count, ROLE_COUNT)
-        return item
+        for item in (self._all_item, self._quick_item):
+            item.setIcon(self._icons["smart"])
+            self._library_model.appendRow(item)
+        return self._library_view
 
     # -------------------------------------------------------------------------
     # Datos (los pone el módulo)
@@ -290,43 +205,27 @@ class ImageSidebar(QWidget):
 
     def set_keyword_tree(self, tree: tuple[KeywordTreeNode, ...]) -> None:
         """Pone el árbol de palabras clave (no hace nada si no ha cambiado)."""
-        if tree == self._tree and self._keyword_model.rowCount() > 0:
-            return
-        self._tree = tree
-        self._rebuild_keywords()
+        self._keywords.set_tree(tree)
 
     def set_folder_tree(self, locations: Iterable[LocationNode]) -> None:
         """Pone el árbol de carpetas (no hace nada si no ha cambiado)."""
-        locations = tuple(locations)
-        if locations == self._folder_tree and self._folder_model.rowCount() > 0:
-            return
-        self._folder_tree = locations
-        self._rebuild_folders()
+        self._folders.set_tree(locations)
 
     def set_include_subfolders(self, include: bool) -> None:
         """Opción del Catálogo «Mostrar los elementos de las subcarpetas»: cambia los
         contadores y lo que muestra cada carpeta. Si hay una elegida, se emite su origen
         nuevo (la cuadrícula se recarga)."""
-        if include == self._include_subfolders:
+        if not self._folders.set_include_subfolders(include):
             return
-        self._include_subfolders = include
-        self._rebuild_folders()
         if self._current.kind == SourceKind.FOLDER:
-            self._current = self._folder_source(self._current.location_id, self._current.folder)
+            self._current = self._folders.folder_source(self._current.location_id, self._current.folder)
             self.source_selected.emit(self._current)
 
     def reset(self) -> None:
-        """Sin catálogo: árbol vacío, sin contadores, «Todas las imágenes» elegida."""
-        self._tree = ()
-        self._expansion.replace(())
-        self._folder_tree = ()
-        self._expanded_folders.clear()
-        self._known_locations.clear()
-        self._rebuild_folders()
+        """Sin catálogo: árboles vacíos, sin contadores, «Todas las imágenes» elegida."""
+        for tree_section in self._sections:
+            tree_section.reset()
         self.set_library_count(None)
-        with _blocked(self._filter):
-            self._filter.clear()
-        self._rebuild_keywords()
         self.select_source(ALL_IMAGES, emit=False)
 
     def current_source(self) -> GridSource:
@@ -339,19 +238,15 @@ class ImageSidebar(QWidget):
 
     def is_filtering(self) -> bool:
         """True si hay texto en «Filtrar palabras clave»."""
-        return bool(self._filter.text().strip())
+        return self._keywords.is_filtering()
 
     def select_source(self, source: GridSource, *, emit: bool = True) -> None:
         """Elige una fila por su origen (si no existe, «Todas las imágenes»)."""
         item = self._find_item(source)
         if item is None:
             source, item = ALL_IMAGES, self._all_item
-        view = self._view_of(item)
-        self._clear_other_selections(view)
-        with _blocked(view.selectionModel()):
-            view.setCurrentIndex(item.index())
-        # Con las señales de la selección bloqueadas la vista no se entera: se repinta
-        view.viewport().update()
+        self._clear_other_selections(self._view_of(item))
+        self._mark(item)
         changed = source != self._current
         self._current = source
         if emit and changed:
@@ -359,51 +254,31 @@ class ImageSidebar(QWidget):
 
     def show_source(self, source: GridSource) -> None:
         """Elige un origen pedido desde fuera (p. ej. una palabra desde el inspector) y lo
-        muestra en la cuadrícula. Una palabra: si el filtro la oculta, se vacía el filtro;
-        se despliegan sus padres para que se vea marcada."""
-        if source.kind == SourceKind.KEYWORD and source.keyword_id is not None:
-            if self._find_item(source) is None and self.is_filtering():
-                self._filter.clear()  # rehace el árbol entero
-            for ancestor in self._keyword_ancestors(source.keyword_id):
-                self._expansion.set_expanded(ancestor, True)  # el árbol se despliega solo
-        if self._find_item(source) is None:
+        muestra en la cuadrícula. Antes, su sección prepara el árbol para que se vea (una
+        palabra: vacía el filtro si la oculta y despliega sus padres)."""
+        for tree_section in self._sections:
+            tree_section.reveal(source)
+        item = self._find_item(source)
+        if item is None:
             return  # p. ej. una palabra que ya no existe
         self.select_source(source, emit=True)
-        item = self._find_item(source)
-        if item is not None:
-            self._view_of(item).scrollTo(item.index())
-
-    def _keyword_ancestors(self, keyword_id: int) -> list[int]:
-        """Ids de los padres (y abuelos...) de una palabra en el árbol de la barra."""
-
-        def visit(nodes: Iterable[KeywordTreeNode], parents: list[int]) -> list[int] | None:
-            for node in nodes:
-                if node.id == keyword_id:
-                    return parents
-                found = visit(node.children, [*parents, node.id])
-                if found is not None:
-                    return found
-            return None
-
-        return visit(self._tree, []) or []
+        self._view_of(item).scrollTo(item.index())
 
     # -------------------------------------------------------------------------
     # Estado (por catálogo)
     # -------------------------------------------------------------------------
 
     def save_state(self) -> dict:
-        """Secciones plegadas, palabras desplegadas y fila elegida (para JSON)."""
-        return {
-            "sections": {
-                "library": self.section_library.is_expanded(),
-                "folders": self.section_folders.is_expanded(),
-                "keywords": self.section_keywords.is_expanded(),
-            },
-            "expanded_keywords": sorted(self._expansion.ids()),
-            "expanded_folders": sorted([location, folder] for location, folder in self._expanded_folders),
-            "known_locations": sorted(self._known_locations),
-            "selected": source_to_dict(self._current),
+        """Secciones plegadas, lo de cada sección (lo desplegado) y la fila elegida (para
+        JSON). Las claves son las de siempre: 'sections', 'expanded_folders',
+        'known_locations', 'expanded_keywords' y 'selected'."""
+        state: dict = {
+            "sections": {key: section.is_expanded() for key, section in self._collapsibles.items()}
         }
+        for tree_section in self._sections:
+            state.update(tree_section.save_state())
+        state["selected"] = source_to_dict(self._current)
+        return state
 
     def restore_state(self, state: object) -> None:
         """Recupera lo guardado con 'save_state' (lo que no se entienda se ignora)."""
@@ -411,251 +286,25 @@ class ImageSidebar(QWidget):
             return
         sections = state.get("sections")
         if isinstance(sections, dict):
-            pairs = (
-                ("library", self.section_library),
-                ("folders", self.section_folders),
-                ("keywords", self.section_keywords),
-            )
-            for key, section in pairs:
+            for key, section in self._collapsibles.items():
                 if isinstance(sections.get(key), bool):
                     section.set_expanded(sections[key])
-        expanded = state.get("expanded_keywords")
-        if isinstance(expanded, list):
-            self._expansion.replace(expanded)
-        folders = state.get("expanded_folders")
-        if isinstance(folders, list):
-            self._expanded_folders = {
-                (entry[0], entry[1])
-                for entry in folders
-                if isinstance(entry, list) and len(entry) == 2
-                and isinstance(entry[0], int) and isinstance(entry[1], str)
-            }
-        known = state.get("known_locations")
-        if isinstance(known, list):
-            self._known_locations = {value for value in known if isinstance(value, int)}
-        selected = source_from_dict(state.get("selected"), include_subfolders=self._include_subfolders)
+        for tree_section in self._sections:
+            tree_section.restore_state(state)
+        selected = source_from_dict(
+            state.get("selected"), include_subfolders=self._folders.include_subfolders
+        )
         if selected in (ALL_IMAGES, IMAGE_QUICK):
             self.select_source(selected, emit=False)
-        elif selected is not None and selected.kind == SourceKind.FOLDER and selected.library == LIBRARY:
-            # La carpeta llega después (con el árbol): se recuerda y se marca al llegar
-            self._clear_other_selections(None)
-            self._current = selected
-        elif selected is not None and selected.kind == SourceKind.KEYWORD:
-            # La palabra puede no estar aún en el árbol (llega después): se recuerda y se
-            # marca al llegar ('_rebuild_keywords')
+        elif selected is not None and any(s.owns(selected) for s in self._sections):
+            # Su fila puede no estar aún (el árbol llega después): se recuerda y se marca
+            # al llegar ('_remark_current')
             self._clear_other_selections(None)
             self._current = selected
 
     # -------------------------------------------------------------------------
-    # Árbol de carpetas (como el del Catálogo, solo con lo de Imagen)
+    # Filas y selección
     # -------------------------------------------------------------------------
-
-    def _folder_source(self, location_id: int, relative_path: str) -> GridSource:
-        """Origen de una carpeta: solo sus imágenes, con o sin subcarpetas (la opción)."""
-        return folder_source(
-            location_id, relative_path, include_subfolders=self._include_subfolders, library=LIBRARY
-        )
-
-    def _folder_count(self, node: FolderNode) -> int | None:
-        """Contador: con sus subcarpetas o solo lo suyo, según la opción (0 = sin número)."""
-        count = node.count if self._include_subfolders else node.direct_count
-        return count or None
-
-    def _rebuild_folders(self) -> None:
-        """Rehace el árbol de carpetas conservando lo desplegado y la carpeta elegida.
-
-        No se bloquean las señales del MODELO (ver TRAMPAS.md): solo las de la vista (lo
-        desplegado por código no se anota) y las de su selección.
-        """
-        view, model = self._folder_view, self._folder_model
-        offline = QBrush(view.palette().color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text))
-        with _blocked(view.selectionModel(), view):
-            model.clear()
-            root = model.invisibleRootItem()
-            for location in self._folder_tree:
-                item = self._make_item(
-                    location.name, self._folder_source(location.location_id, ""),
-                    self._folder_count(location.root),
-                )  # fmt: skip
-                self._set_icon(item, "drive")
-                item.setData((location.location_id, ""), _ROLE_FOLDER_KEY)
-                item.setData(location.absolute_path, _ROLE_PATH)
-                item.setData(location.is_online, _ROLE_ONLINE)
-                tooltip = location.absolute_path
-                if not location.is_online:
-                    tooltip += "\n(desconectada)"
-                    item.setForeground(offline)
-                item.setToolTip(tooltip)
-                root.appendRow(item)
-                self._append_folders(item, location, location.root.children, None if location.is_online else offline)
-                # Una ubicación que aparece por primera vez se muestra desplegada
-                if location.location_id not in self._known_locations:
-                    self._known_locations.add(location.location_id)
-                    self._expanded_folders.add((location.location_id, ""))
-            self._expand_folders(root)
-        view.updateGeometry()
-        # La carpeta elegida, otra vez marcada (si sigue en el árbol)
-        if self._current.kind == SourceKind.FOLDER:
-            item = self._find_item(self._current)
-            if item is not None:
-                with _blocked(view.selectionModel()):
-                    view.setCurrentIndex(item.index())
-                # Con las señales de la selección bloqueadas la vista no se entera: se repinta
-                view.viewport().update()
-
-    def _append_folders(
-        self,
-        parent: QStandardItem,
-        location: LocationNode,
-        children: tuple[FolderNode, ...],
-        foreground: QBrush | None,
-    ) -> None:
-        """Añade (recursivamente) las subcarpetas de una carpeta."""
-        for node in children:
-            item = self._make_item(
-                node.name, self._folder_source(location.location_id, node.relative_path),
-                self._folder_count(node),
-            )  # fmt: skip
-            self._set_icon(item, "folder")
-            # Ruta completa con el separador del sistema (barra invertida en Windows)
-            full_path = str(Path(location.absolute_path) / node.relative_path)
-            item.setToolTip(full_path)
-            item.setData((location.location_id, node.relative_path), _ROLE_FOLDER_KEY)
-            item.setData(full_path, _ROLE_PATH)
-            item.setData(location.is_online, _ROLE_ONLINE)
-            if foreground is not None:
-                item.setForeground(foreground)
-            parent.appendRow(item)
-            self._append_folders(item, location, node.children, foreground)
-
-    def _expand_folders(self, parent: QStandardItem) -> None:
-        """Despliega las carpetas que lo estaban (solo las que tienen subcarpetas: Qt da
-        por desplegada también una fila sin hijos si se le pide)."""
-        for row in range(parent.rowCount()):
-            child = parent.child(row)
-            if child.hasChildren() and tuple(child.data(_ROLE_FOLDER_KEY) or ()) in self._expanded_folders:
-                self._folder_view.setExpanded(child.index(), True)
-                self._update_open_icon(child, True)
-            self._expand_folders(child)
-
-    def _set_icon(self, item: QStandardItem, key: str) -> None:
-        """Pone a una fila el icono 'key' (y lo anota para desplegar y plegar)."""
-        item.setIcon(self._icons[key])
-        item.setData(key, _ROLE_ICON_KEY)
-
-    def _update_open_icon(self, item: QStandardItem | None, is_open: bool) -> None:
-        """Desplegada = icono de la carpeta abierta, en el color de acento."""
-        key = item.data(_ROLE_ICON_KEY) if item is not None else None
-        if key:
-            item.setIcon(self._icons[f"{key}:open" if is_open else key])
-
-    def _on_folder_expanded(self, index: QModelIndex, expanded: bool) -> None:
-        """Recuerda lo que despliega o pliega el usuario."""
-        key = index.data(_ROLE_FOLDER_KEY)
-        if key is not None:
-            key = tuple(key)
-            (self._expanded_folders.add if expanded else self._expanded_folders.discard)(key)
-        self._update_open_icon(self._folder_model.itemFromIndex(index), expanded)
-
-    def _show_folder_menu(self, position: QPoint) -> None:
-        """Menú de una carpeta: solo «Mostrar en el Explorador» (sincronizar y quitar
-        ausentes están en el Catálogo: esta barra es para navegar)."""
-        index = self._folder_view.indexAt(position)
-        path = index.data(_ROLE_PATH) if index.isValid() else None
-        if not path:
-            return
-        menu = QMenu(self._folder_view)
-        reveal = menu.addAction(f"Mostrar en {FILE_MANAGER_NAME}")
-        if not index.data(_ROLE_ONLINE):
-            reveal.setEnabled(False)
-            menu.addSeparator()
-            menu.addAction("(ubicación desconectada)").setEnabled(False)
-        if menu.exec(self._folder_view.viewport().mapToGlobal(position)) is reveal:
-            self.reveal_folder_requested.emit(path)
-
-    # -------------------------------------------------------------------------
-    # Árbol de palabras clave
-    # -------------------------------------------------------------------------
-
-    def _rebuild_keywords(self) -> None:
-        """Rehace el árbol con el filtro actual, conservando lo desplegado y lo elegido."""
-        filtering = bool(self._filter.text().strip())
-        shown = filter_keyword_tree(self._tree, self._filter.text())
-        view, model = self._keyword_view, self._keyword_model
-        with _blocked(view.selectionModel(), view):
-            model.clear()
-            self._append_nodes(model.invisibleRootItem(), shown)
-            # Con filtro, todo desplegado (se ve dónde está cada coincidencia); sin filtro,
-            # lo que el usuario tenía desplegado
-            if filtering:
-                view.expandAll()
-            else:
-                self._expand_saved(model.invisibleRootItem())
-        view.updateGeometry()
-        # La fila elegida, otra vez marcada (si sigue en el árbol)
-        if self._current.kind == SourceKind.KEYWORD:
-            item = self._find_item(self._current)
-            if item is not None:
-                with _blocked(view.selectionModel()):
-                    view.setCurrentIndex(item.index())
-                # Con las señales de la selección bloqueadas la vista no se entera: se repinta
-                view.viewport().update()
-
-    def _append_nodes(self, parent: QStandardItem, nodes: Iterable[KeywordTreeNode]) -> None:
-        """Añade las palabras (y sus hijas) bajo 'parent'."""
-        for node in nodes:
-            # Sin fotos en la biblioteca: sin número (como una carpeta vacía)
-            item = self._make_item(node.name, keyword_source(node.id, LIBRARY), node.count or None)
-            item.setData(node.id, _ROLE_KEYWORD_ID)
-            tooltip = f"{node.name}\n{node.count} con esta palabra o sus hijas"
-            if node.direct_count != node.count:
-                tooltip += f" ({node.direct_count} la tienen asignada directamente)"
-            if node.needs_review:
-                tooltip += "\nPalabra suelta con el nombre de otras del árbol: revisar dónde va."
-            item.setToolTip(tooltip)
-            parent.appendRow(item)
-            self._append_nodes(item, node.children)
-
-    def _expand_saved(self, parent: QStandardItem) -> None:
-        """Despliega las filas que el usuario tenía desplegadas."""
-        for row in range(parent.rowCount()):
-            child = parent.child(row)
-            if self._expansion.is_expanded(child.data(_ROLE_KEYWORD_ID)):
-                self._keyword_view.expand(child.index())
-            self._expand_saved(child)
-
-    def _apply_expansion(self) -> None:
-        """Lo desplegado ha cambiado (p. ej. al recuperarlo): el árbol se pone igual.
-
-        Con texto en el filtro no se toca (está todo desplegado); al vaciarlo, se rehace
-        con lo desplegado de ese momento.
-        """
-        if self._filter.text().strip():
-            return
-
-        def visit(parent: QStandardItem) -> None:
-            for row in range(parent.rowCount()):
-                child = parent.child(row)
-                if child.hasChildren():
-                    expanded = self._expansion.is_expanded(child.data(_ROLE_KEYWORD_ID))
-                    self._keyword_view.setExpanded(child.index(), expanded)
-                    visit(child)
-
-        visit(self._keyword_model.invisibleRootItem())
-
-    def _on_expanded(self, index: QModelIndex, expanded: bool) -> None:
-        """Recuerda lo desplegado por el usuario (no lo que despliega el filtro)."""
-        if self._filter.text().strip():
-            return
-        keyword_id = index.data(_ROLE_KEYWORD_ID)
-        if isinstance(keyword_id, int):
-            self._expansion.set_expanded(keyword_id, expanded)
-
-    def _view_of(self, item: QStandardItem) -> SidebarTreeView:
-        """El árbol en el que está una fila."""
-        if item is self._all_item or item is self._quick_item:
-            return self._library_view
-        return self._folder_view if item.model() is self._folder_model else self._keyword_view
 
     def _find_item(self, source: GridSource) -> QStandardItem | None:
         """La fila de un origen, o None si no está (p. ej. una palabra filtrada)."""
@@ -663,41 +312,33 @@ class ImageSidebar(QWidget):
             return self._all_item
         if source == IMAGE_QUICK:
             return self._quick_item
-        if source.kind == SourceKind.FOLDER:
-            return self._find_folder(self._folder_model.invisibleRootItem(), source)
-        if source.kind != SourceKind.KEYWORD:
-            return None
-
-        def search(parent: QStandardItem) -> QStandardItem | None:
-            for row in range(parent.rowCount()):
-                child = parent.child(row)
-                if child.data(_ROLE_KEYWORD_ID) == source.keyword_id:
-                    return child
-                found = search(child)
-                if found is not None:
-                    return found
-            return None
-
-        return search(self._keyword_model.invisibleRootItem())
-
-    def _find_folder(self, parent: QStandardItem, source: GridSource) -> QStandardItem | None:
-        """La fila de una carpeta (por su ubicación y su ruta)."""
-        wanted = (source.location_id, source.folder)
-        for row in range(parent.rowCount()):
-            child = parent.child(row)
-            if tuple(child.data(_ROLE_FOLDER_KEY) or ()) == wanted:
-                return child
-            found = self._find_folder(child, source)
-            if found is not None:
-                return found
+        for tree_section in self._sections:
+            item = tree_section.find_item(source)
+            if item is not None:
+                return item
         return None
 
-    # -------------------------------------------------------------------------
-    # Selección
-    # -------------------------------------------------------------------------
+    def _view_of(self, item: QStandardItem) -> SidebarTreeView:
+        """El árbol en el que está una fila."""
+        model = item.model()
+        return next((view for view in self._views if view.model() is model), self._library_view)
+
+    def _mark(self, item: QStandardItem) -> None:
+        """Marca una fila sin avisar (no es el usuario quien la elige)."""
+        view = self._view_of(item)
+        with _blocked(view.selectionModel()):
+            view.setCurrentIndex(item.index())
+        # Con las señales de la selección bloqueadas la vista no se entera: se repinta
+        view.viewport().update()
+
+    def _remark_current(self) -> None:
+        """Una sección ha rehecho su árbol: la fila elegida, otra vez marcada (si está)."""
+        item = self._find_item(self._current)
+        if item is not None:
+            self._mark(item)
 
     def _on_selection_changed(self, view: SidebarTreeView, selected) -> None:
-        """El usuario ha elegido una fila en uno de los dos árboles."""
+        """El usuario ha elegido una fila en uno de los árboles."""
         indexes = selected.indexes()
         if not indexes:
             return

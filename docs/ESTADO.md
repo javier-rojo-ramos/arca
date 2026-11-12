@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Barra de Imagen, un archivo por sección** (12/11; `image_sidebar` 2.0.0; nuevos en `ui_helpers/sidebars/sections/`: `tree_section`, `folder_section` y `keyword_section` 1.0.0) | Todo igual que antes (comprobado sin ventana contra la versión anterior: mismas filas, fila elegida, estado guardado, señales y píxeles). Probar en Imagen: al abrir, las secciones plegadas, lo desplegado y la fila elegida (una carpeta y, otra vez, una palabra) como se dejaron; elegir «Todas las imágenes», «Selección rápida», una carpeta y una palabra (solo una marcada a la vez); el filtro de palabras; la flecha «ver sus fotos» del inspector con la palabra oculta por el filtro; «Mostrar en el Explorador»; cambiar la opción de subcarpetas con una carpeta elegida; cerrar el catálogo y abrirlo |
 | **Sección «Fechas», paso 1: los datos** (12/11; `timeline` 1.0.0, nuevo) | Nada visible todavía: la aplicación, igual que antes. La autoprueba `python -m core.catalog.timeline` pasa (cada fila muestra en la cuadrícula lo que cuenta) |
 
 ## Comprobaciones sueltas
@@ -64,6 +65,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: sección «Fechas» del módulo Imagen, paso 2: la barra de Imagen, dividida en un archivo por sección (`ui_helpers/sidebars/sections/`); nada cambia a la vista.
 - 12/11/2026: sección «Fechas» del módulo Imagen, paso 1: los años, meses y días con sus recuentos, y el origen de la cuadrícula de cada fila (`core/catalog/timeline.py`); aún sin nada visible.
 - 11/11/2026: vista individual, la imagen que cabe se ve a su tamaño (sin ampliarla); el deslizador de la barra inferior, centrado (1 px más abajo).
 - 11/11/2026: la barra inferior, del alto de la franja de «Atributos» (30 px bajo la raya; botones de vista de 22 px).
@@ -73,4 +75,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 11/11/2026: edición del GPS, la altitud y la dirección, paso 5 (último): las cajas del inspector (lo escrito se interpreta; lo que no vale vuelve con un aviso).
 - 11/11/2026: edición del GPS, la altitud y la dirección, paso 4: el GPS editado se escribe en las fotos (donde ya esté o, si no, en el EXIF; en los RAW, el sidecar), con sus referencias.
 - 11/11/2026: edición del GPS, la altitud y la dirección, paso 3: los cuatro campos, editables por dentro (guardar, proteger al releer, `.arca.json` con números); aún sin nada visible.
-- 11/11/2026: edición del GPS, la altitud y la dirección, paso 2: el GPS, la altitud y la dirección se leen primero del XMP, como Lightroom (`IMAGE_FIELDS_VERSION` 9: se releen las fotos).
