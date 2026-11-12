@@ -21,6 +21,7 @@ Tres responsabilidades:
        core/userdata/editable_fields.py), con su bit en 'metadata_edit_pending'.
     4. 'set_quick_selection' / 'clear_quick_selection': la "Selección rápida" (el círculo
        de la tarjeta). Vive SOLO en el catálogo: no se escribe en los archivos.
+    5. 'fetch_media_file': ruta completa y dimensiones de UN archivo (vista individual).
 
 IMPORTANTE: la base de datos es una CACHÉ reconstruible. Escribir aquí rating/flag/color es
 solo la mitad del trabajo: 'update_user_field' deja además el elemento PENDIENTE de escribir
@@ -28,6 +29,8 @@ solo la mitad del trabajo: 'update_user_field' deja además el elemento PENDIENT
 archivo, en su sidecar XMP o en el archivo de carpeta, para que sobreviva a recrear el
 catálogo.
 
+2.4.0 'fetch_media_file': ruta completa y dimensiones de UN archivo (la vista individual
+      a 1:1 las pide del que muestra; la cuadrícula sigue sin leer rutas).
 2.3.0 'update_metadata_fields': también el GPS (números: latitud, longitud, altitud y
       dirección), con la latitud y la longitud siempre juntas.
 2.2.0 'update_metadata_fields': metadatos descriptivos editados, pendientes de escribir
@@ -56,7 +59,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_queries
 """
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 # ruff: noqa: RUF022
 __all__ = [
     "AVAILABLE",
@@ -66,10 +69,12 @@ __all__ = [
     "MISSING",
     "OFFLINE",
     "USER_FIELDS",
+    "MediaFile",
     "USER_FIELD_BITS",
     "clear_quick_selection",
     "count_grid_items",
     "fetch_grid_rows",
+    "fetch_media_file",
     "set_quick_selection",
     "source_condition",
     "update_metadata_fields",
@@ -79,6 +84,8 @@ __all__ = [
 # Librerías estándar
 import sqlite3
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 # Módulos del proyecto
@@ -314,6 +321,47 @@ def count_grid_items(
         ).fetchone()
         counts[source] = int(row[0])
     return counts
+
+
+@dataclass(frozen=True, slots=True)
+class MediaFile:
+    """Dónde está un archivo y cuánto mide (lo que necesita la vista individual a 1:1).
+
+    Attributes:
+        media_id: 'media_items.id'.
+        path: Ruta completa del archivo (con el separador del sistema).
+        pixels: (ancho, alto) en píxeles, ya derechos ('media_items.width' y 'height'),
+            o None si aún no se conocen (metadatos sin leer).
+        availability: AVAILABLE, MISSING u OFFLINE (como en 'fetch_grid_rows').
+    """
+
+    media_id: int
+    path: Path
+    pixels: tuple[int, int] | None
+    availability: int
+
+
+def fetch_media_file(conn: sqlite3.Connection, media_id: int) -> MediaFile | None:
+    """Ruta completa, dimensiones y disponibilidad de UN archivo (None si no está en el
+    catálogo). La cuadrícula no lee rutas (ver 'fetch_grid_rows'): las pide la vista
+    individual del archivo que muestra."""
+    row = conn.execute(
+        f"""SELECT l.absolute_path, m.relative_path, m.width, m.height,
+                   CASE WHEN l.is_online = 0 THEN {OFFLINE}
+                        WHEN m.is_missing = 1 THEN {MISSING}
+                        ELSE {AVAILABLE} END
+              FROM media_items AS m
+              JOIN storage_locations AS l ON l.id = m.storage_location_id
+             WHERE m.id = ?""",
+        (media_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    location, relative, width, height, availability = row
+    known = width is not None and height is not None and width > 0 and height > 0
+    pixels = (int(width), int(height)) if known else None
+    # La ruta relativa se guarda con '/': Path la une con el separador del sistema
+    return MediaFile(media_id, Path(location) / relative, pixels, availability)
 
 
 # -----------------------------------------------------------------------------
@@ -605,6 +653,16 @@ if __name__ == "__main__":
     assert count_grid_items(db, [ALL_ITEMS]) == {ALL_ITEMS: 5}
     assert count_grid_items(db, [ALL_ITEMS, ALL_ITEMS]) == {ALL_ITEMS: 5}  # sin repetidos
     assert count_grid_items(db, []) == {}
+
+    # Un archivo: ruta completa, dimensiones (sin leer: None) y disponibilidad
+    a_id = rows[0]["id"]
+    db.execute("UPDATE media_items SET width = 6000, height = 4000 WHERE id = ?", (a_id,))
+    file = fetch_media_file(db, a_id)
+    assert file == MediaFile(a_id, Path("/tmp/p") / "a.jpg", (6000, 4000), AVAILABLE), file
+    gone = next(r["id"] for r in fetch_grid_rows(db) if r["file_name"] == "gone.jpg")
+    assert fetch_media_file(db, gone).pixels is None
+    assert fetch_media_file(db, gone).availability == MISSING
+    assert fetch_media_file(db, 99999) is None
 
     # Un origen desconocido se rechaza (nunca se genera SQL a partir de él)
     @dataclass(frozen=True)

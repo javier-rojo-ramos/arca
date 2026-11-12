@@ -11,8 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Vista individual a 1:1, paso 2: las cuentas del zoom** (12/11; nuevo `zoom_geometry` 1.0.0) | Nada visible todavía. Pasa su autoprueba (`python -m ui_helpers.helpers.zoom_geometry`) |
-| **Vista individual a 1:1, paso 1: leer el original** (12/11; nuevo `full_image` 1.0.0; `generator` 1.2.0) | Nada visible todavía: la aplicación, igual que antes (las miniaturas se generan como siempre). Pasan las autopruebas de `full_image`, `generator` y `job` |
+| **Rueda del ratón en la vista individual** (12/11; `single_media_view` 1.3.0, `single_view_zoom` 1.1.0, `zoom_geometry` 1.1.0, `center_view_controller` 1.2.0) | En la vista ajustada, la rueda hacia delante pasa a la foto anterior y hacia atrás a la siguiente, una por clic (con un panel táctil, sin saltar varias). **Ctrl + rueda** hacia delante: 1:1 en el punto del ratón (fuera de la foto, desde el centro); hacia atrás: vuelve. A 1:1, la rueda sola **no** cambia de foto: mueve la foto en vertical (120 px por clic), y **Mayús + rueda** en horizontal. Ctrl + rueda en una foto sin lupa: nada |
 
 ## Comprobaciones sueltas
 
@@ -54,6 +53,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Eliminar archivos**: «Eliminar del catálogo» y «Eliminar del disco», con su ventana.
 - **Tracks GPX**: distancia como Wikiloc; desnivel con umbral de 8 m (Bujaruelo, Ordesa, Pineta).
 - **A.1: centro con varias vistas y vista individual** (08/11): botones de vista con iconos, vista recordada por módulo y al reiniciar, deslizador solo en la cuadrícula; vista individual nítida con precarga (la imagen que cabe, a su tamaño y sin ampliar, también al maximizar: 11/11), marcador y avisos de no disponible, «No hay archivos»; doble clic / Intro, Esc / G, flechas, Inicio y Fin; atajos y barra inferior sobre la foto vista.
+- **Vista individual a 1:1** (12/11): lupa solo donde hay más detalle (también con la caché pequeña de un DNG: sin lupa), clic con el punto bajo el ratón, el original nítido, la mano para arrastrar, Z y vuelta a la ajustada. Al arrastrar deprisa se ven cortes horizontales (Qt Widgets en Windows no dibuja al ritmo de la pantalla): pendiente, en [PENDIENTE.md](PENDIENTE.md) (B).
 - **A.2: el inspector edita en todos los módulos** (08/11): secciones según la biblioteca de lo resumido; editor y árbol de palabras clave con cualquier selección, también en el Catálogo; flecha «ver sus fotos» en el Catálogo y en Imagen; escritura de palabras clave en el `.arca.json` de un vídeo, una canción y un GPX.
 - **A.3: barra de filtros** (08-09/11): la barra (pestañas, «Ninguno», candado, Ctrl+L, cada módulo lo suyo, oculta en la vista individual, recordada al reiniciar); «Texto» (todos los campos o solo el nombre, cuatro operadores, Ctrl+F); «Atributos» (marcas, estrellas con su operador y «sin valoración», colores, selección rápida y los tipos de cada módulo); «Metadatos» (columnas en cascada, añadir y quitar, alto, fechas en árbol; con unas 10 000 fotos, «muy ágil»); ajustes personalizados (el desplegable y la ventana «Gestionar ajustes personalizados»); la fila de las pestañas, «Texto» y «Atributos», de 34 px con lo de dentro centrado (12/11).
 - **Colecciones inteligentes con grupos** (09/11): las colecciones de antes, igual (se guardan ya en JSON versión 2); el editor, con los colores del tema; «+ Añadir grupo», cada grupo con su «todas / alguna de», su «−» y su «+ Añadir regla»; el recuento en vivo con grupos; editar y volver a abrir; la lista baja hasta lo añadido.
@@ -66,6 +66,9 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 12/11/2026: la rueda del ratón en la vista individual: foto anterior o siguiente; Ctrl + rueda, zoom 1:1; a 1:1, mueve la foto.
+- 12/11/2026: vista individual a 1:1, sin lupa en una foto de la que no se puede leer nada mayor que su caché (un DNG con una vista previa pequeña).
+- 12/11/2026: vista individual a 1:1, paso 3 (último): lupa, clic, arrastre con la mano, Z, el original en segundo plano y vuelta a la vista ajustada.
 - 12/11/2026: vista individual a 1:1, paso 2: las cuentas del zoom, sin Qt (`ui_helpers/helpers/zoom_geometry.py`); aún sin nada visible.
 - 12/11/2026: vista individual a 1:1, paso 1: leer el original a tamaño completo con el color de la caché (`core/thumbnails/full_image.py`); aún sin nada visible.
 - 12/11/2026: las franjas de la barra de filtros (pestañas, «Texto», «Atributos») y la barra inferior, de 34 px (antes, 30), con lo de dentro centrado.
@@ -73,6 +76,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 12/11/2026: sección «Fechas» del módulo Imagen, paso 3 (último): la sección, debajo de «Carpetas» (años, «01 Enero», «10 Miércoles» y «Sin fecha», con sus recuentos).
 - 12/11/2026: sección «Fechas» del módulo Imagen, paso 2: la barra de Imagen, dividida en un archivo por sección (`ui_helpers/sidebars/sections/`); nada cambia a la vista.
 - 12/11/2026: sección «Fechas» del módulo Imagen, paso 1: los años, meses y días con sus recuentos, y el origen de la cuadrícula de cada fila (`core/catalog/timeline.py`); aún sin nada visible.
-- 11/11/2026: vista individual, la imagen que cabe se ve a su tamaño (sin ampliarla); el deslizador de la barra inferior, centrado (1 px más abajo).
-- 11/11/2026: la barra inferior, del alto de la franja de «Atributos» (30 px bajo la raya; botones de vista de 22 px).
-- 11/11/2026: barra de Imagen, «Lista de palabras clave» alineada con «Carpetas» (filtro a 8 px; nombres en la columna de las flechas de las subcarpetas; números con los de las carpetas).

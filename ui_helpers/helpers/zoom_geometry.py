@@ -32,13 +32,15 @@ Reglas ('clamp_offset'):
     - La esquina cae siempre en un píxel físico entero ('snap'): entre dos, Qt suavizaría
       la imagen y el 1:1 dejaría de ser nítido.
 
+1.1.0 'wheel_steps': clics de rueda a partir del giro acumulado (también con un panel
+      táctil, que da giros pequeños).
 1.0.0 Primera versión (vista individual a 1:1, paso 2).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.helpers.zoom_geometry
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "Point",
     "Rect",
@@ -49,12 +51,16 @@ __all__ = [
     "offset_keeping",
     "relative_point",
     "snap",
+    "wheel_steps",
     "zoomed_size",
 ]
 
 Rect = tuple[float, float, float, float]  # x, y, ancho, alto
 Size = tuple[float, float]  # ancho, alto
 Point = tuple[float, float]  # x, y
+
+# Giro de un clic de la rueda del ratón ('QWheelEvent.angleDelta': octavos de grado)
+WHEEL_STEP = 120
 
 # Cuánto (px lógicos) tiene que ganar la imagen al ampliarla para que valga la pena: con
 # menos de medio píxel, el 1:1 se vería igual que la vista ajustada
@@ -137,6 +143,28 @@ def offset_keeping(relative: Point, anchor: Point, zoomed: Size, area: Rect, rat
     return clamp_offset(desired, zoomed, area, ratio)
 
 
+def wheel_steps(accumulated: int, delta: int, unit: int = WHEEL_STEP) -> tuple[int, int]:
+    """Clics de rueda enteros tras sumar 'delta' al giro acumulado.
+
+    Un ratón da 'unit' (120) por clic; un panel táctil, giros pequeños que se suman hasta
+    llegar a un clic (así no se pasan varias fotos de golpe). Si cambia el sentido, lo
+    acumulado se olvida.
+
+    Args:
+        accumulated: Lo que sobró la vez anterior.
+        delta: El giro nuevo (positivo hacia delante, negativo hacia atrás).
+        unit: El giro de un clic.
+
+    Returns:
+        (clics, lo que sobra): clics con su signo; lo que sobra se guarda para la próxima.
+    """
+    if accumulated and delta and (accumulated > 0) != (delta > 0):
+        accumulated = 0  # cambio de sentido
+    total = accumulated + delta
+    steps = int(total / unit)  # hacia el cero: -130 da -1 y sobra -10
+    return steps, total - steps * unit
+
+
 if __name__ == "__main__":
     # Autoprueba (sin Qt). Ejecutar desde la raíz:  python -m ui_helpers.helpers.zoom_geometry
     def close(a: Point | Size, b: Point | Size, tolerance: float = 1e-6) -> bool:
@@ -206,4 +234,12 @@ if __name__ == "__main__":
     zoomed = zoomed_size((6000, 4000), ratio)
     offset = offset_keeping((0.37, 0.61), (333.3, 222.2), zoomed, AREA, ratio)
     assert all(abs(value * ratio - round(value * ratio)) < 1e-9 for value in offset), offset
+
+    # 8. Rueda: un clic de ratón; giros pequeños que se suman; cambio de sentido
+    assert wheel_steps(0, 120) == (1, 0) and wheel_steps(0, -240) == (-2, 0)
+    assert wheel_steps(0, 40) == (0, 40) and wheel_steps(40, 40) == (0, 80)
+    assert wheel_steps(80, 50) == (1, 10)
+    assert wheel_steps(-100, -30) == (-1, -10)
+    assert wheel_steps(100, -30) == (0, -30)  # cambia el sentido: lo de antes no cuenta
+    assert wheel_steps(50, 0) == (0, 50)
     print("Autoprueba finalizada correctamente.")

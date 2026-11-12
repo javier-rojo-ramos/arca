@@ -84,6 +84,10 @@
 - Cambiar la biblioteca con «Sin clasificar» a la vista **recarga la cuadrícula** (para que los vídeos salgan de ella): se pierde la selección.
 - `ThumbnailCache.resolve` y las comprobaciones de existencia miran el disco: no llamarlas miles de veces por repintado; cachear el resultado en el modelo de la cuadrícula.
 
+- **Las dimensiones del catálogo no siempre son lo que se puede leer**: de un DNG de Lightroom solo se lee una vista previa de 1024 px aunque `width` y `height` digan 6000 × 4000 (o el `DefaultCropSize`). Lo delata la caché: si su imagen grande mide menos de 2560 px, no había nada mayor (la escalera nunca amplía). La vista 1:1 lo tiene en cuenta (`single_view_zoom._full_pixels`).
+
+- **Cortes horizontales («tearing») al mover deprisa algo grande**: Qt Widgets en Windows dibuja sin esperar al refresco de la pantalla. Dibujar no es lento (una foto de 6000 × 4000 a 1:1, menos de 2 ms, y sin remuestrear a ninguna escala): no se arregla optimizando el dibujo, sino componiendo con la GPU (OpenGL o QML; ver PENDIENTE.md, B).
+
 ## Módulos, configuración y arranque
 
 - `ConfigManager.set` compara el valor antiguo con el nuevo: para cambiar un diccionario (p. ej. `sidebar_state`) hay que pasar una COPIA nueva, no modificar el que devuelve `get`.

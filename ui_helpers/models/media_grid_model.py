@@ -23,6 +23,8 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.15.0 'request_media_file': ruta completa y dimensiones de UN archivo, en segundo plano
+       (las pide la vista individual para ampliar a 1:1; la lista no lleva rutas).
 1.14.0 'set_view(..., grid_filter)': origen, orden y filtro a la vez, con una sola recarga
        (al cambiar de módulo; paso A.3).
 1.13.0 Filtro de la barra de filtros: 'set_filter', propiedades 'grid_filter' y
@@ -51,12 +53,12 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.14.0"
+__version__ = "1.15.0"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
 from collections import OrderedDict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import partial
 from typing import Any
 
@@ -83,7 +85,9 @@ from core.catalog.media_queries import (
     FLAG_NONE,
     FLAG_PICKED,
     FLAG_REJECTED,
+    MediaFile,
     fetch_grid_rows,
+    fetch_media_file,
 )
 from core.catalog.smart_rules import RuleSet
 from core.thumbnails.cache import ThumbnailCache
@@ -367,6 +371,31 @@ class MediaGridModel(QAbstractListModel):
         self._invalidate_loads()
         self._set_rows(rows)
         self.rows_loaded.emit(len(rows))
+
+    def request_media_file(
+        self, media_id: int, on_result: Callable[[MediaFile | None], None]
+    ) -> bool:
+        """Pide en segundo plano la ruta completa y las dimensiones de UN archivo
+        ('media_queries.fetch_media_file'): la lista de la cuadrícula no lleva rutas.
+
+        'on_result' recibe el 'MediaFile' (None si ya no está en el catálogo o si falla
+        la consulta). No se llama si el catálogo se cierra mientras tanto.
+
+        Returns:
+            False si no hay catálogo (no se pide nada).
+        """
+        if self._db is None:
+            return False
+        catalog_key = self._catalog_key
+
+        def deliver(result: MediaFile | None) -> None:
+            if self._db is not None and self._catalog_key == catalog_key:
+                on_result(result)
+
+        self._db.execute_async(
+            fetch_media_file, media_id, on_result=deliver, on_error=lambda _error: deliver(None)
+        )
+        return True
 
     def _on_rows_error(self, token: int, error: Exception) -> None:
         if token == self._query_token:

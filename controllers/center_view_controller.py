@@ -16,7 +16,9 @@ Teclado y ratón (sin Ctrl, Alt ni Mayús):
     cuadrícula         doble clic o Intro -> vista individual del archivo pulsado / actual
     vista individual   Esc o G -> cuadrícula, con el archivo visto seleccionado y visible
                        ← ↑ anterior, → ↓ siguiente, Inicio el primero, Fin el último
-                       (en el orden de la cuadrícula)
+                       (en el orden de la cuadrícula); también la rueda del ratón:
+                       hacia delante la anterior, hacia atrás la siguiente (la cuenta
+                       la vista: 'step_requested'; a 1:1 y con Ctrl la usa el zoom)
 Al entrar en la vista individual queda seleccionado SOLO el archivo que se ve (decidido
 por el autor el 08/11/2026): así la barra inferior, los atajos de clasificación y el
 inspector actúan sobre él sin cambios. Si se recarga la lista estando en ella: con otro
@@ -29,12 +31,13 @@ Uso (en el controlador principal, que solo lo crea):
         size_slider=..., grid=list_view_grid, single=widget_single_view, parent=window,
     )
 
+1.2.0 La rueda del ratón en la vista individual: foto anterior o siguiente.
 1.1.0 Navegación (paso A.1, subpaso 5): doble clic / Intro, Esc / G, flechas, Inicio y
       Fin; selección de un solo archivo en la vista individual y vuelta a él al recargar.
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -112,6 +115,10 @@ class CenterViewController(QObject):
         grid.doubleClicked.connect(lambda index: self.open_single(index.row()))
         grid.installEventFilter(self)
         single.installEventFilter(self)
+        # La rueda en la vista individual (si la vista la ofrece): anterior o siguiente
+        step_requested = getattr(single, "step_requested", None)
+        if step_requested is not None:
+            step_requested.connect(self._on_step_requested)
         self._model.modelAboutToBeReset.connect(self._remember_shown)
         self._model.modelReset.connect(self._on_rows_reset)
         self._show()  # el módulo inicial ya se activó al crear el host
@@ -208,6 +215,11 @@ class CenterViewController(QObject):
             return current.row()
         selected = self._grid.selectionModel().selectedIndexes()
         return min(index.row() for index in selected) if selected else 0
+
+    def _on_step_requested(self, step: int) -> None:
+        """La rueda en la vista individual: tantos archivos atrás o adelante."""
+        if self._shown == CenterView.SINGLE:
+            self._move_to(self._current_row() + step)
 
     def _move_to(self, row: int) -> None:
         """Pasa a otro archivo en la vista individual (se queda en los extremos)."""
@@ -311,7 +323,12 @@ if __name__ == "__main__":
     grid = QListView(window)
     grid.setModel(model)
     grid.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-    single = QWidget(window)
+    class _Single(QWidget):
+        """Lo que el controlador usa de la vista individual: la señal de la rueda."""
+
+        step_requested = Signal(int)
+
+    single = _Single(window)
     stack = QStackedWidget(window)
     page_grid, page_single = QWidget(stack), QWidget(stack)
     stack.addWidget(page_grid)
@@ -351,6 +368,13 @@ if __name__ == "__main__":
     press(single, _KEY.Key_End)
     assert selected_rows() == [3]
     press(single, _KEY.Key_Left)
+    assert selected_rows() == [2]
+    # La rueda (la cuenta la vista y pide pasos): adelante y atrás, en los extremos se queda
+    single.step_requested.emit(1)
+    assert selected_rows() == [3]
+    single.step_requested.emit(5)
+    assert selected_rows() == [3]
+    single.step_requested.emit(-1)
     assert selected_rows() == [2]
     # Una tecla que no es suya (un atajo de clasificación) no se consume
     event = QKeyEvent(QEvent.Type.KeyPress, _KEY.Key_3, Qt.KeyboardModifier.NoModifier)

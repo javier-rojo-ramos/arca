@@ -8,8 +8,7 @@ Qué dibuja (todo sobre el fondo de la cuadrícula, 'CARD_COLORS.grid_bg'):
     - La imagen centrada y sin deformar. Sale de la caché: la de 2560 px o la mayor que
       haya, leída en segundo plano ('FullImageLoader'). Si cabe en el espacio, a SU
       tamaño: un píxel de la imagen en un píxel físico de la pantalla, sin reescalar
-      (ampliarla la emborronaría, p. ej. la vista previa de 1024 px de un DNG; el zoom
-      llegará más adelante). Si no cabe, reducida para que quepa: para que se vea nítida
+      (ampliarla la emborronaría, p. ej. la vista previa de 1024 px de un DNG). Si no cabe, reducida para que quepa: para que se vea nítida
       en pantallas escaladas, se reescala en alta calidad a los píxeles FÍSICOS (mientras
       se redimensiona, un escalado rápido; el bueno, al pararse: '_HQ_DELAY_MS'). Se
       decide en cada dibujo, así que al maximizar o estrechar la ventana pasa de un caso
@@ -21,12 +20,26 @@ Qué dibuja (todo sobre el fondo de la cuadrícula, 'CARD_COLORS.grid_bg'):
       desconectado)».
     - Sin archivos en lo que se está viendo: «No hay archivos».
 
+Zoom 1:1 ('single_view_zoom.py', que se ocupa de todo): con la lupa, un clic (o Z) amplía
+la foto a 1:1 con el ORIGINAL; a 1:1 se arrastra con la mano y otro clic vuelve. Esta
+vista solo le dice qué archivo muestra ('track') y dónde ha quedado la foto ajustada
+('set_shown'), y le deja dibujar cuando está ampliada.
+
+Rueda del ratón (decidido por el autor el 12/11/2026): en la vista ajustada, hacia delante
+la foto anterior y hacia atrás la siguiente, una por clic de la rueda ('step_requested';
+las mueve el 'CenterViewController', como las flechas). Ctrl + rueda y la rueda a 1:1 los
+atiende antes el zoom.
+
 Precarga el archivo anterior y el siguiente, para que pasar de uno a otro sea inmediato.
 Solo carga imágenes cuando se dibuja: oculta (en la cuadrícula) no lee nada.
 
 Uso (en el .ui es un widget promocionado, 'widget_single_view', dentro de 'page_single'):
     self.widget_single_view.attach(self.list_view_grid, self.mosaico_model)
 
+1.3.0 Rueda: foto anterior o siguiente en la vista ajustada ('step_requested').
+1.2.1 Al zoom, también el tamaño de la imagen de la caché que se ve (sin lupa si no hay
+      nada mayor que leer).
+1.2.0 Zoom 1:1 con el original ('SingleViewZoom'; vista individual a 1:1, paso 3).
 1.1.0 La imagen que cabe se muestra a su tamaño (un píxel de la imagen, uno de la
       pantalla) en vez de ampliarla hasta llenar el espacio, que la emborronaba; la que no
       cabe se reduce como antes (pedido por el autor).
@@ -39,14 +52,14 @@ Prueba rápida (desde la raíz del proyecto; dibuja en una imagen, no abre venta
     python -m ui_helpers.widgets.single_media_view
 """
 
-__version__ = "1.1.0"
+__version__ = "1.3.0"
 __all__ = ["SingleMediaView"]
 
 # Librerías estándar
 from typing import Any
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QModelIndex, QPointF, QRect, QRectF, QSize, QSizeF, Qt, QTimer
+from qtpy.QtCore import QModelIndex, QPointF, QRect, QRectF, QSize, QSizeF, Qt, QTimer, Signal
 from qtpy.QtGui import (
     QColor,
     QFont,
@@ -55,6 +68,7 @@ from qtpy.QtGui import (
     QPaintEvent,
     QPixmap,
     QResizeEvent,
+    QWheelEvent,
 )
 from qtpy.QtWidgets import QListView, QWidget
 
@@ -62,12 +76,14 @@ from qtpy.QtWidgets import QListView, QWidget
 from ui_helpers.delegates.thumbnails_delegate import ThumbnailsDelegate
 from ui_helpers.helpers import card_glyphs
 from ui_helpers.helpers.ui_theme import CARD_COLORS, COLORS
+from ui_helpers.helpers.zoom_geometry import wheel_steps
 from ui_helpers.models.full_image_loader import FullImageLoader
 from ui_helpers.models.media_roles import (
     ROLE_AVAILABILITY,
     ROLE_MEDIA_ID,
     ROLE_MEDIA_TYPE,
 )
+from ui_helpers.widgets.single_view_zoom import SingleViewZoom
 
 # Textos de la interfaz (decididos por el autor el 08/11/2026)
 EMPTY_TEXT = "No hay archivos"
@@ -94,7 +110,14 @@ _HQ_DELAY_MS = 120
 
 
 class SingleMediaView(QWidget):
-    """Muestra el archivo actual de la cuadrícula (ver el docstring del archivo)."""
+    """Muestra el archivo actual de la cuadrícula (ver el docstring del archivo).
+
+    Signals:
+        step_requested(int): la rueda pide otra foto: -1 la anterior, +1 la siguiente
+            (o más, si se gira deprisa).
+    """
+
+    step_requested = Signal(int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -112,6 +135,9 @@ class SingleMediaView(QWidget):
         # atiende 'GridActions' con el mismo modelo y selección
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
+        # Zoom 1:1 (lupa, clic, arrastre, Z, Ctrl + rueda y el original): en 'SingleViewZoom'
+        self._zoom = SingleViewZoom(self)
+        self._wheel = 0  # giro de la rueda que aún no llega a un clic (panel táctil)
 
     # -------------------------------------------------------------------------
     # Interfaz pública
@@ -123,6 +149,7 @@ class SingleMediaView(QWidget):
         self._model = model
         self._loader = FullImageLoader(lambda: (model.catalog_key(), model.thumbnail_cache), self)
         self._loader.loaded.connect(self._on_loaded)
+        self._zoom.attach(model)
         model.modelReset.connect(self._on_rows_changed)
         model.rowsInserted.connect(self._on_rows_changed)
         model.rowsRemoved.connect(self._on_rows_changed)
@@ -143,9 +170,10 @@ class SingleMediaView(QWidget):
         return min(index.row() for index in selected) if selected else 0
 
     def shutdown(self) -> None:
-        """Para la lectura en curso (al cerrar la aplicación)."""
+        """Para las lecturas en curso (al cerrar la aplicación)."""
         if self._loader is not None:
             self._loader.shutdown()
+        self._zoom.shutdown()
 
     # -------------------------------------------------------------------------
     # Avisos del modelo y del cargador
@@ -182,6 +210,14 @@ class SingleMediaView(QWidget):
     # Dibujo
     # -------------------------------------------------------------------------
 
+    def wheelEvent(self, event: QWheelEvent) -> None:  # nombre de Qt
+        """Vista ajustada: hacia delante, la foto anterior; hacia atrás, la siguiente (una por
+        clic). Ctrl + rueda y la rueda a 1:1 no llegan aquí: los atiende el zoom."""
+        steps, self._wheel = wheel_steps(self._wheel, event.angleDelta().y())
+        if steps:
+            self.step_requested.emit(-steps)
+        event.accept()
+
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._hq_timer.start()  # el escalado bueno, cuando deje de cambiar de tamaño
@@ -191,6 +227,7 @@ class SingleMediaView(QWidget):
         painter.fillRect(self.rect(), QColor(CARD_COLORS.grid_bg))
         row = self.current_row()
         if row < 0 or self._loader is None:
+            self._zoom.track(None, None, card_glyphs.AVAILABLE)  # nada que ampliar
             if self._model is not None:
                 self._draw_centered_text(painter, self.rect(), EMPTY_TEXT, COLORS.text_dim)
             painter.end()
@@ -199,30 +236,42 @@ class SingleMediaView(QWidget):
         index = self._model.index(row, 0)
         media_id = index.data(ROLE_MEDIA_ID)
         media_type = index.data(ROLE_MEDIA_TYPE) or ""
+        availability = index.data(ROLE_AVAILABILITY) or card_glyphs.AVAILABLE
+        # El zoom sabe qué se ve (si cambia de archivo o deja de estar disponible, vuelve a
+        # la vista ajustada)
+        self._zoom.track(media_id, media_type, availability)
         area = self.rect().adjusted(_MARGIN, _MARGIN, -_MARGIN, -_MARGIN)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
         image = self._loader.image(media_type, media_id)
-        target = QRectF()  # dónde ha quedado lo dibujado (vacío: solo el fondo)
-        if image is not None and not image.isNull():
-            target = self._draw_image(painter, area, media_id, image)
+        interim = index.data(Qt.ItemDataRole.DecorationRole)
+        if self._zoom.active:
+            # A 1:1 dibuja el zoom: el original o, mientras llega, la imagen de la caché
+            if image is not None and not image.isNull():
+                self._zoom.paint(painter, image)
+            else:
+                self._zoom.paint(painter, interim if isinstance(interim, QPixmap) else None)
         else:
-            interim = index.data(Qt.ItemDataRole.DecorationRole)
-            if image is None and isinstance(interim, QPixmap) and not interim.isNull():
+            target = QRectF()  # dónde ha quedado lo dibujado (vacío: solo el fondo)
+            photo = QRectF()  # dónde ha quedado la FOTO (el marcador no se amplía)
+            source = None  # y, si es la imagen grande de la caché, su tamaño
+            if image is not None and not image.isNull():
+                target = photo = self._draw_image(painter, area, media_id, image)
+                source = image.size()
+            elif image is None and isinstance(interim, QPixmap) and not interim.isNull():
                 # Mientras llega la grande: la de la cuadrícula, ajustada al espacio
                 fitted = self._fit(area, interim.size())
                 painter.drawPixmap(fitted, interim)
-                target = QRectF(fitted)
+                target = photo = QRectF(fitted)
             elif image is not None:
                 # Sin miniatura: el marcador de su tipo y el nombre
                 target = QRectF(
                     self._draw_placeholder(painter, area, media_type, str(index.data() or ""))
                 )
-
-        availability = index.data(ROLE_AVAILABILITY) or card_glyphs.AVAILABLE
-        if availability != card_glyphs.AVAILABLE and target.isValid():
-            self._draw_unavailable(painter, target, availability)
+            if availability != card_glyphs.AVAILABLE and target.isValid():
+                self._draw_unavailable(painter, target, availability)
+            self._zoom.set_shown(photo, source)
         painter.end()
 
         # Las vecinas, para que las flechas vayan al momento
@@ -353,7 +402,7 @@ if __name__ == "__main__":
     import os
 
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    from qtpy.QtCore import Signal
+    from qtpy.QtCore import QPoint
     from qtpy.QtGui import QStandardItem, QStandardItemModel
     from qtpy.QtWidgets import QApplication
 
@@ -468,4 +517,19 @@ if __name__ == "__main__":
 
     view.shutdown()
     holder.deleteLater()
+    # La rueda: hacia atrás, la siguiente; hacia delante, la anterior; giros pequeños, sumados
+    steps: list[int] = []
+    view.step_requested.connect(steps.append)
+
+    def roll(dy: int) -> None:
+        point = QPointF(50, 50)
+        QApplication.sendEvent(view, QWheelEvent(
+            point, point, QPoint(0, 0), QPoint(0, dy), Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False))  # fmt: skip
+
+    roll(-120)
+    roll(120)
+    roll(60)
+    roll(60)
+    assert steps == [1, -1, -1], steps
     print("Autoprueba finalizada correctamente.")
