@@ -25,6 +25,7 @@ individual, más grande).
 Los colores salen del tema: el del aviso, de 'COLORS' ('missing', 'offline', los mismos
 que la fila «Estado» del inspector); el borde y el dibujo blanco, de 'CARD_COLORS'.
 
+1.3.0 'draw_location_pin': la chincheta de lo que tiene ubicación (tira del mapa).
 1.2.0 Colores del tema, no sueltos (los mismos valores); 'veil' para los velos.
 1.1.0 'draw_type_glyph': el dibujo del tipo sin el fondo del marcador (paso A.3,
       «Atributos»). El marcador de las tarjetas no cambia.
@@ -35,7 +36,7 @@ Prueba rápida (dibuja en una imagen; no abre ninguna ventana):
     python -m ui_helpers.helpers.card_glyphs
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "AVAILABLE",
     "MISSING",
@@ -43,6 +44,7 @@ __all__ = [
     "OFFLINE",
     "OFFLINE_COLOR",
     "draw_availability_badge",
+    "draw_location_pin",
     "draw_placeholder",
     "draw_type_glyph",
     "veil",
@@ -129,6 +131,35 @@ def draw_availability_badge(painter: QPainter, badge: QRectF, availability: int)
             QPointF(badge.left() + size * 0.25, badge.bottom() - size * 0.25),
             QPointF(badge.right() - size * 0.25, badge.top() + size * 0.25),
         )
+    painter.restore()
+
+
+def draw_location_pin(painter: QPainter, box: QRectF) -> None:
+    """Dibuja una chincheta de mapa dentro de 'box' (un cuadrado; en la tarjeta, 16 px):
+    blanca, con un borde oscuro fino y un hueco, como el círculo de la selección rápida,
+    para que se vea sobre cualquier imagen."""
+    size = box.width()
+    cx = box.center().x()
+    radius = size * 0.34
+    head_y = box.top() + radius + size * 0.04
+    tip = QPointF(cx, box.bottom() - size * 0.02)
+
+    pin = QPainterPath()
+    pin.addEllipse(QPointF(cx, head_y), radius, radius)
+    # La punta: un triángulo desde los lados de la cabeza hasta abajo
+    cone = QPainterPath()
+    cone.moveTo(cx - radius * 0.86, head_y + radius * 0.5)
+    cone.lineTo(cx + radius * 0.86, head_y + radius * 0.5)
+    cone.lineTo(tip)
+    cone.closeSubpath()
+    pin = pin.united(cone)
+    hole = QPainterPath()
+    hole.addEllipse(QPointF(cx, head_y), radius * 0.38, radius * 0.38)
+
+    painter.save()
+    painter.setPen(QPen(QColor(CARD_COLORS.overlay_border), 1.0))
+    painter.setBrush(QColor(CARD_COLORS.overlay_text))
+    painter.drawPath(pin.subtracted(hole))
     painter.restore()
 
 
@@ -352,4 +383,11 @@ if __name__ == "__main__":
     assert offline.pixelColor(20, 60).name() == OFFLINE_COLOR
     assert nothing.pixelColor(60, 60).alpha() == 0
     assert "#ffffff" in colors_in(missing) and "#ffffff" in colors_in(offline)
+
+    # Chincheta: blanca, con el hueco transparente en el centro de la cabeza
+    pin = render(lambda p: draw_location_pin(p, QRectF(10, 10, 100, 100)))
+    assert pin.pixelColor(60, 28).name() == QColor(CARD_COLORS.overlay_text).name()  # cabeza
+    assert pin.pixelColor(60, 85).name() == QColor(CARD_COLORS.overlay_text).name()  # punta
+    assert pin.pixelColor(60, 48).alpha() == 0  # hueco
+    assert pin.pixelColor(15, 100).alpha() == 0  # fuera
     print("Autoprueba finalizada correctamente.")

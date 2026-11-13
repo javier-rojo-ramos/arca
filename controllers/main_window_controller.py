@@ -880,6 +880,9 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # Los atajos de clasificación (estrellas, color, marca, B, Supr), también en ellas
         self.grid_actions.watch(single_view)
         self.grid_actions.watch(map_page)
+        self.grid_actions.watch(map_page.filmstrip)
+        # La tira de fotos del mapa: G a la cuadrícula, Intro a la vista individual
+        self.center_views.watch_map_widget(map_page.filmstrip)
         # El mapa: lo mismo que la cuadrícula, con su selección (ver 'MapController')
         self.map_controller = MapController(
             self.module_host,

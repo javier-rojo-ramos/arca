@@ -5,6 +5,7 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.16 Se añade 'map_filmstrip' (la tira de fotos del mapa: si se ve y su alto).
 1.15 Se añade 'gpu_rendering' (dibujar la ventana con la GPU).
 1.14 Se añaden 'map_user_layers' y 'map_cache_mb' (Opciones > Mapa).
 1.13 Se añade 'map_layer' (capa del mapa que se ve).
@@ -23,7 +24,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.15"
+__version__ = "1.16"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -49,6 +50,7 @@ from config.app_constants import (
     SETTING_LAST_ADD_FOLDER_PARENT,
     SETTING_MAIN_SPLITTER_STATE,
     SETTING_MAP_CACHE_MB,
+    SETTING_MAP_FILMSTRIP,
     SETTING_MAP_LAYER,
     SETTING_MAP_USER_LAYERS,
     SETTING_SHOW_SUBFOLDER_ITEMS,
@@ -105,6 +107,8 @@ class ConfigManager:
         SETTING_MAP_USER_LAYERS: [],
         # Tamaño máximo de la caché de teselas, en MB (Opciones > Mapa)
         SETTING_MAP_CACHE_MB: 2048,
+        # La tira de fotos del mapa: si se ve y su alto
+        SETTING_MAP_FILMSTRIP: {"visible": True, "height": 140},
         # Aquí se añaden nuevas variables
     }
 

@@ -28,6 +28,8 @@ individual). Solo cuando el modelo ha terminado de cargar sin nada ('rows_loaded
 se han quitado todas las tarjetas: no mientras carga ni sin catálogo (al vaciarse la lista
 con 'modelReset' se esconde hasta que el modelo diga cuántas hay).
 
+1.4.0 'set_drag_image(False)': arrastrar sin imagen (solo el cursor). La usa la tira de
+      fotos del mapa: sobre el mapa, solo el círculo de dónde caen (el autor, 13/11/2026).
 1.3.0 «No hay archivos» en la cuadrícula vacía (p. ej. al elegir una palabra clave sin
       fotos; lo pidió el autor el 12/11/2026).
 1.2.0 Colores del tema: el borde de la imagen arrastrada ('CARD_COLORS.drag_border') y el
@@ -35,7 +37,7 @@ con 'modelReset' se esconde hasta que el modelo diga cuántas hay).
       sobre el ámbar no se leía).
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["MediaGridView"]
 
 # Librerías de terceros
@@ -83,6 +85,13 @@ class MediaGridView(QListView):
         self._swallowing_click = False
         # True si la lista cargada está vacía de verdad («No hay archivos»; ver el docstring)
         self._empty = False
+        # Si al arrastrar se ve la imagen pequeña de las tarjetas (ver 'set_drag_image')
+        self._drag_image = True
+
+    def set_drag_image(self, enabled: bool) -> None:
+        """Con False, se arrastra sin imagen (solo el cursor): la tira de fotos del mapa, para
+        que nada tape el círculo que dice dónde caen las fotos."""
+        self._drag_image = enabled
 
     # -------------------------------------------------------------------------
     # Cuadrícula vacía
@@ -214,6 +223,9 @@ class MediaGridView(QListView):
 
         drag = QDrag(self)
         drag.setMimeData(mime)
+        if not self._drag_image:
+            drag.exec(Qt.DropAction.CopyAction, Qt.DropAction.CopyAction)  # solo el cursor
+            return
         pixmap = self._drag_pixmap(main.data(Qt.ItemDataRole.DecorationRole), len(indexes))
         drag.setPixmap(pixmap)
         # Punto de agarre en la esquina superior izquierda: la imagen (que empieza tras el

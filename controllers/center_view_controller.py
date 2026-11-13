@@ -15,8 +15,9 @@ módulo o al abrir y cerrar un catálogo (el host emite 'view_changed').
 Teclado y ratón (sin Ctrl, Alt ni Mayús; decidido por el autor el 08/11 y el 13/11/2026):
     cuadrícula         doble clic o Intro -> vista individual del archivo pulsado / actual
                        M -> mapa (si el módulo lo ofrece)
-    mapa               G -> cuadrícula. Doble clic en una foto -> vista individual (lo
-                       pide el controlador del mapa con 'open_single')
+    mapa y su tira     G -> cuadrícula. Intro, o doble clic en una foto -> vista
+                       individual (el doble clic lo pide el controlador del mapa con
+                       'open_single'). La tira se da con 'watch_map_widget'
     vista individual   G -> cuadrícula, con el archivo visto seleccionado y visible
                        Esc -> la vista de la que se vino (el mapa o la cuadrícula)
                        M -> mapa (si el módulo lo ofrece)
@@ -57,6 +58,8 @@ Uso (en el controlador principal, que solo lo crea):
         map_page=pagina_del_mapa, parent=window,
     )
 
+1.6.0 'watch_map_widget': otras piezas de la vista de mapa que cogen el teclado (la tira
+      de fotos), con la G y el Intro; Intro en el mapa abre la vista individual.
 1.5.0 El mapa: M lo abre desde la cuadrícula y la vista individual; G, desde el mapa, a la
       cuadrícula; Esc en la vista individual vuelve a la vista de la que se vino; el
       teclado va a la página del mapa (los atajos de clasificación, a la selección).
@@ -70,7 +73,7 @@ Uso (en el controlador principal, que solo lo crea):
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -143,6 +146,8 @@ class CenterViewController(QObject):
         self._grid = grid
         self._single = single
         self._map_page = map_page
+        # Otras piezas de la vista de mapa con teclado propio (la tira: 'watch_map_widget')
+        self._map_widgets: list[QWidget] = []
         # Adónde vuelve Esc desde la vista individual: la vista de la que se vino
         self._single_back = CenterView.GRID
         self._model: Any = grid.model()
@@ -187,6 +192,13 @@ class CenterViewController(QObject):
     def current_view(self) -> CenterView:
         """Vista que se está viendo (la del módulo activo)."""
         return self._host.active_view
+
+    def watch_map_widget(self, widget: QWidget) -> None:
+        """Atiende también las teclas de otra pieza de la vista de mapa que coge el
+        teclado (la tira de fotos): G, a la cuadrícula; Intro, la vista individual."""
+        if widget not in self._map_widgets:
+            self._map_widgets.append(widget)
+            widget.installEventFilter(self)
 
     def open_single(self, row: int | None = None) -> None:
         """Abre la vista individual con el archivo de esa fila (o el actual)."""
@@ -254,8 +266,13 @@ class CenterViewController(QObject):
                 self.open_single()
                 return True
             return key == _MAP_KEY and self._show_view(CenterView.MAP)
-        if watched is self._map_page and self._map_page is not None:
-            return self._shown == CenterView.MAP and key == _GRID_KEY and self._show_view(CenterView.GRID)
+        if (watched is self._map_page and self._map_page is not None) or watched in self._map_widgets:
+            if self._shown != CenterView.MAP:
+                return False
+            if key in _OPEN_KEYS:
+                self.open_single()
+                return True
+            return key == _GRID_KEY and self._show_view(CenterView.GRID)
         if watched is not self._single or self._shown != CenterView.SINGLE:
             return False
         if key == _GRID_KEY:
@@ -697,6 +714,18 @@ if __name__ == "__main__":
     for key in (_KEY.Key_Escape, _KEY.Key_3, _KEY.Key_M):
         event = QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier)
         assert map_controller.eventFilter(page_map, event) is False, key
+    # La tira de fotos del mapa: G a la cuadrícula; Intro, la vista individual y Esc, de vuelta
+    strip = QWidget(page_map)
+    map_controller.watch_map_widget(strip)
+    selection.setCurrentIndex(model.index(2, 0), QItemSelectionModel.SelectionFlag.ClearAndSelect)
+    press(strip, _KEY.Key_Return)
+    assert host.view is CenterView.SINGLE and selected_rows() == [2]
+    press(single, _KEY.Key_Escape)
+    assert host.view is CenterView.MAP
+    press(strip, _KEY.Key_G)
+    assert host.view is CenterView.GRID
+    press(strip, _KEY.Key_G)  # fuera del mapa, la tira no hace nada
+    assert host.view is CenterView.GRID
 
     window.deleteLater()
     print("Autoprueba finalizada correctamente.")

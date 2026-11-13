@@ -37,6 +37,8 @@
         <file alias="view_grid.svg">images/view_grid.svg</file>
         <file alias="view_full.svg">images/view_full.svg</file>
         <file alias="view_map.svg">images/view_map.svg</file>
+        <file alias="filmstrip_show.svg">images/filmstrip_show.svg</file>
+        <file alias="filmstrip_hide.svg">images/filmstrip_hide.svg</file>
         <file alias="lock_closed.svg">images/lock_closed.svg</file>
         <file alias="lock_open.svg">images/lock_open.svg</file>
     </qresource>

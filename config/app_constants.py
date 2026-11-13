@@ -23,6 +23,7 @@ __all__ = [
     "SETTING_ACTIVE_MODULE",
     "SETTING_LAST_ADD_FOLDER_PARENT",
     "SETTING_MAP_CACHE_MB",
+    "SETTING_MAP_FILMSTRIP",
     "SETTING_MAP_LAYER",
     "SETTING_MAP_USER_LAYERS",
     "SETTING_MAIN_SPLITTER_STATE",
@@ -79,6 +80,8 @@ class AppIcons:
     VIEW_GRID = ":/img/view_grid.svg"
     VIEW_FULL = ":/img/view_full.svg"
     VIEW_MAP = ":/img/view_map.svg"
+    FILMSTRIP_SHOW = ":/img/filmstrip_show.svg"
+    FILMSTRIP_HIDE = ":/img/filmstrip_hide.svg"
     LOCK_CLOSED = ":/img/lock_closed.svg"
     LOCK_OPEN = ":/img/lock_open.svg"
 
@@ -159,3 +162,7 @@ SETTING_MAP_USER_LAYERS = "map_user_layers"
 # Tamaño máximo de la caché de teselas de los mapas, en MB (Opciones > Mapa; 2 GB,
 # decidido por el autor el 13/11/2026)
 SETTING_MAP_CACHE_MB = "map_cache_mb"
+
+# Tira de fotos debajo del mapa: {"visible": bool, "height": px lógicos}. Una para toda
+# la aplicación (se muestra u oculta con su botón de la barra inferior o con F6)
+SETTING_MAP_FILMSTRIP = "map_filmstrip"

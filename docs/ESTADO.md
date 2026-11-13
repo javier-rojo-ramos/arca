@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **La aceleración por GPU, según el sistema** (13/11/2026) | En Windows, nada cambia: Opciones > General, la casilla sigue marcada y «Aceptar» sin tocarla no avisa de volver a abrir. (En macOS y Linux, cuando se pruebe la aplicación allí: en macOS, marcada; en Linux, sin marcar.) |
+| **Tira del mapa: tarjetas compactas** (13/11/2026) | Solo la imagen, sin la banda del nombre, las estrellas y la marca ni el círculo de la selección rápida; se siguen viendo el tinte de la etiqueta de color, el blanco de las rechazadas y el aviso de ausente. Abajo a la derecha, una chincheta en las que tienen ubicación (en un vídeo, la duración a su izquierda); al cambiar el GPS de una foto en el inspector, su chincheta aparece o desaparece. El nombre, al pasar el ratón. La tira no baja de 100 px. Las tarjetas de la cuadrícula, igual que siempre |
 
 ## Comprobaciones sueltas
 
@@ -63,6 +63,8 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Sección «Fechas» del módulo Imagen** (12/11): debajo de «Carpetas», los años (el más reciente arriba) con sus meses («01 Enero») y sus días («10 Miércoles»), y «Sin fecha»; cada fila muestra lo que cuenta, con los mismos números que la columna «Fecha de captura»; lo desplegado y el día elegido, recordados. Antes, la barra de Imagen dividida en un archivo por sección (`ui_helpers/sidebars/sections/`), con todo igual que antes.
 - **Las barras no cogen el teclado** (12/11): al elegir algo en una barra (una carpeta, una fecha, una palabra, una colección o la flecha «ver sus fotos» del inspector), la primera foto queda seleccionada (la primera que cumple el filtro) y los atajos («3», «P», «G», Z...) van a las fotos sin otro clic; las flechas mueven la selección de fotos, no la barra; una letra ya no elige otra fila de un árbol.
 - **El archivo actual, recordado** (12/11): al abrir el catálogo, la foto que estaba seleccionada al cerrarlo; al cambiar de módulo, cada uno la suya; si ya no está, la primera. Al recargar con el mismo origen (orden, filtro), sigue seleccionado lo que se vea; al eliminar, queda seleccionada la siguiente, sin saltar al principio.
+- **Mapa, paso 3.1** (13/11/2026): la tira de fotos debajo del mapa, en el Catálogo y en Imagen (botón, F6, alto, selección compartida, teclado, arrastre sin imagen). Se queda en el Catálogo.
+- **La aceleración por GPU, según el sistema** (13/11/2026): en Windows, igual; la casilla, marcada.
 - **La ventana, con la GPU desde que se abre** (13/11/2026): sin parpadeo al abrir el mapa, sin cortes al arrastrar a 1:1 sin haber abierto el mapa, el resto igual o mejor; la opción y su aviso.
 - **Mapa, paso 2.4** (13/11/2026): Opciones > Mapa (capas propias, caché de teselas) y el marcador que se mueve tras editar el GPS en el inspector. Con él, la fase 2 (Catálogo) de [MAPA.md](MAPA.md). Visto al probar: la primera vez que se abre el mapa la ventana parpadea ([TRAMPAS.md](TRAMPAS.md)).
 - **Mapa, paso 2.3** (13/11/2026): la vista «Mapa» en el Catálogo, todo lo de la lista de comprobaciones (M, G, Esc de vuelta al mapa, selección compartida, aviso, capa recordada).
@@ -77,6 +79,8 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: tira del mapa con tarjetas compactas (solo la imagen, sin banda ni círculo de la selección rápida), como Lightroom, y una chincheta en las que tienen ubicación.
+- 13/11/2026: mapa, paso 3.1: la tira de fotos debajo del mapa (botón y F6, alto ajustable); el mapa, también en Imagen.
 - 13/11/2026: la aceleración por GPU, sin elegir, según el sistema (sí en Windows y macOS, no en Linux).
 - 13/11/2026: la ventana se dibuja con la GPU desde que se abre (opción en Opciones > General): sin parpadeo al abrir el mapa y sin cortes a 1:1.
 - 13/11/2026: mapa, paso 2.4: Opciones > Mapa (capas propias y caché de teselas); el mapa, al día tras un cambio del inspector. Fase 2 (Catálogo), completa.
@@ -85,5 +89,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 13/11/2026: mapa, paso 2.1: el contorno simplificado de cada track, en el catálogo (migración 4; los tracks se releen solos).
 - 13/11/2026: mapa: borrada la prueba de concepto (`scripts/poc_map/`); en la ventana de prueba, las tarjetas se arrastran como en la cuadrícula (sin tapar dónde caen).
 - 13/11/2026: mapa, paso 1.5: soltar tarjetas sobre el mapa, arrastrar fotos sueltas, botón derecho y vista previa; el cursor se oculta sobre el punto del track. Componente base, completo.
-- 13/11/2026: mapa, paso 1.4: tracks en `MapView` (líneas con borde claro, track activo, punto bajo el ratón); las fotos sin miniatura, un punto pequeño.
-- 13/11/2026: mapa, paso 1.3: `MapView`, el mapa con QtWebEngine + Leaflet (capas, marcadores agrupados, selección y encuadre); aún no está en ningún módulo.

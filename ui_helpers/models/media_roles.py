@@ -5,9 +5,11 @@ de estos roles, de modo que ninguno de los dos necesita conocer al otro.
 
 Los dos primeros ('ROLE_RATING' y 'ROLE_FLAGGED') mantienen los valores que tenían en el
 prototipo ('core/workers/thumbnail_worker.py').
+
+1.4.0 'ROLE_HAS_LOCATION': si el elemento tiene coordenadas (la chincheta de la tira del mapa).
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 # ruff: noqa: RUF022
 __all__ = [
     "ROLE_AVAILABILITY",
@@ -15,6 +17,7 @@ __all__ = [
     "ROLE_DURATION",
     "ROLE_FLAG",
     "ROLE_FLAGGED",
+    "ROLE_HAS_LOCATION",
     "ROLE_LIBRARY",
     "ROLE_MEDIA_ID",
     "ROLE_MEDIA_TYPE",
@@ -47,3 +50,5 @@ ROLE_DURATION = _USER + 9
 ROLE_LIBRARY = _USER + 10
 # int: estado de la miniatura (0 pendiente, 1 lista, 2 error)
 ROLE_THUMBNAIL_STATUS = _USER + 11
+# bool: si tiene coordenadas (latitud y longitud; la chincheta de la tira del mapa)
+ROLE_HAS_LOCATION = _USER + 12

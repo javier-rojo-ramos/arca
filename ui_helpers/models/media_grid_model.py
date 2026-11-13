@@ -23,6 +23,8 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.16.0 'ROLE_HAS_LOCATION' (de 'has_location') y 'set_located': quién tiene coordenadas,
+       al día sin recargar la lista (lo llama el controlador del mapa).
 1.15.0 'request_media_file': ruta completa y dimensiones de UN archivo, en segundo plano
        (las pide la vista individual para ampliar a 1:1; la lista no lleva rutas).
 1.14.0 'set_view(..., grid_filter)': origen, orden y filtro a la vez, con una sola recarga
@@ -53,7 +55,7 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.15.0"
+__version__ = "1.16.0"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
@@ -99,6 +101,7 @@ from ui_helpers.models.media_roles import (
     ROLE_DURATION,
     ROLE_FLAG,
     ROLE_FLAGGED,
+    ROLE_HAS_LOCATION,
     ROLE_LIBRARY,
     ROLE_MEDIA_ID,
     ROLE_MEDIA_TYPE,
@@ -445,6 +448,29 @@ class MediaGridModel(QAbstractListModel):
             for row in rows:
                 self._notify_row(row, [ROLE_AVAILABILITY])
 
+    def set_located(self, located: Iterable[int]) -> None:
+        """Pone al día quién tiene coordenadas (la chincheta de la tira del mapa) y repinta
+        SOLO las tarjetas que cambian, sin recargar la lista.
+
+        Lo llama el controlador del mapa cada vez que lo pone al día (p. ej. tras cambiar
+        el GPS en el inspector o soltar fotos en el mapa).
+
+        Args:
+            located: 'media_items.id' de lo que tiene coordenadas; las demás filas, sin.
+        """
+        wanted = set(located)
+        rows = []
+        for row, data in enumerate(self._rows):
+            value = 1 if data["id"] in wanted else 0
+            if data.get("has_location") != value:
+                data["has_location"] = value
+                rows.append(row)
+        if len(rows) > 200:
+            self._notify_all([ROLE_HAS_LOCATION])
+        else:
+            for row in rows:
+                self._notify_row(row, [ROLE_HAS_LOCATION])
+
     def set_library_values(self, changes: dict[int, tuple[str | None, int]]) -> None:
         """Actualiza la biblioteca de las tarjetas cargadas (tras cambiarla en el catálogo).
 
@@ -584,6 +610,8 @@ class MediaGridModel(QAbstractListModel):
             return row.get("library")
         if role == ROLE_THUMBNAIL_STATUS:
             return row.get("thumbnail_status", 0)
+        if role == ROLE_HAS_LOCATION:
+            return bool(row.get("has_location"))
         return None
 
     # -------------------------------------------------------------------------

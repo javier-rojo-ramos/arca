@@ -27,6 +27,11 @@ Qué hace (decidido por el autor el 13/11/2026):
     - Tras un cambio hecho desde el inspector (p. ej. el GPS de una foto), lo que se
       pinta se vuelve a pedir ('refresh'), sin moverse: el marcador va a su sitio nuevo.
     - Miniaturas de los marcadores: las de 160 px de la caché del catálogo.
+    - Tira de fotos debajo del mapa ('MapFilmstrip'): el modelo y la selección de la
+      cuadrícula; se muestra u oculta con su botón (barra inferior, a la derecha del todo,
+      solo con el mapa) o con F6, como Lightroom; si se ve y su alto se guardan
+      (settings.json, 'map_filmstrip'). Doble clic en una tarjeta: la vista individual
+      (Esc vuelve al mapa). La tarjeta actual se mantiene a la vista.
 
 Lo que TODAVÍA NO hace: soltar fotos ni moverlas (el Catálogo solo mira; llega con el
 módulo Imagen, fase 3 de docs/MAPA.md) ni guardar el encuadre al cerrar.
@@ -39,12 +44,17 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador.refresh()       # tras un cambio del inspector
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.3.0 Cada vez que se pone al día, dice al modelo quién tiene coordenadas (la chincheta
+      de la tira: al día tras editar el GPS o, en el paso 3.2, soltar fotos).
+1.2.0 Paso 3.1: la tira de fotos (modelo y selección de la cuadrícula; botón de la barra
+      inferior y F6 para mostrarla u ocultarla; si se ve y su alto, en settings.json; doble
+      clic en una tarjeta, la vista individual; la tarjeta actual, siempre a la vista).
 1.1.0 Paso 2.4: capas propias, tope de la caché de teselas, 'apply_settings' y 'refresh'
       (el mapa, al día tras un cambio del inspector).
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.3.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -57,12 +67,19 @@ from typing import Any
 from loguru import logger
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QItemSelection, QItemSelectionModel, QObject, Qt, QTimer
-from qtpy.QtWidgets import QBoxLayout, QComboBox, QListView
+from qtpy.QtCore import QItemSelection, QItemSelectionModel, QModelIndex, QObject, QSize, Qt, QTimer
+from qtpy.QtGui import QKeySequence, QShortcut
+from qtpy.QtWidgets import QAbstractItemView, QBoxLayout, QComboBox, QListView, QToolButton
 
 # Módulos del proyecto
 from config import app_paths
-from config.app_constants import SETTING_MAP_CACHE_MB, SETTING_MAP_LAYER, SETTING_MAP_USER_LAYERS
+from config.app_constants import (
+    SETTING_MAP_CACHE_MB,
+    SETTING_MAP_FILMSTRIP,
+    SETTING_MAP_LAYER,
+    SETTING_MAP_USER_LAYERS,
+    AppIcons,
+)
 from controllers.app_modules.center_views import CenterView
 from controllers.app_modules.module_host import ModuleHost
 from controllers.center_view_controller import CenterViewController
@@ -71,6 +88,7 @@ from core.catalog.map_queries import MapItems, fetch_map_items
 from core.maps.tile_layers import all_layers, user_layers_from_settings
 from core.maps.tile_store import DEFAULT_MAX_BYTES, TileStorageError, TileStore
 from core.thumbnails.sizes import ThumbnailSize
+from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.map.map_types import MapMarker, MapTrack, SelectionMode
 from ui_helpers.map.map_view import MapView
 from ui_helpers.models.media_grid_model import MediaGridModel
@@ -86,6 +104,14 @@ _NOTHING_LOCATED = "Ninguno de estos archivos tiene ubicación"
 _UNLOCATED_ONE = "1 foto sin ubicación"
 _UNLOCATED_MANY = "{count} fotos sin ubicación"
 _LOAD_FAILED = "No se ha podido cargar el mapa"
+# Textos del botón de la tira (con su atajo, como Lightroom)
+_FILMSTRIP_SHOW = "Mostrar la tira de fotos (F6)"
+_FILMSTRIP_HIDE = "Ocultar la tira de fotos (F6)"
+# Medidas del botón de la tira: las de los botones de vista (ui_helpers/widgets/view_buttons.py)
+_BUTTON_SIZE = 22
+_ICON_SIZE = 16
+# Espera tras arrastrar el separador de la tira antes de guardar su alto
+_SAVE_DELAY_MS = 600
 
 # Para comparar el origen con «ninguno todavía» (None es un valor posible de nada aquí)
 _NO_SOURCE = object()
@@ -161,6 +187,30 @@ class MapController(QObject):
         layer_bar.addWidget(self._layer_box)
         self._layer_box.currentIndexChanged.connect(self._on_layer_chosen)
 
+        # Botón de la tira (barra inferior, a la derecha del todo; solo con el mapa) y F6
+        self._filmstrip_button = QToolButton()
+        self._filmstrip_button.setObjectName("btn_map_filmstrip")  # estilo en ui_theme.py
+        self._filmstrip_button.setAutoRaise(True)
+        self._filmstrip_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._filmstrip_button.setFixedSize(_BUTTON_SIZE, _BUTTON_SIZE)
+        self._filmstrip_button.setIconSize(QSize(_ICON_SIZE, _ICON_SIZE))
+        self._filmstrip_button.hide()
+        self._filmstrip_button.clicked.connect(self._toggle_filmstrip)
+        layer_bar.addWidget(self._filmstrip_button)
+        self._filmstrip_shortcut = QShortcut(QKeySequence(Qt.Key.Key_F6), page)
+        self._filmstrip_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        self._filmstrip_shortcut.activated.connect(self._toggle_filmstrip)
+        self._filmstrip_save_timer = QTimer(self)
+        self._filmstrip_save_timer.setSingleShot(True)
+        self._filmstrip_save_timer.setInterval(_SAVE_DELAY_MS)
+        self._filmstrip_save_timer.timeout.connect(self._save_filmstrip)
+        # La tira: lo mismo que la cuadrícula, con su selección
+        page.filmstrip.attach(model, grid.selectionModel())
+        page.filmstrip.doubleClicked.connect(lambda index: center_views.open_single(index.row()))
+        page.filmstrip_resized.connect(lambda _height: self._filmstrip_save_timer.start())
+        grid.selectionModel().currentChanged.connect(self._on_current_changed)
+        self._restore_filmstrip()
+
         self._selection_timer = QTimer(self)
         self._selection_timer.setSingleShot(True)
         self._selection_timer.setInterval(_SELECTION_DELAY_MS)
@@ -222,6 +272,7 @@ class MapController(QObject):
         """Otra vista u otro módulo: con el mapa a la vista, se pone al día."""
         shown = self._shown()
         self._layer_box.setVisible(shown)
+        self._filmstrip_button.setVisible(shown)
         if not shown:
             return
         self._page.map_view()  # la primera vez, lo crea
@@ -269,6 +320,10 @@ class MapController(QObject):
             ]
         )
         view.set_tracks([MapTrack(t.track_id, t.name, t.segments) for t in items.tracks])
+        # La chincheta de la tira: lo que sale en el mapa (los tracks, si tienen recorrido)
+        self._model.set_located(
+            [p.media_id for p in items.points] + [t.track_id for t in items.tracks if t.segments]
+        )
         self._push_selection()
         self._page.set_notice(notice_text(self._model.rowCount(), items))
         # Encuadre: solo al elegir otra cosa a la izquierda (no con el filtro ni al volver)
@@ -329,6 +384,54 @@ class MapController(QObject):
             max_bytes=megabytes * 1024 * 1024 if valid else DEFAULT_MAX_BYTES,
         )
         threading.Thread(target=_prune_quietly, args=(store,), daemon=True).start()
+
+    # -------------------------------------------------------------------------
+    # Tira de fotos
+    # -------------------------------------------------------------------------
+
+    def _restore_filmstrip(self) -> None:
+        """Si se ve y su alto, como se dejaron (settings.json)."""
+        saved = self._config.get(SETTING_MAP_FILMSTRIP)
+        saved = saved if isinstance(saved, dict) else {}
+        visible = saved.get("visible", True)
+        height = saved.get("height")
+        if isinstance(height, int) and not isinstance(height, bool):
+            self._page.set_filmstrip_height(height)
+        self._page.set_filmstrip_visible(visible if isinstance(visible, bool) else True)
+        self._update_filmstrip_button()
+
+    def _toggle_filmstrip(self) -> None:
+        """El botón o F6: muestra u oculta la tira (solo con el mapa a la vista)."""
+        if not self._shown():
+            return
+        visible = not self._page.filmstrip_visible()
+        self._page.set_filmstrip_visible(visible)
+        if visible:
+            self._scroll_filmstrip_to(self._grid.currentIndex())
+        self._update_filmstrip_button()
+        self._save_filmstrip()
+
+    def _update_filmstrip_button(self) -> None:
+        visible = self._page.filmstrip_visible()
+        self._filmstrip_button.setIcon(
+            tinted_icon(AppIcons.FILMSTRIP_HIDE if visible else AppIcons.FILMSTRIP_SHOW)
+        )
+        self._filmstrip_button.setToolTip(_FILMSTRIP_HIDE if visible else _FILMSTRIP_SHOW)
+
+    def _save_filmstrip(self) -> None:
+        self._config.set(
+            SETTING_MAP_FILMSTRIP,
+            {"visible": self._page.filmstrip_visible(), "height": self._page.filmstrip_height()},
+        )
+
+    def _on_current_changed(self, current: QModelIndex, _previous: QModelIndex) -> None:
+        """La tarjeta actual (elegida en el mapa, con las flechas...), a la vista en la tira."""
+        if self._shown():
+            self._scroll_filmstrip_to(current)
+
+    def _scroll_filmstrip_to(self, index: QModelIndex) -> None:
+        if index.isValid() and self._page.filmstrip_visible():
+            self._page.filmstrip.scrollTo(index, QAbstractItemView.ScrollHint.EnsureVisible)
 
     def _on_layer_chosen(self, _index: int) -> None:
         key = self._layer_box.currentData()

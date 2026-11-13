@@ -39,6 +39,15 @@ Contenido de una tarjeta, de arriba abajo:
     - En los vídeos y el audio, la DURACIÓN ("0:42", "1:32:05") en la esquina inferior
       derecha de la imagen o del marcador.
 
+Tarjeta COMPACTA ('compact = True'; la tira de fotos del mapa, decidido por el autor el
+13/11/2026, como la de Lightroom): solo la imagen, sin la banda inferior (el nombre, las
+estrellas, la marca y la selección rápida de lo seleccionado ya están en la barra
+inferior y en el inspector). Se conservan, porque no ocupan sitio: el fondo teñido con
+la etiqueta, el velo de las rechazadas y de lo no disponible con su indicador y la
+duración. Lleva además, abajo a la derecha de la imagen, una CHINCHETA si el archivo
+tiene ubicación (lo que importa al ubicar fotos en el mapa; el autor, 13/11/2026). No
+tiene zonas que se pulsen. El nombre, en un texto emergente.
+
 El delegado solo lee del modelo los roles de 'ui_helpers/models/media_roles.py' y solo le
 escribe con 'model.setData(...)': no sabe de bases de datos ni de la caché.
 
@@ -51,6 +60,10 @@ Si la tarjeta pulsada forma parte de una selección de VARIAS, el cambio se apli
 las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
 seleccionada, solo cambia ella.
 
+2.16.0 Tarjeta compacta: la chincheta de lo que tiene ubicación, abajo a la derecha de la
+       imagen (la duración se aparta a su izquierda).
+2.15.0 Tarjeta compacta ('compact'): sin banda inferior ni círculo de la selección
+       rápida, con el nombre en un texto emergente (la tira de fotos del mapa).
 2.14.0 Lo que va encima de la imagen (insignia de la duración, velos de rechazada y de no
        disponible) toma sus colores de 'CARD_COLORS', no sueltos (los mismos valores).
 2.13.0 El marcador de tipo y el indicador de no disponible se dibujan con
@@ -75,7 +88,7 @@ seleccionada, solo cambia ella.
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.14.0"
+__version__ = "2.16.0"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -85,7 +98,7 @@ from typing import ClassVar
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt
 from qtpy.QtGui import QColor, QFont, QPainter, QPen, QPixmap
-from qtpy.QtWidgets import QStyle, QStyledItemDelegate
+from qtpy.QtWidgets import QStyle, QStyledItemDelegate, QToolTip
 
 # Módulos del proyecto
 from ui_helpers.helpers import card_glyphs, card_marks
@@ -97,6 +110,7 @@ from ui_helpers.models.media_roles import (
     ROLE_DURATION,
     ROLE_FLAG,
     ROLE_FLAGGED,
+    ROLE_HAS_LOCATION,
     ROLE_LIBRARY,
     ROLE_MEDIA_TYPE,
     ROLE_QUICK_SELECTION,
@@ -173,6 +187,8 @@ class ThumbnailsDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.item_size = QSize(176, 208)
+        # Tarjeta compacta: solo la imagen, sin banda (ver el docstring del archivo)
+        self.compact = False
         self._name_font = QFont("Arial", 8)
         self._star_font = QFont("Arial", 9)
         self._duration_font = QFont("Arial", 7)
@@ -182,7 +198,10 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         return self.item_size
 
     def helpEvent(self, event, view, option, index) -> bool:
-        """Bloquea la aparición de tooltips emergentes al pasar el ratón."""
+        """Sin textos emergentes, salvo en la tarjeta compacta: su nombre (no se ve en ella)."""
+        if self.compact and index.isValid():
+            QToolTip.showText(event.globalPos(), index.data(Qt.ItemDataRole.DisplayRole) or "", view)
+            return True
         return False
 
     # -------------------------------------------------------------------------
@@ -217,6 +236,9 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         Ocupa el ancho de la tarjeta menos el margen de 1 px que la separa de las vecinas
         (el borde se dibuja encima).
         """
+        if self.compact:
+            # Sin banda: un rectángulo vacío justo debajo de la tarjeta
+            return QRect(cell_rect.left() + 1, cell_rect.bottom() + 1, cell_rect.width() - 2, 0)
         top = self._name_rect(cell_rect).top() - self.BAND_TOP_PAD
         return QRect(cell_rect.left() + 1, top, cell_rect.width() - 2, cell_rect.bottom() - top)
 
@@ -226,6 +248,15 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         Termina a 'PAD' píxeles de la banda: el color de la etiqueta rodea la imagen por
         igual arriba, a los lados y abajo.
         """
+        if self.compact:
+            # Sin banda: el mismo margen arriba y abajo (el del borde y 'PAD')
+            margin = self.PAD + 1
+            return QRect(
+                cell_rect.left() + self.PAD,
+                cell_rect.top() + margin,
+                cell_rect.width() - 2 * self.PAD,
+                cell_rect.height() - 2 * margin,
+            )
         band_top = self._band_rect(cell_rect).top()
         top = cell_rect.top() + self.TOP_PAD
         return QRect(
@@ -317,6 +348,17 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         return QRectF(
             image_rect.right() + 1 - self.QUICK_MARGIN - size,
             image_rect.top() + self.QUICK_MARGIN,
+            size,
+            size,
+        )
+
+    def _pin_rect(self, image_rect: QRect) -> QRectF:
+        """Chincheta de la ubicación: esquina inferior derecha de la imagen (mide y se
+        separa de la esquina lo mismo que el círculo de la selección rápida)."""
+        size = float(self.QUICK_SIZE)
+        return QRectF(
+            image_rect.right() + 1 - self.QUICK_MARGIN - size,
+            image_rect.bottom() + 1 - self.QUICK_MARGIN - size,
             size,
             size,
         )
@@ -420,10 +462,22 @@ class ThumbnailsDelegate(QStyledItemDelegate):
             painter.drawRect(target)
             self._draw_availability_badge(painter, target, availability)
 
-        # Duración de vídeos y audio (encima de los velos, abajo a la derecha)
+        # Chincheta de lo que tiene ubicación (tarjeta compacta: la tira del mapa), abajo
+        # a la derecha de la imagen, como el círculo de la selección rápida arriba
+        pin_width = 0
+        if self.compact and index.data(ROLE_HAS_LOCATION):
+            card_glyphs.draw_location_pin(painter, self._pin_rect(target))
+            pin_width = self.QUICK_SIZE + self.QUICK_MARGIN
+
+        # Duración de vídeos y audio (encima de los velos, abajo a la derecha; si hay
+        # chincheta, a su izquierda)
         duration = index.data(ROLE_DURATION)
         if duration and index.data(ROLE_MEDIA_TYPE) in (_VIDEO, _AUDIO):
-            self._draw_duration(painter, target, duration)
+            self._draw_duration(painter, target, duration, right_inset=pin_width)
+
+        if self.compact:
+            painter.restore()
+            return  # solo la imagen: sin círculo, nombre, estrellas ni marca
 
         # Círculo de la selección rápida (encima de los velos: se ve igual en todas)
         card_marks.draw_quick_selection(
@@ -494,20 +548,23 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         )
         card_glyphs.draw_availability_badge(painter, badge, availability)
 
-    def _draw_duration(self, painter: QPainter, image_rect: QRect, seconds: float) -> None:
-        """Insignia con la duración en la esquina inferior derecha de la imagen."""
+    def _draw_duration(
+        self, painter: QPainter, image_rect: QRect, seconds: float, *, right_inset: int = 0
+    ) -> None:
+        """Insignia con la duración en la esquina inferior derecha de la imagen (con
+        right_inset, esos px más a la izquierda: el sitio de la chincheta)."""
         text = self._format_duration(seconds)
         painter.save()
         painter.setFont(self._duration_font)
         width = painter.fontMetrics().horizontalAdvance(text) + 2 * self.DURATION_PAD_X
         badge = QRectF(
-            image_rect.right() + 1 - self.DURATION_MARGIN - width,
+            image_rect.right() + 1 - self.DURATION_MARGIN - right_inset - width,
             image_rect.bottom() + 1 - self.DURATION_MARGIN - self.DURATION_HEIGHT,
             width,
             self.DURATION_HEIGHT,
         )
         # Si la imagen es tan pequeña que no cabe, no se dibuja (no se tapa la miniatura)
-        if badge.width() + 2 * self.DURATION_MARGIN <= image_rect.width():
+        if badge.width() + 2 * self.DURATION_MARGIN + right_inset <= image_rect.width():
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self.DURATION_BG)
             painter.drawRoundedRect(badge, 3, 3)
@@ -533,7 +590,10 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         return self._zone_at(cell_rect, index, pos) is not None
 
     def _zone_at(self, cell_rect: QRect, index, pos: QPoint) -> str | None:
-        """Zona activa bajo 'pos': "quick", "flag", "stars" o None."""
+        """Zona activa bajo 'pos': "quick", "flag", "stars" o None (siempre None en la
+        tarjeta compacta: no tiene ninguna)."""
+        if self.compact:
+            return None
         flag_rect, stars_rect = self._get_interactive_rects(cell_rect)
         # Círculo de la selección rápida (se calcula igual que al pintarlo)
         image_rect = self._content_rect(

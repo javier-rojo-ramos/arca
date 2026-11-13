@@ -43,7 +43,7 @@ config/
   app_config.py                      Instancia única (singleton) de la configuración: `from config.app_config import config`
   app_config_manager.py              ConfigManager: settings.json (claves: catalogo_ruta, thumbnail_size, write_user_data_to_files,
                                      main_splitter_state, show_subfolder_items, sidebar_state, inspector_metadata_preset, inspector_sections, active_module, filter_metadata_height, filter_presets, confirm_multi_edit,
-                                     last_add_folder_parent, map_layer, map_user_layers, map_cache_mb, gpu_rendering, window_geometry; todas, con su valor por defecto, en DEFAULTS)
+                                     last_add_folder_parent, map_layer, map_user_layers, map_cache_mb, map_filmstrip, gpu_rendering, window_geometry; todas, con su valor por defecto, en DEFAULTS)
   app_info.py                        Texto de ayuda en HTML (pendiente de implementar; hoy no lo usa nadie)
   app_constants.py                   Constantes, iconos (AppIcons), tamaños de miniatura, claves compartidas de settings.json
   app_logging_manager.py             setup_logging (loguru + InterceptHandler)
@@ -55,8 +55,8 @@ controllers/
   filter_controller.py               FilterController: barra de filtros <-> filtro del módulo activo (ModuleHost.set_filter / filter_changed); Ctrl+L; oculta la franja en la vista individual
   filter_preset_controller.py        FilterPresetController: desplegable de ajustes personalizados <-> lista (settings.json, filter_presets) y filtro del módulo activo; pide el nombre al guardar y si se reemplaza
   metadata_filter_controller.py      MetadataFilterController: panel «Metadatos» <-> recuentos en segundo plano (columnas de partida del módulo, solo lo que cambia, respuestas tardías fuera, alto guardado)
-  map_controller.py                  MapController: la vista «Mapa» (lo mismo que la cuadrícula, pedido con map_queries solo con el mapa a la vista; selección en los dos sentidos; encuadre al cambiar de origen; aviso de lo que no sale; desplegable de la capa en la barra inferior, guardado en settings.json; doble clic → vista individual; capas propias, tope de la caché al crear el mapa); attach / detach, refresh (tras un cambio del inspector), apply_settings
-  center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula) y navegación (doble clic / Intro, G, M, Esc a la vista de la que se vino, flechas, Inicio, Fin, rueda; un solo archivo seleccionado en la vista individual; el teclado del mapa, en su página); al elegir algo en una barra (source_chosen), el teclado al centro y la primera foto seleccionada; al recargar, siempre un archivo actual (el que recuerda el módulo, la selección que había o el que ocupa su lugar)
+  map_controller.py                  MapController: la vista «Mapa» (lo mismo que la cuadrícula, pedido con map_queries solo con el mapa a la vista; selección en los dos sentidos; encuadre al cambiar de origen; aviso de lo que no sale; desplegable de la capa en la barra inferior, guardado en settings.json; doble clic → vista individual; capas propias, tope de la caché al crear el mapa; la tira de fotos: botón de la barra inferior y F6, si se ve y su alto en settings.json, doble clic → vista individual, la actual a la vista); attach / detach, refresh (tras un cambio del inspector), apply_settings
+  center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula) y navegación (doble clic / Intro, G, M, Esc a la vista de la que se vino, flechas, Inicio, Fin, rueda; un solo archivo seleccionado en la vista individual; el teclado del mapa, en su página y en la tira: watch_map_widget); al elegir algo en una barra (source_chosen), el teclado al centro y la primera foto seleccionada; al recargar, siempre un archivo actual (el que recuerda el módulo, la selección que había o el que ocupa su lugar)
   app_modules/                       ── Módulos de la aplicación (Catálogo, Imagen, Vídeo, Audio) ── ([FLUJOS.md §11](FLUJOS.md))
     base.py                            AppModule (clase base: barra izquierda, qué muestra la cuadrícula, orden, vistas, tipos y columnas de partida del filtro, ciclo de vida) y ModuleContext
     registry.py                      ► LISTA de módulos en el orden de la toolbar (aquí se da de alta uno nuevo)
@@ -64,7 +64,7 @@ controllers/
     module_view_state.py               ModuleViewState: lo elegido en cada módulo (orden, vista del centro, filtro y archivo actual) y cómo se guarda por catálogo (claves 'orders', 'views', 'filters' y 'current'); sin Qt
     center_views.py                    CenterView: vistas del centro (cuadrícula, individual, lista, mapa) con su texto emergente e icono; sin Qt
     catalog_module.py                  CatalogModule: barra CatalogSidebar (contadores, árboles, colecciones, opción de subcarpetas, estado)
-    image_module.py                    ImageModule: barra ImageSidebar (Biblioteca - Imagen con su selección rápida, carpetas con imágenes, fechas y árbol de palabras clave con recuentos), estado
+    image_module.py                    ImageModule: barra ImageSidebar (Biblioteca - Imagen con su selección rápida, carpetas con imágenes, fechas y árbol de palabras clave con recuentos), estado; vistas: cuadrícula, individual y mapa
     placeholder_module.py              PlaceholderModule: botón sin módulo todavía (página «próximamente»)
 ui/main_window.ui, main_window.py    Interfaz de Qt Designer (main_window.py se GENERA con build_ui.py; no editar a mano).
                                      Widgets promocionados: widget_catalog_sidebar (CatalogSidebar), list_view_grid (MediaGridView),
@@ -79,15 +79,15 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/ui_icons.py                tinted_icon: SVG monocromos del .qrc teñidos al dibujarse (paleta, color fijo o hover); menu_icon, para las opciones de los menús
   helpers/ui_info.py                 show_info_window: ventana de información con HTML (QTextBrowser); hoy no la usa nadie
   mixins/window_snap.py              WindowSnapMixin: ajuste magnético de la ventana a los bordes (desactivado en macOS)
-  delegates/thumbnails_delegate.py   ThumbnailsDelegate: dibuja la tarjeta (miniatura o marcador por tipo, duración, nombre, estrellas, marca, fondo de color, aviso de no disponible y círculo de la selección rápida)
+  delegates/thumbnails_delegate.py   ThumbnailsDelegate: dibuja la tarjeta (o, con 'compact', solo la imagen, sin la banda y con la chincheta de lo que tiene ubicación: la de la tira del mapa; miniatura o marcador por tipo, duración, nombre, estrellas, marca, fondo de color, aviso de no disponible y círculo de la selección rápida)
   models/media_roles.py              Roles compartidos modelo <-> delegado (ROLE_RATING, ROLE_FLAG, ROLE_COLOR_LABEL, ROLE_MEDIA_TYPE, ROLE_DURATION...)
-  models/media_grid_model.py         MediaGridModel: lista desde la BD + miniaturas desde la caché + edición del usuario; request_media_file (ruta y dimensiones de UN archivo, en segundo plano)
+  models/media_grid_model.py         MediaGridModel: lista desde la BD + miniaturas desde la caché + edición del usuario; set_located (quién tiene coordenadas, sin recargar); request_media_file (ruta y dimensiones de UN archivo, en segundo plano)
   models/full_image_loader.py        FullImageLoader: miniatura grande (2560 px o la mayor que haya) de la caché en un hilo propio, con memoria de 5 imágenes y precarga; para la vista individual
   models/original_image_loader.py    OriginalImageLoader: el ORIGINAL de una foto (load_full_image) en un hilo propio, solo el último pedido, en RGB32; para la vista individual a 1:1
   helpers/grid_actions.py            GridActions: atajos de teclado (estilo Lightroom) y menú contextual de la cuadrícula
   helpers/ui_color_labels.py         Etiquetas de color en la interfaz: su color (del tema, MARK_COLORS), textos, mezcla (blend) e icono de menú
   helpers/card_marks.py              Dibujo de estrellas, marca (recuadro / X) y círculo de la selección rápida: lo comparten la tarjeta y la barra inferior
-  helpers/card_glyphs.py             Dibujo del marcador de tipo (sin miniatura; draw_type_glyph, solo el dibujo, para la fila «Atributos») y del indicador de no disponible, y el velo de rechazada o no disponible (veil): lo comparten la tarjeta y la vista individual
+  helpers/card_glyphs.py             Dibujo de la chincheta de la ubicación (draw_location_pin), del marcador de tipo (sin miniatura; draw_type_glyph, solo el dibujo, para la fila «Atributos») y del indicador de no disponible, y el velo de rechazada o no disponible (veil): lo comparten la tarjeta y la vista individual
   helpers/zoom_geometry.py           Cuentas del zoom 1:1 de la vista individual (sin Qt): zoomed_size, can_zoom, relative_point, offset_keeping, clamp_offset (sin huecos, centrada si cabe, en píxeles físicos enteros)
   helpers/theme_colors.py            Colores del tema con nombre por función (ThemeColors; DARK), de las tarjetas y lo que va encima de la imagen (CardColors; DARK_CARDS) y de las marcas de clasificación (MarkColors; DARK_MARKS), sin Qt: el ÚNICO sitio de los colores de la interfaz
   helpers/theme_qss.py               QSS de los componentes generales (barras de desplazamiento, separadores, botones, campos, menús...) a partir de un ThemeColors
@@ -129,7 +129,8 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   widgets/smart_rule_group.py        SmartRuleGroup: un grupo de reglas del editor (cabecera con su «todas / alguna de» y «−», sus SmartRuleRow, su «+ Añadir regla»); MATCH_CHOICES
   widgets/view_buttons.py            ViewButtons: botones de vista de la barra inferior (uno por vista del módulo activo); set_views y señal view_requested (no sabe qué es una vista)
   widgets/single_media_view.py       SingleMediaView: vista individual (archivo actual de la cuadrícula, mismo modelo y selección): imagen ajustada y nítida, marcador sin miniatura, aviso de no disponible, «No hay archivos»; el zoom, en single_view_zoom.py
-  widgets/map_page.py                MapPage: página del mapa en el centro (crea el MapView la primera vez que se pide; aviso encima, '#lbl_map_notice'; coge el teclado del mapa)
+  widgets/map_page.py                MapPage: página del mapa en el centro (crea el MapView la primera vez que se pide; aviso encima, '#lbl_map_notice'; coge el teclado del mapa; la tira debajo, con un separador para su alto)
+  widgets/map_filmstrip.py           MapFilmstrip: la tira de fotos del mapa (una MediaGridView de una fila, con el modelo y la selección de la cuadrícula, tarjetas compactas del alto de la tira, de 100 px como mínimo, la rueda a los lados, arrastre sin imagen)
   widgets/single_view_zoom.py        SingleViewZoom: zoom 1:1 de la vista individual (lupa, clic, arrastre con la mano, Z, el original en segundo plano, vuelta a la ajustada); magnifier_cursor
   inspector/                         ── Inspector: el panel DERECHO ── ([FLUJOS.md §12](FLUJOS.md))
     inspector_panel.py               ► InspectorPanel y DEFAULT_SECTIONS (aquí se añade una sección)
@@ -143,7 +144,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
     selection_section.py               Sección «Selección»: nombre, carpeta, tamaño, fecha, contenido, biblioteca y estado
     formatting.py                      Textos: tamaños (24,3 MB), fechas por precisión, rangos, nombres de meses y días (MONTH_NAMES, WEEKDAY_NAMES), tipos («434 fotos · 20 vídeos»), origen de la fecha; metadatos: dimensiones, exposición, compensación, GPS, dirección, programa y medición (códigos EXIF), duración, fps, códec
   ► metadata_fields.py                 CAMPOS y VISTAS de la sección «Metadatos» (aquí se añaden): InspectorField (etiqueta, columnas por tipo de medio, formato), PRESETS, COMMON_HEAD, display_value; EDITABLE_KEYS (los que se editan) y editor_value
-  widgets/media_grid_view.py         MediaGridView: QListView de la cuadrícula con imagen de arrastre pequeña y semitransparente; «No hay archivos» si está vacía
+  widgets/media_grid_view.py         MediaGridView: QListView de la cuadrícula con imagen de arrastre pequeña y semitransparente (o sin imagen: set_drag_image); «No hay archivos» si está vacía
   models/media_mime.py               MIME propio del arrastre (application/x-arca-media-ids: {catalog, ids})
   map/                               ── Componente de mapa (diseño y plan en docs/MAPA.md; componente base; lo usa la vista «Mapa»: controllers/map_controller.py) ──
     map_types.py                       Datos que entran y salen del mapa: MapMarker, MapTrack, MapBounds (bounds_of), MapViewport, MapHit, MapMode, SelectionMode; is_valid_position; sin Qt

@@ -18,6 +18,7 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.17.0 Botón de la tira de fotos del mapa ('#btn_map_filmstrip', como los de vista).
 1.16.0 Aviso sobre el mapa ('#lbl_map_notice').
 1.15.0 Cajas editables del inspector ('#edit_inspector_value': parecen texto hasta pasar
        el ratón o entrar; «Varios» en gris con la propiedad 'mixed').
@@ -58,7 +59,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.16.0"
+__version__ = "1.17.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -325,15 +326,18 @@ QFrame#frame_toolbar QToolButton:pressed {{
 
 /* Botones de vista de la barra inferior (cuadrícula, individual...): las mismas cajas que
    los de la toolbar; el icono de la vista elegida, en el acento (lo pone 'tinted_icon') */
+QToolButton#btn_map_filmstrip,
 QWidget#widget_view_buttons QToolButton {{
     border: 1px solid {COLORS.divider};
     border-radius: {VIEW_BUTTON_RADIUS}px;
     background: transparent;
 }}
+QToolButton#btn_map_filmstrip:hover,
 QWidget#widget_view_buttons QToolButton:hover {{
     border-color: {COLORS.line};
     background: {COLORS.bg_panel};
 }}
+QToolButton#btn_map_filmstrip:pressed,
 QWidget#widget_view_buttons QToolButton:checked,
 QWidget#widget_view_buttons QToolButton:pressed {{
     border-color: {COLORS.line};
