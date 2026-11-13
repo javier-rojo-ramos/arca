@@ -551,7 +551,7 @@ Antes de empezar: resolver D1, D2 y D3 (condicionan las fases 3 y 7) y recordar 
 
 ### Resultado de la fase 0 (13/11/2026): se sigue con el plan A
 
-Hecha en `scripts/poc_map/` y probada por el autor en Windows (pantalla al 100 %, PySide6 6.11.2, Python 3.14.8). Todos los criterios se cumplen:
+Hecha en `scripts/poc_map/` (borrada el 13/11/2026, al terminar el paso 1.5: todo lo suyo está en `ui_helpers/map/`; sigue en el historial de git) y probada por el autor en Windows (pantalla al 100 %, PySide6 6.11.2, Python 3.14.8). Todos los criterios se cumplen:
 
 | Qué | Resultado |
 |---|---|
@@ -564,7 +564,7 @@ Hecha en `scripts/poc_map/` y probada por el autor en Windows (pantalla al 100 %
 | Memoria | Unos 170 MB más con el mapa vacío y unos 400-500 MB más con el track y los 20 000 marcadores cargados (714 MB en total en la prueba, que incluye una imagen de 96 MB). Es el coste de Chromium; a vigilar con datos reales |
 | Cortes horizontales de la foto | **Desaparecen en cuanto existe la vista web** (antes de crearla, los mismos cortes que en la vista individual). Confirma que basta con que la ventana se componga con la GPU; ver [PENDIENTE.md](PENDIENTE.md), B |
 
-Aprendido para la implementación (irá a [TRAMPAS.md](TRAMPAS.md) con el paso 1.3): `QNetworkRequest.setHeader(UserAgentHeader, ...)` no acepta `bytes` desde Python (avisa y no pone la cabecera): usar `setRawHeader`; una lista de JavaScript devuelta por `runJavaScript` no llega bien a Python: devolver texto JSON. La prueba se conserva como referencia hasta el paso 1.5 y después se borra.
+Aprendido para la implementación (irá a [TRAMPAS.md](TRAMPAS.md) con el paso 1.3): `QNetworkRequest.setHeader(UserAgentHeader, ...)` no acepta `bytes` desde Python (avisa y no pone la cabecera): usar `setRawHeader`; una lista de JavaScript devuelta por `runJavaScript` no llega bien a Python: devolver texto JSON. 
 
 ### Fase 0 — Prueba de concepto (no es código de producción)
 

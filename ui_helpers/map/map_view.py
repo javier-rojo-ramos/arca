@@ -28,6 +28,8 @@ Mover una foto: el mapa avisa con 'markers_moved' y la deja donde se soltó; qui
 guarda el cambio y lo confirma con 'update_markers' (o, si no se puede, la devuelve a
 su sitio con 'update_markers' y sus coordenadas de antes).
 
+1.2.1 Ventana de prueba: las tarjetas se arrastran como en la cuadrícula (la imagen, abajo
+      a la derecha del cursor), para que no tapen el círculo que marca dónde caen.
 1.2.0 Paso 1.5: 'set_drop_enabled', 'set_preview_markers' y las señales 'media_dropped',
       'markers_moved' y 'context_menu_requested'.
 1.1.0 Tracks (paso 1.4): 'set_tracks', 'set_track_geometry', 'set_active_track',
@@ -40,7 +42,7 @@ Con el mapa de verdad (abre una ventana y se queda abierta):
     python -m ui_helpers.map.map_view --ventana
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["MapView"]
 
 # Librerías estándar
@@ -690,8 +692,8 @@ def _run_window() -> None:
     import tempfile
 
     from PIL import Image
-    from qtpy.QtCore import QMimeData
-    from qtpy.QtGui import QIcon, QStandardItem, QStandardItemModel
+    from qtpy.QtCore import QMimeData, QPoint
+    from qtpy.QtGui import QDrag, QIcon, QPainter, QPixmap, QStandardItem, QStandardItemModel
     from qtpy.QtWidgets import (
         QAbstractItemView,
         QApplication,
@@ -770,8 +772,32 @@ def _run_window() -> None:
     view = MapView(window)
     view.set_thumbnail_provider(thumbnail)
 
+    class CardList(QListView):
+        """Lista que arrastra como la cuadrícula ('MediaGridView'): la imagen va ABAJO A LA
+        DERECHA de la punta del cursor, tras un margen transparente, y no tapa el punto
+        donde se suelta (la imagen de arrastre de Qt por defecto va centrada en el cursor)."""
+
+        GAP = 14  # el 'DRAG_CURSOR_GAP' de la cuadrícula
+
+        def startDrag(self, _actions: Qt.DropAction) -> None:  # nombre de Qt
+            indexes = self.selectedIndexes()
+            if not indexes:
+                return
+            icon = indexes[0].data(Qt.ItemDataRole.DecorationRole)
+            pixmap = QPixmap(self.GAP + 48, self.GAP + 48)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            painter.setOpacity(0.8)
+            painter.drawPixmap(self.GAP, self.GAP, icon.pixmap(48, 48))
+            painter.end()
+            drag = QDrag(self)
+            drag.setMimeData(self.model().mimeData(indexes))
+            drag.setPixmap(pixmap)
+            drag.setHotSpot(QPoint(0, 0))
+            drag.exec(Qt.DropAction.CopyAction, Qt.DropAction.CopyAction)
+
     # Tarjetas para arrastrar al mapa: los id 100001 a 100012 (con miniatura)
-    cards = QListView()
+    cards = CardList()
     cards.setFixedWidth(170)
     card_model = CardModel(cards)
     for number in range(1, 13):

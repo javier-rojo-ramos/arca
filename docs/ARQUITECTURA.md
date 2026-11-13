@@ -228,7 +228,6 @@ core/
     tile_layers.py                   ► LISTA de capas del mapa (TileLayer, TILE_LAYERS: aquí se añade una), tile_url, is_valid_tile, user_agent; sin Qt ni red
     tile_store.py                      TileStore: caché de teselas en disco (una carpeta por capa, escritura atómica, caducidad a los 30 días, tope de tamaño con 'prune', 'clear'); sin Qt ni red
 tools/exiftool/                      ExifTool (no se versiona; ver tools/exiftool/LEEME.txt)
-scripts/poc_map/                     Prueba de concepto del mapa (fase 0 de docs/MAPA.md; temporal: se borrará al terminar el paso 1.5)
 scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc (genera resources/recursos_rc.py)
 scripts/export_qtbase_es.py          Copia la traducción al español de Qt (qtbase_es.qm) a resources/locales
 resources/map/                       Página del mapa (index.html, arca_map.js, arca_map.css) y vendor/ (Leaflet y Supercluster copiados; ver su LEEME.txt). Se lee del disco, no va en el .qrc

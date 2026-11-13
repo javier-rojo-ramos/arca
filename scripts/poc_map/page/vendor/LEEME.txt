@@ -1,9 +1,0 @@
-Bibliotecas web de la prueba de concepto del mapa (docs/MAPA.md, fase 0).
-Copiadas tal cual, sin modificar, el 13/11/2026:
-
-  leaflet/leaflet.js, leaflet.css   Leaflet 1.9.4      BSD-2-Clause   https://unpkg.com/leaflet@1.9.4/dist/
-  supercluster.min.js               Supercluster 8.0.1 ISC            https://unpkg.com/supercluster@8.0.1/dist/
-
-Las licencias están junto a cada una (leaflet/LICENSE, supercluster.LICENSE).
-No se han copiado las imágenes de Leaflet (marcador por defecto, control de capas): la
-prueba no las usa.
