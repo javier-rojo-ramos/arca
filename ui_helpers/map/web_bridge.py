@@ -7,10 +7,11 @@ señal de Qt, que recoge 'WebMapBackend'.
 
 Las listas viajan como texto JSON: es lo que QWebChannel pasa sin sorpresas.
 
+1.1.0 Tracks (paso 1.4): clic en un track y punto bajo el ratón.
 1.0.0 Primera versión (docs/MAPA.md, paso 1.3): arranque, encuadre, selección y doble clic.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["MapBridge"]
 
 # Librerías estándar
@@ -35,6 +36,9 @@ class MapBridge(QObject):
         viewport_changed(MapViewport): encuadre nuevo, ya en reposo.
         selection_requested(list, SelectionMode): id pulsados (vacío = clic en el mapa).
         marker_activated(int): doble clic en una foto.
+        track_clicked(int): clic en la línea de un track.
+        track_hovered(int, int): (track, índice del punto) bajo el ratón en el track
+            activo; índice -1 al salir de él.
     """
 
     loaded = Signal()
@@ -42,6 +46,8 @@ class MapBridge(QObject):
     viewport_changed = Signal(object)
     selection_requested = Signal(list, object)
     marker_activated = Signal(int)
+    track_clicked = Signal(int)
+    track_hovered = Signal(int, int)
 
     @Slot()
     def on_loaded(self) -> None:
@@ -81,3 +87,11 @@ class MapBridge(QObject):
     @Slot(int)
     def on_activate(self, media_id: int) -> None:
         self.marker_activated.emit(media_id)
+
+    @Slot(int)
+    def on_track_click(self, track_id: int) -> None:
+        self.track_clicked.emit(track_id)
+
+    @Slot(int, int)
+    def on_track_hover(self, track_id: int, point_index: int) -> None:
+        self.track_hovered.emit(track_id, point_index)

@@ -18,15 +18,17 @@ Cosas que no son evidentes (comprobadas en la prueba de concepto):
       translúcidos de Qt ('#aarrggbb') se convierten al orden de CSS ('#rrggbbaa').
     - La página solo puede navegar dentro de su esquema: nunca abre una web.
 
-Lo que TODAVÍA NO hace (lanza 'NotImplementedError', como la clase base): tracks
-(paso 1.4), soltar tarjetas, mover marcadores, vista previa y menú contextual (paso 1.5).
+Lo que TODAVÍA NO hace (lanza 'NotImplementedError', como la clase base): soltar
+tarjetas, mover marcadores, vista previa y menú contextual (paso 1.5).
 
+1.1.0 Tracks (paso 1.4): líneas con borde claro, track activo, punto señalado y avisos
+      de clic y de punto bajo el ratón; colores de los tracks y del texto emergente.
 1.0.0 Primera versión (docs/MAPA.md, paso 1.3): capas, marcadores agrupados con
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.0.0"
-__all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload"]
+__version__ = "1.1.0"
+__all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
 import json
@@ -49,7 +51,7 @@ from core.maps.tile_layers import TileLayer
 from ui_helpers.helpers.ui_theme import CARD_COLORS, COLORS
 from ui_helpers.map.map_backend import MapBackend
 from ui_helpers.map.map_scheme import SCHEME, START_URL, shared_handler
-from ui_helpers.map.map_types import MapBounds, MapMarker, MapMode, MapViewport
+from ui_helpers.map.map_types import MapBounds, MapMarker, MapMode, MapTrack, MapViewport
 from ui_helpers.map.web_bridge import MapBridge
 
 # Encuadre con el que empieza el mapa mientras nadie pida otro: la península ibérica
@@ -80,6 +82,10 @@ def _theme_colors() -> dict[str, str]:
         "accent": css_color(COLORS.accent),
         "text-on-accent": css_color(COLORS.text_on_accent),
         "shadow": css_color(COLORS.shadow),
+        "tooltip": css_color(COLORS.bg_tooltip),
+        "track": css_color(COLORS.map_track),
+        "track-active": css_color(COLORS.map_track_active),
+        "track-halo": css_color(COLORS.map_track_halo),
     }
 
 
@@ -89,6 +95,20 @@ def marker_payload(markers: Sequence[MapMarker]) -> list[list]:
         [m.media_id, m.latitude, m.longitude, m.media_type, 1 if m.has_thumbnail else 0]
         for m in markers
     ]
+
+
+def track_payload(track: MapTrack) -> dict:
+    """Un track como lo espera la página: cada segmento, una lista plana
+    [lat, lon, lat, lon...] con 6 decimales (unos 10 cm: de sobra, y la mitad de texto)."""
+    return {
+        "id": track.track_id,
+        "name": track.name,
+        "detailed": track.detailed,
+        "segments": [
+            [round(value, 6) for point in segment for value in point]
+            for segment in track.segments
+        ],
+    }
 
 
 class _MapPage(QWebEnginePage):
@@ -163,6 +183,8 @@ class WebMapBackend(MapBackend):
         self._bridge.viewport_changed.connect(self._on_viewport)
         self._bridge.selection_requested.connect(self.selection_requested)
         self._bridge.marker_activated.connect(self.marker_activated)
+        self._bridge.track_clicked.connect(self.track_clicked)
+        self._bridge.track_hovered.connect(self.track_hovered)
         self._page.loadFinished.connect(self._on_load_finished)
         self._page.renderProcessTerminated.connect(self._on_render_terminated)
 
@@ -226,6 +248,18 @@ class WebMapBackend(MapBackend):
     def set_thumbnail_provider(self, provider: Callable[[int], Path | None] | None) -> None:
         self._handler.set_thumbnail_provider(provider)
 
+    def set_tracks(self, tracks: Sequence[MapTrack]) -> None:
+        self._call("setTracks", [track_payload(track) for track in tracks])
+
+    def set_track_geometry(self, track: MapTrack) -> None:
+        self._call("setTrackGeometry", track_payload(track))
+
+    def set_active_track(self, track_id: int | None) -> None:
+        self._call("setActiveTrack", track_id)
+
+    def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
+        self._call("setTrackCursor", track_id, point_index)
+
     def fit_bounds(self, bounds: MapBounds, *, animate: bool = True) -> None:
         self._call("fitBounds", bounds.south, bounds.west, bounds.north, bounds.east, animate)
 
@@ -260,6 +294,6 @@ class WebMapBackend(MapBackend):
     def clear(self) -> None:
         self._call("clear")
 
-    # Para que nadie piense que falta por descuido: el resto del contrato (tracks, soltar,
-    # mover, vista previa) llega con los pasos 1.4 y 1.5 y, hasta entonces, vale la
+    # Para que nadie piense que falta por descuido: el resto del contrato (soltar, mover,
+    # vista previa) llega con el paso 1.5 y, hasta entonces, vale la
     # versión de la clase base, que lanza 'NotImplementedError'.

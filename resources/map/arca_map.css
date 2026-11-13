@@ -91,3 +91,23 @@ html, body, #map {
   background: var(--arca-accent);
   border-top-left-radius: 3px;
 }
+
+/* --- Texto emergente (nombre de un track), como los de la aplicación --- */
+
+.leaflet-tooltip {
+  background: var(--arca-tooltip);
+  color: var(--arca-text);
+  border: 1px solid var(--arca-line);
+  border-radius: 3px;
+  box-shadow: none;
+  padding: 3px 7px;
+}
+/* Sin la flecha de Leaflet (sería otro color que mantener) */
+.leaflet-tooltip::before {
+  display: none;
+}
+
+/* Una foto sin miniatura, suelta: recuadro más pequeño (no hay nada que enseñar) */
+.arca-photo.small {
+  border-radius: 50%;
+}

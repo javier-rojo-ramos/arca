@@ -35,6 +35,7 @@ Este módulo NO depende de Qt: solo define valores. 'ui_theme.py' los convierte 
 paleta de Qt (QPalette) y en la hoja de estilos (QSS), y da a los demás el juego activo
 ('COLORS', 'CARD_COLORS', 'MARK_COLORS').
 
+1.7.0 Colores de los tracks en el mapa: 'map_track', 'map_track_active' y 'map_track_halo'.
 1.6.0 Todos los colores de la interfaz, aquí (antes sueltos en el código): 'missing',
       'offline' y 'shadow' en 'ThemeColors'; lo que va encima de la imagen en 'CardColors';
       'MarkColors' nuevo (estrellas, marca, rechazo y etiquetas de color).
@@ -52,7 +53,7 @@ Prueba rápida (contraste del texto sobre cada fondo):
     python -m ui_helpers.helpers.theme_colors
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["DARK", "DARK_CARDS", "DARK_MARKS", "CardColors", "MarkColors", "ThemeColors", "contrast_ratio"]
 
 # Librerías estándar
@@ -87,6 +88,12 @@ class ThemeColors:
             indicador de la tarjeta, de la vista individual y de «Estado» en el inspector.
         offline: Archivo sin conexión (su disco no está conectado: volverá).
         shadow: Sombra de la paleta de Qt (relieves de Fusion).
+        map_track: Línea de un track en el mapa. No es un gris ni el acento: tiene que
+            verse sobre cualquier mapa (callejero, topográfico, ortofoto).
+        map_track_active: Línea del track activo (el elegido), distinta de las demás.
+        map_track_halo: Borde claro bajo la línea de un track, para que se lea sobre
+            cualquier fondo (como lo que va encima de las fotos: en un tema claro
+            seguiría igual).
     """
 
     bg_base: str
@@ -110,6 +117,9 @@ class ThemeColors:
     missing: str
     offline: str
     shadow: str
+    map_track: str
+    map_track_active: str
+    map_track_halo: str
 
 
 # Tema oscuro: grises neutros (R = G = B), tomados de LightTable, y un acento ámbar
@@ -136,6 +146,9 @@ DARK = ThemeColors(
     missing="#e8833a",  # naranja: distinto del aviso amarillo (es un estado, no un mensaje)
     offline="#7d7d7d",
     shadow="#000000",
+    map_track="#2f6fd6",  # azul: propuesta del 13/11/2026, a confirmar por el autor
+    map_track_active="#e5383b",  # rojo: el track elegido
+    map_track_halo="#ffffff",
 )
 
 
@@ -340,6 +353,10 @@ if __name__ == "__main__":
     for name in ("missing", "offline"):
         assert contrast_ratio(getattr(theme, name), theme.bg_panel) >= 3, name
     assert theme.missing != theme.warning
+    # Tracks del mapa: los dos se leen sobre su borde claro y no se confunden
+    for name in ("map_track", "map_track_active"):
+        assert contrast_ratio(getattr(theme, name), theme.map_track_halo) >= 3, name
+    assert theme.map_track != theme.map_track_active
     # Marcas: las estrellas y la marca se ven sobre la banda de la tarjeta (WCAG, 3); las
     # cinco etiquetas, distintas entre sí
     marks = DARK_MARKS

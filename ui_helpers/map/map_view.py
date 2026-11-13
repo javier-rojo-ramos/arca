@@ -18,10 +18,14 @@ Uso:
     view.set_selected_ids([...])
     view.fit_content()
     view.selection_requested.connect(...)      # (ids, SelectionMode)
+    view.set_tracks([MapTrack(id, nombre, segmentos), ...])
+    view.set_active_track(id)                  # el que avisa con 'track_hovered'
 
-Lo que TODAVÍA NO tiene: tracks (paso 1.4 de docs/MAPA.md) y soltar tarjetas, mover
-marcadores y menú contextual (paso 1.5).
+Lo que TODAVÍA NO tiene: soltar tarjetas, mover marcadores y menú contextual (paso 1.5
+de docs/MAPA.md).
 
+1.1.0 Tracks (paso 1.4): 'set_tracks', 'set_track_geometry', 'set_active_track',
+      'set_track_cursor', 'fit_track' y las señales 'track_clicked' y 'track_hovered'.
 1.0.0 Primera versión (docs/MAPA.md, paso 1.3): capas, marcadores, selección y encuadre.
 
 Prueba rápida (desde la raíz del proyecto; sin ventana, con un fondo simulado):
@@ -30,7 +34,7 @@ Con el mapa de verdad (abre una ventana y se queda abierta):
     python -m ui_helpers.map.map_view --ventana
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["MapView"]
 
 # Librerías estándar
@@ -47,7 +51,7 @@ from qtpy.QtWidgets import QVBoxLayout, QWidget
 # Módulos del proyecto
 from core.maps.tile_layers import DEFAULT_LAYER_KEY, TILE_LAYERS, TileLayer
 from ui_helpers.map.map_backend import MapBackend
-from ui_helpers.map.map_types import MapBounds, MapMarker, MapViewport, bounds_of
+from ui_helpers.map.map_types import MapBounds, MapMarker, MapTrack, MapViewport, bounds_of
 
 
 class MapView(QWidget):
@@ -61,6 +65,9 @@ class MapView(QWidget):
             id), o en el mapa vacío (lista vacía). El mapa NO cambia su selección: la
             pone quien lo usa, con 'set_selected_ids'.
         marker_activated(int): doble clic en una foto.
+        track_clicked(int): clic en la línea de un track (el mapa NO lo activa solo).
+        track_hovered(int, int): (track, índice del punto) bajo el ratón en el track
+            activo; el índice cuenta seguido entre todos sus segmentos; -1 al salir.
         layer_changed(str): se ve otra capa (su clave).
     """
 
@@ -69,6 +76,8 @@ class MapView(QWidget):
     viewport_changed = Signal(object)
     selection_requested = Signal(list, object)
     marker_activated = Signal(int)
+    track_clicked = Signal(int)
+    track_hovered = Signal(int, int)
     layer_changed = Signal(str)
 
     def __init__(
@@ -92,6 +101,8 @@ class MapView(QWidget):
         # Lo que se quiere ver (se repite al fondo cada vez que arranca)
         self._markers: dict[int, MapMarker] = {}
         self._selected: tuple[int, ...] = ()
+        self._tracks: dict[int, MapTrack] = {}
+        self._active_track: int | None = None
         self._layers: tuple[TileLayer, ...] = TILE_LAYERS
         self._layer_key = DEFAULT_LAYER_KEY
         # Último encuadre pedido antes de estar listo: ("bounds", rectángulo, animar) o
@@ -110,6 +121,8 @@ class MapView(QWidget):
         backend.viewport_changed.connect(self._on_viewport_changed)
         backend.selection_requested.connect(self.selection_requested)
         backend.marker_activated.connect(self.marker_activated)
+        backend.track_clicked.connect(self.track_clicked)
+        backend.track_hovered.connect(self.track_hovered)
 
     # -------------------------------------------------------------------------
     # Marcadores y selección
@@ -166,6 +179,52 @@ class MapView(QWidget):
         self._backend.set_thumbnail_provider(provider)
 
     # -------------------------------------------------------------------------
+    # Tracks
+    # -------------------------------------------------------------------------
+
+    def set_tracks(self, tracks: Sequence[MapTrack]) -> None:
+        """Sustituye todos los tracks. Si el activo ya no está, deja de haber activo."""
+        self._tracks = {track.track_id: track for track in tracks}
+        if self._active_track not in self._tracks:
+            self._active_track = None
+        if self._ready:
+            self._backend.set_tracks(list(self._tracks.values()))
+            self._backend.set_active_track(self._active_track)
+
+    def set_track_geometry(self, track: MapTrack) -> None:
+        """Cambia la geometría de un track (p. ej. su contorno por el detalle, al llegar
+        del disco); si no estaba, lo añade."""
+        self._tracks[track.track_id] = track
+        if self._ready:
+            self._backend.set_track_geometry(track)
+
+    def tracks(self) -> tuple[MapTrack, ...]:
+        """Los tracks que hay."""
+        return tuple(self._tracks.values())
+
+    def set_active_track(self, track_id: int | None) -> bool:
+        """Elige el track resaltado, el único que avisa con 'track_hovered' (None =
+        ninguno). False (y no cambia nada) si ese track no está en el mapa."""
+        if track_id is not None and track_id not in self._tracks:
+            return False
+        if track_id == self._active_track:
+            return True
+        self._active_track = track_id
+        if self._ready:
+            self._backend.set_active_track(track_id)
+        return True
+
+    def active_track(self) -> int | None:
+        """Id del track activo, o None."""
+        return self._active_track
+
+    def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
+        """Señala un punto de un track (p. ej. el que está bajo el ratón en el perfil de
+        elevación); None = quitar la señal. No se recuerda: es cosa del momento."""
+        if self._ready and track_id in self._tracks:
+            self._backend.set_track_cursor(track_id, point_index)
+
+    # -------------------------------------------------------------------------
     # Encuadre
     # -------------------------------------------------------------------------
 
@@ -177,15 +236,24 @@ class MapView(QWidget):
             self._pending_view = ("bounds", bounds, animate)
 
     def fit_content(self, *, animate: bool = True) -> bool:
-        """Encuadra todo lo que hay. False si no hay nada que encuadrar."""
-        return self._fit(self._markers.values(), animate)
+        """Encuadra todo lo que hay (fotos y tracks). False si no hay nada que encuadrar."""
+        return self._fit(self._markers.values(), self._tracks.values(), animate)
 
     def fit_selection(self, *, animate: bool = True) -> bool:
-        """Encuadra lo seleccionado. False si no hay nada seleccionado."""
-        return self._fit((self._markers[i] for i in self._selected), animate)
+        """Encuadra las fotos seleccionadas. False si no hay nada seleccionado."""
+        return self._fit((self._markers[i] for i in self._selected), (), animate)
 
-    def _fit(self, markers: object, animate: bool) -> bool:
+    def fit_track(self, track_id: int, *, animate: bool = True) -> bool:
+        """Encuadra un track. False si no está en el mapa o no tiene puntos."""
+        track = self._tracks.get(track_id)
+        return self._fit((), (track,), animate) if track is not None else False
+
+    def _fit(self, markers: object, tracks: object, animate: bool) -> bool:
         bounds = bounds_of((marker.latitude, marker.longitude) for marker in markers)
+        for track in tracks:
+            box = track.bounds()
+            if box is not None:
+                bounds = box if bounds is None else bounds.union(box)
         if bounds is None:
             return False
         self.fit_bounds(bounds, animate=animate)
@@ -246,9 +314,12 @@ class MapView(QWidget):
         return self._ready
 
     def clear(self) -> None:
-        """Quita marcadores y selección (al cerrar el catálogo). La capa y el encuadre siguen."""
+        """Quita marcadores, selección y tracks (al cerrar el catálogo). La capa y el
+        encuadre siguen."""
         self._markers = {}
         self._selected = ()
+        self._tracks = {}
+        self._active_track = None
         if self._ready:
             self._backend.clear()
 
@@ -291,6 +362,10 @@ class MapView(QWidget):
             self._backend.set_markers(list(self._markers.values()))
         if self._selected:
             self._backend.set_selected_ids(self._selected)
+        if self._tracks:
+            self._backend.set_tracks(list(self._tracks.values()))
+        if self._active_track is not None:
+            self._backend.set_active_track(self._active_track)
         pending, self._pending_view = self._pending_view, None
         if pending is not None:
             if pending[0] == "bounds":
@@ -341,6 +416,18 @@ def _run_logic_selftest() -> None:
 
         def set_thumbnail_provider(self, provider: object) -> None:
             self.calls.append(("thumbs", provider is not None))
+
+        def set_tracks(self, tracks: Sequence[MapTrack]) -> None:
+            self.calls.append(("tracks", [(t.track_id, t.detailed) for t in tracks]))
+
+        def set_track_geometry(self, track: MapTrack) -> None:
+            self.calls.append(("geometry", track.track_id, track.detailed, track.point_count))
+
+        def set_active_track(self, track_id: int | None) -> None:
+            self.calls.append(("active", track_id))
+
+        def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
+            self.calls.append(("cursor", track_id, point_index))
 
         def fit_bounds(self, bounds: MapBounds, *, animate: bool = True) -> None:
             self.calls.append(("fit", bounds, animate))
@@ -460,6 +547,52 @@ def _run_logic_selftest() -> None:
         ("view", 41.0, 0.0, 9),
     ]
 
+    # 10. Tracks: antes de estar listo se guardan; al arrancar van después de las fotos
+    backend.load_failed.emit("prueba")
+    outline = MapTrack(50, "Ordesa", (((42.6, 0.0), (42.7, 0.1)),))
+    other = MapTrack(51, "Pineta", (((42.5, 0.2), (42.55, 0.25)),))
+    view.set_tracks([outline, other])
+    assert view.set_active_track(50) is True and view.set_active_track(99) is False
+    view.set_track_cursor(50, 1)  # sin mapa listo, se ignora
+    assert backend.take() == []
+    backend.ready.emit()
+    assert backend.take()[-2:] == [("tracks", [(50, False), (51, False)]), ("active", 50)]
+
+    # 11. El detalle sustituye al contorno; el punto señalado no se recuerda
+    detail = MapTrack(50, "Ordesa", (((42.6, 0.0), (42.65, 0.05), (42.7, 0.1)), ((42.8, 0.3),)), True)
+    view.set_track_geometry(detail)
+    view.set_track_cursor(50, 2)
+    view.set_track_cursor(50, None)
+    view.set_track_cursor(99, 0)  # ese track no está: se ignora
+    assert backend.take() == [("geometry", 50, True, 4), ("cursor", 50, 2), ("cursor", 50, None)]
+    assert [t.detailed for t in view.tracks()] == [True, False]
+    assert view.set_active_track(50) is True and backend.take() == []  # ya lo era
+
+    # 12. Encuadres: un track, y todo (las fotos y los tracks juntos)
+    assert view.fit_track(50) is True and view.fit_track(99) is False
+    assert backend.take() == [("fit", MapBounds(42.6, 0.0, 42.8, 0.3), True)]
+    assert view.fit_content() is True  # fotos 1 (42, -1) y 3 (41, 0) + los dos tracks
+    assert backend.take() == [("fit", MapBounds(41.0, -1.0, 42.8, 0.3), True)]
+    assert MapView.fit_track(view, 51, animate=False) is True
+    backend.take()
+
+    # 13. Avisos de los tracks, reenviados; el mapa no activa un track por su cuenta
+    seen.clear()
+    view.track_clicked.connect(lambda track_id: seen.append(("track", track_id)))
+    view.track_hovered.connect(lambda track_id, index: seen.append(("hover", track_id, index)))
+    backend.track_clicked.emit(51)
+    backend.track_hovered.emit(50, 3)
+    backend.track_hovered.emit(50, -1)
+    assert seen == [("track", 51), ("hover", 50, 3), ("hover", 50, -1)]
+    assert view.active_track() == 50
+
+    # 14. Otros tracks: si el activo ya no está, deja de haber activo. Vaciar se los lleva
+    view.set_tracks([other])
+    assert backend.take() == [("tracks", [(51, False)]), ("active", None)]
+    assert view.active_track() is None
+    view.clear()
+    assert backend.take() == [("clear",)] and view.tracks() == ()
+
     view.deleteLater()
     app.processEvents()
     print("Autoprueba finalizada correctamente.")
@@ -467,6 +600,7 @@ def _run_logic_selftest() -> None:
 
 def _run_window() -> None:
     """Ventana de prueba con el mapa de verdad (se queda abierta hasta que se cierra)."""
+    import math
     import random
     import sys
     import tempfile
@@ -508,6 +642,18 @@ def _run_window() -> None:
             )
         return markers
 
+    def wander(start: tuple[float, float], count: int, seed: int) -> tuple[tuple[float, float], ...]:
+        """Un recorrido inventado: pasos de unos 8 m con giros suaves."""
+        walker = random.Random(seed)
+        latitude, longitude, heading = start[0], start[1], walker.uniform(0, 6)
+        points = []
+        for _ in range(count):
+            points.append((latitude, longitude))
+            heading += walker.uniform(-0.25, 0.25)
+            latitude += 0.00007 * math.cos(heading)
+            longitude += 0.0001 * math.sin(heading)
+        return tuple(points)
+
     window = QWidget()
     window.setWindowTitle("MapView (prueba)")
     window.resize(1300, 850)
@@ -538,13 +684,38 @@ def _run_window() -> None:
         status.setText(f"Selección pedida ({mode.value}): {len(media_ids)} · seleccionadas: {len(chosen)}")
         print(f"selection_requested: {len(media_ids)} id, {mode.value}; primeros {media_ids[:8]}", flush=True)
 
+    def add_tracks() -> None:
+        # Tres tracks: uno de 10 000 puntos en dos segmentos (el activo) y dos más cortos
+        long_one = wander((42.65, -0.05), 10_000, 5)
+        view.set_tracks(
+            [
+                MapTrack(9001, "Track largo (10 000 puntos)", (long_one[:6000], long_one[6200:]), True),
+                MapTrack(9002, "Otro track", (wander((42.70, 0.02), 1500, 6),)),
+                MapTrack(9003, "Y otro más", (wander((42.60, -0.10), 800, 7),)),
+            ]
+        )
+        view.set_active_track(9001)
+        view.fit_track(9001)
+
+    def on_track_clicked(track_id: int) -> None:
+        # Lo que haría el controlador: activar el track pulsado
+        view.set_active_track(track_id)
+        status.setText(f"Track activo: {track_id}")
+        print(f"track_clicked: {track_id}", flush=True)
+
+    def on_track_hovered(track_id: int, point_index: int) -> None:
+        status.setText(
+            f"Track {track_id}, punto {point_index}" if point_index >= 0 else "Fuera del track activo"
+        )
+
     bar = QHBoxLayout()
     bar.addWidget(combo)
     for text, action in (
         ("5 000 marcadores", add_markers),
+        ("Tracks", add_tracks),
         ("Seleccionar 100", select_some),
         ("Encuadrar todo", view.fit_content),
-        ("Quitar marcadores", view.clear),
+        ("Quitar todo", view.clear),
     ):
         button = QPushButton(text)
         button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -558,6 +729,8 @@ def _run_window() -> None:
     view.ready.connect(lambda: status.setText("Mapa listo."))
     view.load_failed.connect(lambda reason: status.setText(f"El mapa no arranca: {reason}"))
     view.selection_requested.connect(on_selection)
+    view.track_clicked.connect(on_track_clicked)
+    view.track_hovered.connect(on_track_hovered)
     view.marker_activated.connect(lambda media_id: print(f"marker_activated: {media_id}", flush=True))
     view.layer_changed.connect(lambda key: print(f"layer_changed: {key}", flush=True))
     view.viewport_changed.connect(

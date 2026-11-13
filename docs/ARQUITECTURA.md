@@ -143,10 +143,10 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   models/media_mime.py               MIME propio del arrastre (application/x-arca-media-ids: {catalog, ids})
   map/                               ── Componente de mapa (diseño y plan en docs/MAPA.md; MapView aún no está en ningún módulo) ──
     map_types.py                       Datos que entran y salen del mapa: MapMarker, MapTrack, MapBounds (bounds_of), MapViewport, MapHit, MapMode, SelectionMode; is_valid_position; sin Qt
-    map_view.py                      ► MapView: el mapa (fachada; lo único que conocen los módulos): marcadores, selección, capas, encuadre, estado; guarda lo pedido y se lo pasa al fondo cuando está listo. Aún sin tracks ni soltar
+    map_view.py                      ► MapView: el mapa (fachada; lo único que conocen los módulos): marcadores, selección, tracks (activo, punto señalado), capas, encuadre, estado; guarda lo pedido y se lo pasa al fondo cuando está listo. Aún sin soltar tarjetas
     map_backend.py                     MapBackend: contrato del fondo del mapa (lo que MapView pide a la tecnología que pinta: señales y métodos); solo declara
-    web_backend.py                     WebMapBackend: el fondo con QtWebEngine + Leaflet (página de resources/map/, colores del tema como variables CSS, sin foco); css_color, marker_payload
-    web_bridge.py                      MapBridge: lo que la página puede decirle a Python (QWebChannel): cargada, lista, encuadre, selección, doble clic
+    web_backend.py                     WebMapBackend: el fondo con QtWebEngine + Leaflet (página de resources/map/, colores del tema como variables CSS, sin foco); css_color, marker_payload, track_payload
+    web_bridge.py                      MapBridge: lo que la página puede decirle a Python (QWebChannel): cargada, lista, encuadre, selección, doble clic, clic en un track y punto bajo el ratón
     map_scheme.py                      Esquema arca-map:// (MapSchemeHandler: recursos de la página, teselas con caché y descarga, miniaturas); register_map_scheme (antes de QApplication), shared_handler
   helpers/ui_file_manager.py         "Mostrar en el Explorador/Finder" multiplataforma (reveal_in_file_manager) y papelera del sistema (move_to_trash, con QFile.moveToTrash)
 core/

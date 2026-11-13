@@ -11,9 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Mapa, paso 1.1: capas y caché de teselas** (13/11/2026; `core/maps/`, sin Qt; la interfaz aún no lo usa) | Nada que ver en la aplicación: comprobar solo que arranca igual. Autopruebas: `python -m core.maps.tile_layers` y `python -m core.maps.tile_store`. Por confirmar: el nombre «Callejero (OpenStreetMap)» y que sea la capa con la que empieza el mapa |
-| **Mapa, paso 1.2: tipos y contrato** (13/11/2026; `ui_helpers/map/`: `map_types.py` y `map_backend.py`; la interfaz aún no los usa) | Nada que ver en la aplicación: que arranca igual. Autoprueba: `python -m ui_helpers.map.map_types` |
-| **Mapa, paso 1.3: `MapView`** (13/11/2026; QtWebEngine + Leaflet; aún en ningún módulo) | (1) Que la aplicación arranca igual y no se nota más lenta (ahora carga QtWebEngine al empezar: unas 0,2 s). (2) `python -m ui_helpers.map.map_view --ventana`: el mapa con los colores de la aplicación; el desplegable cambia entre las cinco capas; «5 000 marcadores» los agrupa con su número y su miniatura (una de cada diez, sin miniatura: recuadro vacío); mover y zoom, fluidos; clic en una foto o en un grupo los selecciona (borde ámbar), Ctrl+clic añade o quita, clic en el mapa vacío quita la selección; doble clic en un grupo se acerca; «Seleccionar 100» y «Encuadrar todo». Decir qué tal el aspecto de los marcadores (miniatura de 44 px) y de los botones de zoom |
+| **Mapa, paso 1.4: tracks en `MapView`** (13/11/2026; aún en ningún módulo) | `python -m ui_helpers.map.map_view --ventana`, botón «Tracks»: tres tracks con borde claro; el largo (10 000 puntos, con un corte entre sus dos segmentos), en rojo y más grueso por ser el activo; los otros, en azul. Al pasar el ratón por el activo, un punto ámbar lo sigue y la barra dice su número; clic en otro track lo activa; al pasar por una línea, su nombre. Mover y zoom, fluidos. **Decidir los colores** (azul `#2f6fd6` y rojo `#e5383b`, propuestos; se cambian en `theme_colors.py`): verlos sobre el callejero, el topográfico y la ortofoto. Con «5 000 marcadores», las fotos sueltas sin miniatura son ahora un punto pequeño |
 
 ## Comprobaciones sueltas
 
@@ -65,12 +63,14 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Sección «Fechas» del módulo Imagen** (12/11): debajo de «Carpetas», los años (el más reciente arriba) con sus meses («01 Enero») y sus días («10 Miércoles»), y «Sin fecha»; cada fila muestra lo que cuenta, con los mismos números que la columna «Fecha de captura»; lo desplegado y el día elegido, recordados. Antes, la barra de Imagen dividida en un archivo por sección (`ui_helpers/sidebars/sections/`), con todo igual que antes.
 - **Las barras no cogen el teclado** (12/11): al elegir algo en una barra (una carpeta, una fecha, una palabra, una colección o la flecha «ver sus fotos» del inspector), la primera foto queda seleccionada (la primera que cumple el filtro) y los atajos («3», «P», «G», Z...) van a las fotos sin otro clic; las flechas mueven la selección de fotos, no la barra; una letra ya no elige otra fila de un árbol.
 - **El archivo actual, recordado** (12/11): al abrir el catálogo, la foto que estaba seleccionada al cerrarlo; al cambiar de módulo, cada uno la suya; si ya no está, la primera. Al recargar con el mismo origen (orden, filtro), sigue seleccionado lo que se vea; al eliminar, queda seleccionada la siguiente, sin saltar al principio.
+- **Mapa, pasos 1.1 a 1.3** (13/11/2026): la aplicación arranca igual con QtWebEngine cargado al empezar; `MapView` en su ventana de prueba, con las cinco capas en el orden pedido, los marcadores agrupados de 44 px (bien de tamaño) y la selección.
 - **Mapa, fase 0: prueba de concepto** (13/11/2026; `scripts/poc_map/`, aislada de la aplicación): mapa con QtWebEngine + Leaflet fluido con un track de 10 000 puntos y 20 000 marcadores, capas del IGN y de OpenTopoMap con caché, soltar tarjetas con 1-3 px de diferencia, teclado en la lista, sin parpadeo apreciable; los cortes horizontales de la foto desaparecen al existir la vista web. Se sigue con el plan A de [MAPA.md](MAPA.md).
 
 ## Últimos cambios
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: mapa, paso 1.4: tracks en `MapView` (líneas con borde claro, track activo, punto bajo el ratón); las fotos sin miniatura, un punto pequeño.
 - 13/11/2026: mapa, paso 1.3: `MapView`, el mapa con QtWebEngine + Leaflet (capas, marcadores agrupados, selección y encuadre); aún no está en ningún módulo.
 - 13/11/2026: mapa, paso 1.2: tipos de datos del mapa y contrato de su fondo (`ui_helpers/map/`); capas en el orden pedido por el autor.
 - 13/11/2026: mapa, paso 1.1: lista de capas (callejero de OpenStreetMap, tres del IGN y OpenTopoMap) y caché de teselas en disco (`core/maps/`).
@@ -80,4 +80,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 12/11/2026: en los árboles de las barras, una letra o un número ya no elige otra fila (sin «búsqueda al teclear»).
 - 12/11/2026: la cuadrícula vacía dice «No hay archivos» (como la vista individual).
 - 12/11/2026: «Purgar palabras clave no usadas…» dice cuántas se van a borrar y cuáles (todas, en «Mostrar los detalles…»).
-- 12/11/2026: palabras clave sin nada en Imagen, en gris en la barra izquierda.

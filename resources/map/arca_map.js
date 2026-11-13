@@ -12,6 +12,7 @@
 const arca = (() => {
   let bridge = null;             // puente con Python
   let map = null;                // el mapa de Leaflet
+  let colors = {};               // colores del tema (los mismos que las variables CSS)
   let tiles = null;              // capa de teselas que se ve
   let layers = {};               // clave -> {key, attribution, min_zoom, max_zoom}
   let layerKey = null;
@@ -19,17 +20,27 @@ const arca = (() => {
   let index = null;              // índice de Supercluster
   const items = new Map();       // id -> [id, lat, lon, tipo, miniatura (1/0)]
   let selected = new Set();      // id seleccionados
+  const tracks = new Map();      // id -> {id, halo, line, points, merc}
+  let activeTrack = null;        // id del track activo (el único que avisa del ratón)
+  let trackCursor = null;        // punto señalado en un track
+  let lastHover = -1;            // último índice avisado con 'on_track_hover'
+  let hoverFrame = 0;
+  let lastMouse = null;
 
   const MARKER_SIZE = 44;        // lado del recuadro de una foto o de un grupo, en px
+  const SMALL_MARKER_SIZE = 18;  // una foto suelta sin miniatura: no hay nada que enseñar
   const CLUSTER_RADIUS = 60;     // fotos a menos de estos px se agrupan
   const FIT_PADDING = 40;        // margen al encuadrar, en px
   const FIT_MAX_ZOOM = 16;       // al encuadrar un solo punto no se acerca más que esto
+  const HOVER_PX = 12;           // distancia al track activo para señalar su punto, en px
+  const MERC_WORLD = 40075016.686;  // metros de Mercator del mundo entero (zoom 0 = 256 px)
 
   // --- Arranque ----------------------------------------------------------------
 
   function init(config) {
+    colors = config.colors;
     const style = document.documentElement.style;
-    for (const [name, value] of Object.entries(config.colors)) {
+    for (const [name, value] of Object.entries(colors)) {
       style.setProperty("--arca-" + name, value);
     }
     map = L.map("map", { preferCanvas: true, zoomControl: false });
@@ -47,6 +58,14 @@ const arca = (() => {
     });
     // Clic en el mapa vacío: se pide dejar la selección vacía (lo decide Python)
     map.on("click", () => bridge.on_select("[]", false));
+    map.on("mousemove", (e) => {
+      lastMouse = e.latlng;
+      if (!hoverFrame) hoverFrame = requestAnimationFrame(hover);   // una vez por fotograma
+    });
+    map.on("mouseout", () => {
+      lastMouse = null;
+      if (!hoverFrame) hoverFrame = requestAnimationFrame(hover);
+    });
     bridge.on_ready();
   }
 
@@ -142,9 +161,12 @@ const arca = (() => {
     const isCluster = !!properties.cluster;
     // Un grupo enseña la miniatura de una de sus fotos
     const sample = isCluster ? index.getLeaves(feature.id, 1)[0].properties : properties;
+    // Una foto suelta sin miniatura: un punto pequeño (un grupo conserva su tamaño: lleva el número)
+    const small = !isCluster && !sample.thumb;
+    const size = small ? SMALL_MARKER_SIZE : MARKER_SIZE;
 
     const box = document.createElement("div");
-    box.className = "arca-photo" + (properties.sel > 0 ? " selected" : "");
+    box.className = "arca-photo" + (properties.sel > 0 ? " selected" : "") + (small ? " small" : "");
     if (sample.thumb) {
       const image = document.createElement("img");
       image.draggable = false;
@@ -162,7 +184,7 @@ const arca = (() => {
     }
 
     const marker = L.marker([lat, lon], {
-      icon: L.divIcon({ html: box, className: "", iconSize: [MARKER_SIZE, MARKER_SIZE] }),
+      icon: L.divIcon({ html: box, className: "", iconSize: [size, size] }),
       keyboard: false,
     });
     marker.on("click", (e) => {
@@ -181,6 +203,136 @@ const arca = (() => {
       }
     });
     return marker;
+  }
+
+  // --- Tracks ---------------------------------------------------------------------
+  //
+  // Cada track son DOS líneas: un borde claro debajo ('halo') y la línea de color encima,
+  // para que se lea sobre cualquier mapa. Sus puntos se numeran seguidos entre todos sus
+  // segmentos: ese índice es el que viaja a Python y vuelve.
+
+  // list: [{id, name, detailed, segments: [[lat, lon, lat, lon, ...], ...]}, ...]
+  function setTracks(list) {
+    for (const track of tracks.values()) removeTrack(track);
+    tracks.clear();
+    hideTrackCursor();
+    for (const data of list) addTrack(data);
+    if (activeTrack !== null && !tracks.has(activeTrack)) activeTrack = null;
+    restyleTracks();
+  }
+
+  // Cambia la geometría de un track (su contorno por el detalle); si no estaba, lo añade
+  function setTrackGeometry(data) {
+    const old = tracks.get(data.id);
+    if (old) removeTrack(old);
+    if (trackCursor && trackCursor.trackId === data.id) hideTrackCursor();
+    addTrack(data);
+    restyleTracks();
+  }
+
+  function addTrack(data) {
+    const segments = [];
+    const points = [];
+    const merc = [];
+    for (const flat of data.segments) {
+      const latlngs = [];
+      for (let i = 0; i + 1 < flat.length; i += 2) {
+        const latlng = L.latLng(flat[i], flat[i + 1]);
+        const projected = L.CRS.EPSG3857.project(latlng);
+        latlngs.push(latlng);
+        points.push(latlng);
+        merc.push(projected.x, projected.y);
+      }
+      if (latlngs.length) segments.push(latlngs);
+    }
+    const halo = L.polyline(segments, { interactive: false }).addTo(map);
+    // 'bubblingMouseEvents: false': un clic en la línea no cuenta además como clic en el mapa
+    const line = L.polyline(segments, { bubblingMouseEvents: false }).addTo(map);
+    if (data.name) line.bindTooltip(data.name, { sticky: true });
+    line.on("click", () => bridge.on_track_click(data.id));
+    tracks.set(data.id, { id: data.id, halo, line, points, merc: Float64Array.from(merc) });
+  }
+
+  function removeTrack(track) {
+    map.removeLayer(track.halo);
+    map.removeLayer(track.line);
+  }
+
+  function setActiveTrack(id) {
+    activeTrack = id;
+    hideTrackCursor();
+    lastHover = -1;
+    restyleTracks();
+  }
+
+  // El activo, más grueso, con su color y por encima de los demás
+  function restyleTracks() {
+    for (const track of tracks.values()) {
+      const active = track.id === activeTrack;
+      const weight = active ? 4 : 3;
+      track.halo.setStyle({ color: colors["track-halo"], weight: weight + 3, opacity: 0.85 });
+      track.line.setStyle({
+        color: active ? colors["track-active"] : colors["track"],
+        weight: weight,
+        opacity: 1,
+      });
+    }
+    const active = tracks.get(activeTrack);
+    if (active) {
+      active.halo.bringToFront();
+      active.line.bringToFront();
+    }
+  }
+
+  // index null = quitar la señal
+  function setTrackCursor(id, pointIndex) {
+    const track = tracks.get(id);
+    if (!track || pointIndex === null || pointIndex < 0 || pointIndex >= track.points.length) {
+      hideTrackCursor();
+      return;
+    }
+    showTrackCursor(track, pointIndex);
+  }
+
+  function showTrackCursor(track, pointIndex) {
+    if (!trackCursor) {
+      trackCursor = L.circleMarker(track.points[pointIndex], {
+        radius: 6, weight: 2, fillOpacity: 1, interactive: false,
+        color: colors["text-on-accent"], fillColor: colors["accent"],
+      });
+    }
+    trackCursor.trackId = track.id;
+    trackCursor.setLatLng(track.points[pointIndex]).addTo(map);
+    trackCursor.bringToFront();
+  }
+
+  function hideTrackCursor() {
+    if (trackCursor) map.removeLayer(trackCursor);
+  }
+
+  // El punto del track activo más cercano al ratón (si está a menos de HOVER_PX píxeles).
+  // Con 10 000 puntos son 10 000 restas: muy por debajo de un milisegundo.
+  function hover() {
+    hoverFrame = 0;
+    const track = tracks.get(activeTrack);
+    if (!track) return;
+    let found = -1;
+    if (lastMouse) {
+      const mouse = L.CRS.EPSG3857.project(lastMouse);
+      const merc = track.merc;
+      let best = Infinity, bestIndex = -1;
+      for (let i = 0; i < merc.length; i += 2) {
+        const dx = merc[i] - mouse.x, dy = merc[i + 1] - mouse.y;
+        const d = dx * dx + dy * dy;
+        if (d < best) { best = d; bestIndex = i / 2; }
+      }
+      const metersPerPixel = MERC_WORLD / (256 * Math.pow(2, map.getZoom()));
+      if (bestIndex >= 0 && Math.sqrt(best) / metersPerPixel <= HOVER_PX) found = bestIndex;
+    }
+    if (found === lastHover) return;
+    lastHover = found;
+    if (found >= 0) showTrackCursor(track, found); else hideTrackCursor();
+    bridge.on_track_hover(track.id, found);
   }
 
   // --- Encuadre ---------------------------------------------------------------------
@@ -202,6 +354,8 @@ const arca = (() => {
     items.clear();
     selected = new Set();
     rebuild();
+    setTracks([]);
+    activeTrack = null;
   }
 
   new QWebChannel(qt.webChannelTransport, (channel) => {
@@ -211,6 +365,7 @@ const arca = (() => {
 
   return {
     init, setLayers, setBaseLayer, setMarkers, updateMarkers, removeMarkers, setSelected,
+    setTracks, setTrackGeometry, setActiveTrack, setTrackCursor,
     fitBounds, setView, clear,
   };
 })();
