@@ -26,6 +26,9 @@ const arca = (() => {
   let lastHover = -1;            // último índice avisado con 'on_track_hover'
   let hoverFrame = 0;
   let lastMouse = null;
+  let dropEnabled = false;       // se pueden soltar tarjetas y arrastrar las fotos sueltas
+  let ghost = null;              // señal del punto donde caería una tarjeta arrastrada
+  let preview = null;            // marcadores provisionales (propuesta de la correlación)
 
   const MARKER_SIZE = 44;        // lado del recuadro de una foto o de un grupo, en px
   const SMALL_MARKER_SIZE = 18;  // una foto suelta sin miniatura: no hay nada que enseñar
@@ -51,6 +54,7 @@ const arca = (() => {
     }).addTo(map);
     map.setView([config.view[0], config.view[1]], config.view[2]);
     group = L.layerGroup().addTo(map);
+    preview = L.layerGroup().addTo(map);
 
     map.on("moveend", () => {
       render();
@@ -58,6 +62,7 @@ const arca = (() => {
     });
     // Clic en el mapa vacío: se pide dejar la selección vacía (lo decide Python)
     map.on("click", () => bridge.on_select("[]", false));
+    map.on("contextmenu", (e) => contextMenu("empty", e, {}));
     map.on("mousemove", (e) => {
       lastMouse = e.latlng;
       if (!hoverFrame) hoverFrame = requestAnimationFrame(hover);   // una vez por fotograma
@@ -186,11 +191,22 @@ const arca = (() => {
     const marker = L.marker([lat, lon], {
       icon: L.divIcon({ html: box, className: "", iconSize: [size, size] }),
       keyboard: false,
+      // Solo se arrastran las fotos sueltas: mover un grupo entero de un tirón sería
+      // demasiado fácil de hacer sin querer
+      draggable: dropEnabled && !isCluster,
+    });
+    const idsOf = () => (isCluster
+      ? index.getLeaves(feature.id, Infinity).map((leaf) => leaf.properties.id)
+      : [properties.id]);
+    marker.on("contextmenu", (e) => contextMenu(isCluster ? "cluster" : "marker", e, { ids: idsOf() }));
+    // Arrastrada a otro sitio: se avisa y se queda donde se soltó. Quien manda (Python)
+    // la confirma con 'updateMarkers' o la devuelve a su sitio
+    marker.on("dragend", () => {
+      const p = marker.getLatLng();
+      bridge.on_markers_moved(JSON.stringify([properties.id]), p.lat, p.lng);
     });
     marker.on("click", (e) => {
-      const ids = isCluster
-        ? index.getLeaves(feature.id, Infinity).map((leaf) => leaf.properties.id)
-        : [properties.id];
+      const ids = idsOf();
       const toggle = e.originalEvent.ctrlKey || e.originalEvent.metaKey;
       bridge.on_select(JSON.stringify(ids), toggle);
     });
@@ -250,7 +266,12 @@ const arca = (() => {
     const line = L.polyline(segments, { bubblingMouseEvents: false }).addTo(map);
     if (data.name) line.bindTooltip(data.name, { sticky: true });
     line.on("click", () => bridge.on_track_click(data.id));
-    tracks.set(data.id, { id: data.id, halo, line, points, merc: Float64Array.from(merc) });
+    const track = { id: data.id, halo, line, points, merc: Float64Array.from(merc) };
+    line.on("contextmenu", (e) => contextMenu("track", e, {
+      track: data.id,
+      index: nearestPoint(track, e.latlng).index,
+    }));
+    tracks.set(data.id, track);
   }
 
   function removeTrack(track) {
@@ -262,6 +283,7 @@ const arca = (() => {
     activeTrack = id;
     hideTrackCursor();
     lastHover = -1;
+    map.getContainer().classList.remove("arca-hide-cursor");
     restyleTracks();
   }
 
@@ -306,6 +328,20 @@ const arca = (() => {
     trackCursor.bringToFront();
   }
 
+  // El punto de un track más cercano a un sitio del mapa y a cuántos píxeles queda
+  function nearestPoint(track, latlng) {
+    const mouse = L.CRS.EPSG3857.project(latlng);
+    const merc = track.merc;
+    let best = Infinity, bestIndex = -1;
+    for (let i = 0; i < merc.length; i += 2) {
+      const dx = merc[i] - mouse.x, dy = merc[i + 1] - mouse.y;
+      const d = dx * dx + dy * dy;
+      if (d < best) { best = d; bestIndex = i / 2; }
+    }
+    const metersPerPixel = MERC_WORLD / (256 * Math.pow(2, map.getZoom()));
+    return { index: bestIndex, pixels: Math.sqrt(best) / metersPerPixel };
+  }
+
   function hideTrackCursor() {
     if (trackCursor) map.removeLayer(trackCursor);
   }
@@ -318,21 +354,66 @@ const arca = (() => {
     if (!track) return;
     let found = -1;
     if (lastMouse) {
-      const mouse = L.CRS.EPSG3857.project(lastMouse);
-      const merc = track.merc;
-      let best = Infinity, bestIndex = -1;
-      for (let i = 0; i < merc.length; i += 2) {
-        const dx = merc[i] - mouse.x, dy = merc[i + 1] - mouse.y;
-        const d = dx * dx + dy * dy;
-        if (d < best) { best = d; bestIndex = i / 2; }
-      }
-      const metersPerPixel = MERC_WORLD / (256 * Math.pow(2, map.getZoom()));
-      if (bestIndex >= 0 && Math.sqrt(best) / metersPerPixel <= HOVER_PX) found = bestIndex;
+      const nearest = nearestPoint(track, lastMouse);
+      if (nearest.index >= 0 && nearest.pixels <= HOVER_PX) found = nearest.index;
     }
     if (found === lastHover) return;
     lastHover = found;
     if (found >= 0) showTrackCursor(track, found); else hideTrackCursor();
+    // El punto ámbar ya hace de cursor: el del ratón se oculta para no taparlo
+    map.getContainer().classList.toggle("arca-hide-cursor", found >= 0);
     bridge.on_track_hover(track.id, found);
+  }
+
+  // --- Soltar tarjetas, mover fotos y vista previa ---------------------------------------
+  //
+  // El arrastre de tarjetas lo recoge Python (los eventos no llegan a la página): aquí
+  // solo se pinta dónde caería y se traduce un píxel de la vista a coordenadas.
+
+  function setDropEnabled(enabled) {
+    dropEnabled = enabled;
+    render();   // las fotos sueltas pasan a poder arrastrarse (o dejan de poder)
+  }
+
+  // x, y: píxeles de la vista; null = fin del arrastre
+  function setDropCursor(x, y) {
+    if (x === null) {
+      if (ghost) { map.removeLayer(ghost); ghost = null; }
+      return;
+    }
+    const latlng = map.containerPointToLatLng([x, y]);
+    if (!ghost) {
+      ghost = L.circleMarker(latlng, {
+        radius: 9, weight: 2, fillOpacity: 0.35, interactive: false,
+        color: colors["accent"], fillColor: colors["accent"],
+      }).addTo(map);
+    } else {
+      ghost.setLatLng(latlng);
+    }
+  }
+
+  // Coordenadas [lat, lon] de un píxel de la vista (donde se ha soltado)
+  function dropPoint(x, y) {
+    setDropCursor(null, null);
+    const latlng = map.containerPointToLatLng([x, y]);
+    return [latlng.lat, latlng.lng];
+  }
+
+  // list: [[id, lat, lon], ...]; vacía = quitarlos
+  function setPreviewMarkers(list) {
+    preview.clearLayers();
+    for (const item of list) {
+      preview.addLayer(L.circleMarker([item[1], item[2]], {
+        radius: 6, weight: 2, fillOpacity: 0.9, interactive: false,
+        color: colors["text-on-accent"], fillColor: colors["accent"],
+      }));
+    }
+  }
+
+  // Botón derecho: qué hay debajo y dónde (el menú lo abre Python, con un QMenu)
+  function contextMenu(kind, e, extra) {
+    const hit = Object.assign({ kind: kind, lat: e.latlng.lat, lon: e.latlng.lng }, extra);
+    bridge.on_context_menu(JSON.stringify(hit), e.originalEvent.clientX, e.originalEvent.clientY);
   }
 
   // --- Encuadre ---------------------------------------------------------------------
@@ -356,6 +437,8 @@ const arca = (() => {
     rebuild();
     setTracks([]);
     activeTrack = null;
+    setPreviewMarkers([]);
+    setDropCursor(null, null);
   }
 
   new QWebChannel(qt.webChannelTransport, (channel) => {
@@ -366,6 +449,7 @@ const arca = (() => {
   return {
     init, setLayers, setBaseLayer, setMarkers, updateMarkers, removeMarkers, setSelected,
     setTracks, setTrackGeometry, setActiveTrack, setTrackCursor,
+    setDropEnabled, setDropCursor, dropPoint, setPreviewMarkers,
     fitBounds, setView, clear,
   };
 })();

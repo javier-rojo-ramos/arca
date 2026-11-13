@@ -18,28 +18,34 @@ Cosas que no son evidentes (comprobadas en la prueba de concepto):
       translúcidos de Qt ('#aarrggbb') se convierten al orden de CSS ('#rrggbbaa').
     - La página solo puede navegar dentro de su esquema: nunca abre una web.
 
-Lo que TODAVÍA NO hace (lanza 'NotImplementedError', como la clase base): soltar
-tarjetas, mover marcadores, vista previa y menú contextual (paso 1.5).
+Soltar tarjetas (comprobado en la fase 0): los eventos de arrastre NO llegan a la vista
+web ni a la página, sino a un widget interno de la vista. Se recogen con un filtro de
+eventos en sus hijos ('_WebView'); si el arrastre trae tarjetas de la cuadrícula
+('application/x-arca-media-ids') y está permitido, se acepta sin pasarlo a Chromium, se
+pinta en la página dónde caería y, al soltar, la página traduce el píxel a coordenadas.
 
+1.2.0 Paso 1.5: soltar tarjetas, arrastrar las fotos sueltas, vista previa y botón
+      derecho. Con esto cumple todo el contrato de 'MapBackend'.
 1.1.0 Tracks (paso 1.4): líneas con borde claro, track activo, punto señalado y avisos
       de clic y de punto bajo el ratón; colores de los tracks y del texto emergente.
 1.0.0 Primera versión (docs/MAPA.md, paso 1.3): capas, marcadores agrupados con
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
 import json
 from collections.abc import Callable, Sequence
+from functools import partial
 from pathlib import Path
 
 # Librerías de terceros
 from loguru import logger
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QEvent, Qt, QTimer, QUrl
+from qtpy.QtCore import QEvent, QObject, QPoint, Qt, QTimer, QUrl
 from qtpy.QtGui import QColor
 from qtpy.QtWebChannel import QWebChannel
 from qtpy.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
@@ -51,11 +57,28 @@ from core.maps.tile_layers import TileLayer
 from ui_helpers.helpers.ui_theme import CARD_COLORS, COLORS
 from ui_helpers.map.map_backend import MapBackend
 from ui_helpers.map.map_scheme import SCHEME, START_URL, shared_handler
-from ui_helpers.map.map_types import MapBounds, MapMarker, MapMode, MapTrack, MapViewport
+from ui_helpers.map.map_types import (
+    MapBounds,
+    MapHit,
+    MapMarker,
+    MapMode,
+    MapTrack,
+    MapViewport,
+    is_valid_position,
+)
 from ui_helpers.map.web_bridge import MapBridge
+from ui_helpers.models.media_mime import MediaDrag, decode_media_ids
 
 # Encuadre con el que empieza el mapa mientras nadie pida otro: la península ibérica
 DEFAULT_VIEW: tuple[float, float, int] = (40.2, -3.7, 6)
+
+# Eventos de un arrastre
+_DRAG_EVENTS = (
+    QEvent.Type.DragEnter,
+    QEvent.Type.DragMove,
+    QEvent.Type.DragLeave,
+    QEvent.Type.Drop,
+)
 
 # Textos de los botones de zoom (al pasar el ratón)
 _TEXTS = {"zoom_in": "Acercar", "zoom_out": "Alejar"}
@@ -130,11 +153,18 @@ class _MapPage(QWebEnginePage):
 
 
 class _WebView(QWebEngineView):
-    """Vista web que no coge el teclado, ni ella ni los widgets que crea por dentro."""
+    """Vista web que no coge el teclado, ni ella ni los widgets que crea por dentro, y
+    que enseña a 'drag_handler' los arrastres que llegan a esos widgets.
+
+    'drag_handler(evento, desplazamiento)' devuelve True si se queda el evento; el
+    desplazamiento es la esquina del widget que lo recibió, en coordenadas de la vista.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._seen: set[int] = set()
+        self.drag_handler: Callable[[QEvent, QPoint], bool] | None = None
+        self.setAcceptDrops(True)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
 
@@ -146,6 +176,34 @@ class _WebView(QWebEngineView):
                 continue
             self._seen.add(id(child))
             child.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            child.installEventFilter(self)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # nombre de Qt
+        if (
+            event.type() in _DRAG_EVENTS
+            and self.drag_handler is not None
+            and isinstance(watched, QWidget)
+            and self.drag_handler(event, watched.mapTo(self, QPoint(0, 0)))
+        ):
+            return True
+        return super().eventFilter(watched, event)
+
+    # Por si en otra versión de Qt o en otro sistema los arrastres llegan a la vista
+    def dragEnterEvent(self, event: QEvent) -> None:  # nombre de Qt
+        if not (self.drag_handler and self.drag_handler(event, QPoint(0, 0))):
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event: QEvent) -> None:  # nombre de Qt
+        if not (self.drag_handler and self.drag_handler(event, QPoint(0, 0))):
+            super().dragMoveEvent(event)
+
+    def dragLeaveEvent(self, event: QEvent) -> None:  # nombre de Qt
+        if not (self.drag_handler and self.drag_handler(event, QPoint(0, 0))):
+            super().dragLeaveEvent(event)
+
+    def dropEvent(self, event: QEvent) -> None:  # nombre de Qt
+        if not (self.drag_handler and self.drag_handler(event, QPoint(0, 0))):
+            super().dropEvent(event)
 
     def childEvent(self, event: QEvent) -> None:  # nombre de Qt
         super().childEvent(event)
@@ -161,9 +219,12 @@ class WebMapBackend(MapBackend):
         super().__init__(parent)
         self._ready = False
         self._viewport: MapViewport | None = None
+        self._drop_enabled = False
+        self._dragging = False  # hay tarjetas arrastrándose por encima
         self._handler = shared_handler()
 
         self._view = _WebView(self)
+        self._view.drag_handler = self._handle_drag
         self._page = _MapPage(QWebEngineProfile.defaultProfile(), self._view)
         # Fondo del tema mientras la página carga (sin esto, un destello blanco)
         self._page.setBackgroundColor(QColor(CARD_COLORS.grid_bg))
@@ -185,6 +246,8 @@ class WebMapBackend(MapBackend):
         self._bridge.marker_activated.connect(self.marker_activated)
         self._bridge.track_clicked.connect(self.track_clicked)
         self._bridge.track_hovered.connect(self.track_hovered)
+        self._bridge.markers_moved.connect(self.markers_moved)
+        self._bridge.context_menu_requested.connect(self._on_context_menu)
         self._page.loadFinished.connect(self._on_load_finished)
         self._page.renderProcessTerminated.connect(self._on_render_terminated)
 
@@ -229,6 +292,58 @@ class WebMapBackend(MapBackend):
         self._viewport = viewport
         self.viewport_changed.emit(viewport)
 
+    def _on_context_menu(self, hit: MapHit, x: int, y: int) -> None:
+        """Botón derecho en la página: el punto pasa a coordenadas de pantalla."""
+        self.context_menu_requested.emit(hit, self._view.mapToGlobal(QPoint(x, y)))
+
+    # -------------------------------------------------------------------------
+    # Arrastre de tarjetas de la cuadrícula
+    # -------------------------------------------------------------------------
+
+    def _handle_drag(self, event: QEvent, offset: QPoint) -> bool:
+        """Atiende un evento de arrastre si trae tarjetas y se pueden soltar. True = atendido
+        (no pasa a Chromium); False = no es cosa del mapa."""
+        kind = event.type()
+        if kind == QEvent.Type.DragLeave:
+            if not self._dragging:
+                return False
+            self._dragging = False
+            self._call("setDropCursor", None, None)
+            return True
+        drag = decode_media_ids(event.mimeData())
+        if drag is None:
+            return False  # no son tarjetas: que lo decida la vista web
+        if not (self._drop_enabled and self._ready):
+            # Son tarjetas, pero aquí no se pueden soltar: se rechazan (cursor de
+            # prohibido). Si pasaran a Chromium, las aceptaría sin hacer nada con ellas
+            event.ignore()
+            return True
+        position = event.position()
+        x, y = position.x() + offset.x(), position.y() + offset.y()
+        event.acceptProposedAction()
+        if kind in (QEvent.Type.DragEnter, QEvent.Type.DragMove):
+            self._dragging = True
+            self._call("setDropCursor", x, y)
+            return True
+        # Soltada: la página dice a qué coordenadas corresponde ese píxel. La respuesta
+        # vuelve como texto JSON (una lista de JavaScript no llega bien a Python)
+        self._dragging = False
+        self._page.runJavaScript(
+            f"JSON.stringify(arca.dropPoint({json.dumps(x)}, {json.dumps(y)}))",
+            0,
+            partial(self._on_drop_point, drag),
+        )
+        return True
+
+    def _on_drop_point(self, drag: MediaDrag, result: object) -> None:
+        try:
+            latitude, longitude = (float(value) for value in json.loads(result))
+        except (TypeError, ValueError):
+            logger.warning("Mapa: no se ha podido saber dónde se han soltado las tarjetas.")
+            return
+        if is_valid_position(latitude, longitude):
+            self.media_dropped.emit(drag, latitude, longitude)
+
     # -------------------------------------------------------------------------
     # Contrato de MapBackend
     # -------------------------------------------------------------------------
@@ -244,6 +359,9 @@ class WebMapBackend(MapBackend):
 
     def set_selected_ids(self, media_ids: Sequence[int]) -> None:
         self._call("setSelected", [int(media_id) for media_id in media_ids])
+
+    def set_preview_markers(self, markers: Sequence[MapMarker]) -> None:
+        self._call("setPreviewMarkers", [[m.media_id, m.latitude, m.longitude] for m in markers])
 
     def set_thumbnail_provider(self, provider: Callable[[int], Path | None] | None) -> None:
         self._handler.set_thumbnail_provider(provider)
@@ -291,9 +409,9 @@ class WebMapBackend(MapBackend):
         if mode is not MapMode.BROWSE:
             raise NotImplementedError(f"Modo del mapa sin implementar: {mode}")
 
+    def set_drop_enabled(self, enabled: bool) -> None:
+        self._drop_enabled = enabled
+        self._call("setDropEnabled", enabled)
+
     def clear(self) -> None:
         self._call("clear")
-
-    # Para que nadie piense que falta por descuido: el resto del contrato (soltar, mover,
-    # vista previa) llega con el paso 1.5 y, hasta entonces, vale la
-    # versión de la clase base, que lanza 'NotImplementedError'.

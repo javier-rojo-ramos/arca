@@ -111,3 +111,9 @@ html, body, #map {
 .arca-photo.small {
   border-radius: 50%;
 }
+
+/* Con el punto del track bajo el ratón, el cursor se oculta (el punto hace de cursor) */
+.arca-hide-cursor,
+.arca-hide-cursor * {
+  cursor: none !important;
+}

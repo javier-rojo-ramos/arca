@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Mapa, paso 1.4: tracks en `MapView`** (13/11/2026; aún en ningún módulo) | `python -m ui_helpers.map.map_view --ventana`, botón «Tracks»: tres tracks con borde claro; el largo (10 000 puntos, con un corte entre sus dos segmentos), en rojo y más grueso por ser el activo; los otros, en azul. Al pasar el ratón por el activo, un punto ámbar lo sigue y la barra dice su número; clic en otro track lo activa; al pasar por una línea, su nombre. Mover y zoom, fluidos. **Decidir los colores** (azul `#2f6fd6` y rojo `#e5383b`, propuestos; se cambian en `theme_colors.py`): verlos sobre el callejero, el topográfico y la ortofoto. Con «5 000 marcadores», las fotos sueltas sin miniatura son ahora un punto pequeño |
+| **Mapa, paso 1.5: soltar, mover y botón derecho** (13/11/2026; aún en ningún módulo) | `python -m ui_helpers.map.map_view --ventana` (ahora con una lista de tarjetas a la izquierda). (1) Con «Soltar y mover» apagado, arrastrar una tarjeta al mapa: cursor de prohibido, no pasa nada. (2) Encendido: al arrastrar, un círculo ámbar sigue al ratón; al soltar, la foto aparece justo ahí (también varias tarjetas a la vez). (3) Arrastrar una foto suelta ya puesta a otro sitio: se queda donde se suelta (los grupos no se arrastran). (4) Botón derecho sobre el mapa, una foto, un grupo y un track: sale un menú propio (no el del navegador) que dice qué hay debajo; «Centrar aquí» funciona. (5) Con «Tracks», al pasar por el track activo el cursor del ratón desaparece y queda solo el punto ámbar. (6) Las flechas siguen moviendo la selección de la lista de tarjetas después de pulsar en el mapa |
 
 ## Comprobaciones sueltas
 
@@ -63,6 +63,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Sección «Fechas» del módulo Imagen** (12/11): debajo de «Carpetas», los años (el más reciente arriba) con sus meses («01 Enero») y sus días («10 Miércoles»), y «Sin fecha»; cada fila muestra lo que cuenta, con los mismos números que la columna «Fecha de captura»; lo desplegado y el día elegido, recordados. Antes, la barra de Imagen dividida en un archivo por sección (`ui_helpers/sidebars/sections/`), con todo igual que antes.
 - **Las barras no cogen el teclado** (12/11): al elegir algo en una barra (una carpeta, una fecha, una palabra, una colección o la flecha «ver sus fotos» del inspector), la primera foto queda seleccionada (la primera que cumple el filtro) y los atajos («3», «P», «G», Z...) van a las fotos sin otro clic; las flechas mueven la selección de fotos, no la barra; una letra ya no elige otra fila de un árbol.
 - **El archivo actual, recordado** (12/11): al abrir el catálogo, la foto que estaba seleccionada al cerrarlo; al cambiar de módulo, cada uno la suya; si ya no está, la primera. Al recargar con el mismo origen (orden, filtro), sigue seleccionado lo que se vea; al eliminar, queda seleccionada la siguiente, sin saltar al principio.
+- **Mapa, paso 1.4** (13/11/2026): tracks en la ventana de prueba de `MapView` (tres tracks, el activo en rojo, el punto ámbar que sigue al ratón, fluido con 5 000 marcadores); los colores, bien (se pueden cambiar en `theme_colors.py`).
 - **Mapa, pasos 1.1 a 1.3** (13/11/2026): la aplicación arranca igual con QtWebEngine cargado al empezar; `MapView` en su ventana de prueba, con las cinco capas en el orden pedido, los marcadores agrupados de 44 px (bien de tamaño) y la selección.
 - **Mapa, fase 0: prueba de concepto** (13/11/2026; `scripts/poc_map/`, aislada de la aplicación): mapa con QtWebEngine + Leaflet fluido con un track de 10 000 puntos y 20 000 marcadores, capas del IGN y de OpenTopoMap con caché, soltar tarjetas con 1-3 px de diferencia, teclado en la lista, sin parpadeo apreciable; los cortes horizontales de la foto desaparecen al existir la vista web. Se sigue con el plan A de [MAPA.md](MAPA.md).
 
@@ -70,6 +71,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: mapa, paso 1.5: soltar tarjetas sobre el mapa, arrastrar fotos sueltas, botón derecho y vista previa; el cursor se oculta sobre el punto del track. Componente base, completo.
 - 13/11/2026: mapa, paso 1.4: tracks en `MapView` (líneas con borde claro, track activo, punto bajo el ratón); las fotos sin miniatura, un punto pequeño.
 - 13/11/2026: mapa, paso 1.3: `MapView`, el mapa con QtWebEngine + Leaflet (capas, marcadores agrupados, selección y encuadre); aún no está en ningún módulo.
 - 13/11/2026: mapa, paso 1.2: tipos de datos del mapa y contrato de su fondo (`ui_helpers/map/`); capas en el orden pedido por el autor.
@@ -79,4 +81,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 12/11/2026: al elegir algo en una barra, la primera foto queda seleccionada y el teclado sigue en las fotos (las barras no lo cogen), como Lightroom.
 - 12/11/2026: en los árboles de las barras, una letra o un número ya no elige otra fila (sin «búsqueda al teclear»).
 - 12/11/2026: la cuadrícula vacía dice «No hay archivos» (como la vista individual).
-- 12/11/2026: «Purgar palabras clave no usadas…» dice cuántas se van a borrar y cuáles (todas, en «Mostrar los detalles…»).

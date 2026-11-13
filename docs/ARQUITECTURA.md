@@ -141,12 +141,12 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   ► metadata_fields.py                 CAMPOS y VISTAS de la sección «Metadatos» (aquí se añaden): InspectorField (etiqueta, columnas por tipo de medio, formato), PRESETS, COMMON_HEAD, display_value; EDITABLE_KEYS (los que se editan) y editor_value
   widgets/media_grid_view.py         MediaGridView: QListView de la cuadrícula con imagen de arrastre pequeña y semitransparente; «No hay archivos» si está vacía
   models/media_mime.py               MIME propio del arrastre (application/x-arca-media-ids: {catalog, ids})
-  map/                               ── Componente de mapa (diseño y plan en docs/MAPA.md; MapView aún no está en ningún módulo) ──
+  map/                               ── Componente de mapa (diseño y plan en docs/MAPA.md; componente base completo; MapView aún no está en ningún módulo) ──
     map_types.py                       Datos que entran y salen del mapa: MapMarker, MapTrack, MapBounds (bounds_of), MapViewport, MapHit, MapMode, SelectionMode; is_valid_position; sin Qt
-    map_view.py                      ► MapView: el mapa (fachada; lo único que conocen los módulos): marcadores, selección, tracks (activo, punto señalado), capas, encuadre, estado; guarda lo pedido y se lo pasa al fondo cuando está listo. Aún sin soltar tarjetas
+    map_view.py                      ► MapView: el mapa (fachada; lo único que conocen los módulos): marcadores, selección, tracks (activo, punto señalado), soltar tarjetas y mover fotos (set_drop_enabled), vista previa, botón derecho, capas, encuadre, estado; guarda lo pedido y se lo pasa al fondo cuando está listo
     map_backend.py                     MapBackend: contrato del fondo del mapa (lo que MapView pide a la tecnología que pinta: señales y métodos); solo declara
-    web_backend.py                     WebMapBackend: el fondo con QtWebEngine + Leaflet (página de resources/map/, colores del tema como variables CSS, sin foco); css_color, marker_payload, track_payload
-    web_bridge.py                      MapBridge: lo que la página puede decirle a Python (QWebChannel): cargada, lista, encuadre, selección, doble clic, clic en un track y punto bajo el ratón
+    web_backend.py                     WebMapBackend: el fondo con QtWebEngine + Leaflet (página de resources/map/, colores del tema como variables CSS, sin foco; recoge los arrastres de tarjetas con un filtro en los widgets internos de la vista); css_color, marker_payload, track_payload
+    web_bridge.py                      MapBridge: lo que la página puede decirle a Python (QWebChannel): cargada, lista, encuadre, selección, doble clic, clic en un track y punto bajo el ratón, fotos arrastradas y botón derecho
     map_scheme.py                      Esquema arca-map:// (MapSchemeHandler: recursos de la página, teselas con caché y descarga, miniaturas); register_map_scheme (antes de QApplication), shared_handler
   helpers/ui_file_manager.py         "Mostrar en el Explorador/Finder" multiplataforma (reveal_in_file_manager) y papelera del sistema (move_to_trash, con QFile.moveToTrash)
 core/

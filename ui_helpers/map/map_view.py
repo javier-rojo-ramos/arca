@@ -21,9 +21,15 @@ Uso:
     view.set_tracks([MapTrack(id, nombre, segmentos), ...])
     view.set_active_track(id)                  # el que avisa con 'track_hovered'
 
-Lo que TODAVÍA NO tiene: soltar tarjetas, mover marcadores y menú contextual (paso 1.5
-de docs/MAPA.md).
+    view.set_drop_enabled(True)                # soltar tarjetas y arrastrar fotos sueltas
+    view.media_dropped.connect(...)            # (MediaDrag, latitud, longitud)
 
+Mover una foto: el mapa avisa con 'markers_moved' y la deja donde se soltó; quien lo usa
+guarda el cambio y lo confirma con 'update_markers' (o, si no se puede, la devuelve a
+su sitio con 'update_markers' y sus coordenadas de antes).
+
+1.2.0 Paso 1.5: 'set_drop_enabled', 'set_preview_markers' y las señales 'media_dropped',
+      'markers_moved' y 'context_menu_requested'.
 1.1.0 Tracks (paso 1.4): 'set_tracks', 'set_track_geometry', 'set_active_track',
       'set_track_cursor', 'fit_track' y las señales 'track_clicked' y 'track_hovered'.
 1.0.0 Primera versión (docs/MAPA.md, paso 1.3): capas, marcadores, selección y encuadre.
@@ -34,7 +40,7 @@ Con el mapa de verdad (abre una ventana y se queda abierta):
     python -m ui_helpers.map.map_view --ventana
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["MapView"]
 
 # Librerías estándar
@@ -68,6 +74,12 @@ class MapView(QWidget):
         track_clicked(int): clic en la línea de un track (el mapa NO lo activa solo).
         track_hovered(int, int): (track, índice del punto) bajo el ratón en el track
             activo; el índice cuenta seguido entre todos sus segmentos; -1 al salir.
+        media_dropped(MediaDrag, float, float): tarjetas de la cuadrícula soltadas en
+            (latitud, longitud). Solo con 'set_drop_enabled(True)'.
+        markers_moved(list, float, float): fotos (sus id) arrastradas a otro punto. El
+            mapa no cambia sus datos: ver el docstring del archivo.
+        context_menu_requested(MapHit, QPoint): botón derecho; qué hay debajo y el punto
+            de la pantalla donde abrir el menú.
         layer_changed(str): se ve otra capa (su clave).
     """
 
@@ -78,6 +90,9 @@ class MapView(QWidget):
     marker_activated = Signal(int)
     track_clicked = Signal(int)
     track_hovered = Signal(int, int)
+    media_dropped = Signal(object, float, float)
+    markers_moved = Signal(list, float, float)
+    context_menu_requested = Signal(object, object)
     layer_changed = Signal(str)
 
     def __init__(
@@ -103,6 +118,8 @@ class MapView(QWidget):
         self._selected: tuple[int, ...] = ()
         self._tracks: dict[int, MapTrack] = {}
         self._active_track: int | None = None
+        self._drop_enabled = False
+        self._preview: tuple[MapMarker, ...] = ()
         self._layers: tuple[TileLayer, ...] = TILE_LAYERS
         self._layer_key = DEFAULT_LAYER_KEY
         # Último encuadre pedido antes de estar listo: ("bounds", rectángulo, animar) o
@@ -123,6 +140,9 @@ class MapView(QWidget):
         backend.marker_activated.connect(self.marker_activated)
         backend.track_clicked.connect(self.track_clicked)
         backend.track_hovered.connect(self.track_hovered)
+        backend.media_dropped.connect(self.media_dropped)
+        backend.markers_moved.connect(self.markers_moved)
+        backend.context_menu_requested.connect(self.context_menu_requested)
 
     # -------------------------------------------------------------------------
     # Marcadores y selección
@@ -177,6 +197,26 @@ class MapView(QWidget):
         principal) que da la ruta de la imagen de un id, o None si no tiene. None = sin
         miniaturas (al cerrar el catálogo)."""
         self._backend.set_thumbnail_provider(provider)
+
+    def set_drop_enabled(self, enabled: bool) -> None:
+        """Permite (o no) soltar tarjetas de la cuadrícula sobre el mapa y arrastrar las
+        fotos sueltas a otro sitio. Por defecto, no: el mapa solo se mira."""
+        if enabled == self._drop_enabled:
+            return
+        self._drop_enabled = enabled
+        if self._ready:
+            self._backend.set_drop_enabled(enabled)
+
+    def drop_enabled(self) -> bool:
+        """True si se pueden soltar tarjetas y mover fotos."""
+        return self._drop_enabled
+
+    def set_preview_markers(self, markers: Sequence[MapMarker]) -> None:
+        """Marcadores provisionales (dónde quedarían unas fotos: la propuesta de la
+        correlación con un track). Vacío = quitarlos. No se pueden pulsar."""
+        self._preview = tuple(markers)
+        if self._ready:
+            self._backend.set_preview_markers(self._preview)
 
     # -------------------------------------------------------------------------
     # Tracks
@@ -320,6 +360,7 @@ class MapView(QWidget):
         self._selected = ()
         self._tracks = {}
         self._active_track = None
+        self._preview = ()
         if self._ready:
             self._backend.clear()
 
@@ -366,6 +407,10 @@ class MapView(QWidget):
             self._backend.set_tracks(list(self._tracks.values()))
         if self._active_track is not None:
             self._backend.set_active_track(self._active_track)
+        if self._drop_enabled:
+            self._backend.set_drop_enabled(True)
+        if self._preview:
+            self._backend.set_preview_markers(self._preview)
         pending, self._pending_view = self._pending_view, None
         if pending is not None:
             if pending[0] == "bounds":
@@ -413,6 +458,12 @@ def _run_logic_selftest() -> None:
 
         def set_selected_ids(self, media_ids: Sequence[int]) -> None:
             self.calls.append(("selected", list(media_ids)))
+
+        def set_preview_markers(self, markers: Sequence[MapMarker]) -> None:
+            self.calls.append(("preview", [m.media_id for m in markers]))
+
+        def set_drop_enabled(self, enabled: bool) -> None:
+            self.calls.append(("drop", enabled))
 
         def set_thumbnail_provider(self, provider: object) -> None:
             self.calls.append(("thumbs", provider is not None))
@@ -593,6 +644,39 @@ def _run_logic_selftest() -> None:
     view.clear()
     assert backend.take() == [("clear",)] and view.tracks() == ()
 
+    # 15. Soltar y mover: apagado al empezar; lo pedido antes de estar listo llega al arrancar
+    from qtpy.QtCore import QPoint
+
+    from ui_helpers.map.map_types import HitKind, MapHit
+    from ui_helpers.models.media_mime import MediaDrag
+
+    assert view.drop_enabled() is False
+    backend.load_failed.emit("prueba")
+    view.set_drop_enabled(True)
+    view.set_drop_enabled(True)
+    view.set_preview_markers([a, b])
+    assert backend.take() == []
+    backend.ready.emit()
+    assert backend.take()[-2:] == [("drop", True), ("preview", [1, 2])]
+    view.set_drop_enabled(False)
+    view.set_preview_markers([])
+    assert backend.take() == [("drop", False), ("preview", [])]
+
+    # 16. Avisos de soltar, mover y botón derecho, reenviados tal cual
+    seen.clear()
+    view.media_dropped.connect(lambda drag, lat, lon: seen.append(("drop", drag.ids, lat, lon)))
+    view.markers_moved.connect(lambda ids, lat, lon: seen.append(("moved", ids, lat, lon)))
+    view.context_menu_requested.connect(lambda hit, point: seen.append(("menu", hit.kind, point.x())))
+    backend.media_dropped.emit(MediaDrag("catalogo", (7, 8)), 42.5, 0.5)
+    backend.markers_moved.emit([1], 42.1, -0.9)
+    backend.context_menu_requested.emit(MapHit(HitKind.MARKER, 42.0, -1.0, media_ids=(1,)), QPoint(30, 40))
+    assert seen == [
+        ("drop", (7, 8), 42.5, 0.5),
+        ("moved", [1], 42.1, -0.9),
+        ("menu", HitKind.MARKER, 30),
+    ]
+    assert view.markers() == ()  # el mapa no cambia sus datos por su cuenta
+
     view.deleteLater()
     app.processEvents()
     print("Autoprueba finalizada correctamente.")
@@ -606,10 +690,24 @@ def _run_window() -> None:
     import tempfile
 
     from PIL import Image
-    from qtpy.QtWidgets import QApplication, QComboBox, QHBoxLayout, QLabel, QPushButton
+    from qtpy.QtCore import QMimeData
+    from qtpy.QtGui import QIcon, QStandardItem, QStandardItemModel
+    from qtpy.QtWidgets import (
+        QAbstractItemView,
+        QApplication,
+        QCheckBox,
+        QComboBox,
+        QHBoxLayout,
+        QLabel,
+        QListView,
+        QMenu,
+        QPushButton,
+    )
 
     from ui_helpers.helpers.ui_theme import apply_theme
     from ui_helpers.map.map_scheme import register_map_scheme
+    from ui_helpers.map.map_types import HitKind
+    from ui_helpers.models.media_mime import encode_media_ids
 
     register_map_scheme()  # antes de QApplication (en la aplicación lo hace main.py)
     app = QApplication(sys.argv[:1])
@@ -654,11 +752,39 @@ def _run_window() -> None:
             longitude += 0.0001 * math.sin(heading)
         return tuple(points)
 
+    class CardModel(QStandardItemModel):
+        """Tarjetas de prueba que se arrastran con el formato de la cuadrícula."""
+
+        def mimeTypes(self) -> list[str]:  # nombre de Qt
+            return ["application/x-arca-media-ids"]
+
+        def mimeData(self, indexes: list) -> QMimeData:  # nombre de Qt
+            return encode_media_ids("prueba", [i.data(Qt.ItemDataRole.UserRole) for i in indexes])
+
+        def supportedDragActions(self) -> Qt.DropAction:  # nombre de Qt
+            return Qt.DropAction.CopyAction
+
     window = QWidget()
     window.setWindowTitle("MapView (prueba)")
-    window.resize(1300, 850)
+    window.resize(1400, 850)
     view = MapView(window)
     view.set_thumbnail_provider(thumbnail)
+
+    # Tarjetas para arrastrar al mapa: los id 100001 a 100012 (con miniatura)
+    cards = QListView()
+    cards.setFixedWidth(170)
+    card_model = CardModel(cards)
+    for number in range(1, 13):
+        item = QStandardItem(QIcon(str(folder / f"{(100000 + number) % 24}.jpg")), f"Tarjeta {number}")
+        item.setData(100000 + number, Qt.ItemDataRole.UserRole)
+        item.setEditable(False)
+        card_model.appendRow(item)
+    cards.setModel(card_model)
+    cards.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+    cards.setDragEnabled(True)
+    cards.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+    cards.setDefaultDropAction(Qt.DropAction.CopyAction)
+    cards.setCurrentIndex(card_model.index(0, 0))
 
     combo = QComboBox()
     for layer in view.layers():
@@ -708,8 +834,46 @@ def _run_window() -> None:
             f"Track {track_id}, punto {point_index}" if point_index >= 0 else "Fuera del track activo"
         )
 
+    def on_media_dropped(drag: object, latitude: float, longitude: float) -> None:
+        # Lo que haría el controlador: guardar las coordenadas y pintar las fotos ahí
+        view.update_markers([MapMarker(media_id, latitude, longitude) for media_id in drag.ids])
+        status.setText(f"Soltadas {len(drag.ids)} en {latitude:.5f}, {longitude:.5f}")
+        print(f"media_dropped: {drag.ids} -> {latitude:.6f}, {longitude:.6f}", flush=True)
+
+    def on_markers_moved(media_ids: list[int], latitude: float, longitude: float) -> None:
+        known = {m.media_id: m for m in view.markers()}
+        view.update_markers(
+            [
+                MapMarker(i, latitude, longitude, has_thumbnail=known[i].has_thumbnail)
+                for i in media_ids
+                if i in known
+            ]
+        )
+        status.setText(f"Movida {media_ids} a {latitude:.5f}, {longitude:.5f}")
+        print(f"markers_moved: {media_ids} -> {latitude:.6f}, {longitude:.6f}", flush=True)
+
+    def on_context_menu(hit: object, point: object) -> None:
+        texts = {
+            HitKind.EMPTY: "Mapa",
+            HitKind.MARKER: f"Foto {hit.media_ids[0] if hit.media_ids else ''}",
+            HitKind.CLUSTER: f"Grupo de {len(hit.media_ids)} fotos",
+            HitKind.TRACK: f"Track {hit.track_id}, punto {hit.point_index}",
+        }
+        menu = QMenu(window)
+        title = menu.addAction(f"{texts[hit.kind]} · {hit.latitude:.5f}, {hit.longitude:.5f}")
+        title.setEnabled(False)
+        menu.addAction("Centrar aquí", lambda: view.center_on(hit.latitude, hit.longitude))
+        print(f"context_menu_requested: {hit}", flush=True)
+        menu.exec(point)
+        menu.deleteLater()
+
+    drop_box = QCheckBox("Soltar y mover")
+    drop_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+    drop_box.toggled.connect(view.set_drop_enabled)
+
     bar = QHBoxLayout()
     bar.addWidget(combo)
+    bar.addWidget(drop_box)
     for text, action in (
         ("5 000 marcadores", add_markers),
         ("Tracks", add_tracks),
@@ -722,21 +886,28 @@ def _run_window() -> None:
         button.clicked.connect(action)
         bar.addWidget(button)
     bar.addWidget(status, 1)
+    body = QHBoxLayout()
+    body.addWidget(cards)
+    body.addWidget(view, 1)
     layout = QVBoxLayout(window)
     layout.addLayout(bar)
-    layout.addWidget(view, 1)
+    layout.addLayout(body, 1)
 
     view.ready.connect(lambda: status.setText("Mapa listo."))
     view.load_failed.connect(lambda reason: status.setText(f"El mapa no arranca: {reason}"))
     view.selection_requested.connect(on_selection)
     view.track_clicked.connect(on_track_clicked)
     view.track_hovered.connect(on_track_hovered)
+    view.media_dropped.connect(on_media_dropped)
+    view.markers_moved.connect(on_markers_moved)
+    view.context_menu_requested.connect(on_context_menu)
     view.marker_activated.connect(lambda media_id: print(f"marker_activated: {media_id}", flush=True))
     view.layer_changed.connect(lambda key: print(f"layer_changed: {key}", flush=True))
     view.viewport_changed.connect(
         lambda v: print(f"viewport_changed: {v.latitude:.4f}, {v.longitude:.4f}, zoom {v.zoom}", flush=True)
     )
     window.show()
+    cards.setFocus()
     app.exec()
 
 
