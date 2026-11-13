@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Tira del mapa: tarjetas compactas** (13/11/2026) | Solo la imagen, sin la banda del nombre, las estrellas y la marca ni el círculo de la selección rápida; se siguen viendo el tinte de la etiqueta de color, el blanco de las rechazadas y el aviso de ausente. Abajo a la derecha, una chincheta en las que tienen ubicación (en un vídeo, la duración a su izquierda); al cambiar el GPS de una foto en el inspector, su chincheta aparece o desaparece. El nombre, al pasar el ratón. La tira no baja de 100 px. Las tarjetas de la cuadrícula, igual que siempre |
+| **Mapa, paso 3.2: ubicar fotos** (13/11/2026; solo en el mapa de Imagen) | (1) En Imagen, con el mapa a la vista, arrastrar una foto sin chincheta de la tira al mapa: aparece donde se suelta, le sale la chincheta y el inspector («Metadatos») muestra su GPS; la altitud no cambia. (2) Varias a la vez; una que ya tenía ubicación se mueve sin preguntar. (3) Más de 50 de golpe (p. ej. Ctrl+A en una carpeta grande): pregunta «¿Ubicar estas N fotos en este punto?»; «Cancelar» no cambia nada. (4) Arrastrar en el mapa una foto suelta ya ubicada la mueve. (5) Con «Escribir los cambios en los archivos» activada, al poco Lightroom («Leer metadatos del archivo») ve la ubicación nueva. (6) En el mapa del Catálogo, soltar no se puede (cursor de prohibido) y las fotos no se arrastran. (Quitar la ubicación y deshacer llegan en los pasos 3.3 y 3.4) |
 
 ## Comprobaciones sueltas
 
@@ -63,6 +63,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Sección «Fechas» del módulo Imagen** (12/11): debajo de «Carpetas», los años (el más reciente arriba) con sus meses («01 Enero») y sus días («10 Miércoles»), y «Sin fecha»; cada fila muestra lo que cuenta, con los mismos números que la columna «Fecha de captura»; lo desplegado y el día elegido, recordados. Antes, la barra de Imagen dividida en un archivo por sección (`ui_helpers/sidebars/sections/`), con todo igual que antes.
 - **Las barras no cogen el teclado** (12/11): al elegir algo en una barra (una carpeta, una fecha, una palabra, una colección o la flecha «ver sus fotos» del inspector), la primera foto queda seleccionada (la primera que cumple el filtro) y los atajos («3», «P», «G», Z...) van a las fotos sin otro clic; las flechas mueven la selección de fotos, no la barra; una letra ya no elige otra fila de un árbol.
 - **El archivo actual, recordado** (12/11): al abrir el catálogo, la foto que estaba seleccionada al cerrarlo; al cambiar de módulo, cada uno la suya; si ya no está, la primera. Al recargar con el mismo origen (orden, filtro), sigue seleccionado lo que se vea; al eliminar, queda seleccionada la siguiente, sin saltar al principio.
+- **Tira del mapa: tarjetas compactas y chincheta** (13/11/2026): solo la imagen, con la chincheta de las que tienen ubicación, al día tras editar el GPS.
 - **Mapa, paso 3.1** (13/11/2026): la tira de fotos debajo del mapa, en el Catálogo y en Imagen (botón, F6, alto, selección compartida, teclado, arrastre sin imagen). Se queda en el Catálogo.
 - **La aceleración por GPU, según el sistema** (13/11/2026): en Windows, igual; la casilla, marcada.
 - **La ventana, con la GPU desde que se abre** (13/11/2026): sin parpadeo al abrir el mapa, sin cortes al arrastrar a 1:1 sin haber abierto el mapa, el resto igual o mejor; la opción y su aviso.
@@ -79,6 +80,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: mapa, paso 3.2: ubicar fotos soltándolas en el mapa de Imagen y moverlas (se escribe en los archivos).
 - 13/11/2026: tira del mapa con tarjetas compactas (solo la imagen, sin banda ni círculo de la selección rápida), como Lightroom, y una chincheta en las que tienen ubicación.
 - 13/11/2026: mapa, paso 3.1: la tira de fotos debajo del mapa (botón y F6, alto ajustable); el mapa, también en Imagen.
 - 13/11/2026: la aceleración por GPU, sin elegir, según el sistema (sí en Windows y macOS, no en Linux).
@@ -88,4 +90,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 13/11/2026: mapa, paso 2.2: la consulta del mapa (lo mismo que la cuadrícula: fotos con coordenadas, tracks con su contorno y cuántas no tienen ubicación).
 - 13/11/2026: mapa, paso 2.1: el contorno simplificado de cada track, en el catálogo (migración 4; los tracks se releen solos).
 - 13/11/2026: mapa: borrada la prueba de concepto (`scripts/poc_map/`); en la ventana de prueba, las tarjetas se arrastran como en la cuadrícula (sin tapar dónde caen).
-- 13/11/2026: mapa, paso 1.5: soltar tarjetas sobre el mapa, arrastrar fotos sueltas, botón derecho y vista previa; el cursor se oculta sobre el punto del track. Componente base, completo.

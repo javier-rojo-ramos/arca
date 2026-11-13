@@ -24,6 +24,7 @@ Qué aporta cada módulo (sobrescribiendo los métodos de 'AppModule'):
     - 'views()' y 'default_view()': qué vistas del centro ofrece (cuadrícula, individual...;
                           'center_views.py') y con cuál empieza. La elegida también se
                           recuerda por módulo y por catálogo.
+    - 'map_options()':    qué permite su mapa, si lo ofrece ('MapOptions': ubicar fotos...).
     - 'filter_media_types()': qué tipos ofrece la fila «Atributos» de la barra de filtros
                           (vacío = ninguno).
     - Señal 'source_selected': el usuario ha elegido otra cosa en su barra.
@@ -37,6 +38,7 @@ Qué aporta cada módulo (sobrescribiendo los métodos de 'AppModule'):
 Quién los coordina: 'module_host.ModuleHost' (toolbar, barras laterales, cuadrícula y
 estado guardado). Dónde se da de alta un módulo nuevo: 'registry.py'.
 
+1.7.0 'map_options': qué permite su mapa (de momento, ubicar fotos; docs/MAPA.md, paso 3.2).
 1.6.0 'filter_metadata_fields': las columnas de partida del panel «Metadatos» (paso A.3).
 1.5.0 'filter_media_types': los tipos de la fila «Atributos» (paso A.3).
 1.4.0 'views' y 'default_view': las vistas del centro de cada módulo (paso A.1).
@@ -49,7 +51,7 @@ Los módulos son la capa que une la interfaz de su barra lateral con 'core/' (co
 sincronizar una carpeta, trabajos en segundo plano...) siguen en el controlador principal.
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["AppModule", "ModuleContext"]
 
 # Librerías estándar
@@ -62,7 +64,7 @@ from qtpy.QtCore import QObject, Signal
 from qtpy.QtWidgets import QListView, QToolButton, QWidget
 
 # Módulos del proyecto
-from controllers.app_modules.center_views import CenterView
+from controllers.app_modules.center_views import CenterView, MapOptions
 from core.catalog.grid_orders import GridOrder
 from core.catalog.grid_source import GridSource
 from ui_helpers.helpers.grid_actions import GridActions
@@ -172,6 +174,10 @@ class AppModule(QObject):
         """Vista con la que empieza (hasta que el usuario elige otra). Debe estar en
         'views'."""
         return CenterView.GRID
+
+    def map_options(self) -> MapOptions:
+        """Qué permite su mapa (si lo ofrece en 'views'). Por defecto, solo mirar."""
+        return MapOptions()
 
     def filter_media_types(self) -> tuple[str, ...]:
         """Tipos que ofrece la fila «Atributos» de la barra de filtros (valores de

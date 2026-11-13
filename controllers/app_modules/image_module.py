@@ -13,6 +13,8 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'restore_state'; el 'ModuleHost' los escribe en settings.json). Lo desplegado del
       árbol con casillas del inspector ya no es de este módulo: lo guarda el inspector.
 
+1.15.0 'map_options': en su mapa se ubican fotos soltándolas y se mueven las ubicadas
+       (docs/MAPA.md, paso 3.2).
 1.14.0 'views': también el mapa, con la tira de fotos (docs/MAPA.md, paso 3.1; ubicar
        fotos soltándolas en él, en el paso 3.2).
 1.13.0 «Fechas» en la barra: '_fetch_sidebar_data' lee también la línea de tiempo
@@ -36,7 +38,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.14.0"
+__version__ = "1.15.0"
 __all__ = ["ImageModule"]
 
 # Librerías estándar
@@ -54,7 +56,7 @@ from qtpy.QtWidgets import QToolButton, QWidget
 # Módulos del proyecto
 from config.app_constants import SETTING_SHOW_SUBFOLDER_ITEMS, AppIcons
 from controllers.app_modules.base import AppModule, ModuleContext
-from controllers.app_modules.center_views import CenterView
+from controllers.app_modules.center_views import CenterView, MapOptions
 from core.catalog.folder_tree import fetch_folder_tree
 from core.catalog.grid_orders import CAPTURE_TIME_ORDER, SORT_FIELDS, GridOrder
 from core.catalog.grid_source import GridSource, SourceKind, keyword_source
@@ -124,6 +126,10 @@ class ImageModule(AppModule):
     def views(self) -> tuple[CenterView, ...]:
         """Cuadrícula, vista individual y mapa (empieza en la cuadrícula)."""
         return (CenterView.GRID, CenterView.SINGLE, CenterView.MAP)
+
+    def map_options(self) -> MapOptions:
+        """En el mapa de Imagen se ubican fotos (soltándolas) y se mueven las ubicadas."""
+        return MapOptions(allow_geotag=True)
 
     def filter_media_types(self) -> tuple[str, ...]:
         """Fotos y vídeos (los del móvil entran en Imagen)."""

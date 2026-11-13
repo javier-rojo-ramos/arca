@@ -892,6 +892,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             center_views=self.center_views,
             layer_bar=self.layout_bottom_right,
             config=self.config,
+            message_box=self.message_box,
             parent=self,
         )
 
@@ -980,6 +981,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # ...y el mapa (p. ej. tras cambiar el GPS de una foto, su marcador va a su sitio)
         if self.map_controller is not None:
             self.inspector.edit_finished.connect(self.map_controller.refresh)
+            # Las fotos ubicadas en el mapa se guardan por la misma cola que el inspector
+            self.map_controller.set_edit_queue(self.inspector.request_edit)
         # El inspector es el mismo en todos los módulos (sus secciones dependen de la
         # selección, no del módulo)
         if self.module_host is not None:

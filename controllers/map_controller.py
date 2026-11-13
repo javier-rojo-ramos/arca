@@ -33,8 +33,19 @@ Qué hace (decidido por el autor el 13/11/2026):
       (settings.json, 'map_filmstrip'). Doble clic en una tarjeta: la vista individual
       (Esc vuelve al mapa). La tarjeta actual se mantiene a la vista.
 
-Lo que TODAVÍA NO hace: soltar fotos ni moverlas (el Catálogo solo mira; llega con el
-módulo Imagen, fase 3 de docs/MAPA.md) ni guardar el encuadre al cerrar.
+Ubicar fotos (paso 3.2; decidido por el autor el 13/11/2026; solo en los módulos cuyo
+'map_options().allow_geotag' lo permite, hoy Imagen: el Catálogo solo mira):
+    - Soltar tarjetas (de la tira) en el mapa las pone en ese punto; arrastrar una foto
+      suelta ya ubicada la mueve. Las que ya tenían ubicación se mueven sin preguntar,
+      como Lightroom; a partir de 50 fotos de golpe se pide confirmación.
+    - Solo fotos y vídeos (lo que puede tener coordenadas propias); la altitud y la
+      dirección no se tocan (D7).
+    - Se guarda por la cola de cambios del inspector ('update_metadata_fields'): queda
+      pendiente de escribir en los archivos, con la regla del GPS (D1), y al terminar el
+      mapa se pone al día ('refresh'). El marcador se pinta ya en su sitio, sin esperar.
+
+Lo que TODAVÍA NO hace: quitar la ubicación, deshacer (pasos 3.3 y 3.4) ni guardar el
+encuadre al cerrar.
 
 Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador = MapController(module_host, page=..., grid=..., model=..., center_views=...,
@@ -44,6 +55,9 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador.refresh()       # tras un cambio del inspector
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.4.0 Paso 3.2: ubicar fotos soltándolas en el mapa y mover las ubicadas, en los módulos
+      que lo permiten ('map_options().allow_geotag': Imagen); por la cola de cambios del
+      inspector ('set_edit_queue'), con confirmación a partir de 50 fotos.
 1.3.0 Cada vez que se pone al día, dice al modelo quién tiene coordenadas (la chincheta
       de la tira: al día tras editar el GPS o, en el paso 3.2, soltar fotos).
 1.2.0 Paso 3.1: la tira de fotos (modelo y selección de la cuadrícula; botón de la barra
@@ -54,11 +68,12 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
 import threading
+from collections.abc import Callable, Sequence
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -80,11 +95,12 @@ from config.app_constants import (
     SETTING_MAP_USER_LAYERS,
     AppIcons,
 )
-from controllers.app_modules.center_views import CenterView
+from controllers.app_modules.center_views import CenterView, MapOptions
 from controllers.app_modules.module_host import ModuleHost
 from controllers.center_view_controller import CenterViewController
 from core.catalog.grid_source import GridSource
-from core.catalog.map_queries import MapItems, fetch_map_items
+from core.catalog.map_queries import LOCATABLE_MEDIA_TYPES, MapItems, fetch_map_items
+from core.catalog.media_queries import update_metadata_fields
 from core.maps.tile_layers import all_layers, user_layers_from_settings
 from core.maps.tile_store import DEFAULT_MAX_BYTES, TileStorageError, TileStore
 from core.thumbnails.sizes import ThumbnailSize
@@ -92,6 +108,8 @@ from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.map.map_types import MapMarker, MapTrack, SelectionMode
 from ui_helpers.map.map_view import MapView
 from ui_helpers.models.media_grid_model import MediaGridModel
+from ui_helpers.models.media_mime import MediaDrag
+from ui_helpers.models.media_roles import ROLE_MEDIA_TYPE, ROLE_THUMBNAIL_STATUS
 from ui_helpers.widgets.map_page import MapPage
 
 # Espera tras un cambio de selección antes de pasarlo al mapa (varios cambios seguidos,
@@ -110,6 +128,16 @@ _FILMSTRIP_HIDE = "Ocultar la tira de fotos (F6)"
 # Medidas del botón de la tira: las de los botones de vista (ui_helpers/widgets/view_buttons.py)
 _BUTTON_SIZE = 22
 _ICON_SIZE = 16
+# A partir de cuántas fotos soltadas de golpe se pide confirmación (D1; el autor, 13/11/2026)
+_CONFIRM_FROM = 50
+# Decimales de las coordenadas que se guardan: 6, unos 10 cm (de sobra para un clic)
+_COORDINATE_DECIMALS = 6
+# Textos al ubicar fotos
+_CONFIRM_TITLE = "Ubicar fotos"
+_CONFIRM_TEXT = "¿Ubicar estas {count} fotos en este punto?"
+_CONFIRM_YES = "Ubicar"
+_CONFIRM_NO = "Cancelar"
+_OTHER_CATALOG = "Esas fotos son de otro catálogo: no se pueden ubicar aquí."
 # Espera tras arrastrar el separador de la tira antes de guardar su alto
 _SAVE_DELAY_MS = 600
 
@@ -149,6 +177,7 @@ class MapController(QObject):
         center_views: CenterViewController,
         layer_bar: QBoxLayout,
         config: Any,
+        message_box: Any = None,
         parent: QObject | None = None,
     ) -> None:
         """
@@ -160,6 +189,8 @@ class MapController(QObject):
             center_views: Para abrir la vista individual con un doble clic.
             layer_bar: Layout de la barra inferior donde va el desplegable de la capa.
             config: Configuración de la aplicación (la capa elegida).
+            message_box: Ayudante de mensajes ('MessageBoxHelper'; la confirmación al
+                ubicar muchas fotos y los avisos).
             parent: Objeto padre (la ventana principal).
         """
         super().__init__(parent)
@@ -169,6 +200,9 @@ class MapController(QObject):
         self._model = model
         self._center_views = center_views
         self._config = config
+        self._message_box = message_box
+        # Cola de cambios del inspector ('set_edit_queue'): por ella se guarda lo ubicado
+        self._request_edit: Callable[[Callable[..., Any], tuple[Any, ...]], None] | None = None
         self._db: Any = None
         self._generation = 0  # las respuestas de una petición vieja se descartan
         self._dirty = True  # hay que volver a pedir lo que se pinta
@@ -234,6 +268,12 @@ class MapController(QObject):
         if self._shown():
             self._load()
 
+    def set_edit_queue(self, request_edit: Callable[[Callable[..., Any], tuple[Any, ...]], None]) -> None:
+        """La cola de cambios del inspector ('InspectorController.request_edit'): por ella se
+        guardan las fotos ubicadas en el mapa (avisa de los errores, escribe en los archivos
+        y, al terminar, pone al día el mapa y la barra)."""
+        self._request_edit = request_edit
+
     def refresh(self) -> None:
         """Vuelve a pedir lo que se pinta, sin moverse (p. ej. tras cambiar el GPS de una
         foto en el inspector). Con el mapa oculto, se pedirá al volver a él."""
@@ -275,7 +315,9 @@ class MapController(QObject):
         self._filmstrip_button.setVisible(shown)
         if not shown:
             return
-        self._page.map_view()  # la primera vez, lo crea
+        view = self._page.map_view()  # la primera vez, lo crea
+        # Ubicar fotos, solo donde el módulo lo permite (Imagen; el Catálogo solo mira)
+        view.set_drop_enabled(self._geotag_allowed())
         if self._dirty:
             self._load()
         else:
@@ -358,6 +400,8 @@ class MapController(QObject):
         view.selection_requested.connect(self._on_selection_requested)
         view.track_clicked.connect(lambda track_id: self._select_ids([track_id], SelectionMode.REPLACE))
         view.marker_activated.connect(self._on_marker_activated)
+        view.media_dropped.connect(self._on_media_dropped)
+        view.markers_moved.connect(lambda ids, lat, lon: self._place(ids, lat, lon, confirm=False))
         view.load_failed.connect(lambda _reason: self._page.set_notice(_LOAD_FAILED))
 
     def _apply_layers(self, view: MapView) -> None:
@@ -494,6 +538,66 @@ class MapController(QObject):
         else:
             selection_model.select(selection, flags.ClearAndSelect)
             selection_model.setCurrentIndex(self._model.index(rows[0], 0), flags.NoUpdate)
+
+    # -------------------------------------------------------------------------
+    # Ubicar fotos: soltarlas en el mapa o mover las ya ubicadas (paso 3.2)
+    # -------------------------------------------------------------------------
+
+    def _geotag_allowed(self) -> bool:
+        """True si el módulo activo deja ubicar fotos en su mapa ('MapOptions')."""
+        module = getattr(self._host, "active_module", None)
+        options = module.map_options() if hasattr(module, "map_options") else MapOptions()
+        return options.allow_geotag
+
+    def _on_media_dropped(self, drag: MediaDrag, latitude: float, longitude: float) -> None:
+        """Tarjetas soltadas en el mapa: a ese punto (si son de este catálogo)."""
+        if drag.catalog != self._model.catalog_key():
+            # P. ej. tarjetas arrastradas desde otra ventana con otro catálogo
+            if self._message_box is not None:
+                self._message_box.warning(_OTHER_CATALOG)
+            return
+        self._place(list(drag.ids), latitude, longitude, confirm=True)
+
+    def _place(
+        self, media_ids: Sequence[int], latitude: float, longitude: float, *, confirm: bool
+    ) -> None:
+        """Pone unas fotos en un punto: se guarda por la cola de cambios del inspector.
+
+        Solo fotos y vídeos de la lista que se ve; la altitud y la dirección no cambian.
+        Con 'confirm', a partir de '_CONFIRM_FROM' fotos se pregunta antes.
+        """
+        if self._db is None or self._request_edit is None or not self._geotag_allowed():
+            return
+        placeable: list[tuple[int, str, bool]] = []  # (id, tipo, miniatura lista)
+        for media_id in dict.fromkeys(media_ids):
+            row = self._model.row_of_id(media_id)
+            if row is None:
+                continue
+            index = self._model.index(row, 0)
+            media_type = index.data(ROLE_MEDIA_TYPE)
+            if media_type in LOCATABLE_MEDIA_TYPES:
+                placeable.append((media_id, media_type, index.data(ROLE_THUMBNAIL_STATUS) == 1))
+        if not placeable:
+            return
+        if confirm and len(placeable) >= _CONFIRM_FROM and self._message_box is not None:
+            answer = self._message_box.question(
+                _CONFIRM_TEXT.format(count=f"{len(placeable):,}".replace(",", ".")),
+                _CONFIRM_TITLE,
+                buttons=[_CONFIRM_YES, _CONFIRM_NO],
+            )
+            if answer != _CONFIRM_YES:
+                return
+        latitude = round(latitude, _COORDINATE_DECIMALS)
+        longitude = round(longitude, _COORDINATE_DECIMALS)
+        # El marcador, ya en su sitio (el mapa se pone al día al guardarse: 'refresh')
+        if self._page.has_map():
+            for media_id, media_type, _thumb in placeable:
+                self._media_types[media_id] = media_type
+            self._page.map_view().update_markers(
+                [MapMarker(i, latitude, longitude, kind, thumb) for i, kind, thumb in placeable]
+            )
+        ids = [media_id for media_id, _kind, _thumb in placeable]
+        self._request_edit(update_metadata_fields, (ids, {"latitude": latitude, "longitude": longitude}))
 
     def _on_marker_activated(self, media_id: int) -> None:
         """Doble clic en una foto: la vista individual (Esc vuelve al mapa)."""

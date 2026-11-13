@@ -12,6 +12,7 @@ recuerda por módulo y por catálogo ('ModuleViewState'); la pone en pantalla el
 
 Decidido por el autor el 08/11/2026 (ver docs/DECISIONES.md, «Vistas del centro»).
 
+1.2.0 'MapOptions': qué permite el mapa de cada módulo (de momento, ubicar fotos).
 1.1.0 El mapa: icono y atajo «Mapa (M)» (decidido por el autor el 13/11/2026).
 1.0.0 Primera versión (paso A.1, subpaso 3).
 
@@ -19,10 +20,11 @@ Prueba rápida (desde la raíz del proyecto):
     python -m controllers.app_modules.center_views
 """
 
-__version__ = "1.1.0"
-__all__ = ["CenterView"]
+__version__ = "1.2.0"
+__all__ = ["CenterView", "MapOptions"]
 
 # Librerías estándar
+from dataclasses import dataclass
 from enum import Enum
 
 
@@ -57,6 +59,18 @@ class CenterView(Enum):
             return None
 
 
+@dataclass(frozen=True, slots=True)
+class MapOptions:
+    """Qué permite el mapa de un módulo ('AppModule.map_options'; docs/MAPA.md, §2.6).
+
+    Attributes:
+        allow_geotag: Ubicar fotos soltándolas en el mapa y mover las ya ubicadas (Imagen,
+            sí; el Catálogo, que mezcla tipos de archivo, solo mira).
+    """
+
+    allow_geotag: bool = False
+
+
 # Textos de la interfaz (decididos por el autor el 08/11/2026: «Cuadrícula (G)» y
 # «Vista individual (Intro)»)
 _TOOLTIPS: dict[CenterView, str] = {
@@ -84,6 +98,9 @@ if __name__ == "__main__":
     assert CenterView.from_key("single") is CenterView.SINGLE
     for bad in ("otra", None, 3, ["grid"]):
         assert CenterView.from_key(bad) is None, bad
+
+    # El mapa, por defecto, solo para mirar
+    assert MapOptions() == MapOptions(allow_geotag=False) and MapOptions(True).allow_geotag
 
     # Los iconos que se nombran existen en AppIcons
     from config.app_constants import AppIcons

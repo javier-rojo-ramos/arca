@@ -102,7 +102,7 @@ python -m core.userdata.sync                                   (ExifTool; ida y 
 python -m core.userdata.xmp_writer                             (ExifTool)
 
 # controllers
-python -m controllers.app_modules.center_views                 (vistas del centro; sin Qt)
+python -m controllers.app_modules.center_views                 (vistas del centro y MapOptions; sin Qt)
 python -m controllers.app_modules.module_view_state            (orden, vista y filtro por módulo, guardar y recuperar; sin Qt)
 python -m controllers.center_view_controller                   (página, botones, deslizador y navegación con teclas y con la rueda, también M, G y Esc con el mapa e Intro y G en su tira de fotos, con un host de mentira; sin ventana)
 python -m controllers.filter_controller                        (barra <-> filtro con un host de mentira, Ctrl+L, Ctrl+F, fila de Texto, vista individual; sin ventana)
