@@ -44,8 +44,13 @@ Ubicar fotos (paso 3.2; decidido por el autor el 13/11/2026; solo en los módulo
       pendiente de escribir en los archivos, con la regla del GPS (D1), y al terminar el
       mapa se pone al día ('refresh'). El marcador se pinta ya en su sitio, sin esperar.
 
-Lo que TODAVÍA NO hace: quitar la ubicación, deshacer (pasos 3.3 y 3.4) ni guardar el
-encuadre al cerrar.
+    - Botón derecho sobre una foto o un grupo: «Quitar la ubicación» (de esa foto o de
+      las del grupo; a partir de 50, se pregunta antes).
+    - Deshacer (Ctrl+Z, el historial de toda la aplicación, 'UndoHistory'): cada cambio
+      guarda las coordenadas que tenían ('geotagging.set_media_position') y deja un paso
+      que las vuelve a poner por la misma cola ('restore_media_positions').
+
+Lo que TODAVÍA NO hace: guardar el encuadre al cerrar.
 
 Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador = MapController(module_host, page=..., grid=..., model=..., center_views=...,
@@ -55,6 +60,10 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador.refresh()       # tras un cambio del inspector
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.5.0 Pasos 3.3 y 3.4: «Quitar la ubicación» con el botón derecho sobre una foto o un
+      grupo; cada cambio (ubicar, mover, quitar) se apunta en el historial de deshacer
+      ('set_undo_history'; Ctrl+Z). Se guarda con 'geotagging.set_media_position', que
+      recuerda las coordenadas de antes.
 1.4.0 Paso 3.2: ubicar fotos soltándolas en el mapa y mover las ubicadas, en los módulos
       que lo permiten ('map_options().allow_geotag': Imagen); por la cola de cambios del
       inspector ('set_edit_queue'), con confirmación a partir de 50 fotos.
@@ -68,7 +77,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -84,7 +93,7 @@ from loguru import logger
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QItemSelection, QItemSelectionModel, QModelIndex, QObject, QSize, Qt, QTimer
 from qtpy.QtGui import QKeySequence, QShortcut
-from qtpy.QtWidgets import QAbstractItemView, QBoxLayout, QComboBox, QListView, QToolButton
+from qtpy.QtWidgets import QAbstractItemView, QBoxLayout, QComboBox, QListView, QMenu, QToolButton
 
 # Módulos del proyecto
 from config import app_paths
@@ -98,14 +107,15 @@ from config.app_constants import (
 from controllers.app_modules.center_views import CenterView, MapOptions
 from controllers.app_modules.module_host import ModuleHost
 from controllers.center_view_controller import CenterViewController
+from controllers.undo_history import UndoHistory, UndoStep
+from core.catalog.geotagging import PositionChange, restore_media_positions, set_media_position
 from core.catalog.grid_source import GridSource
 from core.catalog.map_queries import LOCATABLE_MEDIA_TYPES, MapItems, fetch_map_items
-from core.catalog.media_queries import update_metadata_fields
 from core.maps.tile_layers import all_layers, user_layers_from_settings
 from core.maps.tile_store import DEFAULT_MAX_BYTES, TileStorageError, TileStore
 from core.thumbnails.sizes import ThumbnailSize
 from ui_helpers.helpers.ui_icons import tinted_icon
-from ui_helpers.map.map_types import MapMarker, MapTrack, SelectionMode
+from ui_helpers.map.map_types import HitKind, MapHit, MapMarker, MapTrack, SelectionMode
 from ui_helpers.map.map_view import MapView
 from ui_helpers.models.media_grid_model import MediaGridModel
 from ui_helpers.models.media_mime import MediaDrag
@@ -138,11 +148,31 @@ _CONFIRM_TEXT = "¿Ubicar estas {count} fotos en este punto?"
 _CONFIRM_YES = "Ubicar"
 _CONFIRM_NO = "Cancelar"
 _OTHER_CATALOG = "Esas fotos son de otro catálogo: no se pueden ubicar aquí."
+# Quitar la ubicación (botón derecho)
+_REMOVE_ONE = "Quitar la ubicación"
+_REMOVE_MANY = "Quitar la ubicación de las {count} fotos"
+_REMOVE_TITLE = "Quitar la ubicación"
+_REMOVE_CONFIRM = "¿Quitar la ubicación de estas {count} fotos?"
+_REMOVE_YES = "Quitar"
+# Lo que se deshace con Ctrl+Z («Deshecho: …»)
+_UNDO_PLACE = ("ubicar una foto", "ubicar {count} fotos")
+_UNDO_MOVE = ("mover una foto", "mover {count} fotos")
+_UNDO_REMOVE = ("quitar la ubicación de una foto", "quitar la ubicación de {count} fotos")
 # Espera tras arrastrar el separador de la tira antes de guardar su alto
 _SAVE_DELAY_MS = 600
 
 # Para comparar el origen con «ninguno todavía» (None es un valor posible de nada aquí)
 _NO_SOURCE = object()
+
+
+def _count_text(count: int) -> str:
+    """Un número con el separador de miles en español (punto): «1.234»."""
+    return f"{count:,}".replace(",", ".")
+
+
+def _describe(texts: tuple[str, str], count: int) -> str:
+    """El texto en singular o en plural."""
+    return texts[0] if count == 1 else texts[1].format(count=_count_text(count))
 
 
 def notice_text(rows: int, items: MapItems) -> str:
@@ -202,7 +232,9 @@ class MapController(QObject):
         self._config = config
         self._message_box = message_box
         # Cola de cambios del inspector ('set_edit_queue'): por ella se guarda lo ubicado
-        self._request_edit: Callable[[Callable[..., Any], tuple[Any, ...]], None] | None = None
+        self._request_edit: Callable[..., None] | None = None
+        # Historial de deshacer de la aplicación ('set_undo_history')
+        self._undo: UndoHistory | None = None
         self._db: Any = None
         self._generation = 0  # las respuestas de una petición vieja se descartan
         self._dirty = True  # hay que volver a pedir lo que se pinta
@@ -268,11 +300,16 @@ class MapController(QObject):
         if self._shown():
             self._load()
 
-    def set_edit_queue(self, request_edit: Callable[[Callable[..., Any], tuple[Any, ...]], None]) -> None:
+    def set_edit_queue(self, request_edit: Callable[..., None]) -> None:
         """La cola de cambios del inspector ('InspectorController.request_edit'): por ella se
         guardan las fotos ubicadas en el mapa (avisa de los errores, escribe en los archivos
         y, al terminar, pone al día el mapa y la barra)."""
         self._request_edit = request_edit
+
+    def set_undo_history(self, history: UndoHistory) -> None:
+        """El historial de deshacer de la aplicación: cada cambio hecho en el mapa deja ahí
+        un paso (Ctrl+Z)."""
+        self._undo = history
 
     def refresh(self) -> None:
         """Vuelve a pedir lo que se pinta, sin moverse (p. ej. tras cambiar el GPS de una
@@ -402,6 +439,7 @@ class MapController(QObject):
         view.marker_activated.connect(self._on_marker_activated)
         view.media_dropped.connect(self._on_media_dropped)
         view.markers_moved.connect(lambda ids, lat, lon: self._place(ids, lat, lon, confirm=False))
+        view.context_menu_requested.connect(self._on_context_menu)
         view.load_failed.connect(lambda _reason: self._page.set_notice(_LOAD_FAILED))
 
     def _apply_layers(self, view: MapView) -> None:
@@ -581,7 +619,7 @@ class MapController(QObject):
             return
         if confirm and len(placeable) >= _CONFIRM_FROM and self._message_box is not None:
             answer = self._message_box.question(
-                _CONFIRM_TEXT.format(count=f"{len(placeable):,}".replace(",", ".")),
+                _CONFIRM_TEXT.format(count=_count_text(len(placeable))),
                 _CONFIRM_TITLE,
                 buttons=[_CONFIRM_YES, _CONFIRM_NO],
             )
@@ -597,7 +635,59 @@ class MapController(QObject):
                 [MapMarker(i, latitude, longitude, kind, thumb) for i, kind, thumb in placeable]
             )
         ids = [media_id for media_id, _kind, _thumb in placeable]
-        self._request_edit(update_metadata_fields, (ids, {"latitude": latitude, "longitude": longitude}))
+        description = _describe(_UNDO_PLACE if confirm else _UNDO_MOVE, len(ids))
+        self._request_edit(
+            set_media_position,
+            (ids, latitude, longitude),
+            partial(self._remember, description),
+        )
+
+    def _on_context_menu(self, hit: MapHit, point: object) -> None:
+        """Botón derecho sobre una foto o un grupo: «Quitar la ubicación» (donde se ubican
+        fotos: Imagen)."""
+        if not self._geotag_allowed() or hit.kind not in (HitKind.MARKER, HitKind.CLUSTER):
+            return
+        ids = list(hit.media_ids)
+        if not ids:
+            return
+        menu = QMenu(self._page)
+        text = _REMOVE_ONE if len(ids) == 1 else _REMOVE_MANY.format(count=_count_text(len(ids)))
+        menu.addAction(text, lambda: self._remove_location(ids))
+        menu.exec(point)
+        menu.deleteLater()
+
+    def _remove_location(self, media_ids: Sequence[int]) -> None:
+        """Quita la ubicación de unas fotos (a partir de 50, se pregunta antes)."""
+        if self._db is None or self._request_edit is None or not media_ids:
+            return
+        ids = list(dict.fromkeys(media_ids))
+        if len(ids) >= _CONFIRM_FROM and self._message_box is not None:
+            answer = self._message_box.question(
+                _REMOVE_CONFIRM.format(count=_count_text(len(ids))),
+                _REMOVE_TITLE,
+                buttons=[_REMOVE_YES, _CONFIRM_NO],
+            )
+            if answer != _REMOVE_YES:
+                return
+        if self._page.has_map():
+            self._page.map_view().remove_markers(ids)  # ya fuera (el mapa se pone al día)
+        self._request_edit(
+            set_media_position,
+            (ids, None, None),
+            partial(self._remember, _describe(_UNDO_REMOVE, len(ids))),
+        )
+
+    def _remember(self, description: str, change: object) -> None:
+        """Un cambio guardado: se apunta en el historial para poder deshacerlo."""
+        if self._undo is None or not isinstance(change, PositionChange) or not change.count:
+            return
+        previous = dict(change.previous)
+        self._undo.push(UndoStep(description, partial(self._restore, previous)))
+
+    def _restore(self, previous: dict) -> None:
+        """Deshacer: cada foto vuelve a sus coordenadas de antes (por la misma cola)."""
+        if self._db is not None and self._request_edit is not None:
+            self._request_edit(restore_media_positions, (previous,))
 
     def _on_marker_activated(self, media_id: int) -> None:
         """Doble clic en una foto: la vista individual (Esc vuelve al mapa)."""

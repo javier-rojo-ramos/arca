@@ -52,6 +52,7 @@ from controllers.folder_actions import FolderActions
 from controllers.inspector_controller import InspectorController
 from controllers.map_controller import MapController
 from controllers.metadata_filter_controller import MetadataFilterController
+from controllers.undo_history import UndoHistory
 from core.catalog.availability import AvailabilityCheck, check_availability
 from core.catalog.catalog_builder import CatalogBuilder, CatalogError
 from core.catalog.catalog_opener import open_catalog
@@ -244,6 +245,12 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.metadata_filters: MetadataFilterController | None = None
         # Vista «Mapa» del centro: se crea en '_conectar_vistas'
         self.map_controller: MapController | None = None
+        # Deshacer (Ctrl+Z en toda la ventana; hoy, lo hecho en el mapa)
+        self.undo_history = UndoHistory(self)
+        self.undo_history.undone.connect(lambda text: message_bar(self, f"Deshecho: {text}"))
+        self.undo_history.nothing_to_undo.connect(
+            lambda: message_bar(self, "No hay nada que deshacer.")
+        )
 
         self._configuracion_cargada = False
         self._crear_acciones_miniaturas()
@@ -981,8 +988,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # ...y el mapa (p. ej. tras cambiar el GPS de una foto, su marcador va a su sitio)
         if self.map_controller is not None:
             self.inspector.edit_finished.connect(self.map_controller.refresh)
-            # Las fotos ubicadas en el mapa se guardan por la misma cola que el inspector
+            # Las fotos ubicadas en el mapa se guardan por la misma cola que el inspector y
+            # se pueden deshacer
             self.map_controller.set_edit_queue(self.inspector.request_edit)
+            self.map_controller.set_undo_history(self.undo_history)
         # El inspector es el mismo en todos los módulos (sus secciones dependen de la
         # selección, no del módulo)
         if self.module_host is not None:
@@ -1343,6 +1352,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             self.metadata_filters.detach()  # se descartan los recuentos pendientes
         if self.map_controller is not None:
             self.map_controller.detach()  # se descarta lo pedido y se vacía el mapa
+        self.undo_history.clear()  # lo hecho en este catálogo no se deshace en otro
 
         if self.db is not None:
             # 'shutdown' espera a las tareas en curso (rápido, porque se han cancelado)

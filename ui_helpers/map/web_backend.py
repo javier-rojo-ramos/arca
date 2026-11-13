@@ -24,6 +24,9 @@ eventos en sus hijos ('_WebView'); si el arrastre trae tarjetas de la cuadrícul
 ('application/x-arca-media-ids') y está permitido, se acepta sin pasarlo a Chromium, se
 pinta en la página dónde caería y, al soltar, la página traduce el píxel a coordenadas.
 
+1.3.0 Al verse y al cambiar de tamaño, la página vuelve a medir su espacio ('refreshSize'):
+      al pasar del mapa de un módulo al de otro, se quedaba pintado solo en parte hasta
+      moverlo (lo vio el autor el 13/11/2026).
 1.2.1 La revisión de los widgets internos ya no falla si la vista se destruye antes
       (al cerrar la aplicación).
 1.2.0 Paso 1.5: soltar tarjetas, arrastrar las fotos sueltas, vista previa y botón
@@ -34,7 +37,7 @@ pinta en la página dónde caería y, al soltar, la página traduce el píxel a 
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
@@ -48,7 +51,7 @@ from loguru import logger
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QEvent, QObject, QPoint, Qt, QTimer, QUrl
-from qtpy.QtGui import QColor
+from qtpy.QtGui import QColor, QResizeEvent, QShowEvent
 from qtpy.QtWebChannel import QWebChannel
 from qtpy.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
 from qtpy.QtWebEngineWidgets import QWebEngineView
@@ -73,6 +76,9 @@ from ui_helpers.models.media_mime import MediaDrag, decode_media_ids
 
 # Encuadre con el que empieza el mapa mientras nadie pida otro: la península ibérica
 DEFAULT_VIEW: tuple[float, float, int] = (40.2, -3.7, 6)
+
+# Espera tras verse o cambiar de tamaño antes de que la página vuelva a medir su espacio
+_REFRESH_SIZE_MS = 60
 
 # Eventos de un arrastre
 _DRAG_EVENTS = (
@@ -226,6 +232,12 @@ class WebMapBackend(MapBackend):
         self._dragging = False  # hay tarjetas arrastrándose por encima
         self._handler = shared_handler()
 
+        # La página vuelve a medir su espacio al poco de verse o de cambiar de tamaño
+        self._size_timer = QTimer(self)
+        self._size_timer.setSingleShot(True)
+        self._size_timer.setInterval(_REFRESH_SIZE_MS)
+        self._size_timer.timeout.connect(self._refresh_size)
+
         self._view = _WebView(self)
         self._view.drag_handler = self._handle_drag
         self._page = _MapPage(QWebEngineProfile.defaultProfile(), self._view)
@@ -290,6 +302,18 @@ class WebMapBackend(MapBackend):
         self._viewport = None
         logger.error(f"Mapa: {reason}.")
         self.load_failed.emit(reason)
+
+    def showEvent(self, event: QShowEvent) -> None:  # nombre de Qt
+        super().showEvent(event)
+        self._size_timer.start()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # nombre de Qt
+        super().resizeEvent(event)
+        self._size_timer.start()
+
+    def _refresh_size(self) -> None:
+        if self._ready:
+            self._call("refreshSize")
 
     def _on_viewport(self, viewport: MapViewport) -> None:
         self._viewport = viewport

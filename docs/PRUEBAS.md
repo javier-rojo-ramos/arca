@@ -41,6 +41,7 @@ python -m core.catalog.grid_source
 python -m core.catalog.keywords                                (árbol, asignar y quitar, caja de texto, gestionar el árbol, recuentos)
 python -m core.catalog.libraries
 python -m core.catalog.media_detector
+python -m core.catalog.geotagging                              (ubicar, mover y quitar recordando lo de antes; deshacer)
 python -m core.catalog.map_queries                             (el mapa ve lo mismo que la cuadrícula; 20 000 puntos)
 python -m core.catalog.media_queries
 python -m core.catalog.media_removal                           (papelera simulada: nunca toca la del sistema)
@@ -108,6 +109,7 @@ python -m controllers.center_view_controller                   (página, botones
 python -m controllers.filter_controller                        (barra <-> filtro con un host de mentira, Ctrl+L, Ctrl+F, fila de Texto, vista individual; sin ventana)
 python -m controllers.filter_preset_controller                 (ajustes del módulo, el que coincide, elegir, restaurar, guardar y reemplazar, con host y configuración de mentira y las preguntas cambiadas; sin ventana)
 python -m controllers.folder_actions                           (solo el texto del aviso)
+python -m controllers.undo_history                             (el historial de deshacer: orden, tope, vaciar, Ctrl+Z en la ventana; sin ventana)
 python -m controllers.metadata_filter_controller               (columnas de partida, qué se recuenta, respuestas tardías, alto guardado, con host, modelo y BD de mentira; sin ventana)
 
 # ui_helpers

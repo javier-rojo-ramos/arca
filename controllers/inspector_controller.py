@@ -52,6 +52,9 @@ inspector se recalcula. «Borrar» una palabra clave llega primero como un recue
 1.5.0 Reenvía 'navigate_requested' de las secciones.
 1.4.0 Tarjetas soltadas en una sección ('drop_edit_requested'), con la comprobación de
       que son del catálogo abierto.
+1.11.0 'request_edit(..., on_done)': quien pide un cambio puede recibir su resultado al
+       terminar (el mapa, para poder deshacerlo); un resultado con 'count' cuenta como
+       ese número de cambios (se escriben en los archivos).
 1.3.0 'request_edit': la cola de cambios también la usan las barras de los módulos (p. ej.
       el menú del árbol de palabras clave); señal 'edit_finished' tras cada cambio (para
       refrescar la barra aunque no cambie ningún archivo: crear o purgar palabras); los
@@ -63,7 +66,7 @@ inspector se recalcula. «Borrar» una palabra clave llega primero como un recue
 Acciones del panel: «Mostrar en el Explorador» (botón de la carpeta) se atiende aquí.
 """
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 __all__ = ["STATE_KEY", "InspectorController"]
 
 # Librerías estándar
@@ -142,7 +145,11 @@ class InspectorController(QObject):
         self._db: Any = None
         self._generation = 0  # sube con cada petición: las respuestas antiguas se ignoran
         # Cambios pedidos por las secciones, en orden; solo uno en marcha a la vez
-        self._edits: deque[tuple[Callable[..., Any], tuple[Any, ...]]] = deque()
+        # Cola de cambios: (función, argumentos, aviso con el resultado o None)
+        self._edits: deque[
+            tuple[Callable[..., Any], tuple[Any, ...], Callable[[Any], None] | None]
+        ] = deque()
+        self._on_done: Callable[[Any], None] | None = None  # el del cambio en marcha
         self._edit_running = False
 
         self._timer = QTimer(self)
@@ -279,16 +286,28 @@ class InspectorController(QObject):
         if generation == self._generation:
             logger.error(f"No se pudo calcular el resumen del inspector: {error}")
 
-    def request_edit(self, function: Callable[..., Any], arguments: tuple[Any, ...]) -> None:
+    def request_edit(
+        self,
+        function: Callable[..., Any],
+        arguments: tuple[Any, ...],
+        on_done: Callable[[Any], None] | None = None,
+    ) -> None:
         """Cambia el catálogo con la cola del inspector (en orden, uno a uno; avisa de los
-        errores y refresca al terminar). La usan las secciones y las barras de los módulos."""
-        self._on_edit_requested(function, arguments)
+        errores y refresca al terminar). La usan las secciones, las barras de los módulos y
+        el mapa. 'on_done' recibe el resultado de la función si se guarda bien (p. ej. para
+        poder deshacerlo)."""
+        self._on_edit_requested(function, arguments, on_done)
 
-    def _on_edit_requested(self, function: Callable[..., Any], arguments: tuple[Any, ...]) -> None:
+    def _on_edit_requested(
+        self,
+        function: Callable[..., Any],
+        arguments: tuple[Any, ...],
+        on_done: Callable[[Any], None] | None = None,
+    ) -> None:
         """Una sección quiere cambiar el catálogo: a la cola (se ejecutan en orden)."""
         if self._db is None:
             return
-        self._edits.append((function, tuple(arguments)))
+        self._edits.append((function, tuple(arguments), on_done))
         self._run_next_edit()
 
     def _on_drop_edit_requested(
@@ -307,7 +326,7 @@ class InspectorController(QObject):
         """Lanza el siguiente cambio de la cola, si no hay otro en marcha."""
         if self._edit_running or not self._edits or self._db is None:
             return
-        function, arguments = self._edits.popleft()
+        function, arguments, self._on_done = self._edits.popleft()
         self._edit_running = True
         self._db.execute_async(
             function, *arguments, on_result=self._on_edit_done, on_error=self._on_edit_error
@@ -322,9 +341,13 @@ class InspectorController(QObject):
             self._confirm_purge(changed)
             return
         self._edit_running = False
-        count = changed if isinstance(changed, int) else 0
+        # Un resultado con 'count' (p. ej. las coordenadas del mapa) cuenta como ese número
+        count = changed if isinstance(changed, int) else getattr(changed, "count", 0)
         if count:
             self.user_data_changed.emit(count)
+        on_done, self._on_done = self._on_done, None
+        if on_done is not None:
+            on_done(changed)
         self.edit_finished.emit()
         self._schedule()  # también sin cambios: la sección vuelve a mostrar lo que hay
         self._run_next_edit()
@@ -334,7 +357,7 @@ class InspectorController(QObject):
         cola sigue parada mientras ('_edit_running'), así que nada se adelanta; si se
         acepta, el borrado va el primero."""
         if self._db is not None and confirm_keyword_deletion(self._panel, usage):
-            self._edits.appendleft((delete_keyword, (usage.keyword_id,)))
+            self._edits.appendleft((delete_keyword, (usage.keyword_id,), None))
         self._edit_running = False
         self._run_next_edit()
 
@@ -343,13 +366,14 @@ class InspectorController(QObject):
         la cola parada, como al borrar) y, si se acepta, se borran esas las primeras."""
         operation = ask_keyword_purge(self._panel, unused) if self._db is not None else None
         if operation is not None:
-            self._edits.appendleft(operation)
+            self._edits.appendleft((*operation, None))
         self._edit_running = False
         self._run_next_edit()
 
     def _on_edit_error(self, error: Exception) -> None:
         """No se pudo guardar: se avisa y el inspector vuelve a mostrar lo guardado."""
         self._edit_running = False
+        self._on_done = None  # no se guardó: no hay nada que deshacer
         if isinstance(error, KeywordError):
             # Error previsto (nombre repetido, mover dentro de sí misma...): su mensaje ya
             # es para el usuario

@@ -418,7 +418,16 @@ const arca = (() => {
 
   // --- Encuadre ---------------------------------------------------------------------
 
+  // La vista ha cambiado de tamaño o vuelve a verse: Leaflet mide otra vez su espacio y
+  // pinta lo que falte (si no, se queda pintado solo lo que se veía antes)
+  function refreshSize() {
+    if (!map) return;
+    map.invalidateSize({ pan: false });
+    render();
+  }
+
   function fitBounds(south, west, north, east, animate) {
+    map.invalidateSize({ pan: false });  // encuadrar con el tamaño de ahora
     map.fitBounds([[south, west], [north, east]], {
       padding: [FIT_PADDING, FIT_PADDING],
       maxZoom: FIT_MAX_ZOOM,
@@ -428,6 +437,7 @@ const arca = (() => {
 
   // zoom null = sin cambiarlo
   function setView(latitude, longitude, zoom) {
+    map.invalidateSize({ pan: false });
     map.setView([latitude, longitude], zoom === null ? map.getZoom() : zoom);
   }
 
@@ -450,6 +460,6 @@ const arca = (() => {
     init, setLayers, setBaseLayer, setMarkers, updateMarkers, removeMarkers, setSelected,
     setTracks, setTrackGeometry, setActiveTrack, setTrackCursor,
     setDropEnabled, setDropCursor, dropPoint, setPreviewMarkers,
-    fitBounds, setView, clear,
+    fitBounds, setView, refreshSize, clear,
   };
 })();

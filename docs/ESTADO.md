@@ -11,7 +11,8 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Mapa, paso 3.2: ubicar fotos** (13/11/2026; solo en el mapa de Imagen) | (1) En Imagen, con el mapa a la vista, arrastrar una foto sin chincheta de la tira al mapa: aparece donde se suelta, le sale la chincheta y el inspector («Metadatos») muestra su GPS; la altitud no cambia. (2) Varias a la vez; una que ya tenía ubicación se mueve sin preguntar. (3) Más de 50 de golpe (p. ej. Ctrl+A en una carpeta grande): pregunta «¿Ubicar estas N fotos en este punto?»; «Cancelar» no cambia nada. (4) Arrastrar en el mapa una foto suelta ya ubicada la mueve. (5) Con «Escribir los cambios en los archivos» activada, al poco Lightroom («Leer metadatos del archivo») ve la ubicación nueva. (6) En el mapa del Catálogo, soltar no se puede (cursor de prohibido) y las fotos no se arrastran. (Quitar la ubicación y deshacer llegan en los pasos 3.3 y 3.4) |
+| **Mapa, pasos 3.3 y 3.4: quitar la ubicación y deshacer** (13/11/2026; en el mapa de Imagen) | (1) Botón derecho sobre una foto del mapa: «Quitar la ubicación»; desaparece del mapa y de la chincheta de la tira, y el inspector ya no muestra su GPS. Sobre un grupo: «Quitar la ubicación de las N fotos» (a partir de 50, pregunta). (2) Ctrl+Z tras ubicar, mover o quitar: todo vuelve a como estaba, con «Deshecho: …» en la barra de estado; varias veces seguidas, en orden inverso; sin nada, «No hay nada que deshacer.». (3) Ctrl+Z dentro de una caja de texto (el título en el inspector, el filtro) sigue deshaciendo lo escrito en ella. (4) Con la escritura en los archivos activada, tras deshacer Lightroom ve otra vez la ubicación de antes (o ninguna). (5) Pasar del mapa de Imagen al del Catálogo: se pinta entero. (6) En el inspector, «Borrar» y «Purgar» palabras clave siguen funcionando (comparten la cola de cambios) |
+| **Mapa, paso 3.2: ubicar fotos** (13/11/2026) | Lo de antes: soltar fotos de la tira en el mapa de Imagen, moverlas, la pregunta a partir de 50 y que se escriba en los archivos (Lightroom) |
 
 ## Comprobaciones sueltas
 
@@ -80,6 +81,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: mapa, pasos 3.3 y 3.4: «Quitar la ubicación» con el botón derecho y Ctrl+Z para deshacer lo hecho en el mapa; el mapa se pinta entero al cambiar de módulo.
 - 13/11/2026: mapa, paso 3.2: ubicar fotos soltándolas en el mapa de Imagen y moverlas (se escribe en los archivos).
 - 13/11/2026: tira del mapa con tarjetas compactas (solo la imagen, sin banda ni círculo de la selección rápida), como Lightroom, y una chincheta en las que tienen ubicación.
 - 13/11/2026: mapa, paso 3.1: la tira de fotos debajo del mapa (botón y F6, alto ajustable); el mapa, también en Imagen.
@@ -89,4 +91,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 13/11/2026: mapa, paso 2.3: la vista «Mapa» en el Catálogo (botón y M; selección compartida con la cuadrícula; Esc vuelve al mapa desde la vista individual).
 - 13/11/2026: mapa, paso 2.2: la consulta del mapa (lo mismo que la cuadrícula: fotos con coordenadas, tracks con su contorno y cuántas no tienen ubicación).
 - 13/11/2026: mapa, paso 2.1: el contorno simplificado de cada track, en el catálogo (migración 4; los tracks se releen solos).
-- 13/11/2026: mapa: borrada la prueba de concepto (`scripts/poc_map/`); en la ventana de prueba, las tarjetas se arrastran como en la cuadrícula (sin tapar dónde caen).
