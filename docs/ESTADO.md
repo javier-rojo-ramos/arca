@@ -11,8 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Mapa, pasos 3.3 y 3.4: quitar la ubicación y deshacer** (13/11/2026; en el mapa de Imagen) | (1) Botón derecho sobre una foto del mapa: «Quitar la ubicación»; desaparece del mapa y de la chincheta de la tira, y el inspector ya no muestra su GPS. Sobre un grupo: «Quitar la ubicación de las N fotos» (a partir de 50, pregunta). (2) Ctrl+Z tras ubicar, mover o quitar: todo vuelve a como estaba, con «Deshecho: …» en la barra de estado; varias veces seguidas, en orden inverso; sin nada, «No hay nada que deshacer.». (3) Ctrl+Z dentro de una caja de texto (el título en el inspector, el filtro) sigue deshaciendo lo escrito en ella. (4) Con la escritura en los archivos activada, tras deshacer Lightroom ve otra vez la ubicación de antes (o ninguna). (5) Pasar del mapa de Imagen al del Catálogo: se pinta entero. (6) En el inspector, «Borrar» y «Purgar» palabras clave siguen funcionando (comparten la cola de cambios) |
-| **Mapa, paso 3.2: ubicar fotos** (13/11/2026) | Lo de antes: soltar fotos de la tira en el mapa de Imagen, moverlas, la pregunta a partir de 50 y que se escriba en los archivos (Lightroom) |
+| **Mapa, paso 3.5: «Sin ubicación»** (13/11/2026) | En el desplegable de ajustes de la barra de filtros, «Sin ubicación» (detrás de «Ubicación»): enciende «Metadatos» con la columna «Tiene coordenadas GPS» y «No» elegido; la cuadrícula y la tira, solo con lo que no tiene ubicación. **Si ya tenías tu lista de ajustes guardada, no aparece sola**: «Gestionar ajustes personalizados…» > «Restaurar los de fábrica» la añade al final. Al soltar fotos en el mapa siguen en la tira, con su chincheta, hasta volver a elegir la carpeta |
 
 ## Comprobaciones sueltas
 
@@ -64,6 +63,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Sección «Fechas» del módulo Imagen** (12/11): debajo de «Carpetas», los años (el más reciente arriba) con sus meses («01 Enero») y sus días («10 Miércoles»), y «Sin fecha»; cada fila muestra lo que cuenta, con los mismos números que la columna «Fecha de captura»; lo desplegado y el día elegido, recordados. Antes, la barra de Imagen dividida en un archivo por sección (`ui_helpers/sidebars/sections/`), con todo igual que antes.
 - **Las barras no cogen el teclado** (12/11): al elegir algo en una barra (una carpeta, una fecha, una palabra, una colección o la flecha «ver sus fotos» del inspector), la primera foto queda seleccionada (la primera que cumple el filtro) y los atajos («3», «P», «G», Z...) van a las fotos sin otro clic; las flechas mueven la selección de fotos, no la barra; una letra ya no elige otra fila de un árbol.
 - **El archivo actual, recordado** (12/11): al abrir el catálogo, la foto que estaba seleccionada al cerrarlo; al cambiar de módulo, cada uno la suya; si ya no está, la primera. Al recargar con el mismo origen (orden, filtro), sigue seleccionado lo que se vea; al eliminar, queda seleccionada la siguiente, sin saltar al principio.
+- **Mapa, pasos 3.2 a 3.4** (13/11/2026): en el mapa de Imagen, soltar fotos de la tira para ubicarlas (pregunta a partir de 50), moverlas, «Quitar la ubicación» con el botón derecho y Ctrl+Z para deshacer; escrito en los archivos; el mapa se pinta entero al cambiar de módulo.
 - **Tira del mapa: tarjetas compactas y chincheta** (13/11/2026): solo la imagen, con la chincheta de las que tienen ubicación, al día tras editar el GPS.
 - **Mapa, paso 3.1** (13/11/2026): la tira de fotos debajo del mapa, en el Catálogo y en Imagen (botón, F6, alto, selección compartida, teclado, arrastre sin imagen). Se queda en el Catálogo.
 - **La aceleración por GPU, según el sistema** (13/11/2026): en Windows, igual; la casilla, marcada.
@@ -81,6 +81,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: mapa, paso 3.5: ajuste de fábrica «Sin ubicación» en la barra de filtros. Fase 3 (Imagen), completa; lo siguiente, el módulo Tracks (recordatorio en [PENDIENTE.md](PENDIENTE.md)).
 - 13/11/2026: mapa, pasos 3.3 y 3.4: «Quitar la ubicación» con el botón derecho y Ctrl+Z para deshacer lo hecho en el mapa; el mapa se pinta entero al cambiar de módulo.
 - 13/11/2026: mapa, paso 3.2: ubicar fotos soltándolas en el mapa de Imagen y moverlas (se escribe en los archivos).
 - 13/11/2026: tira del mapa con tarjetas compactas (solo la imagen, sin banda ni círculo de la selección rápida), como Lightroom, y una chincheta en las que tienen ubicación.
@@ -90,4 +91,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 13/11/2026: mapa, paso 2.4: Opciones > Mapa (capas propias y caché de teselas); el mapa, al día tras un cambio del inspector. Fase 2 (Catálogo), completa.
 - 13/11/2026: mapa, paso 2.3: la vista «Mapa» en el Catálogo (botón y M; selección compartida con la cuadrícula; Esc vuelve al mapa desde la vista individual).
 - 13/11/2026: mapa, paso 2.2: la consulta del mapa (lo mismo que la cuadrícula: fotos con coordenadas, tracks con su contorno y cuántas no tienen ubicación).
-- 13/11/2026: mapa, paso 2.1: el contorno simplificado de cada track, en el catálogo (migración 4; los tracks se releen solos).

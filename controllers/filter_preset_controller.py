@@ -356,7 +356,8 @@ if __name__ == "__main__":
     apply(NO_FILTER)
     assert button.text() == "Sin filtro ▾"
     assert preset_names() == [
-        "Columnas de partida", "Ubicación", "Datos de exposición", "Valoradas", "Marcadas",
+        "Columnas de partida", "Ubicación", "Sin ubicación", "Datos de exposición", "Valoradas",
+        "Marcadas",
     ]
     enabled = [k for k, v in actions().items() if v and k.startswith(COMMANDS)]
     assert enabled == ["Gestionar ajustes personalizados…"], enabled
@@ -404,7 +405,8 @@ if __name__ == "__main__":
     button.save_requested.emit()
     assert config.writes == 1 and button.text() == "Playa buena ▾"
     saved = config.data[SETTING_FILTER_PRESETS]
-    assert [p["name"] for p in saved][-1] == "Playa buena" and len(saved) == 6
+    factory_count = len(presets_from_config(None))
+    assert [p["name"] for p in saved][-1] == "Playa buena" and len(saved) == factory_count + 1
     assert saved[-1]["filter"]["active"] == ["text", "attributes"]
 
     # 6. El mismo nombre (otras mayúsculas): se pregunta; «Cancelar» no cambia nada
@@ -416,7 +418,7 @@ if __name__ == "__main__":
     # «Reemplazar»: en su lugar, con el nombre como se ha escrito ahora
     answers["replace"] = True
     button.save_requested.emit()
-    assert config.writes == 2 and len(controller.presets) == 6
+    assert config.writes == 2 and len(controller.presets) == factory_count + 1
     assert controller.presets[-1].name == "PLAYA BUENA" and button.text() == "PLAYA BUENA ▾"
 
     # 6b. Dos con las mismas columnas («Ubicación» y «Mi país», con España): con otro valor,
@@ -443,9 +445,9 @@ if __name__ == "__main__":
     host.types, host.fields = ("audio",), ("media_type",)
     apply(NO_FILTER)
     names = preset_names()
-    assert "Datos de exposición" not in names and names[2] == "Valoradas", names
+    assert "Datos de exposición" not in names and names[3] == "Valoradas", names
     requested.clear()
-    button.preset_chosen.emit(2)
+    button.preset_chosen.emit(3)
     assert requested[0].attributes == AttributeFilter(rating=1)
 
     # 7b. «Gestionar…»: la ventana recibe TODOS (también los que aquí no valen);
@@ -454,7 +456,7 @@ if __name__ == "__main__":
     seen: list[list[FilterPreset]] = []
     controller.manage = lambda _w, presets: seen.append(presets) or None
     button.manage_requested.emit()
-    assert len(seen[0]) == 7 and "Datos de exposición" in [p.name for p in seen[0]]
+    assert len(seen[0]) == factory_count + 2 and "Datos de exposición" in [p.name for p in seen[0]]
     assert config.writes == 3
     # «Aceptar»: se guarda la lista nueva; el último elegido renombrado sigue siéndolo
     button.preset_chosen.emit(preset_names().index("Mi país"))

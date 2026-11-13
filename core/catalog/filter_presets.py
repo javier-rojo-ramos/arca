@@ -44,6 +44,8 @@ Ajustes de fábrica (decididos por el autor el 09/11/2026; después son como los
 pueden borrar, renombrar y ordenar):
     «Columnas de partida»   «Metadatos» con las columnas de partida del módulo
     «Ubicación»             «Metadatos»: País, Región o provincia, Ciudad y Lugar
+    «Sin ubicación»         «Metadatos»: Tiene coordenadas GPS, con «No» elegido (las
+                            fotos que faltan por ubicar en el mapa; 13/11/2026)
     «Datos de exposición»   «Metadatos»: Objetivo, Distancia focal, Tiempo de exposición y
                             Apertura (como el de Lightroom; solo donde hay fotos)
     «Valoradas»             «Atributos»: 1 estrella o más
@@ -57,6 +59,8 @@ Uso:
     preset = preset_from_filter("Bodas", grid_filter, default_fields)
     config.set(SETTING_FILTER_PRESETS, presets_to_config(with_preset_saved(presets, preset)))
 
+1.2.0 De fábrica, «Sin ubicación» (docs/MAPA.md, paso 3.5). Quien ya tiene su lista lo
+      recibe con «Restaurar los de fábrica».
 1.1.0 'matching_preset': en «Metadatos», basta con las mismas columnas (lo elegido en
       ellas puede cambiar), con preferencia por el que coincide del todo y por el último
       elegido ('preferred'). Lo pidió el autor el 09/11/2026.
@@ -66,7 +70,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.filter_presets
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "MAX_PRESET_NAME",
     "FilterPreset",
@@ -135,6 +139,11 @@ def _factory() -> tuple[FilterPreset, ...]:
         FilterPreset("Ubicación", GridFilter(
             active=metadata_on,
             metadata=MetadataFilter.from_fields(("country", "region", "city", "sublocation")),
+        )),
+        # Las fotos que faltan por ubicar en el mapa: «Tiene coordenadas GPS» = «No» (0)
+        FilterPreset("Sin ubicación", GridFilter(
+            active=metadata_on,
+            metadata=MetadataFilter.from_fields(("has_gps",)).with_values(0, (0,)),
         )),
         FilterPreset("Datos de exposición", GridFilter(
             active=metadata_on,
@@ -402,14 +411,19 @@ if __name__ == "__main__":
     # 1. De fábrica: sin lista guardada; todos encienden algo y valen en el Catálogo e Imagen
     factory = presets_from_config(None)
     assert names(factory) == [
-        "Columnas de partida", "Ubicación", "Datos de exposición", "Valoradas", "Marcadas",
+        "Columnas de partida", "Ubicación", "Sin ubicación", "Datos de exposición", "Valoradas",
+        "Marcadas",
     ], names(factory)
+    # «Sin ubicación»: lo que no tiene coordenadas
+    no_gps = factory[2].grid_filter.rule_sets()
+    assert len(no_gps) == 1 and no_gps[0].rules[0].field == "has_gps", no_gps
+    assert no_gps[0].rules[0].operator == "is_false", no_gps
     assert presets_from_config("estropeado") == factory
     assert all(not p.grid_filter.is_none for p in factory)
     assert all(fits_module(p, CATALOG_TYPES) and fits_module(p, IMAGE_TYPES) for p in factory)
     # En un módulo sin fotos (un futuro Audio) no sale «Datos de exposición»
     audio = [p.name for p in factory if fits_module(p, ("audio",))]
-    assert audio == ["Columnas de partida", "Ubicación", "Valoradas", "Marcadas"], audio
+    assert audio == ["Columnas de partida", "Ubicación", "Sin ubicación", "Valoradas", "Marcadas"], audio
 
     # 2. Ida y vuelta por settings.json (también con JSON de verdad); el usuario los borró todos
     saved = json.loads(json.dumps(presets_to_config(factory)))
@@ -442,11 +456,11 @@ if __name__ == "__main__":
 
     # 4. Guardar con un nombre que ya existe (sin distinguir mayúsculas): en su lugar
     presets = with_preset_saved(factory, mine)
-    assert names(presets)[-1] == "Mis bodas" and len(presets) == 6
-    assert find_preset(presets, "mis BODAS") == 5 and find_preset(presets, "Otra") is None
+    assert names(presets)[-1] == "Mis bodas" and len(presets) == len(factory) + 1
+    assert find_preset(presets, "mis BODAS") == len(factory) and find_preset(presets, "Otra") is None
     other = preset_from_filter("UBICACIÓN", current, IMAGE_FIELDS)
     replaced = with_preset_saved(presets, other)
-    assert len(replaced) == 6 and replaced[1] == other
+    assert len(replaced) == len(factory) + 1 and replaced[1] == other
 
     # 5. Elegir un ajuste: sus pestañas; las demás conservan lo que tenían; candado igual
     location = presets[1]
@@ -485,7 +499,7 @@ if __name__ == "__main__":
         found = matching_preset(france, with_spain, IMAGE_TYPES, IMAGE_FIELDS, preferred)
         assert found.name == expected, (preferred, found)
     # En «Texto» y «Atributos», lo de dentro sí cuenta
-    rated = applied_preset(presets[3], NO_FILTER)
+    rated = applied_preset(presets[find_preset(presets, "Valoradas")], NO_FILTER)
     assert match(rated) == "Valoradas"
     assert match(replace(rated, attributes=AttributeFilter(rating=3))) is None
     # «Ninguno»: ninguno, aunque lo de dentro sea igual
@@ -499,9 +513,10 @@ if __name__ == "__main__":
     # El mío (guardado en Imagen) coincide con lo que guardó
     assert match(applied_preset(mine, current)) == "Mis bodas"
     # Un ajuste que no vale en el módulo no coincide
-    exposure = applied_preset(presets[2], NO_FILTER)
+    exposure_preset = presets[find_preset(presets, "Datos de exposición")]
+    exposure = applied_preset(exposure_preset, NO_FILTER)
     assert matching_preset(exposure, presets, ("audio",), ()) is None
-    assert matching_preset(exposure, presets, IMAGE_TYPES, IMAGE_FIELDS) == presets[2]
+    assert matching_preset(exposure, presets, IMAGE_TYPES, IMAGE_FIELDS) == exposure_preset
 
     # 7. Restaurar: todo vacío (también lo de las pestañas apagadas); pestañas y candado igual
     assert not is_reset(current, IMAGE_FIELDS)
@@ -518,8 +533,8 @@ if __name__ == "__main__":
     edited = [replace(p, name="Con estrellas") if p.name == "Valoradas" else p for p in edited]
     restored_list = with_factory_restored(edited)
     assert names(restored_list) == [
-        "Columnas de partida", "Datos de exposición", "Con estrellas", "Marcadas", "Mis bodas",
-        "Ubicación", "Valoradas",
+        "Columnas de partida", "Sin ubicación", "Datos de exposición", "Con estrellas", "Marcadas",
+        "Mis bodas", "Ubicación", "Valoradas",
     ], names(restored_list)
     assert with_factory_restored(restored_list) == restored_list
     assert with_factory_restored(replaced)[1] == other  # «UBICACIÓN» (mío) se queda

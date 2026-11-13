@@ -364,7 +364,7 @@ if __name__ == "__main__":
     assert dialog.list_presets.currentRow() == 1
     dialog.button_up.click()
     assert names()[:2] == ["Columnas de partida", "Ubicación"]
-    dialog.list_presets.setCurrentRow(5)  # la última: no se puede bajar
+    dialog.list_presets.setCurrentRow(len(start) - 1)  # la última: no se puede bajar
     assert dialog.button_up.isEnabled() and not dialog.button_down.isEnabled()
 
     # 3. Arrastrar (lo que hace la lista al soltar): la fila 0, al final
@@ -389,9 +389,10 @@ if __name__ == "__main__":
     assert len(item.text()) <= MAX_PRESET_NAME
 
     # 5. Eliminar: sin preguntar; queda elegida la siguiente
-    dialog.list_presets.setCurrentRow(1)  # «Datos de exposición»
+    row = names().index("Datos de exposición")
+    dialog.list_presets.setCurrentRow(row)
     dialog.button_delete.click()
-    assert "Datos de exposición" not in names() and dialog.list_presets.currentRow() == 1
+    assert "Datos de exposición" not in names() and dialog.list_presets.currentRow() == row
 
     # 6. Restaurar los de fábrica: los que falten («Ubicación», renombrado; «Datos de
     # exposición», eliminado), al final; después, ya no se puede
