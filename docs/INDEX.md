@@ -17,6 +17,7 @@ Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (W
 | [FLUJOS.md](FLUJOS.md) | Paso a paso de cada operación: arranque, catálogo, añadir carpeta, metadatos, miniaturas, cuadrícula, datos del usuario, opciones, barra lateral, cierre, módulos, inspector, eliminar, barra inferior, barra de filtros | Al cambiar el comportamiento de una operación |
 | [METADATOS.md](METADATOS.md) | Mapa de campos (qué se extrae y dónde se ve), campos de imagen, vídeo y tracks, prioridad entre etiquetas, equivalencias con Lightroom | Al añadir o corregir un campo |
 | [MINIATURAS.md](MINIATURAS.md) | Tamaños, reglas, orígenes por formato, caché | Al tocar las miniaturas |
+| [MAPA.md](MAPA.md) | **Diseño, sin implementar**: componente de mapa (`MapView`) para Catálogo, Imagen y Tracks: tecnología, API, capas, elevación, datos, correlación foto-track, edición de GPX y plan por pasos; decisiones pendientes del autor | Antes de empezar la vista de mapa (A.5) o el módulo Tracks (A.6) |
 | [COMO_AMPLIAR.md](COMO_AMPLIAR.md) | La tabla «Quiero... → toco...» | Antes de añadir algo nuevo |
 | [PRUEBAS.md](PRUEBAS.md) | Autopruebas, ventanas que se abren solas, diagnóstico con ExifTool | Para comprobar un cambio |
 | [DECISIONES.md](DECISIONES.md) | Por qué las cosas son como son (con fecha) | Antes de cambiar algo que parece raro |

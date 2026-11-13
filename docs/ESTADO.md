@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **El archivo actual, recordado por módulo y al recargar** (12/11; `module_view_state` 1.3.0, `module_host` 1.10.0, `center_view_controller` 1.4.0) | Seleccionar una foto, cerrar el catálogo (o la aplicación) y volver a abrirlo: la misma foto, seleccionada y a la vista, en la cuadrícula y en la vista individual (también en Imagen con una carpeta o una fecha elegida). En el Catálogo una foto y en Imagen otra: al cambiar de módulo, cada uno vuelve a la suya. Borrar desde el Catálogo la foto recordada en Imagen (o filtrarla) y volver a Imagen: la primera. Varias seleccionadas y cambiar el orden o el filtro: siguen seleccionadas las que se vean, sin saltar al principio. Eliminar las seleccionadas: queda seleccionada la siguiente (la cuadrícula no salta arriba); igual con Supr en la vista individual. Elegir algo en una barra: la primera, como antes. Un catálogo nuevo o sin nada recordado: la primera |
+| — | Nada pendiente: todo lo entregado está verificado (12/11/2026) |
 
 ## Comprobaciones sueltas
 
@@ -62,6 +62,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Limpieza de ruff** (11/11; solo importaciones y comentarios en 27 módulos): la aplicación, igual que antes.
 - **Sección «Fechas» del módulo Imagen** (12/11): debajo de «Carpetas», los años (el más reciente arriba) con sus meses («01 Enero») y sus días («10 Miércoles»), y «Sin fecha»; cada fila muestra lo que cuenta, con los mismos números que la columna «Fecha de captura»; lo desplegado y el día elegido, recordados. Antes, la barra de Imagen dividida en un archivo por sección (`ui_helpers/sidebars/sections/`), con todo igual que antes.
 - **Las barras no cogen el teclado** (12/11): al elegir algo en una barra (una carpeta, una fecha, una palabra, una colección o la flecha «ver sus fotos» del inspector), la primera foto queda seleccionada (la primera que cumple el filtro) y los atajos («3», «P», «G», Z...) van a las fotos sin otro clic; las flechas mueven la selección de fotos, no la barra; una letra ya no elige otra fila de un árbol.
+- **El archivo actual, recordado** (12/11): al abrir el catálogo, la foto que estaba seleccionada al cerrarlo; al cambiar de módulo, cada uno la suya; si ya no está, la primera. Al recargar con el mismo origen (orden, filtro), sigue seleccionado lo que se vea; al eliminar, queda seleccionada la siguiente, sin saltar al principio.
 
 ## Últimos cambios
 
