@@ -14,7 +14,7 @@ python -m venv .venv                                                            
 
 Al regenerar `requirements.txt` desde PowerShell no se usa `>`: en Windows PowerShell 5.1 lo escribe en UTF-16 y Git lo trata como binario.
 
-**Autopruebas** (desde la raíz del proyecto; cada una termina con "Autoprueba finalizada correctamente"). Las que dicen «una ventana» (`organize_bar`, `theme_style`) y las de `--ventana` se quedan abiertas hasta que alguien las cierra:
+**Autopruebas** (desde la raíz del proyecto; cada una termina con "Autoprueba finalizada correctamente"). Las que dicen «una ventana» (`organize_bar`, `theme_style`, `map_layer_dialog`) y las de `--ventana` se quedan abiertas hasta que alguien las cierra:
 
 ```
 # core.jobs
@@ -112,6 +112,7 @@ python -m controllers.metadata_filter_controller               (columnas de part
 
 # ui_helpers
 python -m ui_helpers.dialogs.filter_presets_dialog             (subir, bajar, arrastrar, cambiar el nombre con vacío y repetido, eliminar, restaurar los de fábrica; sin ventana. Con --ventana, la ventana con los de fábrica y uno más)
+python -m ui_helpers.dialogs.map_layer_dialog                  (una ventana: «Añadir capa», con lo que no vale dicho debajo)
 python -m ui_helpers.dialogs.smart_collection_dialog           (crear y editar, añadir y quitar reglas y grupos, recuento y recuentos tardíos, errores en rojo, lo elegido; sin ventana. Con --ventana, la ventana con un contador simulado y un aviso de ejemplo)
 python -m ui_helpers.helpers.card_glyphs                       (dibuja marcadores e indicadores en una imagen; sin ventana)
 python -m ui_helpers.helpers.card_marks                        (dibuja las marcas en una imagen; necesita PySide6)

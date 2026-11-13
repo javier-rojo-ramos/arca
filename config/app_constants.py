@@ -21,7 +21,9 @@ __all__ = [
     "SETTING_FILTER_PRESETS",
     "SETTING_ACTIVE_MODULE",
     "SETTING_LAST_ADD_FOLDER_PARENT",
+    "SETTING_MAP_CACHE_MB",
     "SETTING_MAP_LAYER",
+    "SETTING_MAP_USER_LAYERS",
     "SETTING_MAIN_SPLITTER_STATE",
     "SETTING_SHOW_SUBFOLDER_ITEMS",
     "SETTING_SIDEBAR_STATE",
@@ -142,3 +144,12 @@ SETTING_LAST_ADD_FOLDER_PARENT = "last_add_folder_parent"
 # Capa del mapa que se ve (su clave en 'core/maps/tile_layers.py'). Una para toda la
 # aplicación (decidido por el autor el 13/11/2026). None = la de partida (el callejero)
 SETTING_MAP_LAYER = "map_layer"
+
+# Capas propias del mapa (Opciones > Mapa): lista de {key, name, url, attribution,
+# max_zoom} (ver 'core/maps/tile_layers.user_layers_from_settings'). Una para toda la
+# aplicación
+SETTING_MAP_USER_LAYERS = "map_user_layers"
+
+# Tamaño máximo de la caché de teselas de los mapas, en MB (Opciones > Mapa; 2 GB,
+# decidido por el autor el 13/11/2026)
+SETTING_MAP_CACHE_MB = "map_cache_mb"

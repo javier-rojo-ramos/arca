@@ -778,6 +778,9 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # recarga sola)
         if self.module_host is not None:
             self.module_host.apply_settings(changed)
+        # El mapa: capas propias y tope de la caché de teselas
+        if self.map_controller is not None:
+            self.map_controller.apply_settings(changed)
 
         # Se acaba de activar la escritura en los archivos: se escribe lo pendiente (el
         # usuario lo ha pedido expresamente: no se vuelve a preguntar)
@@ -957,6 +960,9 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # Tras cualquier cambio (también crear o purgar palabras, que no tocan archivos),
         # la barra lateral se relee (el árbol de palabras clave)
         self.inspector.edit_finished.connect(self._sidebar_refresh_timer.start)
+        # ...y el mapa (p. ej. tras cambiar el GPS de una foto, su marcador va a su sitio)
+        if self.map_controller is not None:
+            self.inspector.edit_finished.connect(self.map_controller.refresh)
         # El inspector es el mismo en todos los módulos (sus secciones dependen de la
         # selección, no del módulo)
         if self.module_host is not None:

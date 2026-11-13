@@ -29,10 +29,12 @@ Uso:
     handler = shared_handler()              # el único de la aplicación (lo crea 'WebMapBackend')
     handler.set_thumbnail_provider(funcion) # al abrir un catálogo
 
+1.1.0 El tipo de cada tesela se mira en sus bytes (las capas propias no dicen si sirven
+      PNG o JPEG).
 1.0.0 Primera versión (docs/MAPA.md, paso 1.3).
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["SCHEME", "START_URL", "MapSchemeHandler", "register_map_scheme", "shared_handler"]
 
 # Librerías estándar
@@ -56,7 +58,7 @@ from qtpy.QtWebEngineCore import (
 # Módulos del proyecto
 from config import app_paths
 from core.maps.tile_layers import TILE_LAYERS, TileLayer, is_valid_tile, tile_url, user_agent
-from core.maps.tile_store import TileStorageError, TileStore
+from core.maps.tile_store import TileStorageError, TileStore, image_mime
 
 SCHEME = "arca-map"
 START_URL = f"{SCHEME}://app/index.html"
@@ -220,7 +222,7 @@ class MapSchemeHandler(QWebEngineUrlSchemeHandler):
             return
         cached = self._store.read(layer, z, x, y)
         if cached is not None:
-            self._reply(job, layer.mime_type, cached.data)
+            self._reply(job, image_mime(cached.data) or layer.mime_type, cached.data)
             if cached.stale:
                 self._download(layer, z, x, y, None)  # se renueva por detrás
             return
@@ -274,7 +276,7 @@ class MapSchemeHandler(QWebEngineUrlSchemeHandler):
                 self._storage_warned = True
                 logger.warning(f"La caché de mapas no se puede escribir: {error}")
         for job in jobs:
-            self._reply(job, layer.mime_type, data)
+            self._reply(job, image_mime(data) or layer.mime_type, data)
 
     # --- Miniaturas ---
 

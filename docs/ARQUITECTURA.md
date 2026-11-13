@@ -43,7 +43,7 @@ config/
   app_config.py                      Instancia única (singleton) de la configuración: `from config.app_config import config`
   app_config_manager.py              ConfigManager: settings.json (claves: catalogo_ruta, thumbnail_size, write_user_data_to_files,
                                      main_splitter_state, show_subfolder_items, sidebar_state, inspector_metadata_preset, inspector_sections, active_module, filter_metadata_height, filter_presets, confirm_multi_edit,
-                                     last_add_folder_parent, window_geometry; todas, con su valor por defecto, en DEFAULTS)
+                                     last_add_folder_parent, map_layer, map_user_layers, map_cache_mb, window_geometry; todas, con su valor por defecto, en DEFAULTS)
   app_info.py                        Texto de ayuda en HTML (pendiente de implementar; hoy no lo usa nadie)
   app_constants.py                   Constantes, iconos (AppIcons), tamaños de miniatura, claves compartidas de settings.json
   app_logging_manager.py             setup_logging (loguru + InterceptHandler)
@@ -55,7 +55,7 @@ controllers/
   filter_controller.py               FilterController: barra de filtros <-> filtro del módulo activo (ModuleHost.set_filter / filter_changed); Ctrl+L; oculta la franja en la vista individual
   filter_preset_controller.py        FilterPresetController: desplegable de ajustes personalizados <-> lista (settings.json, filter_presets) y filtro del módulo activo; pide el nombre al guardar y si se reemplaza
   metadata_filter_controller.py      MetadataFilterController: panel «Metadatos» <-> recuentos en segundo plano (columnas de partida del módulo, solo lo que cambia, respuestas tardías fuera, alto guardado)
-  map_controller.py                  MapController: la vista «Mapa» (lo mismo que la cuadrícula, pedido con map_queries solo con el mapa a la vista; selección en los dos sentidos; encuadre al cambiar de origen; aviso de lo que no sale; desplegable de la capa en la barra inferior, guardado en settings.json; doble clic → vista individual); attach / detach
+  map_controller.py                  MapController: la vista «Mapa» (lo mismo que la cuadrícula, pedido con map_queries solo con el mapa a la vista; selección en los dos sentidos; encuadre al cambiar de origen; aviso de lo que no sale; desplegable de la capa en la barra inferior, guardado en settings.json; doble clic → vista individual; capas propias, tope de la caché al crear el mapa); attach / detach, refresh (tras un cambio del inspector), apply_settings
   center_view_controller.py          CenterViewController: vista del centro del módulo activo en pantalla (página de stacked_widget_main, botones de vista, deslizador solo en la cuadrícula) y navegación (doble clic / Intro, G, M, Esc a la vista de la que se vino, flechas, Inicio, Fin, rueda; un solo archivo seleccionado en la vista individual; el teclado del mapa, en su página); al elegir algo en una barra (source_chosen), el teclado al centro y la primera foto seleccionada; al recargar, siempre un archivo actual (el que recuerda el módulo, la selección que había o el que ocupa su lugar)
   app_modules/                       ── Módulos de la aplicación (Catálogo, Imagen, Vídeo, Audio) ── ([FLUJOS.md §11](FLUJOS.md))
     base.py                            AppModule (clase base: barra izquierda, qué muestra la cuadrícula, orden, vistas, tipos y columnas de partida del filtro, ciclo de vida) y ModuleContext
@@ -94,7 +94,8 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/theme_style.py             ThemeStyle: QProxyStyle sobre Fusion que dibuja los botones de opción y las casillas (también las de listas y árboles) con los colores del tema
   helpers/ui_theme.py                Tema: los juegos activos (COLORS, CARD_COLORS, MARK_COLORS), paleta oscura de Fusion (build_palette), hoja de estilos global (QSS: la general + las piezas propias), tooltips, colores compartidos de la cuadrícula (GRID_BG, GRID_LINE) y de los iconos (SIDEBAR_ICON_COLOR, SIDEBAR_ICON_OPEN_COLOR, TOOLBAR_ICON_ACCENT_COLOR; None = paleta), TOOLBAR_MARGIN
   helpers/mode_toolbar.py            ModeToolbar: botones de modo de la toolbar, exclusivos; icono en acento solo en el modo activo (al pasar el ratón cambia la caja); páginas provisionales (la crea ModuleHost)
-  dialogs/settings_dialog.py         SettingsDialog: ventana de opciones (columna de secciones + páginas; PAGES = General, Catálogo, Metadatos: escribir en los archivos y el aviso «Edición múltiple»)
+  dialogs/settings_dialog.py         SettingsDialog: ventana de opciones (columna de secciones + páginas; PAGES = General, Catálogo, Metadatos: escribir en los archivos y el aviso «Edición múltiple»; Mapa: capas propias y caché de teselas)
+  dialogs/map_layer_dialog.py        MapLayerDialog: «Añadir capa» / «Cambiar capa» (nombre, dirección de las teselas, atribución, zoom máximo; lo que no vale se dice debajo)
   dialogs/collection_dialog.py       CollectionDialog: "Crear colección" / "Crear conjunto" (nombre, conjunto, incluir la selección)
   dialogs/smart_collection_dialog.py SmartCollectionDialog: crear / editar una colección inteligente (reglas y grupos de reglas, recuento en vivo)
   dialogs/filter_presets_dialog.py   FilterPresetsDialog: «Gestionar ajustes personalizados» (ordenar, cambiar el nombre, eliminar, restaurar los de fábrica); devuelve la lista nueva
@@ -228,8 +229,8 @@ core/
     inspect_cli.py                     Diagnóstico: genera miniaturas de archivos reales y las cuenta
     _testing.py                        Utilidades solo para las autopruebas de core/thumbnails (perfiles ICC de prueba)
   maps/                              ── Mapas (diseño y plan en docs/MAPA.md; los usa ui_helpers/map/) ──
-    tile_layers.py                   ► LISTA de capas del mapa (TileLayer, TILE_LAYERS: aquí se añade una), tile_url, is_valid_tile, user_agent; sin Qt ni red
-    tile_store.py                      TileStore: caché de teselas en disco (una carpeta por capa, escritura atómica, caducidad a los 30 días, tope de tamaño con 'prune', 'clear'); sin Qt ni red
+    tile_layers.py                   ► LISTA de capas del mapa (TileLayer, TILE_LAYERS: aquí se añade una), tile_url, is_valid_tile, user_agent; capas del usuario (user_layer, check_url_template, all_layers, new_user_key, de y a settings.json); sin Qt ni red
+    tile_store.py                      TileStore: caché de teselas en disco (una carpeta por capa, escritura atómica, caducidad a los 30 días, tope de tamaño con 'prune', 'clear'); image_mime (tipo de una tesela por sus bytes); sin Qt ni red
   tracks/                            ── Cálculos sobre recorridos (sin Qt ni base de datos; docs/MAPA.md) ──
     geodesy.py                         haversine_m y EARTH_RADIUS_M: el ÚNICO sitio donde se calculan distancias sobre la Tierra
     simplify.py                        Contorno de un track: simplify_track (distancia radial + Douglas-Peucker, tope de puntos), polilínea codificada (encode/decode_polyline) y encode_overview / decode_overview

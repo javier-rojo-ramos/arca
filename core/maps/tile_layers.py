@@ -20,10 +20,19 @@ Condiciones de las capas de partida (leídas el 13/11/2026; direcciones comproba
         ('User-Agent' propio), guardar en caché y NO descargar zonas por adelantado.
     OpenTopoMap (topográfico mundial)           gratuito con uso moderado; CC BY-SA.
 
+CAPAS DEL USUARIO (por durabilidad: si un servicio cambia de dirección o cierra, se corrige
+sin tocar el código; docs/MAPA.md, §1.5): las añade el usuario en Opciones > Mapa y se
+guardan en settings.json ('map_user_layers'). Llevan una clave 'user_N' y van detrás de las
+de fábrica ('all_layers'). Su dirección se comprueba con 'check_url_template'. Sus
+teselas se guardan en la caché como '.png' aunque sean JPEG: al servirlas, el tipo se
+mira en los propios bytes ('tile_store.image_mime').
+
 Quién lo usa: 'tile_store.py' (la carpeta y la extensión de cada capa) y, cuando exista,
 el componente de mapa (ui_helpers/map/), que pide las teselas con 'tile_url' y se
 identifica con 'user_agent'.
 
+1.1.0 Capas del usuario: 'user_layer', 'check_url_template', 'all_layers', 'new_user_key',
+      'user_layers_from_settings' y 'user_layers_to_settings'.
 1.0.1 Orden de las capas decidido por el autor.
 1.0.0 Primera versión (docs/MAPA.md, paso 1.1): cinco capas y 'user_agent'.
 
@@ -31,21 +40,31 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.maps.tile_layers
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = [
     "DEFAULT_LAYER_KEY",
+    "MAX_ZOOM_LIMIT",
     "TILE_LAYERS",
+    "USER_LAYER_PREFIX",
     "TileLayer",
+    "all_layers",
+    "check_url_template",
     "is_valid_key",
     "is_valid_tile",
     "layer_for",
+    "new_user_key",
     "tile_url",
     "user_agent",
+    "user_layer",
+    "user_layers_from_settings",
+    "user_layers_to_settings",
 ]
 
 # Librerías estándar
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
+from string import Formatter
 
 # Una clave vale como nombre de carpeta en cualquier sistema (y nunca sale de la caché)
 _KEY_PATTERN = re.compile(r"[a-z][a-z0-9_]{0,31}")
@@ -188,6 +207,138 @@ def tile_url(layer: TileLayer, z: int, x: int, y: int) -> str:
     return layer.url_template.format(z=z, x=x, y=y, s=server)
 
 
+# -----------------------------------------------------------------------------
+# Capas del usuario
+# -----------------------------------------------------------------------------
+
+# Clave de las capas del usuario: 'user_1', 'user_2'...
+USER_LAYER_PREFIX = "user_"
+# Mayor zoom que se puede pedir a una capa (ningún servicio pasa de 22)
+MAX_ZOOM_LIMIT = 22
+# Huecos que puede llevar la dirección de una capa del usuario
+_URL_FIELDS = frozenset({"z", "x", "y", "s"})
+# Servidores que se usan si la dirección lleva '{s}' (los habituales: a, b y c)
+_USER_SUBDOMAINS = ("a", "b", "c")
+# Límites de los textos (lo que se guarda en settings.json)
+_MAX_NAME = 60
+_MAX_URL = 1000
+_MAX_ATTRIBUTION = 300
+
+
+def check_url_template(text: str) -> str | None:
+    """Comprueba la dirección de las teselas de una capa del usuario.
+
+    Returns:
+        None si vale; si no, por qué (un texto para el usuario).
+    """
+    url = text.strip()
+    if not url.lower().startswith(("https://", "http://")):
+        return "La dirección tiene que empezar por https:// (o http://)."
+    if len(url) > _MAX_URL:
+        return "La dirección es demasiado larga."
+    try:
+        fields = {name for _text, name, _spec, _conversion in Formatter().parse(url) if name is not None}
+    except ValueError:
+        return "La dirección tiene una llave sin cerrar ({ o })."
+    if not fields <= _URL_FIELDS:
+        return "La dirección solo puede llevar entre llaves {z}, {x}, {y} y, si acaso, {s}."
+    if not {"z", "x", "y"} <= fields:
+        return "La dirección tiene que llevar {z}, {x} e {y} (el zoom, la columna y la fila)."
+    return None
+
+
+def user_layer(key: str, name: str, url_template: str, attribution: str, max_zoom: int) -> TileLayer:
+    """Una capa del usuario, comprobada.
+
+    Raises:
+        ValueError: Si algo no vale (el mensaje es para el usuario).
+    """
+    name, url_template, attribution = name.strip(), url_template.strip(), attribution.strip()
+    if not (is_valid_key(key) and key.startswith(USER_LAYER_PREFIX)):
+        raise ValueError(f"Clave no válida para una capa del usuario: {key!r}")
+    if not name:
+        raise ValueError("Falta el nombre.")
+    if len(name) > _MAX_NAME:
+        raise ValueError(f"El nombre es demasiado largo (como mucho, {_MAX_NAME} letras).")
+    problem = check_url_template(url_template)
+    if problem:
+        raise ValueError(problem)
+    if len(attribution) > _MAX_ATTRIBUTION:
+        raise ValueError("La atribución es demasiado larga.")
+    if isinstance(max_zoom, bool) or not isinstance(max_zoom, int) or not 1 <= max_zoom <= MAX_ZOOM_LIMIT:
+        raise ValueError(f"El zoom máximo va de 1 a {MAX_ZOOM_LIMIT}.")
+    return TileLayer(
+        key,
+        name,
+        url_template,
+        attribution,
+        max_zoom=max_zoom,
+        subdomains=_USER_SUBDOMAINS if "{s}" in url_template else (),
+    )
+
+
+def new_user_key(existing: Iterable[str]) -> str:
+    """Una clave libre para una capa del usuario ('user_1', 'user_2'...). Nunca reutiliza
+    una que esté en uso (su carpeta de la caché tiene sus teselas)."""
+    taken = set(existing)
+    number = 1
+    while f"{USER_LAYER_PREFIX}{number}" in taken:
+        number += 1
+    return f"{USER_LAYER_PREFIX}{number}"
+
+
+def user_layers_from_settings(data: object) -> tuple[TileLayer, ...]:
+    """Las capas del usuario guardadas en settings.json. Lo que no se entienda (editado a
+    mano, de otra versión) se ignora, sin error; una clave repetida, también."""
+    if not isinstance(data, list):
+        return ()
+    layers: list[TileLayer] = []
+    keys: set[str] = set()
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            layer = user_layer(
+                entry.get("key", ""),
+                entry.get("name", ""),
+                entry.get("url", ""),
+                entry.get("attribution", ""),
+                entry.get("max_zoom", 19),
+            )
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if layer.key not in keys:
+            keys.add(layer.key)
+            layers.append(layer)
+    return tuple(layers)
+
+
+def user_layers_to_settings(layers: Iterable[TileLayer]) -> list[dict]:
+    """Las capas del usuario como se guardan en settings.json."""
+    return [
+        {
+            "key": layer.key,
+            "name": layer.name,
+            "url": layer.url_template,
+            "attribution": layer.attribution,
+            "max_zoom": layer.max_zoom,
+        }
+        for layer in layers
+    ]
+
+
+def all_layers(user_layers: Iterable[TileLayer] = ()) -> tuple[TileLayer, ...]:
+    """Las capas que se ofrecen: las de fábrica y, detrás, las del usuario (sin las que
+    repitan la clave de otra)."""
+    result = list(TILE_LAYERS)
+    keys = {layer.key for layer in result}
+    for layer in user_layers:
+        if layer.key not in keys:
+            keys.add(layer.key)
+            result.append(layer)
+    return tuple(result)
+
+
 def user_agent(app_version: str) -> str:
     """Identificación de la aplicación ante los servidores de teselas (cabecera 'User-Agent').
 
@@ -247,6 +398,44 @@ if __name__ == "__main__":
         pass
     else:
         raise AssertionError("una tesela fuera de la rejilla debe rechazarse")
+
+    # 6. Capas del usuario: direcciones que valen y que no
+    for good in ("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                 "http://{s}.servidor.es/mapa?z={z}&x={x}&y={y}&formato=png",
+                 "  https://x.es/{z}/{y}/{x}.jpg  "):  # fmt: skip
+        assert check_url_template(good) is None, good
+    for bad in ("tile.openstreetmap.org/{z}/{x}/{y}.png", "ftp://x/{z}/{x}/{y}", "https://x/{z}/{x}.png",
+                "https://x/{z}/{x}/{y}/{w}", "https://x/{z}/{x}/{y", "https://x/{z}/{x}/{y}/{0}",
+                "https://x/" + "a" * 1000 + "/{z}/{x}/{y}"):  # fmt: skip
+        assert check_url_template(bad), bad
+    mine = user_layer("user_1", " Mi mapa ", "https://{s}.x.es/{z}/{x}/{y}.png", "© X", 18)
+    assert (mine.name, mine.subdomains, mine.max_zoom, mine.extension) == ("Mi mapa", ("a", "b", "c"), 18, "png")
+    assert tile_url(mine, 3, 1, 2).startswith("https://") and "{" not in tile_url(mine, 3, 1, 2)
+    for args in (("osm", "x", "https://x/{z}/{x}/{y}", "", 19), ("user_1", "", "https://x/{z}/{x}/{y}", "", 19),
+                 ("user_1", "x", "https://x/{z}/{x}", "", 19), ("user_1", "x", "https://x/{z}/{x}/{y}", "", 0),
+                 ("user_1", "x", "https://x/{z}/{x}/{y}", "", 23), ("user_1", "x", "https://x/{z}/{x}/{y}", "", True),
+                 ("user_1", "x" * 61, "https://x/{z}/{x}/{y}", "", 19)):  # fmt: skip
+        try:
+            user_layer(*args)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"debería rechazarse: {args}")
+    # Claves libres: nunca una que esté en uso
+    assert new_user_key([]) == "user_1" and new_user_key(["user_1", "user_3"]) == "user_2"
+    # settings.json: ida y vuelta; lo que no se entiende, fuera (sin error)
+    other = user_layer("user_2", "Otro", "https://y.es/{z}/{x}/{y}.jpg", "", 17)
+    saved = user_layers_to_settings([mine, other])
+    assert user_layers_from_settings(saved) == (mine, other)
+    messy = [*saved, {"key": "user_2", "name": "repetida", "url": "https://z/{z}/{x}/{y}"}, "x", 3,
+             {"key": "user_9", "name": "sin dirección"}, {"key": "osm", "name": "x", "url": "https://z/{z}/{x}/{y}"}]  # fmt: skip
+    assert user_layers_from_settings(messy) == (mine, other)
+    for nothing in (None, {}, "x", []):
+        assert user_layers_from_settings(nothing) == ()
+    # Todas las capas: las de fábrica primero; las del usuario detrás, sin claves repetidas
+    every = all_layers([mine, other, mine])
+    assert every[: len(TILE_LAYERS)] == TILE_LAYERS and [layer.key for layer in every[len(TILE_LAYERS):]] == ["user_1", "user_2"]
+    assert all_layers() == TILE_LAYERS
 
     # 5. Identificación: nombre y versión, nada más
     assert user_agent("26.11.001") == "ArcaMedia/26.11.001"

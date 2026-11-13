@@ -21,6 +21,11 @@ Qué hace (decidido por el autor el 13/11/2026):
       «Ninguno de estos archivos tiene ubicación», o «No hay archivos».
     - Capa: un desplegable en la barra inferior, a la derecha (solo con el mapa a la
       vista); la elegida se recuerda para toda la aplicación (settings.json, 'map_layer').
+    - Capas: las de la aplicación y, detrás, las propias (Opciones > Mapa).
+    - Caché de teselas: al crear el mapa (y al cambiar su tamaño máximo en Opciones), si
+      pasa del tope se borran las descargadas hace más tiempo, en segundo plano.
+    - Tras un cambio hecho desde el inspector (p. ej. el GPS de una foto), lo que se
+      pinta se vuelve a pedir ('refresh'), sin moverse: el marcador va a su sitio nuevo.
     - Miniaturas de los marcadores: las de 160 px de la caché del catálogo.
 
 Lo que TODAVÍA NO hace: soltar fotos ni moverlas (el Catálogo solo mira; llega con el
@@ -31,14 +36,19 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
                                 layer_bar=layout_bottom_right, config=config, parent=window)
     controlador.attach(db)      # al abrir un catálogo
     controlador.detach()        # al cerrarlo
+    controlador.refresh()       # tras un cambio del inspector
+    controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.1.0 Paso 2.4: capas propias, tope de la caché de teselas, 'apply_settings' y 'refresh'
+      (el mapa, al día tras un cambio del inspector).
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
+import threading
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -51,12 +61,15 @@ from qtpy.QtCore import QItemSelection, QItemSelectionModel, QObject, Qt, QTimer
 from qtpy.QtWidgets import QBoxLayout, QComboBox, QListView
 
 # Módulos del proyecto
-from config.app_constants import SETTING_MAP_LAYER
+from config import app_paths
+from config.app_constants import SETTING_MAP_CACHE_MB, SETTING_MAP_LAYER, SETTING_MAP_USER_LAYERS
 from controllers.app_modules.center_views import CenterView
 from controllers.app_modules.module_host import ModuleHost
 from controllers.center_view_controller import CenterViewController
 from core.catalog.grid_source import GridSource
 from core.catalog.map_queries import MapItems, fetch_map_items
+from core.maps.tile_layers import all_layers, user_layers_from_settings
+from core.maps.tile_store import DEFAULT_MAX_BYTES, TileStorageError, TileStore
 from core.thumbnails.sizes import ThumbnailSize
 from ui_helpers.map.map_types import MapMarker, MapTrack, SelectionMode
 from ui_helpers.map.map_view import MapView
@@ -171,6 +184,20 @@ class MapController(QObject):
         if self._shown():
             self._load()
 
+    def refresh(self) -> None:
+        """Vuelve a pedir lo que se pinta, sin moverse (p. ej. tras cambiar el GPS de una
+        foto en el inspector). Con el mapa oculto, se pedirá al volver a él."""
+        self._dirty = True
+        if self._shown():
+            self._load()
+
+    def apply_settings(self, changed: set[str]) -> None:
+        """Se han cambiado opciones (ventana de opciones): capas propias y tope de la caché."""
+        if SETTING_MAP_USER_LAYERS in changed and self._page.has_map():
+            self._apply_layers(self._page.map_view())
+        if SETTING_MAP_CACHE_MB in changed:
+            self._prune_cache()
+
     def detach(self) -> None:
         """Se cierra el catálogo: se olvida todo y se vacía el mapa."""
         self._db = None
@@ -267,21 +294,41 @@ class MapController(QObject):
 
     def _on_map_created(self, view: MapView) -> None:
         view.set_thumbnail_provider(self._thumbnail)
+        view.layer_changed.connect(self._on_layer_changed)
+        self._apply_layers(view)
         saved = self._config.get(SETTING_MAP_LAYER)
         if isinstance(saved, str):
-            view.set_base_layer(saved)  # si ya no existe, se queda la de partida
+            view.set_base_layer(saved)  # si ya no existe, se queda la que había
+        self._prune_cache()
+        view.selection_requested.connect(self._on_selection_requested)
+        view.track_clicked.connect(lambda track_id: self._select_ids([track_id], SelectionMode.REPLACE))
+        view.marker_activated.connect(self._on_marker_activated)
+        view.load_failed.connect(lambda _reason: self._page.set_notice(_LOAD_FAILED))
+
+    def _apply_layers(self, view: MapView) -> None:
+        """Las capas de la aplicación y las propias, en el mapa y en el desplegable. Si la
+        que se veía ya no está (una propia quitada), el mapa pasa a la primera."""
+        user = user_layers_from_settings(self._config.get(SETTING_MAP_USER_LAYERS))
+        view.set_layers(all_layers(user))
         self._layer_box.blockSignals(True)
         try:
+            self._layer_box.clear()
             for layer in view.layers():
                 self._layer_box.addItem(layer.name, layer.key)
             self._layer_box.setCurrentIndex(max(0, self._layer_box.findData(view.base_layer())))
         finally:
             self._layer_box.blockSignals(False)
-        view.layer_changed.connect(self._on_layer_changed)
-        view.selection_requested.connect(self._on_selection_requested)
-        view.track_clicked.connect(lambda track_id: self._select_ids([track_id], SelectionMode.REPLACE))
-        view.marker_activated.connect(self._on_marker_activated)
-        view.load_failed.connect(lambda _reason: self._page.set_notice(_LOAD_FAILED))
+
+    def _prune_cache(self) -> None:
+        """Si la caché de teselas pasa del tope, borra las más antiguas (en otro hilo:
+        recorre la carpeta entera)."""
+        megabytes = self._config.get(SETTING_MAP_CACHE_MB)
+        valid = isinstance(megabytes, int) and not isinstance(megabytes, bool) and megabytes > 0
+        store = TileStore(
+            app_paths.TILE_CACHE_DIR,
+            max_bytes=megabytes * 1024 * 1024 if valid else DEFAULT_MAX_BYTES,
+        )
+        threading.Thread(target=_prune_quietly, args=(store,), daemon=True).start()
 
     def _on_layer_chosen(self, _index: int) -> None:
         key = self._layer_box.currentData()
@@ -350,3 +397,17 @@ class MapController(QObject):
         row = self._model.row_of_id(media_id)
         if row is not None:
             self._center_views.open_single(row)
+
+
+def _prune_quietly(store: TileStore) -> None:
+    """Limpia la caché de teselas; lo que haga (o por qué no puede), solo al registro."""
+    try:
+        result = store.prune()
+    except (OSError, TileStorageError) as error:
+        logger.warning(f"Mapa: no se ha podido limpiar la caché de teselas: {error}")
+        return
+    if result.files_removed:
+        logger.info(
+            f"Mapa: caché de teselas limpiada ({result.files_removed} teselas, "
+            f"{result.bytes_removed // (1024 * 1024)} MB)."
+        )

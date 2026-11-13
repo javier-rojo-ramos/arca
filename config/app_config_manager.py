@@ -5,6 +5,7 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.14 Se añaden 'map_user_layers' y 'map_cache_mb' (Opciones > Mapa).
 1.13 Se añade 'map_layer' (capa del mapa que se ve).
 1.12 Se añade 'confirm_multi_edit' (aviso «Edición múltiple» del inspector).
 1.11 Se añade 'filter_presets' (ajustes personalizados de la barra de filtros).
@@ -21,7 +22,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.13"
+__version__ = "1.14"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -45,7 +46,9 @@ from config.app_constants import (
     SETTING_INSPECTOR_SECTIONS,
     SETTING_LAST_ADD_FOLDER_PARENT,
     SETTING_MAIN_SPLITTER_STATE,
+    SETTING_MAP_CACHE_MB,
     SETTING_MAP_LAYER,
+    SETTING_MAP_USER_LAYERS,
     SETTING_SHOW_SUBFOLDER_ITEMS,
     SETTING_SIDEBAR_STATE,
     SETTING_WRITE_USER_DATA_TO_FILES,
@@ -93,6 +96,10 @@ class ConfigManager:
         SETTING_FILTER_PRESETS: None,
         # Capa del mapa que se ve (None = la de partida, el callejero)
         SETTING_MAP_LAYER: None,
+        # Capas propias del mapa (Opciones > Mapa)
+        SETTING_MAP_USER_LAYERS: [],
+        # Tamaño máximo de la caché de teselas, en MB (Opciones > Mapa)
+        SETTING_MAP_CACHE_MB: 2048,
         # Aquí se añaden nuevas variables
     }
 

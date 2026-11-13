@@ -22,6 +22,8 @@ leerlo en 'load()' y guardarlo en 'save()' (y añadir la clave a
 
 Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 
+1.3.0 Sección "Mapa": capas propias (añadir, cambiar, quitar) y caché de teselas (tamaño
+      máximo, lo que ocupa y vaciarla). Docs/MAPA.md, paso 2.4.
 1.2.0 "Metadatos": opción «Preguntar antes de cambiar varios archivos con valores
       distintos» (el aviso «Edición múltiple»; SETTING_CONFIRM_MULTI_EDIT); la ayuda de
       «Escribir los cambios en los archivos» cita también las palabras clave y los
@@ -30,10 +32,20 @@ Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 1.1.0 Sección "Catálogo": mostrar o no los elementos de las subcarpetas.
 """
 
-__version__ = "1.2.0"
-__all__ = ["PAGES", "CatalogPage", "GeneralPage", "MetadataPage", "SettingsDialog", "SettingsPage"]
+__version__ = "1.3.0"
+__all__ = [
+    "PAGES",
+    "CatalogPage",
+    "GeneralPage",
+    "MapSettingsPage",
+    "MetadataPage",
+    "SettingsDialog",
+    "SettingsPage",
+]
 
 # Librerías estándar
+import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -41,7 +53,7 @@ from typing import Any, ClassVar
 from loguru import logger
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QSize, Qt
+from qtpy.QtCore import QObject, QSize, Qt, Signal
 from qtpy.QtGui import QFont
 from qtpy.QtWidgets import (
     QCheckBox,
@@ -52,6 +64,8 @@ from qtpy.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QPushButton,
+    QSpinBox,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -61,11 +75,24 @@ from qtpy.QtWidgets import (
 from config import app_paths
 from config.app_constants import (
     SETTING_CONFIRM_MULTI_EDIT,
+    SETTING_MAP_CACHE_MB,
+    SETTING_MAP_USER_LAYERS,
     SETTING_SHOW_SUBFOLDER_ITEMS,
     SETTING_WRITE_USER_DATA_TO_FILES,
     AppIcons,
 )
+from core.maps.tile_layers import (
+    TileLayer,
+    is_valid_key,
+    new_user_key,
+    user_layers_from_settings,
+    user_layers_to_settings,
+)
+from core.maps.tile_store import TileStorageError, TileStore
+from ui_helpers.dialogs.map_layer_dialog import MapLayerDialog
 from ui_helpers.helpers.ui_icons import tinted_icon
+from ui_helpers.helpers.ui_message import MessageBoxHelper
+from ui_helpers.inspector.formatting import format_size
 
 
 class SettingsPage(QWidget):
@@ -250,9 +277,244 @@ class MetadataPage(SettingsPage):
         return changed
 
 
+class _Relay(QObject):
+    """Lleva al hilo principal el resultado de una tarea en segundo plano."""
+
+    done = Signal(object)
+
+
+def _in_background(task: Callable[[], object], relay: _Relay) -> None:
+    """Ejecuta 'task' en un hilo aparte y emite 'relay.done' con su resultado (o con la
+    excepción, si falla). Si la ventana se ha cerrado mientras tanto, no pasa nada."""
+
+    def run() -> None:
+        try:
+            result: object = task()
+        except (OSError, TileStorageError) as error:
+            result = error
+        try:
+            relay.done.emit(result)
+        except RuntimeError:
+            pass  # la ventana ya no existe
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+# Límites del tamaño máximo de la caché de los mapas (MB)
+_CACHE_MB_MIN = 256
+_CACHE_MB_MAX = 51_200
+_CACHE_MB_STEP = 256
+_CACHE_MB_DEFAULT = 2048
+
+
+class MapSettingsPage(SettingsPage):
+    """Sección "Mapa": capas propias y caché de las teselas (docs/MAPA.md, paso 2.4).
+
+    Las capas propias se guardan al pulsar «Aceptar» (como el resto de opciones); al
+    quitar una, se vacía también su caché (así su clave podría volver a usarse sin mezclar
+    teselas de dos servicios). «Vaciar la caché…» actúa en el momento, tras preguntar.
+    """
+
+    title = "Mapa"
+    icon = AppIcons.VIEW_MAP
+
+    def __init__(self, config: Any, context: dict[str, Any], parent: QWidget | None = None) -> None:
+        super().__init__(config, context, parent)
+        self._layers: list[TileLayer] = []
+        self._cache_dir: Path = context.get("tile_cache_dir") or app_paths.TILE_CACHE_DIR
+        self._size_relay = _Relay(self)
+        self._size_relay.done.connect(self._on_size)
+        self._clear_relay = _Relay(self)
+        self._clear_relay.done.connect(self._on_cleared)
+
+        # --- Capas propias ---
+        self.body.addWidget(QLabel("<b>Capas propias</b>"))
+        self.list_layers = QListWidget()
+        self.list_layers.setFixedHeight(110)
+        self.list_layers.itemDoubleClicked.connect(lambda _item: self._edit_layer())
+        self.list_layers.currentRowChanged.connect(lambda _row: self._update_buttons())
+        self.button_add = QPushButton("Añadir…")
+        self.button_edit = QPushButton("Cambiar…")
+        self.button_remove = QPushButton("Quitar")
+        self.button_add.clicked.connect(self._add_layer)
+        self.button_edit.clicked.connect(self._edit_layer)
+        self.button_remove.clicked.connect(self._remove_layer)
+        buttons = QVBoxLayout()
+        for button in (self.button_add, self.button_edit, self.button_remove):
+            buttons.addWidget(button)
+        buttons.addStretch(1)
+        row = QHBoxLayout()
+        row.addWidget(self.list_layers, 1)
+        row.addLayout(buttons)
+        self.body.addLayout(row)
+        self.body.addWidget(
+            self._help(
+                "Servicios de mapas que se añaden a los de la aplicación: salen al final del "
+                "desplegable de la capa, en la barra inferior del mapa. Sirven también si "
+                "uno de los de la aplicación cambia de dirección o deja de funcionar."
+            )
+        )
+
+        # --- Caché ---
+        self.body.addSpacing(6)
+        self.body.addWidget(QLabel("<b>Caché de los mapas</b>"))
+        self.spin_cache = QSpinBox()
+        self.spin_cache.setRange(_CACHE_MB_MIN, _CACHE_MB_MAX)
+        self.spin_cache.setSingleStep(_CACHE_MB_STEP)
+        self.spin_cache.setSuffix(" MB")
+        size_row = QHBoxLayout()
+        size_row.addWidget(QLabel("Tamaño máximo"))
+        size_row.addWidget(self.spin_cache)
+        size_row.addStretch(1)
+        self.body.addLayout(size_row)
+        self.label_cache_size = QLabel()
+        self.button_clear = QPushButton("Vaciar la caché…")
+        self.button_clear.clicked.connect(self._clear_cache)
+        used_row = QHBoxLayout()
+        used_row.addWidget(self.label_cache_size)
+        used_row.addStretch(1)
+        used_row.addWidget(self.button_clear)
+        self.body.addLayout(used_row)
+        self.body.addWidget(
+            self._help(
+                "Lo que se ve en el mapa se guarda en el equipo, para no descargarlo otra vez y "
+                "para ver sin conexión lo ya visto. Al abrir el mapa, si la caché pasa del "
+                "tamaño máximo, se borran las teselas descargadas hace más tiempo. Está en "
+                f"<i>{_escape(str(self._cache_dir))}</i>."
+            )
+        )
+
+    @classmethod
+    def _help(cls, text: str) -> QLabel:
+        label = cls.make_help_label(text)
+        label.setContentsMargins(0, 0, 0, 4)  # aquí no hay casilla con la que alinearse
+        return label
+
+    # --- Cargar y guardar ---
+
+    def load(self) -> None:
+        self._layers = list(user_layers_from_settings(self.config.get(SETTING_MAP_USER_LAYERS)))
+        self._fill_list()
+        value = self.config.get(SETTING_MAP_CACHE_MB, _CACHE_MB_DEFAULT)
+        valid = isinstance(value, int) and not isinstance(value, bool)
+        self.spin_cache.setValue(value if valid else _CACHE_MB_DEFAULT)
+        self._measure()
+
+    def save(self) -> set[str]:
+        changed: set[str] = set()
+        saved = user_layers_from_settings(self.config.get(SETTING_MAP_USER_LAYERS))
+        if user_layers_to_settings(self._layers) != user_layers_to_settings(saved):
+            self.config.set(SETTING_MAP_USER_LAYERS, user_layers_to_settings(self._layers))
+            changed.add(SETTING_MAP_USER_LAYERS)
+            # Las teselas de las capas quitadas ya no sirven: fuera (en segundo plano)
+            kept = {layer.key for layer in self._layers}
+            for key in {layer.key for layer in saved} - kept:
+                store = TileStore(self._cache_dir)
+                threading.Thread(target=_clear_quietly, args=(store, key), daemon=True).start()
+        if self.config.get(SETTING_MAP_CACHE_MB) != self.spin_cache.value():
+            self.config.set(SETTING_MAP_CACHE_MB, self.spin_cache.value())
+            changed.add(SETTING_MAP_CACHE_MB)
+        return changed
+
+    # --- Capas propias ---
+
+    def _fill_list(self, current: int | None = None) -> None:
+        self.list_layers.clear()
+        for layer in self._layers:
+            item = QListWidgetItem(layer.name)
+            item.setToolTip(layer.url_template)
+            self.list_layers.addItem(item)
+        if self._layers:
+            row = current if current is not None else 0
+            self.list_layers.setCurrentRow(max(0, min(row, len(self._layers) - 1)))
+        self._update_buttons()
+
+    def _update_buttons(self) -> None:
+        has_current = 0 <= self.list_layers.currentRow() < len(self._layers)
+        self.button_edit.setEnabled(has_current)
+        self.button_remove.setEnabled(has_current)
+
+    def _taken_keys(self) -> set[str]:
+        """Claves que no se pueden dar a una capa nueva: las de la lista, las guardadas y
+        las que aún tienen carpeta en la caché (con teselas de otro servicio)."""
+        taken = {layer.key for layer in self._layers}
+        taken |= {layer.key for layer in user_layers_from_settings(self.config.get(SETTING_MAP_USER_LAYERS))}
+        try:
+            taken |= {child.name for child in self._cache_dir.iterdir() if is_valid_key(child.name)}
+        except OSError:
+            pass  # aún no hay caché
+        return taken
+
+    def _add_layer(self) -> None:
+        dialog = MapLayerDialog(new_user_key(self._taken_keys()), parent=self)
+        if dialog.exec() and dialog.layer() is not None:
+            self._layers.append(dialog.layer())
+            self._fill_list(len(self._layers) - 1)
+        dialog.deleteLater()
+
+    def _edit_layer(self) -> None:
+        row = self.list_layers.currentRow()
+        if not 0 <= row < len(self._layers):
+            return
+        layer = self._layers[row]
+        dialog = MapLayerDialog(layer.key, layer, parent=self)
+        if dialog.exec() and dialog.layer() is not None:
+            self._layers[row] = dialog.layer()
+            self._fill_list(row)
+        dialog.deleteLater()
+
+    def _remove_layer(self) -> None:
+        row = self.list_layers.currentRow()
+        if 0 <= row < len(self._layers):
+            del self._layers[row]
+            self._fill_list(row)
+
+    # --- Caché ---
+
+    def _measure(self) -> None:
+        """Calcula lo que ocupa la caché (recorre la carpeta: en segundo plano)."""
+        self.label_cache_size.setText("Ocupa ahora: calculando…")
+        store = TileStore(self._cache_dir)
+        _in_background(store.size_bytes, self._size_relay)
+
+    def _on_size(self, result: object) -> None:
+        if isinstance(result, int):
+            self.label_cache_size.setText(f"Ocupa ahora: {format_size(result)}")
+        else:
+            self.label_cache_size.setText("Ocupa ahora: no se ha podido calcular")
+
+    def _clear_cache(self) -> None:
+        answer = MessageBoxHelper(self).question(
+            "Se borran las teselas de los mapas guardadas en el equipo; se volverán a "
+            "descargar al verlas (sin conexión, no se verán).",
+            "Vaciar la caché de los mapas",
+            buttons=["Vaciar", "Cancelar"],
+        )
+        if answer != "Vaciar":
+            return
+        self.button_clear.setEnabled(False)
+        self.label_cache_size.setText("Ocupa ahora: vaciando…")
+        store = TileStore(self._cache_dir)
+        _in_background(store.clear, self._clear_relay)
+
+    def _on_cleared(self, result: object) -> None:
+        self.button_clear.setEnabled(True)
+        if isinstance(result, Exception):
+            logger.warning(f"No se pudo vaciar la caché de los mapas: {result}")
+        self._measure()
+
+
+def _clear_quietly(store: TileStore, key: str) -> None:
+    """Vacía la caché de una capa; si no se puede, solo se anota."""
+    try:
+        store.clear(key)
+    except (TileStorageError, ValueError) as error:
+        logger.warning(f"No se pudo vaciar la caché de la capa {key!r}: {error}")
+
+
 # Secciones de la ventana, en el orden en que aparecen. Para añadir una, crear su
 # clase (heredando de SettingsPage) y añadirla aquí.
-PAGES: tuple[type[SettingsPage], ...] = (GeneralPage, CatalogPage, MetadataPage)
+PAGES: tuple[type[SettingsPage], ...] = (GeneralPage, CatalogPage, MetadataPage, MapSettingsPage)
 
 
 class SettingsDialog(QDialog):
@@ -377,6 +639,8 @@ if __name__ == "__main__":
                 SETTING_WRITE_USER_DATA_TO_FILES: True,
                 SETTING_SHOW_SUBFOLDER_ITEMS: True,
                 SETTING_CONFIRM_MULTI_EDIT: False,  # como tras «No volver a mostrar»
+                SETTING_MAP_CACHE_MB: 2048,
+                SETTING_MAP_USER_LAYERS: [],
             }
 
         def get(self, key: str, default: Any = None) -> Any:

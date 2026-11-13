@@ -29,13 +29,15 @@ Uso:
     cached = store.read(layer, z, x, y)        # None si no está
     if cached is None or cached.stale: ...     # descargar y 'store.write(layer, z, x, y, datos)'
 
+1.1.0 'image_mime': el tipo de una tesela, mirando sus bytes (las capas del usuario no
+      dicen si sirven PNG o JPEG).
 1.0.0 Primera versión (docs/MAPA.md, paso 1.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.maps.tile_store
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "DEFAULT_MAX_AGE_DAYS",
     "DEFAULT_MAX_BYTES",
@@ -43,6 +45,7 @@ __all__ = [
     "PruneResult",
     "TileStorageError",
     "TileStore",
+    "image_mime",
     "looks_like_image",
 ]
 
@@ -105,11 +108,21 @@ class PruneResult:
     cancelled: bool = False
 
 
+def image_mime(data: bytes) -> str | None:
+    """El tipo de imagen ('image/png', 'image/jpeg' o 'image/webp') mirando cómo empiezan
+    los bytes, o None si no es ninguno de esos."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 def looks_like_image(data: bytes) -> bool:
     """True si los bytes empiezan como un PNG, un JPEG o un WebP."""
-    if data.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff")):
-        return True
-    return data.startswith(b"RIFF") and data[8:12] == b"WEBP"
+    return image_mime(data) is not None
 
 
 class TileStore:
@@ -352,6 +365,7 @@ if __name__ == "__main__":
         # 4. Solo imágenes: una página de error no entra (y no deja restos)
         assert looks_like_image(PNG) and looks_like_image(JPEG)
         assert looks_like_image(b"RIFF\x00\x00\x00\x00WEBPVP8 ")
+        assert (image_mime(PNG), image_mime(JPEG), image_mime(b"<html>")) == ("image/png", "image/jpeg", None)
         for bad in (b"", b"<html>Too many requests</html>", b"RIFF\x00\x00\x00\x00WAVE"):
             assert not looks_like_image(bad), bad
             try:

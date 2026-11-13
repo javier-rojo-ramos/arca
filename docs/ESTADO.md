@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Mapa, paso 2.3: la vista «Mapa» en el Catálogo** (13/11/2026) | (1) En el Catálogo, el botón del mapa junto al de la vista individual (icono y «Mapa (M)»), y M desde la cuadrícula: el mapa con las fotos con ubicación y los tracks de lo elegido; el desplegable de la capa abajo a la derecha (el deslizador se oculta). (2) Elegir otra carpeta o colección: el mapa encuadra lo nuevo; cambiar el filtro: se actualiza sin moverse. (3) El aviso arriba a la izquierda («N fotos sin ubicación»; en una carpeta sin GPS, «Ninguno de estos archivos tiene ubicación»). (4) Clic en una foto o un grupo los selecciona (el inspector los muestra), Ctrl+clic añade o quita, clic en vacío no deja nada; lo seleccionado en la cuadrícula se ve resaltado al volver al mapa; un GPX seleccionado, en rojo. (5) Con el mapa a la vista, «3», «P» o un color se aplican a lo seleccionado, también tras hacer clic en el mapa. (6) Doble clic en una foto → vista individual; Esc y M vuelven al mapa, G a la cuadrícula; desde la cuadrícula, Esc sigue volviendo a la cuadrícula. (7) La capa elegida se recuerda al reiniciar. (8) Imagen no tiene mapa todavía (M no hace nada) |
+| **Mapa, paso 2.4: opciones del mapa** (13/11/2026) | (1) Opciones > Mapa: la sección con «Capas propias» y «Caché de los mapas» (lo que ocupa, al poco de abrir). (2) «Añadir…» con una dirección sin {y}: aviso en rojo y la ventana no se cierra; con una buena (p. ej. `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, nombre «Prueba»), sale en la lista y, tras «Aceptar», al final del desplegable de la capa del mapa, y se ve. «Cambiar…» y doble clic la editan; «Quitar» y «Aceptar»: desaparece del desplegable (si era la que se veía, el mapa pasa al callejero). (3) «Vaciar la caché…»: pregunta; al aceptar, «Ocupa ahora» baja a casi nada y el mapa vuelve a descargar lo que se ve. (4) Con el mapa a la vista, cambiar el GPS de una foto en el inspector: su marcador se mueve sin que el mapa se mueva |
 
 ## Comprobaciones sueltas
 
@@ -63,6 +63,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Sección «Fechas» del módulo Imagen** (12/11): debajo de «Carpetas», los años (el más reciente arriba) con sus meses («01 Enero») y sus días («10 Miércoles»), y «Sin fecha»; cada fila muestra lo que cuenta, con los mismos números que la columna «Fecha de captura»; lo desplegado y el día elegido, recordados. Antes, la barra de Imagen dividida en un archivo por sección (`ui_helpers/sidebars/sections/`), con todo igual que antes.
 - **Las barras no cogen el teclado** (12/11): al elegir algo en una barra (una carpeta, una fecha, una palabra, una colección o la flecha «ver sus fotos» del inspector), la primera foto queda seleccionada (la primera que cumple el filtro) y los atajos («3», «P», «G», Z...) van a las fotos sin otro clic; las flechas mueven la selección de fotos, no la barra; una letra ya no elige otra fila de un árbol.
 - **El archivo actual, recordado** (12/11): al abrir el catálogo, la foto que estaba seleccionada al cerrarlo; al cambiar de módulo, cada uno la suya; si ya no está, la primera. Al recargar con el mismo origen (orden, filtro), sigue seleccionado lo que se vea; al eliminar, queda seleccionada la siguiente, sin saltar al principio.
+- **Mapa, paso 2.3** (13/11/2026): la vista «Mapa» en el Catálogo, todo lo de la lista de comprobaciones (M, G, Esc de vuelta al mapa, selección compartida, aviso, capa recordada).
 - **Mapa, paso 2.2** (13/11/2026): la consulta del mapa, sin nada que ver en la aplicación.
 - **Mapa, paso 2.1** (13/11/2026): el catálogo pasa solo al esquema v4 y relee los GPX; la aplicación, igual. La distancia y el desnivel no se pueden mirar en la interfaz (no se muestran en ningún sitio: `PENDIENTE.md`, A.6); que no cambian lo comprobó el asistente comparando con el lector anterior.
 - **Mapa, paso 1.5** (13/11/2026): en la ventana de prueba de `MapView`, soltar tarjetas, mover fotos sueltas, botón derecho con menú propio, cursor oculto sobre el punto del track y teclado en la lista: todo correcto. Con él, el componente base del mapa (fase 1 de [MAPA.md](MAPA.md)) está completo.
@@ -74,6 +75,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: mapa, paso 2.4: Opciones > Mapa (capas propias y caché de teselas); el mapa, al día tras un cambio del inspector. Fase 2 (Catálogo), completa.
 - 13/11/2026: mapa, paso 2.3: la vista «Mapa» en el Catálogo (botón y M; selección compartida con la cuadrícula; Esc vuelve al mapa desde la vista individual).
 - 13/11/2026: mapa, paso 2.2: la consulta del mapa (lo mismo que la cuadrícula: fotos con coordenadas, tracks con su contorno y cuántas no tienen ubicación).
 - 13/11/2026: mapa, paso 2.1: el contorno simplificado de cada track, en el catálogo (migración 4; los tracks se releen solos).
@@ -83,4 +85,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 13/11/2026: mapa, paso 1.3: `MapView`, el mapa con QtWebEngine + Leaflet (capas, marcadores agrupados, selección y encuadre); aún no está en ningún módulo.
 - 13/11/2026: mapa, paso 1.2: tipos de datos del mapa y contrato de su fondo (`ui_helpers/map/`); capas en el orden pedido por el autor.
 - 13/11/2026: mapa, paso 1.1: lista de capas (callejero de OpenStreetMap, tres del IGN y OpenTopoMap) y caché de teselas en disco (`core/maps/`).
-- 13/11/2026: mapa, diseño ([MAPA.md](MAPA.md)) y fase 0 (prueba de concepto en `scripts/poc_map/`): se hará con QtWebEngine + Leaflet.

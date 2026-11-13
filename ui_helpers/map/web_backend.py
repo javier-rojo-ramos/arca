@@ -24,6 +24,8 @@ eventos en sus hijos ('_WebView'); si el arrastre trae tarjetas de la cuadrícul
 ('application/x-arca-media-ids') y está permitido, se acepta sin pasarlo a Chromium, se
 pinta en la página dónde caería y, al soltar, la página traduce el píxel a coordenadas.
 
+1.2.1 La revisión de los widgets internos ya no falla si la vista se destruye antes
+      (al cerrar la aplicación).
 1.2.0 Paso 1.5: soltar tarjetas, arrastrar las fotos sueltas, vista previa y botón
       derecho. Con esto cumple todo el contrato de 'MapBackend'.
 1.1.0 Tracks (paso 1.4): líneas con borde claro, track activo, punto señalado y avisos
@@ -32,7 +34,7 @@ pinta en la página dónde caería y, al soltar, la página traduce el píxel a 
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
@@ -208,8 +210,9 @@ class _WebView(QWebEngineView):
     def childEvent(self, event: QEvent) -> None:  # nombre de Qt
         super().childEvent(event)
         if event.type() == QEvent.Type.ChildAdded:
-            # El hijo aún no está construido del todo: se mira al volver al bucle de eventos
-            QTimer.singleShot(0, self.watch_children)
+            # El hijo aún no está construido del todo: se mira al volver al bucle de eventos.
+            # Con 'self' como contexto, si la vista se destruye antes, no se llama
+            QTimer.singleShot(0, self, self.watch_children)
 
 
 class WebMapBackend(MapBackend):
