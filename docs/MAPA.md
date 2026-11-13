@@ -22,13 +22,13 @@
 
 | # | Decisión | Recomendación |
 |---|---|---|
-| D1 | Geoetiquetar desde el mapa, ¿escribe en los archivos? | Sí, con el mecanismo actual del GPS (ya decidido para la edición a mano); en lotes, la ventana de vista previa dice cuántos archivos se van a escribir |
+| ~~D1~~ | Geoetiquetar desde el mapa escribe en los archivos: **decidido el 13/11/2026** | Sí, con la regla de la edición del GPS en el inspector; confirmación al soltar muchas fotos a la vez |
 | D2 | Editar un GPX existente: ¿se sobrescribe o siempre se exporta a otro archivo? | Siempre a un archivo nuevo («Exportar a GPX…»); el original no se toca (principio del proyecto) |
-| D3 | Modo Imagen: ¿mapa con tira de fotos debajo (como Lightroom) o cuadrícula y mapa lado a lado? | Tira de fotos debajo |
+| ~~D3~~ | Modo Imagen: tira de fotos debajo del mapa: **decidido el 13/11/2026** | Al ancho del centro; ocultable con un botón en el extremo derecho de la barra inferior (solo con el mapa) y con F6; alto ajustable y recordado; también en el mapa del Catálogo (solo para ver y elegir; si no convence, se le quita el botón) |
 | D4 | «Fotos de una ruta»: ¿basta con una colección hecha a mano, o se calcula (por hora y cercanía)? | Las dos: la colección ya funciona; en Tracks, calculado |
 | ~~D5~~ | Capas de partida: **decidido el 13/11/2026** (§3.1) | Callejero de OpenStreetMap, tres del IGN y OpenTopoMap, sin claves |
-| D6 | Deshacer al mover fotos en el mapa (hoy la aplicación no tiene deshacer) | Un deshacer simple, solo del mapa, mientras dure la sesión |
-| D7 | Al recolocar una foto, ¿qué pasa con su altitud? | Dejarla como está; rellenarla con el modelo de elevaciones, más adelante y preguntando |
+| ~~D6~~ | Deshacer en el mapa: **decidido el 13/11/2026** | Ctrl+Z, lo hecho en el mapa, mientras la aplicación esté abierta (si se hace un deshacer global, el mapa será el primero en usarlo) |
+| ~~D7~~ | Al recolocar una foto, su altitud: **decidido el 13/11/2026** | Se deja como está |
 | D8 | Puntos insertados en un GPX: ¿hora interpolada o sin hora? | Interpolada por distancia entre los dos vecinos |
 | D9 | Textos, icono y atajo de la vista «Mapa»; textos de las capas | Los propone cada paso; decide el autor |
 | ~~D10~~ | Identificación ante los servidores de teselas: **decidido el 13/11/2026** | `ArcaMedia/<versión>`, sin datos personales |
@@ -615,7 +615,7 @@ Aprendido para la implementación (irá a [TRAMPAS.md](TRAMPAS.md) con el paso 1
 | **3.1** Tira de fotos (según D3) | En `MapPage`, una tira horizontal debajo del mapa: un segundo `MediaGridView` con el **mismo modelo y el mismo `selectionModel`** que la cuadrícula; atajos con `GridActions.watch`. Arrastra **sin imagen** (una opción de `MediaGridView`): sobre el mapa solo se ve el círculo ámbar que dice dónde caen (el autor, 13/11/2026) | `map_page.py`, `map_controller.py`, `image_module.py` (`views`, `map_options`) | 2.3 | En Imagen, vista «Mapa»: tira con las fotos del origen; la selección de la tira, la del mapa y la de la cuadrícula son la misma; los atajos («3», «P») funcionan con el ratón sobre el mapa | La cuadrícula no cambia (mismo modelo); probar selección múltiple y Ctrl+A |
 | **3.2** Soltar para ubicar | `media_dropped` → `update_metadata_fields` por `InspectorController.request_edit`; confirmación a partir de N; el marcador aparece sin recargar todo | `map_controller.py` | 3.1; D1 | Arrastrar una o varias fotos de la tira al mapa: aparecen ahí; el inspector («Metadatos», GPS) muestra las coordenadas; con la escritura activada, Lightroom las lee | Autoprueba de `media_queries`; la edición del GPS en el inspector sigue igual |
 | **3.3** Recolocar y quitar | `markers_moved` (igual que 3.2); menú contextual «Quitar la ubicación» (latitud y longitud a vacío) | `map_controller.py` | 3.2; D7 | Arrastrar un marcador lo mueve y queda pendiente de escribir; quitar la ubicación lo borra del mapa | — |
-| **3.4** Deshacer en el mapa (según D6) | Pila sencilla de «ids → coordenadas anteriores» en `MapController`, Ctrl+Z con el mapa a la vista | `map_controller.py` (si crece, `controllers/geotag_history.py`) | 3.3 | Ctrl+Z devuelve las fotos a donde estaban (o las deja sin ubicación) | Ctrl+Z no hace nada fuera del mapa |
+| **3.4** Deshacer en el mapa (según D6) | El primer cliente de un deshacer para toda la aplicación (acordado el 13/11/2026; [PENDIENTE.md](PENDIENTE.md), B): un historial de cambios que saben deshacerse, con Ctrl+Z en la ventana; de momento, solo lo llena el mapa (ids → coordenadas anteriores) | `map_controller.py` (si crece, `controllers/geotag_history.py`) | 3.3 | Ctrl+Z devuelve las fotos a donde estaban (o las deja sin ubicación) | Ctrl+Z no hace nada fuera del mapa |
 | **3.5** Ver quién no tiene ubicación | Campo «Ubicación GPS» (tiene / no tiene) en `smart_fields.py` si no existe, y un ajuste de fábrica «Sin ubicación» en `filter_presets.py` | `smart_fields.py`, `filter_presets.py` | — | El filtro deja en la tira solo las fotos sin GPS | Autopruebas de `smart_fields`, `smart_rules`, `filter_presets` |
 
 ### Fase 4 — Modo Tracks: ver

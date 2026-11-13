@@ -5,6 +5,7 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.15 Se añade 'gpu_rendering' (dibujar la ventana con la GPU).
 1.14 Se añaden 'map_user_layers' y 'map_cache_mb' (Opciones > Mapa).
 1.13 Se añade 'map_layer' (capa del mapa que se ve).
 1.12 Se añade 'confirm_multi_edit' (aviso «Edición múltiple» del inspector).
@@ -22,7 +23,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.14"
+__version__ = "1.15"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -42,6 +43,7 @@ from config.app_constants import (
     SETTING_CONFIRM_MULTI_EDIT,
     SETTING_FILTER_METADATA_HEIGHT,
     SETTING_FILTER_PRESETS,
+    SETTING_GPU_RENDERING,
     SETTING_INSPECTOR_METADATA_PRESET,
     SETTING_INSPECTOR_SECTIONS,
     SETTING_LAST_ADD_FOLDER_PARENT,
@@ -96,6 +98,9 @@ class ConfigManager:
         SETTING_FILTER_PRESETS: None,
         # Capa del mapa que se ve (None = la de partida, el callejero)
         SETTING_MAP_LAYER: None,
+        # Dibujar la ventana con la GPU (Opciones > General; al volver a abrir la aplicación).
+        # None = según el sistema: sí en Windows y macOS, no en Linux
+        SETTING_GPU_RENDERING: None,
         # Capas propias del mapa (Opciones > Mapa)
         SETTING_MAP_USER_LAYERS: [],
         # Tamaño máximo de la caché de teselas, en MB (Opciones > Mapa)

@@ -43,7 +43,7 @@ config/
   app_config.py                      Instancia única (singleton) de la configuración: `from config.app_config import config`
   app_config_manager.py              ConfigManager: settings.json (claves: catalogo_ruta, thumbnail_size, write_user_data_to_files,
                                      main_splitter_state, show_subfolder_items, sidebar_state, inspector_metadata_preset, inspector_sections, active_module, filter_metadata_height, filter_presets, confirm_multi_edit,
-                                     last_add_folder_parent, map_layer, map_user_layers, map_cache_mb, window_geometry; todas, con su valor por defecto, en DEFAULTS)
+                                     last_add_folder_parent, map_layer, map_user_layers, map_cache_mb, gpu_rendering, window_geometry; todas, con su valor por defecto, en DEFAULTS)
   app_info.py                        Texto de ayuda en HTML (pendiente de implementar; hoy no lo usa nadie)
   app_constants.py                   Constantes, iconos (AppIcons), tamaños de miniatura, claves compartidas de settings.json
   app_logging_manager.py             setup_logging (loguru + InterceptHandler)
@@ -91,10 +91,11 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/zoom_geometry.py           Cuentas del zoom 1:1 de la vista individual (sin Qt): zoomed_size, can_zoom, relative_point, offset_keeping, clamp_offset (sin huecos, centrada si cabe, en píxeles físicos enteros)
   helpers/theme_colors.py            Colores del tema con nombre por función (ThemeColors; DARK), de las tarjetas y lo que va encima de la imagen (CardColors; DARK_CARDS) y de las marcas de clasificación (MarkColors; DARK_MARKS), sin Qt: el ÚNICO sitio de los colores de la interfaz
   helpers/theme_qss.py               QSS de los componentes generales (barras de desplazamiento, separadores, botones, campos, menús...) a partir de un ThemeColors
+  helpers/gpu_composition.py         enable_gpu_composition: la ventana principal, dibujada con la GPU desde que se abre (un QQuickWidget invisible antes de mostrarla: sin cortes al arrastrar y sin el parpadeo al abrir el mapa); gpu_allowed (la opción, '--sin-gpu' y, sin elegir, default_gpu_setting: sí en Windows y macOS, no en Linux)
   helpers/theme_style.py             ThemeStyle: QProxyStyle sobre Fusion que dibuja los botones de opción y las casillas (también las de listas y árboles) con los colores del tema
   helpers/ui_theme.py                Tema: los juegos activos (COLORS, CARD_COLORS, MARK_COLORS), paleta oscura de Fusion (build_palette), hoja de estilos global (QSS: la general + las piezas propias), tooltips, colores compartidos de la cuadrícula (GRID_BG, GRID_LINE) y de los iconos (SIDEBAR_ICON_COLOR, SIDEBAR_ICON_OPEN_COLOR, TOOLBAR_ICON_ACCENT_COLOR; None = paleta), TOOLBAR_MARGIN
   helpers/mode_toolbar.py            ModeToolbar: botones de modo de la toolbar, exclusivos; icono en acento solo en el modo activo (al pasar el ratón cambia la caja); páginas provisionales (la crea ModuleHost)
-  dialogs/settings_dialog.py         SettingsDialog: ventana de opciones (columna de secciones + páginas; PAGES = General, Catálogo, Metadatos: escribir en los archivos y el aviso «Edición múltiple»; Mapa: capas propias y caché de teselas)
+  dialogs/settings_dialog.py         SettingsDialog: ventana de opciones (columna de secciones + páginas; PAGES = General: aceleración por GPU, Catálogo, Metadatos: escribir en los archivos y el aviso «Edición múltiple»; Mapa: capas propias y caché de teselas)
   dialogs/map_layer_dialog.py        MapLayerDialog: «Añadir capa» / «Cambiar capa» (nombre, dirección de las teselas, atribución, zoom máximo; lo que no vale se dice debajo)
   dialogs/collection_dialog.py       CollectionDialog: "Crear colección" / "Crear conjunto" (nombre, conjunto, incluir la selección)
   dialogs/smart_collection_dialog.py SmartCollectionDialog: crear / editar una colección inteligente (reglas y grupos de reglas, recuento en vivo)

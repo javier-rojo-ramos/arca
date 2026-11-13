@@ -22,6 +22,10 @@ leerlo en 'load()' y guardarlo en 'save()' (y añadir la clave a
 
 Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 
+1.4.1 La aceleración por GPU, sin elegir, según el sistema; «Aceptar» sin tocarla no la
+      guarda ni avisa.
+1.4.0 "General": opción «Usar aceleración por GPU si está disponible» (al volver a abrir
+      la aplicación; SETTING_GPU_RENDERING).
 1.3.0 Sección "Mapa": capas propias (añadir, cambiar, quitar) y caché de teselas (tamaño
       máximo, lo que ocupa y vaciarla). Docs/MAPA.md, paso 2.4.
 1.2.0 "Metadatos": opción «Preguntar antes de cambiar varios archivos con valores
@@ -32,7 +36,7 @@ Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 1.1.0 Sección "Catálogo": mostrar o no los elementos de las subcarpetas.
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.1"
 __all__ = [
     "PAGES",
     "CatalogPage",
@@ -75,6 +79,7 @@ from qtpy.QtWidgets import (
 from config import app_paths
 from config.app_constants import (
     SETTING_CONFIRM_MULTI_EDIT,
+    SETTING_GPU_RENDERING,
     SETTING_MAP_CACHE_MB,
     SETTING_MAP_USER_LAYERS,
     SETTING_SHOW_SUBFOLDER_ITEMS,
@@ -90,6 +95,7 @@ from core.maps.tile_layers import (
 )
 from core.maps.tile_store import TileStorageError, TileStore
 from ui_helpers.dialogs.map_layer_dialog import MapLayerDialog
+from ui_helpers.helpers.gpu_composition import default_gpu_setting
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.inspector.formatting import format_size
@@ -174,7 +180,7 @@ class SettingsPage(QWidget):
 
 
 class GeneralPage(SettingsPage):
-    """Sección "General": información de dónde guarda las cosas la aplicación."""
+    """Sección "General": dónde guarda las cosas la aplicación y la aceleración por GPU."""
 
     title = "General"
     icon = AppIcons.SETTINGS_APP
@@ -194,6 +200,39 @@ class GeneralPage(SettingsPage):
             # Se puede seleccionar y copiar la ruta
             label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             self.body.addWidget(label)
+
+        # Texto de la opción, del autor (13/11/2026)
+        self.body.addSpacing(6)
+        self.check_gpu = QCheckBox("Usar aceleración por GPU si está disponible")
+        self.body.addWidget(self.check_gpu)
+        self.body.addWidget(
+            self.make_help_label(
+                "La ventana se dibuja con la tarjeta gráfica: las fotos se mueven con suavidad "
+                "(también a 1:1 en la vista individual) y la ventana no parpadea al abrir el "
+                "mapa. Desactívala si la ventana se ve mal (puede pasar en máquinas virtuales "
+                "o con escritorio remoto). Viene activada en Windows y macOS, y desactivada en "
+                "Linux (aún sin probar allí).<br>"
+                "Se aplica al volver a abrir la aplicación. Si con ella la ventana no llega a "
+                "verse, se puede abrir sin ella añadiendo <i>--sin-gpu</i> al arrancar."
+            )
+        )
+
+    def _gpu_setting(self) -> bool:
+        """La opción tal como se aplica: la elegida o, si no, la del sistema."""
+        value = self.config.get(SETTING_GPU_RENDERING)
+        return value if isinstance(value, bool) else default_gpu_setting()
+
+    def load(self) -> None:
+        self.check_gpu.setChecked(self._gpu_setting())
+
+    def save(self) -> set[str]:
+        # Solo si cambia lo que se aplica: «Aceptar» sin tocarla no la guarda (sigue
+        # dependiendo del sistema) ni avisa de volver a abrir la aplicación
+        value = self.check_gpu.isChecked()
+        if value == self._gpu_setting():
+            return set()
+        self.config.set(SETTING_GPU_RENDERING, value)
+        return {SETTING_GPU_RENDERING}
 
 
 class CatalogPage(SettingsPage):
@@ -641,6 +680,7 @@ if __name__ == "__main__":
                 SETTING_CONFIRM_MULTI_EDIT: False,  # como tras «No volver a mostrar»
                 SETTING_MAP_CACHE_MB: 2048,
                 SETTING_MAP_USER_LAYERS: [],
+                SETTING_GPU_RENDERING: None,  # sin elegir: según el sistema
             }
 
         def get(self, key: str, default: Any = None) -> Any:

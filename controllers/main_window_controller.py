@@ -30,6 +30,7 @@ from qtpy.QtWidgets import QAbstractItemView, QListView, QMainWindow, QToolButto
 from config import app_paths
 from config.app_config import config
 from config.app_constants import (
+    SETTING_GPU_RENDERING,
     SETTING_LAST_ADD_FOLDER_PARENT,
     SETTING_MAIN_SPLITTER_STATE,
     SETTING_WRITE_USER_DATA_TO_FILES,
@@ -88,6 +89,7 @@ from ui_helpers.delegates.thumbnails_delegate import ThumbnailsDelegate
 from ui_helpers.dialogs.folder_content_dialog import FolderContentDialog
 from ui_helpers.dialogs.remove_dialog import RemoveDialog
 from ui_helpers.dialogs.settings_dialog import SettingsDialog
+from ui_helpers.helpers.gpu_composition import enable_gpu_composition, gpu_allowed
 from ui_helpers.helpers.grid_actions import GridActions
 from ui_helpers.helpers.mode_toolbar import toolbar_accent_color
 from ui_helpers.helpers.ui_file_dialogs import select_folder
@@ -166,6 +168,12 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
 
         self.message_box = MessageBoxHelper(self)
         self.config = config
+
+        # La ventana, dibujada con la GPU desde que se abre (antes de mostrarla: ver
+        # 'gpu_composition'). Opción de Opciones > General (sin elegir, según el sistema);
+        # '--sin-gpu' para arrancar sin ella
+        if gpu_allowed(self.config.get(SETTING_GPU_RENDERING)):
+            enable_gpu_composition(self)
 
         # --- Estado del Mosaico de Miniaturas ---
         # El modelo lee la lista de la base de datos del catálogo y las miniaturas de su caché
@@ -778,6 +786,12 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # recarga sola)
         if self.module_host is not None:
             self.module_host.apply_settings(changed)
+        # La aceleración por GPU se aplica al volver a abrir la aplicación: se avisa
+        if SETTING_GPU_RENDERING in changed:
+            self.message_box.info(
+                "El cambio de la aceleración por GPU se aplicará al volver a abrir la aplicación."
+            )
+
         # El mapa: capas propias y tope de la caché de teselas
         if self.map_controller is not None:
             self.map_controller.apply_settings(changed)

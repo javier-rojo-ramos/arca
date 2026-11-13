@@ -19,6 +19,7 @@ __all__ = [
     "SETTING_INSPECTOR_SECTIONS",
     "SETTING_FILTER_METADATA_HEIGHT",
     "SETTING_FILTER_PRESETS",
+    "SETTING_GPU_RENDERING",
     "SETTING_ACTIVE_MODULE",
     "SETTING_LAST_ADD_FOLDER_PARENT",
     "SETTING_MAP_CACHE_MB",
@@ -131,6 +132,11 @@ SETTING_FILTER_METADATA_HEIGHT = "filter_metadata_height"
 # del desplegable (ver 'core/catalog/filter_presets.py'). Una para todos los módulos y
 # catálogos. None = los de fábrica (aún sin cambiar)
 SETTING_FILTER_PRESETS = "filter_presets"
+
+# Dibujar la ventana con la GPU (Opciones > General: «Usar aceleración por GPU si está
+# disponible»; ver 'ui_helpers/helpers/gpu_composition.py'). Se aplica al volver a abrir
+# la aplicación. None = según el sistema (sí en Windows y macOS, no en Linux)
+SETTING_GPU_RENDERING = "gpu_rendering"
 
 # Módulo activo al cerrar la aplicación ('catalog', 'image', 'video', 'audio'): se
 # vuelve a él al arrancar. Es común a todos los catálogos

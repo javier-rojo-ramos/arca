@@ -114,6 +114,7 @@ python -m controllers.metadata_filter_controller               (columnas de part
 python -m ui_helpers.dialogs.filter_presets_dialog             (subir, bajar, arrastrar, cambiar el nombre con vacío y repetido, eliminar, restaurar los de fábrica; sin ventana. Con --ventana, la ventana con los de fábrica y uno más)
 python -m ui_helpers.dialogs.map_layer_dialog                  (una ventana: «Añadir capa», con lo que no vale dicho debajo)
 python -m ui_helpers.dialogs.smart_collection_dialog           (crear y editar, añadir y quitar reglas y grupos, recuento y recuentos tardíos, errores en rojo, lo elegido; sin ventana. Con --ventana, la ventana con un contador simulado y un aviso de ejemplo)
+python -m ui_helpers.helpers.gpu_composition                   (ventanas que NO se muestran en pantalla: con la plataforma real, la preparada nace con la GPU y no se rehace)
 python -m ui_helpers.helpers.card_glyphs                       (dibuja marcadores e indicadores en una imagen; sin ventana)
 python -m ui_helpers.helpers.card_marks                        (dibuja las marcas en una imagen; necesita PySide6)
 python -m ui_helpers.helpers.keyword_menu                      (lógica del menú de los árboles de palabras clave; sin ventana)

@@ -4,7 +4,7 @@
 > Índice: [INDEX.md](INDEX.md).
 
 ## 1. Arranque
-`main.py: main()` → `setup_logging` → `QApplication` → traducción de Qt al español (`resources/locales/qtbase_es.qm`) → estilo Fusion y `apply_theme()` (antes de crear la ventana: algunos widgets copian colores de la paleta al construirse) → `MainWindowController().iniciar()` → tras mostrar la ventana, `_cargar_configuracion_inicial_rutas()` lee `catalogo_ruta` de `settings.json` y reabre el último catálogo (`_open_catalog`).
+`main.py: main()` → `setup_logging` → `QApplication` → traducción de Qt al español (`resources/locales/qtbase_es.qm`) → estilo Fusion y `apply_theme()` (antes de crear la ventana: algunos widgets copian colores de la paleta al construirse) → `MainWindowController()` (si la aceleración por GPU está activada y no se arrancó con `--sin-gpu`, `enable_gpu_composition` le pone un `QQuickWidget` invisible ANTES de mostrarla: la ventana nace dibujándose con la GPU) → `iniciar()` → tras mostrar la ventana, `_cargar_configuracion_inicial_rutas()` lee `catalogo_ruta` de `settings.json` y reabre el último catálogo (`_open_catalog`).
 
 ## 2. Crear o abrir un catálogo
 - **Menú "Nuevo catálogo"** → `_on_new_catalog`: elige carpeta → si ya hay `catalogo.db` ofrece abrirlo → si la carpeta no está vacía pide confirmación → `CatalogBuilder.build()` (carpetas, `catalogo.db` en WAL, `apply_migrations`) → `_open_catalog`.
