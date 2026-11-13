@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 12/11/2026.
+**Actualizado**: 13/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes: añadir y sincronizar carpetas, metadatos con ExifTool, miniaturas, cuadrícula y vista individual, clasificación (valoración, marca, color y selección rápida) guardada también en los archivos, palabras clave, colecciones (también inteligentes, con grupos de reglas), barra de filtros («Texto», «Atributos», «Metadatos» y ajustes personalizados) e inspector, que edita las palabras clave en todos los módulos y, en las fotos y vídeos de Imagen, el título, el pie, el creador, el copyright, la ubicación y el GPS (también guardados en los archivos). El módulo Imagen navega por carpetas, fechas y palabras clave. Vídeo, audio, GPX y ebooks se catalogan y se clasifican en bibliotecas, pero los módulos Vídeo y Audio aún son provisionales. Lo siguiente, en [PENDIENTE.md](PENDIENTE.md).
 
@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| — | Nada pendiente: todo lo entregado está verificado (12/11/2026) |
+| — | Nada pendiente: todo lo entregado está verificado (13/11/2026) |
 
 ## Comprobaciones sueltas
 
@@ -63,11 +63,13 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Sección «Fechas» del módulo Imagen** (12/11): debajo de «Carpetas», los años (el más reciente arriba) con sus meses («01 Enero») y sus días («10 Miércoles»), y «Sin fecha»; cada fila muestra lo que cuenta, con los mismos números que la columna «Fecha de captura»; lo desplegado y el día elegido, recordados. Antes, la barra de Imagen dividida en un archivo por sección (`ui_helpers/sidebars/sections/`), con todo igual que antes.
 - **Las barras no cogen el teclado** (12/11): al elegir algo en una barra (una carpeta, una fecha, una palabra, una colección o la flecha «ver sus fotos» del inspector), la primera foto queda seleccionada (la primera que cumple el filtro) y los atajos («3», «P», «G», Z...) van a las fotos sin otro clic; las flechas mueven la selección de fotos, no la barra; una letra ya no elige otra fila de un árbol.
 - **El archivo actual, recordado** (12/11): al abrir el catálogo, la foto que estaba seleccionada al cerrarlo; al cambiar de módulo, cada uno la suya; si ya no está, la primera. Al recargar con el mismo origen (orden, filtro), sigue seleccionado lo que se vea; al eliminar, queda seleccionada la siguiente, sin saltar al principio.
+- **Mapa, fase 0: prueba de concepto** (13/11/2026; `scripts/poc_map/`, aislada de la aplicación): mapa con QtWebEngine + Leaflet fluido con un track de 10 000 puntos y 20 000 marcadores, capas del IGN y de OpenTopoMap con caché, soltar tarjetas con 1-3 px de diferencia, teclado en la lista, sin parpadeo apreciable; los cortes horizontales de la foto desaparecen al existir la vista web. Se sigue con el plan A de [MAPA.md](MAPA.md).
 
 ## Últimos cambios
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: mapa, diseño ([MAPA.md](MAPA.md)) y fase 0 (prueba de concepto en `scripts/poc_map/`): se hará con QtWebEngine + Leaflet.
 - 12/11/2026: cada módulo recuerda su archivo actual (al abrir el catálogo y al volver al módulo); al recargar se conserva la selección o queda el que ocupa su lugar.
 - 12/11/2026: al elegir algo en una barra, la primera foto queda seleccionada y el teclado sigue en las fotos (las barras no lo cogen), como Lightroom.
 - 12/11/2026: en los árboles de las barras, una letra o un número ya no elige otra fila (sin «búsqueda al teclear»).
@@ -77,4 +79,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 12/11/2026: «Borrar» una palabra clave avisa de los archivos de todo el catálogo, por tipo (antes, solo las fotos del árbol).
 - 12/11/2026: la rueda del ratón en la vista individual: foto anterior o siguiente; Ctrl + rueda, zoom 1:1; a 1:1, mueve la foto.
 - 12/11/2026: vista individual a 1:1, sin lupa en una foto de la que no se puede leer nada mayor que su caché (un DNG con una vista previa pequeña).
-- 12/11/2026: vista individual a 1:1, paso 3 (último): lupa, clic, arrastre con la mano, Z, el original en segundo plano y vuelta a la vista ajustada.

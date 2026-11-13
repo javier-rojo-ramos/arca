@@ -1,6 +1,6 @@
 # Arca Media — Mapa (`MapView`): diseño y plan de implementación
 
-> **Diseño, todavía sin implementar** (13/11/2026). Componente de mapa único para los módulos Catálogo, Imagen y Tracks: tecnología, API, capas, elevación, datos, correlación foto-track, edición de GPX, rendimiento, riesgos y plan por pasos. Cuando un paso se entregue, su parte pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md) y [DECISIONES.md](DECISIONES.md), y aquí se tacha.
+> **Diseño; fase 0 hecha el 13/11/2026 (se sigue con el plan A: QtWebEngine + Leaflet), el resto sin implementar.** Componente de mapa único para los módulos Catálogo, Imagen y Tracks: tecnología, API, capas, elevación, datos, correlación foto-track, edición de GPX, rendimiento, riesgos y plan por pasos. Cuando un paso se entregue, su parte pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md) y [DECISIONES.md](DECISIONES.md), y aquí se tacha.
 > Índice: [INDEX.md](INDEX.md). Punto de la hoja de ruta: [PENDIENTE.md](PENDIENTE.md), A.5 y A.6.
 
 ## Resumen
@@ -241,7 +241,7 @@ Reglas de la API:
 
 - **Python → JS**: llamadas a funciones de `arca_map.js` con JSON compacto (marcadores como `[id, lat, lon, tipo, miniatura]`; tracks como polilíneas codificadas). Nunca se construye JavaScript concatenando textos del usuario: siempre `json.dumps`.
 - **JS → Python**: ranuras de `MapBridge` (`on_select`, `on_drop_point`, `on_marker_moved`, `on_track_hover`, `on_edit`, `on_viewport`, `on_context_menu`). El JS no guarda más estado que lo que pinta.
-- **Soltar tarjetas**: el `QWebEngineView` (subclase) acepta `dragEnter`/`dragMove` solo si el arrastre trae `MEDIA_IDS_MIME` y no pasa el evento a Chromium; en `dropEvent` guarda el `MediaDrag`, pide a la página la coordenada del punto (`containerPointToLatLng`) y, con la respuesta, emite `media_dropped`. Durante el arrastre, la página pinta un marcador fantasma (`set_drop_cursor`).
+- **Soltar tarjetas** (comprobado en la fase 0: los eventos llegan al widget interno de la vista, no a la subclase): un filtro de eventos en los hijos del `QWebEngineView` acepta `DragEnter`/`DragMove` solo si el arrastre trae `MEDIA_IDS_MIME` y no pasa el evento a Chromium; en `Drop` guarda el `MediaDrag`, pide a la página la coordenada del punto (`containerPointToLatLng`) y, con la respuesta, emite `media_dropped`. Durante el arrastre, la página pinta un marcador fantasma (`set_drop_cursor`).
 - **Seguridad**: la página solo puede navegar dentro de `arca-map://` (`acceptNavigationRequest`); sin acceso a `file://` ni a la red directa (las teselas pasan por el esquema).
 
 ### 2.6 Cómo lo usan los tres modos
@@ -548,6 +548,23 @@ Objetivos: 20 000 fotos con coordenadas en un origen; un track activo de 50 000 
 Reglas para quien lo implemente: un paso cada vez, con el visto bueno del autor antes de los que tocan varios archivos; al terminar cada paso, lo que manda [CLAUDE.md](../CLAUDE.md) («Al terminar cada paso: actualizar la documentación»): `ESTADO.md` siempre, el mapa de `ARQUITECTURA.md` con cada archivo nuevo, `PRUEBAS.md` con cada autoprueba, `MODELO_DE_DATOS.md` e `INDEX.md` con la migración y la versión, `FLUJOS.md` con un apartado nuevo «Mapa», `TRAMPAS.md` con lo que se descubra y `DECISIONES.md` con lo que decida el autor. **En cada paso**, además de sus criterios: `ruff check` de lo tocado, las autopruebas de los módulos tocados y que la aplicación arranca y la cuadrícula, la vista individual y el inspector siguen igual (lo comprueba el autor).
 
 Antes de empezar: resolver D1, D2 y D3 (condicionan las fases 3 y 7) y recordar al autor que haga un commit.
+
+### Resultado de la fase 0 (13/11/2026): se sigue con el plan A
+
+Hecha en `scripts/poc_map/` y probada por el autor en Windows (pantalla al 100 %, PySide6 6.11.2, Python 3.14.8). Todos los criterios se cumplen:
+
+| Qué | Resultado |
+|---|---|
+| Mapa y fluidez | Listo 134 ms después de crear la vista web; track de 10 000 puntos (8 ms) y 20 000 marcadores agrupados (47 ms), fluido al mover y hacer zoom. El autor aclara que sus tracks reales tienen de 1 000 a 10 000 puntos: el objetivo de 50 000 de §8 queda como margen, no como requisito |
+| Parpadeo al crear el mapa | Apenas se nota |
+| Soltar tarjetas | Funciona, con 1-3 px de diferencia (incluye lo que se mueve el ratón al soltar). **Los eventos de arrastre no llegan a la subclase de `QWebEngineView`, sino a su widget interno**: `WebMapBackend` debe poner un filtro de eventos en los hijos de la vista (como `MapWebView._watch_children` de la prueba). La capa transparente no hace falta |
+| Teclado | Con la vista y sus hijos en `NoFocus`, las flechas siguen en la lista, también tras un clic en el mapa |
+| Ida y vuelta Python ↔ página | 0,17 ms de mediana (máximo 0,67 ms) |
+| Esquema `arca-map://` | 362 teselas sin errores (IGN MTN y OpenTopoMap; las direcciones de §3.1 valen), unos 100 ms por descarga; segunda vez y sin conexión, de la caché. El manejador se ejecuta en el hilo principal y no se nota |
+| Memoria | Unos 170 MB más con el mapa vacío y unos 400-500 MB más con el track y los 20 000 marcadores cargados (714 MB en total en la prueba, que incluye una imagen de 96 MB). Es el coste de Chromium; a vigilar con datos reales |
+| Cortes horizontales de la foto | **Desaparecen en cuanto existe la vista web** (antes de crearla, los mismos cortes que en la vista individual). Confirma que basta con que la ventana se componga con la GPU; ver [PENDIENTE.md](PENDIENTE.md), B |
+
+Aprendido para la implementación (irá a [TRAMPAS.md](TRAMPAS.md) con el paso 1.3): `QNetworkRequest.setHeader(UserAgentHeader, ...)` no acepta `bytes` desde Python (avisa y no pone la cabecera): usar `setRawHeader`; una lista de JavaScript devuelta por `runJavaScript` no llega bien a Python: devolver texto JSON. La prueba se conserva como referencia hasta el paso 1.5 y después se borra.
 
 ### Fase 0 — Prueba de concepto (no es código de producción)
 
