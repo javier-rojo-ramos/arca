@@ -18,6 +18,7 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.16.0 Aviso sobre el mapa ('#lbl_map_notice').
 1.15.0 Cajas editables del inspector ('#edit_inspector_value': parecen texto hasta pasar
        el ratón o entrar; «Varios» en gris con la propiedad 'mixed').
 1.14.0 'MARK_COLORS' (marcas de clasificación, de 'theme_colors.py') junto a 'COLORS' y
@@ -57,7 +58,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.15.0"
+__version__ = "1.16.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -202,6 +203,16 @@ QToolButton#btn_filter_presets::menu-indicator {{
    el aviso de algo que no vale, en rojo; un aviso de arriba (p. ej. «las reglas guardadas
    no se podían leer»), en el color de aviso. El texto de estado de una ventana (p. ej. el
    recuento de las colecciones inteligentes) se pone en rojo con la propiedad 'error' */
+/* Aviso sobre el mapa («12 fotos sin ubicación»; ui_helpers/widgets/map_page.py): discreto,
+   como un texto emergente, y legible sobre cualquier capa */
+QLabel#lbl_map_notice {{
+    background-color: {COLORS.bg_tooltip};
+    color: {COLORS.text};
+    border: 1px solid {COLORS.line};
+    border-radius: 3px;
+    padding: 3px 8px;
+}}
+
 QLabel#lbl_dialog_hint {{
     color: {COLORS.text_dim};
 }}

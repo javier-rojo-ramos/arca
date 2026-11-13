@@ -36,6 +36,7 @@
         <file alias="library_all.svg">images/library_all.svg</file>
         <file alias="view_grid.svg">images/view_grid.svg</file>
         <file alias="view_full.svg">images/view_full.svg</file>
+        <file alias="view_map.svg">images/view_map.svg</file>
         <file alias="lock_closed.svg">images/lock_closed.svg</file>
         <file alias="lock_open.svg">images/lock_open.svg</file>
     </qresource>

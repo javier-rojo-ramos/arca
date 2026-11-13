@@ -21,6 +21,8 @@ el controlador principal, que conecta esas señales de 'CatalogSidebar' directam
 Orden de la cuadrícula: todos los campos de 'grid_orders.py'; parte de «Nombre» (con tipos
 mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 
+1.5.0 'views': también el mapa (docs/MAPA.md, paso 2.3): lo elegido a la izquierda, en un
+      mapa; solo para ver y seleccionar.
 1.4.0 'filter_metadata_fields': Tipo de archivo, Fecha de captura y Palabra clave
       (decidido por el autor el 09/11/2026). Paso A.3.
 1.3.0 'filter_media_types': foto, vídeo, audio y track (los tipos que ya existen; el
@@ -30,7 +32,7 @@ mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 1.1.0 'sort_fields' y 'default_order' (orden de partida: «Nombre»).
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["CatalogModule"]
 
 # Librerías estándar
@@ -48,6 +50,7 @@ from qtpy.QtWidgets import QToolButton, QWidget
 # Módulos del proyecto
 from config.app_constants import SETTING_SHOW_SUBFOLDER_ITEMS, AppIcons
 from controllers.app_modules.base import AppModule, ModuleContext
+from controllers.app_modules.center_views import CenterView
 from controllers.collection_actions import CollectionActions
 from core.catalog.folder_tree import LocationNode, fetch_folder_tree
 from core.catalog.grid_orders import NAME_ORDER, SORT_FIELDS, GridOrder
@@ -137,6 +140,10 @@ class CatalogModule(AppModule):
         barra no tiene esa fila (una palabra clave), se queda sin fila marcada. Una palabra
         llega sin biblioteca: el Catálogo las abarca todas (decidido el 08/11/2026)."""
         self.sidebar.show_source(source)
+
+    def views(self) -> tuple[CenterView, ...]:
+        """Cuadrícula, vista individual y mapa (empieza en la cuadrícula)."""
+        return (CenterView.GRID, CenterView.SINGLE, CenterView.MAP)
 
     def filter_media_types(self) -> tuple[str, ...]:
         """Todos los tipos que ya maneja la aplicación (el libro electrónico, cuando lo haya)."""

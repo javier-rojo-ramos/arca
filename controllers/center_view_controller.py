@@ -6,15 +6,20 @@ Une piezas que no se conocen entre sí:
     - los botones de vista de la barra inferior ('ViewButtons', 'widget_view_buttons');
     - la pila del centro ('stacked_widget_main': 'page_grid', 'page_single'...) y el
       deslizador del tamaño de las tarjetas, que solo se ve en la cuadrícula;
-    - la cuadrícula y la vista individual, que comparten modelo y selección.
+    - la cuadrícula, la vista individual y el mapa, que comparten modelo y selección.
 
 Flujo: pulsar un botón -> 'ModuleHost.set_view' (lo recuerda por módulo y por catálogo)
 -> 'view_changed' -> aquí: página, botones, deslizador y foco. Lo mismo al cambiar de
 módulo o al abrir y cerrar un catálogo (el host emite 'view_changed').
 
-Teclado y ratón (sin Ctrl, Alt ni Mayús):
+Teclado y ratón (sin Ctrl, Alt ni Mayús; decidido por el autor el 08/11 y el 13/11/2026):
     cuadrícula         doble clic o Intro -> vista individual del archivo pulsado / actual
-    vista individual   Esc o G -> cuadrícula, con el archivo visto seleccionado y visible
+                       M -> mapa (si el módulo lo ofrece)
+    mapa               G -> cuadrícula. Doble clic en una foto -> vista individual (lo
+                       pide el controlador del mapa con 'open_single')
+    vista individual   G -> cuadrícula, con el archivo visto seleccionado y visible
+                       Esc -> la vista de la que se vino (el mapa o la cuadrícula)
+                       M -> mapa (si el módulo lo ofrece)
                        ← ↑ anterior, → ↓ siguiente, Inicio el primero, Fin el último
                        (en el orden de la cuadrícula); también la rueda del ratón:
                        hacia delante la anterior, hacia atrás la siguiente (la cuenta
@@ -48,9 +53,13 @@ se mantiene al día: si se borra o deja de verse, se busca al cargar y no se enc
 Uso (en el controlador principal, que solo lo crea):
     CenterViewController(
         module_host, buttons=..., stack=..., pages={CenterView.GRID: page_grid, ...},
-        size_slider=..., grid=list_view_grid, single=widget_single_view, parent=window,
+        size_slider=..., grid=list_view_grid, single=widget_single_view,
+        map_page=pagina_del_mapa, parent=window,
     )
 
+1.5.0 El mapa: M lo abre desde la cuadrícula y la vista individual; G, desde el mapa, a la
+      cuadrícula; Esc en la vista individual vuelve a la vista de la que se vino; el
+      teclado va a la página del mapa (los atajos de clasificación, a la selección).
 1.4.0 Al recargar, siempre un archivo actual: el que recuerda cada módulo (al volver a él y
       al abrir el catálogo), la selección que había (mismo origen) o el que ocupa su lugar.
 1.3.0 Al elegir otra cosa en una barra, el teclado vuelve al centro y la primera foto de la
@@ -61,7 +70,7 @@ Uso (en el controlador principal, que solo lo crea):
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -84,8 +93,11 @@ from ui_helpers.widgets.view_buttons import ViewButtons
 _KEY = Qt.Key
 # Teclas de la cuadrícula que abren la vista individual
 _OPEN_KEYS = {_KEY.Key_Return, _KEY.Key_Enter}
-# Teclas de la vista individual que vuelven a la cuadrícula
-_BACK_KEYS = {_KEY.Key_Escape, _KEY.Key_G}
+# Teclas de las vistas (como Lightroom: G, la cuadrícula; M, el mapa)
+_GRID_KEY = _KEY.Key_G
+_MAP_KEY = _KEY.Key_M
+# En la vista individual: volver a la vista de la que se vino
+_BACK_KEY = _KEY.Key_Escape
 # Pasos de las flechas en la vista individual
 _STEP_KEYS = {_KEY.Key_Left: -1, _KEY.Key_Up: -1, _KEY.Key_Right: 1, _KEY.Key_Down: 1}
 # Modificadores que no impiden los atajos (el del teclado numérico)
@@ -106,6 +118,7 @@ class CenterViewController(QObject):
         size_slider: QWidget,
         grid: QListView,
         single: QWidget,
+        map_page: QWidget | None = None,
         parent: QObject | None = None,
     ) -> None:
         """Conecta las piezas y muestra ya la vista del módulo activo.
@@ -118,6 +131,7 @@ class CenterViewController(QObject):
             size_slider: Deslizador del tamaño de las tarjetas (solo en la cuadrícula).
             grid: La cuadrícula (su modelo y su selección son los de la vista individual).
             single: La vista individual (recibe aquí sus teclas de navegación).
+            map_page: La página del mapa (recibe el teclado en el mapa), o None.
             parent: Objeto padre (la ventana principal).
         """
         super().__init__(parent)
@@ -128,6 +142,9 @@ class CenterViewController(QObject):
         self._slider = size_slider
         self._grid = grid
         self._single = single
+        self._map_page = map_page
+        # Adónde vuelve Esc desde la vista individual: la vista de la que se vino
+        self._single_back = CenterView.GRID
         self._model: Any = grid.model()
         self._shown: CenterView | None = None  # vista que está en pantalla
         # Para volver a lo que se veía tras recargar la lista (el mismo origen): el 'id' del
@@ -149,6 +166,8 @@ class CenterViewController(QObject):
         grid.doubleClicked.connect(lambda index: self.open_single(index.row()))
         grid.installEventFilter(self)
         single.installEventFilter(self)
+        if map_page is not None:
+            map_page.installEventFilter(self)
         # La rueda en la vista individual (si la vista la ofrece): anterior o siguiente
         step_requested = getattr(single, "step_requested", None)
         if step_requested is not None:
@@ -208,12 +227,17 @@ class CenterViewController(QObject):
         previous, self._shown = self._shown, view
         if view == CenterView.SINGLE:
             if previous != CenterView.SINGLE:
+                # Esc volverá a la vista de la que se viene (el mapa o la cuadrícula)
+                self._single_back = previous if previous == CenterView.MAP else CenterView.GRID
                 # Al entrar (también con el botón): solo el archivo que se ve, seleccionado
                 row = self._current_row()
                 if row >= 0:
                     self._select_only(row)
             self._single.setFocus()
-        elif view == CenterView.GRID and previous == CenterView.SINGLE:
+        elif view == CenterView.MAP and self._map_page is not None:
+            # El mapa no coge el teclado: lo coge su página, para los atajos y la G
+            self._map_page.setFocus()
+        elif view == CenterView.GRID and previous in (CenterView.SINGLE, CenterView.MAP):
             self._grid.setFocus()
             self._grid.scrollTo(self._grid.currentIndex(), QAbstractItemView.ScrollHint.EnsureVisible)
 
@@ -225,13 +249,21 @@ class CenterViewController(QObject):
         if event.type() != QEvent.Type.KeyPress or event.modifiers() not in _NO_MODIFIER:
             return False
         key = event.key()
-        if watched is self._grid and key in _OPEN_KEYS:
-            self.open_single()
-            return True
+        if watched is self._grid:
+            if key in _OPEN_KEYS:
+                self.open_single()
+                return True
+            return key == _MAP_KEY and self._show_view(CenterView.MAP)
+        if watched is self._map_page and self._map_page is not None:
+            return self._shown == CenterView.MAP and key == _GRID_KEY and self._show_view(CenterView.GRID)
         if watched is not self._single or self._shown != CenterView.SINGLE:
             return False
-        if key in _BACK_KEYS:
+        if key == _GRID_KEY:
             self._host.set_view(CenterView.GRID)
+        elif key == _BACK_KEY:
+            self._show_view(self._single_back) or self._host.set_view(CenterView.GRID)
+        elif key == _MAP_KEY:
+            return self._show_view(CenterView.MAP)
         elif key in _STEP_KEYS:
             self._move_to(self._current_row() + _STEP_KEYS[key])
         elif key == _KEY.Key_Home:
@@ -240,6 +272,13 @@ class CenterViewController(QObject):
             self._move_to(self._model.rowCount() - 1)
         else:
             return False  # el resto (atajos de clasificación...) sigue su camino
+        return True
+
+    def _show_view(self, view: CenterView) -> bool:
+        """Pasa a esa vista si el módulo la ofrece. False (y nada cambia) si no."""
+        if view not in self._host.active_views():
+            return False
+        self._host.set_view(view)
         return True
 
     def _current_row(self) -> int:
@@ -324,6 +363,8 @@ class CenterViewController(QObject):
         self._select_first = True
         if self._shown == CenterView.SINGLE:
             self._single.setFocus()
+        elif self._shown == CenterView.MAP and self._map_page is not None:
+            self._map_page.setFocus()
         else:
             self._grid.setFocus()
 
@@ -607,6 +648,55 @@ if __name__ == "__main__":
     host.source_chosen.emit()
     model.fill([])  # lo elegido no tiene nada: nada que seleccionar
     assert selected_rows() == []
+
+    # El mapa (13/11/2026): M lo abre, G vuelve a la cuadrícula; desde el mapa, la vista
+    # individual vuelve al mapa con Esc y con M, y a la cuadrícula con G
+    page_map = QWidget(stack)
+    stack.addWidget(page_map)
+    map_controller = CenterViewController(
+        host, buttons=ViewButtons(window), stack=stack,  # type: ignore[arg-type]
+        pages={CenterView.GRID: page_grid, CenterView.SINGLE: page_single, CenterView.MAP: page_map},
+        size_slider=slider, grid=grid, single=single, map_page=page_map, parent=window,
+    )  # fmt: skip
+    controller.deleteLater()  # el de antes ya no atiende nada
+    controller.setParent(None)
+    grid.removeEventFilter(controller)
+    single.removeEventFilter(controller)
+    host.view_changed.disconnect(controller._show)
+    host.views = (CenterView.GRID, CenterView.SINGLE)
+    host.set_view(CenterView.GRID)
+    press(grid, _KEY.Key_M)  # el módulo no ofrece el mapa: no pasa nada
+    assert host.view is CenterView.GRID
+    host.views = (CenterView.GRID, CenterView.SINGLE, CenterView.MAP)
+    model.fill([10, 20, 30, 40])
+    selection.setCurrentIndex(model.index(1, 0), QItemSelectionModel.SelectionFlag.ClearAndSelect)
+    press(grid, _KEY.Key_M)
+    assert host.view is CenterView.MAP and stack.currentWidget() is page_map and slider.isHidden()
+    press(page_map, _KEY.Key_G)
+    assert host.view is CenterView.GRID and stack.currentWidget() is page_grid
+    # Desde el mapa, doble clic en una foto (lo pide el controlador del mapa) y Esc: al mapa
+    host.set_view(CenterView.MAP)
+    map_controller.open_single(2)
+    assert host.view is CenterView.SINGLE and selected_rows() == [2]
+    press(single, _KEY.Key_Escape)
+    assert host.view is CenterView.MAP and selected_rows() == [2]
+    map_controller.open_single(3)
+    press(single, _KEY.Key_M)
+    assert host.view is CenterView.MAP
+    map_controller.open_single(3)
+    press(single, _KEY.Key_G)
+    assert host.view is CenterView.GRID
+    # Desde la cuadrícula, Esc sigue volviendo a la cuadrícula; M, al mapa
+    press(grid, _KEY.Key_Return)
+    press(single, _KEY.Key_Escape)
+    assert host.view is CenterView.GRID
+    press(grid, _KEY.Key_Return)
+    press(single, _KEY.Key_M)
+    assert host.view is CenterView.MAP
+    # En el mapa, Esc y las demás teclas no son de este controlador (los atajos, a la selección)
+    for key in (_KEY.Key_Escape, _KEY.Key_3, _KEY.Key_M):
+        event = QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier)
+        assert map_controller.eventFilter(page_map, event) is False, key
 
     window.deleteLater()
     print("Autoprueba finalizada correctamente.")

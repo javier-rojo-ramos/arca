@@ -8,17 +8,18 @@ recuerda por módulo y por catálogo ('ModuleViewState'); la pone en pantalla el
     GRID    cuadrícula de tarjetas            (todos los módulos, de momento)
     SINGLE  vista individual: un archivo      (todos los módulos, de momento)
     LIST    lista con columnas                (llegará con el módulo Audio)
-    MAP     mapa                              (llegará con el módulo Tracks)
+    MAP     mapa                              (el Catálogo, desde el 13/11/2026; docs/MAPA.md)
 
 Decidido por el autor el 08/11/2026 (ver docs/DECISIONES.md, «Vistas del centro»).
 
+1.1.0 El mapa: icono y atajo «Mapa (M)» (decidido por el autor el 13/11/2026).
 1.0.0 Primera versión (paso A.1, subpaso 3).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m controllers.app_modules.center_views
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["CenterView"]
 
 # Librerías estándar
@@ -62,15 +63,15 @@ _TOOLTIPS: dict[CenterView, str] = {
     CenterView.GRID: "Cuadrícula (G)",
     CenterView.SINGLE: "Vista individual (Intro)",
     CenterView.LIST: "Lista",
-    CenterView.MAP: "Mapa",
+    CenterView.MAP: "Mapa (M)",
 }
 
-# Iconos (constantes de AppIcons); la lista y el mapa aún no tienen
+# Iconos (constantes de AppIcons); la lista aún no tiene
 _ICON_NAMES: dict[CenterView, str] = {
     CenterView.GRID: "VIEW_GRID",
     CenterView.SINGLE: "VIEW_FULL",
     CenterView.LIST: "",
-    CenterView.MAP: "",
+    CenterView.MAP: "VIEW_MAP",
 }
 
 

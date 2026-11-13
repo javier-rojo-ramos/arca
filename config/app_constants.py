@@ -21,6 +21,7 @@ __all__ = [
     "SETTING_FILTER_PRESETS",
     "SETTING_ACTIVE_MODULE",
     "SETTING_LAST_ADD_FOLDER_PARENT",
+    "SETTING_MAP_LAYER",
     "SETTING_MAIN_SPLITTER_STATE",
     "SETTING_SHOW_SUBFOLDER_ITEMS",
     "SETTING_SIDEBAR_STATE",
@@ -74,6 +75,7 @@ class AppIcons:
     LIB_ALL = ":/img/library_all.svg"
     VIEW_GRID = ":/img/view_grid.svg"
     VIEW_FULL = ":/img/view_full.svg"
+    VIEW_MAP = ":/img/view_map.svg"
     LOCK_CLOSED = ":/img/lock_closed.svg"
     LOCK_OPEN = ":/img/lock_open.svg"
 
@@ -136,3 +138,7 @@ SETTING_ACTIVE_MODULE = "active_module"
 # (así, para añadir varias de un mismo sitio, no hay que volver a navegar hasta allí).
 # Común a todos los catálogos. "" = la carpeta personal; si ya no existe, también
 SETTING_LAST_ADD_FOLDER_PARENT = "last_add_folder_parent"
+
+# Capa del mapa que se ve (su clave en 'core/maps/tile_layers.py'). Una para toda la
+# aplicación (decidido por el autor el 13/11/2026). None = la de partida (el callejero)
+SETTING_MAP_LAYER = "map_layer"

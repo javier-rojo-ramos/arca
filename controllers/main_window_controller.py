@@ -49,6 +49,7 @@ from controllers.filter_controller import FilterController
 from controllers.filter_preset_controller import FilterPresetController
 from controllers.folder_actions import FolderActions
 from controllers.inspector_controller import InspectorController
+from controllers.map_controller import MapController
 from controllers.metadata_filter_controller import MetadataFilterController
 from core.catalog.availability import AvailabilityCheck, check_availability
 from core.catalog.catalog_builder import CatalogBuilder, CatalogError
@@ -104,6 +105,7 @@ from ui_helpers.mixins.window_snap import WindowSnapMixin
 from ui_helpers.models.media_grid_model import QUICK_SELECTION_FIELD, MediaGridModel
 from ui_helpers.widgets.attribute_filter_row import AttributeFilterRow
 from ui_helpers.widgets.job_progress_widget import JobProgressWidget
+from ui_helpers.widgets.map_page import MapPage
 from ui_helpers.widgets.metadata_filter_panel import MetadataFilterPanel
 from ui_helpers.widgets.text_filter_row import TextFilterRow
 
@@ -232,6 +234,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.inspector: InspectorController | None = None
         # Panel «Metadatos» de la barra de filtros (recuentos): se crea en '_conectar_filtros'
         self.metadata_filters: MetadataFilterController | None = None
+        # Vista «Mapa» del centro: se crea en '_conectar_vistas'
+        self.map_controller: MapController | None = None
 
         self._configuracion_cargada = False
         self._crear_acciones_miniaturas()
@@ -838,18 +842,38 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             return
         # La vista individual usa el modelo y la selección de la cuadrícula
         single_view.attach(self.list_view_grid, self.mosaico_model)
+        # La página del mapa (el mapa se crea la primera vez que se ve: ver 'MapPage')
+        map_page = MapPage(self.stacked_widget_main)
+        self.stacked_widget_main.addWidget(map_page)
         self.center_views = CenterViewController(
             self.module_host,
             buttons=buttons,
             stack=self.stacked_widget_main,
-            pages={CenterView.GRID: self.page_grid, CenterView.SINGLE: page_single},
+            pages={
+                CenterView.GRID: self.page_grid,
+                CenterView.SINGLE: page_single,
+                CenterView.MAP: map_page,
+            },
             size_slider=self.slider_thumbnails,
             grid=self.list_view_grid,
             single=single_view,
+            map_page=map_page,
             parent=self,
         )
-        # Los atajos de clasificación (estrellas, color, marca, B, Supr), también en ella
+        # Los atajos de clasificación (estrellas, color, marca, B, Supr), también en ellas
         self.grid_actions.watch(single_view)
+        self.grid_actions.watch(map_page)
+        # El mapa: lo mismo que la cuadrícula, con su selección (ver 'MapController')
+        self.map_controller = MapController(
+            self.module_host,
+            page=map_page,
+            grid=self.list_view_grid,
+            model=self.mosaico_model,
+            center_views=self.center_views,
+            layer_bar=self.layout_bottom_right,
+            config=self.config,
+            parent=self,
+        )
 
     def _conectar_filtros(self) -> None:
         """Barra de filtros de la franja superior (ver 'FilterController')."""
@@ -1148,6 +1172,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             self.inspector.attach(self.db)
         if self.metadata_filters is not None:
             self.metadata_filters.attach(self.db)
+        if self.map_controller is not None:
+            self.map_controller.attach(self.db)
 
         # 4. Si no se restauró nada (o se espera a una colección inteligente), se carga el
         #    catálogo completo (en el orden del módulo activo, fijado en 'restore_state').
@@ -1289,6 +1315,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             inspector.detach()  # se descartan los resúmenes pendientes y se vacía el panel
         if self.metadata_filters is not None:
             self.metadata_filters.detach()  # se descartan los recuentos pendientes
+        if self.map_controller is not None:
+            self.map_controller.detach()  # se descarta lo pedido y se vacía el mapa
 
         if self.db is not None:
             # 'shutdown' espera a las tareas en curso (rápido, porque se han cancelado)
