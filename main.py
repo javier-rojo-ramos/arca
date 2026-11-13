@@ -72,6 +72,19 @@ def main():
     except Exception:  # noqa: BLE001
         logger.opt(exception=True).warning("Error configurando AppUserModelID Windows.")
 
+    # Mapa: Qt exige registrar su esquema ('arca-map://') e importar QtWebEngine ANTES de
+    # crear QApplication, aunque el mapa no llegue a abrirse (ver docs/TRAMPAS.md). El
+    # motor web no arranca aquí: lo hace la primera vez que se muestra un mapa. Si en
+    # este equipo falta QtWebEngine, la aplicación sigue adelante sin mapa.
+    try:
+        from ui_helpers.map.map_scheme import register_map_scheme
+
+        register_map_scheme()
+    except ImportError:
+        logger.opt(exception=True).warning(
+            "QtWebEngine no está disponible: la vista de mapa no funcionará."
+        )
+
     try:
         # Se inicializa la aplicación
         app = QApplication(sys.argv)

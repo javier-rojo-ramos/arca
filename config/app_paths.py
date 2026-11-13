@@ -17,6 +17,8 @@ __all__ = [
     "ORG_NAME",
     "CONFIG_DIR",
     "CONFIG_FILE",
+    "CACHE_DIR",
+    "TILE_CACHE_DIR",
     "RESOURCES_DIR",
     "DATA_DIR",
 ]
@@ -59,6 +61,12 @@ match sys.platform:
 # Se configura la ruta del archivo de configuración del programa
 CONFIG_DIR = BASE_CONFIG_DIR / APP_NAME
 CONFIG_FILE = CONFIG_DIR / "settings.json"
+
+# Cachés de la aplicación (no de un catálogo): lo que hay aquí se puede borrar y volver a
+# descargar. La de las teselas de los mapas es una sola para todos los catálogos
+# (docs/DECISIONES.md, 13/11/2026); la usa core/maps/tile_store.py
+CACHE_DIR = CONFIG_DIR / "cache"
+TILE_CACHE_DIR = CACHE_DIR / "tiles"
 
 
 # RUTAS DE DATOS DE LA APLICACIÓN (solo lectura, se distribuyen con el programa)

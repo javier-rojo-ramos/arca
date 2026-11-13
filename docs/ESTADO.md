@@ -11,7 +11,9 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| — | Nada pendiente: todo lo entregado está verificado (13/11/2026) |
+| **Mapa, paso 1.1: capas y caché de teselas** (13/11/2026; `core/maps/`, sin Qt; la interfaz aún no lo usa) | Nada que ver en la aplicación: comprobar solo que arranca igual. Autopruebas: `python -m core.maps.tile_layers` y `python -m core.maps.tile_store`. Por confirmar: el nombre «Callejero (OpenStreetMap)» y que sea la capa con la que empieza el mapa |
+| **Mapa, paso 1.2: tipos y contrato** (13/11/2026; `ui_helpers/map/`: `map_types.py` y `map_backend.py`; la interfaz aún no los usa) | Nada que ver en la aplicación: que arranca igual. Autoprueba: `python -m ui_helpers.map.map_types` |
+| **Mapa, paso 1.3: `MapView`** (13/11/2026; QtWebEngine + Leaflet; aún en ningún módulo) | (1) Que la aplicación arranca igual y no se nota más lenta (ahora carga QtWebEngine al empezar: unas 0,2 s). (2) `python -m ui_helpers.map.map_view --ventana`: el mapa con los colores de la aplicación; el desplegable cambia entre las cinco capas; «5 000 marcadores» los agrupa con su número y su miniatura (una de cada diez, sin miniatura: recuadro vacío); mover y zoom, fluidos; clic en una foto o en un grupo los selecciona (borde ámbar), Ctrl+clic añade o quita, clic en el mapa vacío quita la selección; doble clic en un grupo se acerca; «Seleccionar 100» y «Encuadrar todo». Decir qué tal el aspecto de los marcadores (miniatura de 44 px) y de los botones de zoom |
 
 ## Comprobaciones sueltas
 
@@ -69,6 +71,9 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: mapa, paso 1.3: `MapView`, el mapa con QtWebEngine + Leaflet (capas, marcadores agrupados, selección y encuadre); aún no está en ningún módulo.
+- 13/11/2026: mapa, paso 1.2: tipos de datos del mapa y contrato de su fondo (`ui_helpers/map/`); capas en el orden pedido por el autor.
+- 13/11/2026: mapa, paso 1.1: lista de capas (callejero de OpenStreetMap, tres del IGN y OpenTopoMap) y caché de teselas en disco (`core/maps/`).
 - 13/11/2026: mapa, diseño ([MAPA.md](MAPA.md)) y fase 0 (prueba de concepto en `scripts/poc_map/`): se hará con QtWebEngine + Leaflet.
 - 12/11/2026: cada módulo recuerda su archivo actual (al abrir el catálogo y al volver al módulo); al recargar se conserva la selección o queda el que ocupa su lugar.
 - 12/11/2026: al elegir algo en una barra, la primera foto queda seleccionada y el teclado sigue en las fotos (las barras no lo cogen), como Lightroom.
@@ -76,6 +81,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 12/11/2026: la cuadrícula vacía dice «No hay archivos» (como la vista individual).
 - 12/11/2026: «Purgar palabras clave no usadas…» dice cuántas se van a borrar y cuáles (todas, en «Mostrar los detalles…»).
 - 12/11/2026: palabras clave sin nada en Imagen, en gris en la barra izquierda.
-- 12/11/2026: «Borrar» una palabra clave avisa de los archivos de todo el catálogo, por tipo (antes, solo las fotos del árbol).
-- 12/11/2026: la rueda del ratón en la vista individual: foto anterior o siguiente; Ctrl + rueda, zoom 1:1; a 1:1, mueve la foto.
-- 12/11/2026: vista individual a 1:1, sin lupa en una foto de la que no se puede leer nada mayor que su caché (un DNG con una vista previa pequeña).

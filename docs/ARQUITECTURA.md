@@ -37,7 +37,7 @@ Las reglas (qué puede usar Qt, cómo se accede a la base de datos, migraciones,
 
 
 ```
-main.py                              Arranque: logging, QApplication, MainWindowController
+main.py                              Arranque: logging, esquema del mapa (antes de QApplication), QApplication, MainWindowController
 config/
   app_paths.py                       Rutas y nombre (APP_NAME, APP_VERSION), carpeta de configuración por SO
   app_config.py                      Instancia única (singleton) de la configuración: `from config.app_config import config`
@@ -141,6 +141,13 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   ► metadata_fields.py                 CAMPOS y VISTAS de la sección «Metadatos» (aquí se añaden): InspectorField (etiqueta, columnas por tipo de medio, formato), PRESETS, COMMON_HEAD, display_value; EDITABLE_KEYS (los que se editan) y editor_value
   widgets/media_grid_view.py         MediaGridView: QListView de la cuadrícula con imagen de arrastre pequeña y semitransparente; «No hay archivos» si está vacía
   models/media_mime.py               MIME propio del arrastre (application/x-arca-media-ids: {catalog, ids})
+  map/                               ── Componente de mapa (diseño y plan en docs/MAPA.md; MapView aún no está en ningún módulo) ──
+    map_types.py                       Datos que entran y salen del mapa: MapMarker, MapTrack, MapBounds (bounds_of), MapViewport, MapHit, MapMode, SelectionMode; is_valid_position; sin Qt
+    map_view.py                      ► MapView: el mapa (fachada; lo único que conocen los módulos): marcadores, selección, capas, encuadre, estado; guarda lo pedido y se lo pasa al fondo cuando está listo. Aún sin tracks ni soltar
+    map_backend.py                     MapBackend: contrato del fondo del mapa (lo que MapView pide a la tecnología que pinta: señales y métodos); solo declara
+    web_backend.py                     WebMapBackend: el fondo con QtWebEngine + Leaflet (página de resources/map/, colores del tema como variables CSS, sin foco); css_color, marker_payload
+    web_bridge.py                      MapBridge: lo que la página puede decirle a Python (QWebChannel): cargada, lista, encuadre, selección, doble clic
+    map_scheme.py                      Esquema arca-map:// (MapSchemeHandler: recursos de la página, teselas con caché y descarga, miniaturas); register_map_scheme (antes de QApplication), shared_handler
   helpers/ui_file_manager.py         "Mostrar en el Explorador/Finder" multiplataforma (reveal_in_file_manager) y papelera del sistema (move_to_trash, con QFile.moveToTrash)
 core/
   catalog/                           ── Crear, abrir y llenar el catálogo ──
@@ -217,9 +224,14 @@ core/
     job.py                             generate_pending_thumbnails (trabajo) e invalidate_thumbnails (regenerar a demanda)
     inspect_cli.py                     Diagnóstico: genera miniaturas de archivos reales y las cuenta
     _testing.py                        Utilidades solo para las autopruebas de core/thumbnails (perfiles ICC de prueba)
+  maps/                              ── Mapas (diseño y plan en docs/MAPA.md; los usa ui_helpers/map/) ──
+    tile_layers.py                   ► LISTA de capas del mapa (TileLayer, TILE_LAYERS: aquí se añade una), tile_url, is_valid_tile, user_agent; sin Qt ni red
+    tile_store.py                      TileStore: caché de teselas en disco (una carpeta por capa, escritura atómica, caducidad a los 30 días, tope de tamaño con 'prune', 'clear'); sin Qt ni red
 tools/exiftool/                      ExifTool (no se versiona; ver tools/exiftool/LEEME.txt)
+scripts/poc_map/                     Prueba de concepto del mapa (fase 0 de docs/MAPA.md; temporal: se borrará al terminar el paso 1.5)
 scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc (genera resources/recursos_rc.py)
 scripts/export_qtbase_es.py          Copia la traducción al español de Qt (qtbase_es.qm) a resources/locales
+resources/map/                       Página del mapa (index.html, arca_map.js, arca_map.css) y vendor/ (Leaflet y Supercluster copiados; ver su LEEME.txt). Se lee del disco, no va en el .qrc
 resources/                           recursos.qrc (lista de iconos e imágenes), images/ (SVG), icons/ (icono de la aplicación),
                                      locales/qtbase_es.qm (traducción de Qt) y recursos_rc.py (se GENERA con build_ui.py; no editar)
 repomix.config.json                  Qué entra en el REPOMIX (ver la nota de abajo)

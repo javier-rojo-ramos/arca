@@ -26,12 +26,12 @@
 | D2 | Editar un GPX existente: ¿se sobrescribe o siempre se exporta a otro archivo? | Siempre a un archivo nuevo («Exportar a GPX…»); el original no se toca (principio del proyecto) |
 | D3 | Modo Imagen: ¿mapa con tira de fotos debajo (como Lightroom) o cuadrícula y mapa lado a lado? | Tira de fotos debajo |
 | D4 | «Fotos de una ruta»: ¿basta con una colección hecha a mano, o se calcula (por hora y cercanía)? | Las dos: la colección ya funciona; en Tracks, calculado |
-| D5 | Capas de partida y si se usa alguna con clave (Thunderforest, MapTiler) | IGN + OpenTopoMap, sin claves |
+| ~~D5~~ | Capas de partida: **decidido el 13/11/2026** (§3.1) | Callejero de OpenStreetMap, tres del IGN y OpenTopoMap, sin claves |
 | D6 | Deshacer al mover fotos en el mapa (hoy la aplicación no tiene deshacer) | Un deshacer simple, solo del mapa, mientras dure la sesión |
 | D7 | Al recolocar una foto, ¿qué pasa con su altitud? | Dejarla como está; rellenarla con el modelo de elevaciones, más adelante y preguntando |
 | D8 | Puntos insertados en un GPX: ¿hora interpolada o sin hora? | Interpolada por distancia entre los dos vecinos |
 | D9 | Textos, icono y atajo de la vista «Mapa»; textos de las capas | Los propone cada paso; decide el autor |
-| D10 | Identificación ante los servidores de teselas (`User-Agent` con o sin contacto) | Nombre y versión de la aplicación, sin datos personales |
+| ~~D10~~ | Identificación ante los servidores de teselas: **decidido el 13/11/2026** | `ArcaMedia/<versión>`, sin datos personales |
 
 ---
 
@@ -275,7 +275,7 @@ Lista declarativa en `core/maps/tile_layers.py` (`TILE_LAYERS`, sin Qt; ► «aq
 | IGN Francia (Plan IGN) | Topográfico (Pirineo francés) | WMTS de la Géoplateforme | Abierto sin clave para Plan IGN; SCAN 25 requiere clave | «© IGN-F / Géoplateforme» |
 | Thunderforest Outdoors, MapTiler Outdoor, Stadia Terrain | Topográficos mundiales de más calidad | Con **clave** | Planes gratuitos con tope mensual y, en algunos, solo para uso no comercial: al ser una aplicación de empresa, hay que leer la licencia (D5) | La de cada uno |
 
-Propuesta de partida (D5): IGN MTN (por defecto en España), IGN base, PNOA y OpenTopoMap (por defecto fuera). Las claves, si algún día se usan, van en `settings.json` y se añaden en Python al pedir la tesela: nunca llegan a la página.
+**Decidido el 13/11/2026 (D5)** y hecho en `core/maps/tile_layers.py`: «Callejero (OpenStreetMap)» (el mapa «normal» de todo el mundo, para fotos de viajes y de ciudades; es la capa con la que empieza el mapa), «OpenTopoMap», «Mapa base (IGN)», «Topográfico (IGN)» y «Ortofoto (PNOA)» (en ese orden, el del autor). Las claves, si algún día se usan, van en `settings.json` y se añaden en Python al pedir la tesela: nunca llegan a la página.
 
 **Capas del usuario** (por durabilidad, §1.5): además de las de fábrica, las opciones permiten añadir capas propias (nombre, plantilla de dirección XYZ o WMTS, zoom máximo y atribución), guardadas en `settings.json`. Si un servicio cambia de dirección o cierra, se corrige sin tocar el código.
 
@@ -593,9 +593,9 @@ Aprendido para la implementación (irá a [TRAMPAS.md](TRAMPAS.md) con el paso 1
 
 | Paso | Objetivo | Archivos | Depende de | Aceptación | Cómo comprobar que no rompe nada |
 |---|---|---|---|---|---|
-| **1.1** Capas y almacén de teselas | `TILE_LAYERS` y `TileStore` (rutas, escritura atómica, caducidad, tope) | Nuevos: `core/maps/__init__.py`, `tile_layers.py`, `tile_store.py` | Fase 0 (direcciones comprobadas) | Autopruebas: plantillas de dirección, ruta de cada tesela, caducidad, limpieza por tamaño (carpeta temporal, sin red) | Módulos nuevos sin Qt: nada los importa todavía |
-| **1.2** Tipos y contrato | `map_types.py` (dataclasses, enumeraciones) y `MapBackend` | Nuevos: `ui_helpers/map/__init__.py`, `map_types.py`, `map_backend.py` | — | Autoprueba de `map_types` (validación de coordenadas, `MapBounds` de una lista) | Nada los importa todavía |
-| **1.3** `MapView` con WebEngine | Mapa que se ve, con capas, marcadores agrupados, selección y encuadre; esquema `arca-map://` (recursos y teselas) | Nuevos: `map_view.py`, `web_backend.py`, `web_bridge.py`, `map_scheme.py`, `resources/map/*`. **`main.py`**: registrar el esquema e importar WebEngine antes de `QApplication` | 1.1, 1.2 | Autoprueba **con ventana** (la ejecuta el autor): mapa con 5 000 marcadores, cambio de capa, clic selecciona (se imprime la señal), `fit_content`. Colores solo por variables del tema | La aplicación arranca igual (medir el tiempo de arranque antes y después); nada usa aún `MapView` |
+| ~~**1.1** Capas y almacén de teselas~~ (hecho el 13/11/2026) | `TILE_LAYERS` y `TileStore` (rutas, escritura atómica, caducidad, tope) | Nuevos: `core/maps/__init__.py`, `tile_layers.py`, `tile_store.py` | Fase 0 (direcciones comprobadas) | Autopruebas: plantillas de dirección, ruta de cada tesela, caducidad, limpieza por tamaño (carpeta temporal, sin red) | Módulos nuevos sin Qt: nada los importa todavía |
+| ~~**1.2** Tipos y contrato~~ (hecho el 13/11/2026; sin los tipos de la edición de tracks, que se añadirán con la fase 7) | `map_types.py` (dataclasses, enumeraciones) y `MapBackend` | Nuevos: `ui_helpers/map/__init__.py`, `map_types.py`, `map_backend.py` | — | Autoprueba de `map_types` (validación de coordenadas, `MapBounds` de una lista) | Nada los importa todavía |
+| ~~**1.3** `MapView` con WebEngine~~ (hecho el 13/11/2026; pendiente de que el autor lo vea) | Mapa que se ve, con capas, marcadores agrupados, selección y encuadre; esquema `arca-map://` (recursos y teselas) | Nuevos: `map_view.py`, `web_backend.py`, `web_bridge.py`, `map_scheme.py`, `resources/map/*`. **`main.py`**: registrar el esquema e importar WebEngine antes de `QApplication` | 1.1, 1.2 | Autoprueba **con ventana** (la ejecuta el autor): mapa con 5 000 marcadores, cambio de capa, clic selecciona (se imprime la señal), `fit_content`. Colores solo por variables del tema | La aplicación arranca igual (medir el tiempo de arranque antes y después); nada usa aún `MapView` |
 | **1.4** Miniaturas y tracks en el mapa | `arca-map://thumb/`, `set_tracks`, `set_track_geometry`, `set_active_track`, `set_track_cursor`, `track_hovered` | `map_scheme.py`, `web_backend.py`, `arca_map.js` | 1.3 | En la autoprueba con ventana: un GPX real en contorno y en detalle; el cursor sigue al ratón | Igual que 1.3 |
 | **1.5** Soltar y mover | `media_dropped`, `markers_moved`, `set_drop_enabled`, menú contextual | `web_backend.py`, `arca_map.js` | 1.3 | En la autoprueba: soltar desde una lista y arrastrar un marcador imprimen ids y coordenadas correctas | Igual |
 

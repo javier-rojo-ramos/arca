@@ -80,6 +80,15 @@ python -m core.thumbnails.imaging
 python -m core.thumbnails.job
 python -m core.thumbnails.sizes
 
+# core.maps
+python -m core.maps.tile_layers                                (capas del mapa: claves, direcciones, teselas válidas; sin red)
+python -m core.maps.tile_store                                 (caché de teselas: rutas, caducidad, tope de tamaño; sin red)
+
+# ui_helpers.map
+python -m ui_helpers.map.map_types                             (marcadores, tracks y rectángulos del mapa; sin Qt)
+python -m ui_helpers.map.map_view                              (MapView con un fondo simulado; sin ventana)
+python -m ui_helpers.map.map_view --ventana                    (una ventana: el mapa de verdad, con 5 000 marcadores de prueba; descarga teselas)
+
 # core.userdata
 python -m core.userdata.editable_fields                        (las etiquetas que se escriben son las mismas que se leen)
 python -m core.userdata.folder_file

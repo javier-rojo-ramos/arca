@@ -1,0 +1,93 @@
+/* Estilos de la página del mapa (ui_helpers/map/web_backend.py).
+
+   NINGÚN color suelto: todos son variables '--arca-*' que pone 'arca.init' con los colores
+   del tema (ui_helpers/helpers/theme_colors.py). Mientras no llegan, el fondo es el que
+   Qt le da a la página (también del tema). */
+
+html, body, #map {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+}
+
+.leaflet-container {
+  background: var(--arca-bg);
+  font: 12px "Segoe UI", system-ui, sans-serif;
+  color: var(--arca-text);
+  outline: none;
+}
+
+/* --- Controles de Leaflet (zoom y atribución) con los colores del tema --- */
+
+.leaflet-bar {
+  border: 1px solid var(--arca-line) !important;
+  border-radius: 4px;
+  box-shadow: none;
+}
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  background: var(--arca-panel);
+  color: var(--arca-text);
+  border-bottom: 1px solid var(--arca-line);
+}
+.leaflet-bar a:hover {
+  background: var(--arca-hover);
+}
+.leaflet-bar a:last-child {
+  border-bottom: none;
+}
+.leaflet-bar a.leaflet-disabled {
+  background: var(--arca-panel);
+  color: var(--arca-text-disabled);
+}
+.leaflet-container .leaflet-control-attribution {
+  background: var(--arca-panel);
+  color: var(--arca-text-dim);
+  opacity: 0.85;
+  padding: 1px 6px;
+}
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--arca-text-dim);
+}
+
+/* --- Marcadores: una foto o un grupo de fotos --- */
+
+.arca-photo {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--arca-text);
+  border-radius: 3px;
+  background: var(--arca-panel);
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 1px 4px var(--arca-shadow);
+}
+.arca-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Sin miniatura (aún no generada, o no se pudo leer): solo el recuadro */
+.arca-photo.no-thumb img {
+  display: none;
+}
+/* Seleccionada (o un grupo con alguna seleccionada): borde en el color de acento */
+.arca-photo.selected {
+  border-color: var(--arca-accent);
+  border-width: 3px;
+}
+/* Número de fotos de un grupo */
+.arca-photo .count {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 0 4px;
+  font-weight: bold;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--arca-text-on-accent);
+  background: var(--arca-accent);
+  border-top-left-radius: 3px;
+}
