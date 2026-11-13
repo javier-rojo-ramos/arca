@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Mapa, paso 2.1: contorno de los tracks** (13/11/2026; migración 4 y `TRACK_EXTRACTOR_VERSION` 3) | Antes, una copia de `catalogo.db`. Al abrir el catálogo pasa solo al esquema v4 (sin aviso) y, en segundo plano, se releen los GPX (la barra de estado lo dice). Después, en el inspector, la distancia y el desnivel de Bujaruelo, Ordesa y Pineta, **iguales que antes**; el resto de la aplicación, igual. El contorno no se ve todavía (llega con el mapa del Catálogo, paso 2.3). Aparte: `python -m ui_helpers.map.map_view --ventana`, arrastrar tarjetas al mapa: ya sin imagen, solo el círculo ámbar |
+| **Mapa, paso 2.2: consulta del mapa** (13/11/2026; `core/catalog/map_queries.py`; la interfaz aún no la usa) | Nada que ver en la aplicación. Autoprueba: `python -m core.catalog.map_queries` |
 
 ## Comprobaciones sueltas
 
@@ -63,6 +63,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Sección «Fechas» del módulo Imagen** (12/11): debajo de «Carpetas», los años (el más reciente arriba) con sus meses («01 Enero») y sus días («10 Miércoles»), y «Sin fecha»; cada fila muestra lo que cuenta, con los mismos números que la columna «Fecha de captura»; lo desplegado y el día elegido, recordados. Antes, la barra de Imagen dividida en un archivo por sección (`ui_helpers/sidebars/sections/`), con todo igual que antes.
 - **Las barras no cogen el teclado** (12/11): al elegir algo en una barra (una carpeta, una fecha, una palabra, una colección o la flecha «ver sus fotos» del inspector), la primera foto queda seleccionada (la primera que cumple el filtro) y los atajos («3», «P», «G», Z...) van a las fotos sin otro clic; las flechas mueven la selección de fotos, no la barra; una letra ya no elige otra fila de un árbol.
 - **El archivo actual, recordado** (12/11): al abrir el catálogo, la foto que estaba seleccionada al cerrarlo; al cambiar de módulo, cada uno la suya; si ya no está, la primera. Al recargar con el mismo origen (orden, filtro), sigue seleccionado lo que se vea; al eliminar, queda seleccionada la siguiente, sin saltar al principio.
+- **Mapa, paso 2.1** (13/11/2026): el catálogo pasa solo al esquema v4 y relee los GPX; la aplicación, igual. La distancia y el desnivel no se pueden mirar en la interfaz (no se muestran en ningún sitio: `PENDIENTE.md`, A.6); que no cambian lo comprobó el asistente comparando con el lector anterior.
 - **Mapa, paso 1.5** (13/11/2026): en la ventana de prueba de `MapView`, soltar tarjetas, mover fotos sueltas, botón derecho con menú propio, cursor oculto sobre el punto del track y teclado en la lista: todo correcto. Con él, el componente base del mapa (fase 1 de [MAPA.md](MAPA.md)) está completo.
 - **Mapa, paso 1.4** (13/11/2026): tracks en la ventana de prueba de `MapView` (tres tracks, el activo en rojo, el punto ámbar que sigue al ratón, fluido con 5 000 marcadores); los colores, bien (se pueden cambiar en `theme_colors.py`).
 - **Mapa, pasos 1.1 a 1.3** (13/11/2026): la aplicación arranca igual con QtWebEngine cargado al empezar; `MapView` en su ventana de prueba, con las cinco capas en el orden pedido, los marcadores agrupados de 44 px (bien de tamaño) y la selección.
@@ -72,6 +73,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: mapa, paso 2.2: la consulta del mapa (lo mismo que la cuadrícula: fotos con coordenadas, tracks con su contorno y cuántas no tienen ubicación).
 - 13/11/2026: mapa, paso 2.1: el contorno simplificado de cada track, en el catálogo (migración 4; los tracks se releen solos).
 - 13/11/2026: mapa: borrada la prueba de concepto (`scripts/poc_map/`); en la ventana de prueba, las tarjetas se arrastran como en la cuadrícula (sin tapar dónde caen).
 - 13/11/2026: mapa, paso 1.5: soltar tarjetas sobre el mapa, arrastrar fotos sueltas, botón derecho y vista previa; el cursor se oculta sobre el punto del track. Componente base, completo.
@@ -81,4 +83,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 13/11/2026: mapa, paso 1.1: lista de capas (callejero de OpenStreetMap, tres del IGN y OpenTopoMap) y caché de teselas en disco (`core/maps/`).
 - 13/11/2026: mapa, diseño ([MAPA.md](MAPA.md)) y fase 0 (prueba de concepto en `scripts/poc_map/`): se hará con QtWebEngine + Leaflet.
 - 12/11/2026: cada módulo recuerda su archivo actual (al abrir el catálogo y al volver al módulo); al recargar se conserva la selección o queda el que ocupa su lugar.
-- 12/11/2026: al elegir algo en una barra, la primera foto queda seleccionada y el teclado sigue en las fotos (las barras no lo cogen), como Lightroom.

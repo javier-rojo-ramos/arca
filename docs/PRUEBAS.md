@@ -41,6 +41,7 @@ python -m core.catalog.grid_source
 python -m core.catalog.keywords                                (árbol, asignar y quitar, caja de texto, gestionar el árbol, recuentos)
 python -m core.catalog.libraries
 python -m core.catalog.media_detector
+python -m core.catalog.map_queries                             (el mapa ve lo mismo que la cuadrícula; 20 000 puntos)
 python -m core.catalog.media_queries
 python -m core.catalog.media_removal                           (papelera simulada: nunca toca la del sistema)
 python -m core.catalog.metadata_values                         (cada fila filtra lo que cuenta)
