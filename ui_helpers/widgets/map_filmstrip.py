@@ -21,12 +21,14 @@ Uso:
     tira = MapFilmstrip(parent)
     tira.attach(modelo_de_la_cuadricula, cuadricula.selectionModel())
 
+1.1.1 La barra de desplazamiento, siempre: sin ella, la tira podía entrar en un bucle
+      de tamaños y montar unas tarjetas sobre otras.
 1.1.0 Tarjetas compactas (sin banda ni círculo de la selección rápida) y alto mínimo de
       100 px (miniaturas de 72 px).
 1.0.0 Primera versión (docs/MAPA.md, paso 3.1).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __all__ = ["MIN_HEIGHT", "MapFilmstrip"]
 
 # Librerías de terceros (Qt)
@@ -66,7 +68,12 @@ class MapFilmstrip(MediaGridView):
         self.setUniformItemSizes(True)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # La barra, SIEMPRE (como en Lightroom): las tarjetas toman su alto del espacio que
+        # queda; si la barra apareciera y desapareciera, ese espacio cambiaría con ella y la
+        # tira entraría en un bucle (más tarjetas que caben -> barra -> tarjetas más bajas y
+        # estrechas -> caben -> sin barra -> más altas...), que con algunos números de fotos
+        # las dejaba montadas unas sobre otras (lo vio el autor el 13/11/2026)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setMouseTracking(True)

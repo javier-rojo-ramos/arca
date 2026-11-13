@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Mapa, paso 3.5: «Sin ubicación»** (13/11/2026) | En el desplegable de ajustes de la barra de filtros, «Sin ubicación» (detrás de «Ubicación»): enciende «Metadatos» con la columna «Tiene coordenadas GPS» y «No» elegido; la cuadrícula y la tira, solo con lo que no tiene ubicación. **Si ya tenías tu lista de ajustes guardada, no aparece sola**: «Gestionar ajustes personalizados…» > «Restaurar los de fábrica» la añade al final. Al soltar fotos en el mapa siguen en la tira, con su chincheta, hasta volver a elegir la carpeta |
+| **Mapa, paso 3.5: «Sin ubicación»** (13/11/2026) | En el desplegable de ajustes de la barra de filtros, «Sin ubicación» (detrás de «Ubicación»): enciende «Metadatos» con la columna «Tiene coordenadas GPS» y «No» elegido; la cuadrícula y la tira, solo con lo que no tiene ubicación. **Si ya tenías tu lista de ajustes guardada, no aparece sola**: «Gestionar ajustes personalizados…» > «Restaurar los de fábrica» la añade al final. Al soltar fotos en el mapa siguen en la tira, con su chincheta, hasta volver a elegir la carpeta. La tira tiene ahora siempre su barra de desplazamiento: con cualquier número de fotos (también las 8 de la captura), las tarjetas en fila y a la misma distancia |
 
 ## Comprobaciones sueltas
 
