@@ -25,6 +25,8 @@ de una canción...) van en tablas 1:1 con 'media_items' (photo_details,
 video_details, audio_details...), no en la tabla general. Las que falten se
 añadirán como migraciones nuevas, una por una.
 
+2.4.0 Migración 4: 'track_details.overview' (contorno simplificado de cada track, para el
+      mapa).
 2.3.0 Migración 3: 'gps_direction' pasa de 'photo_details' a 'media_items' (dato de
       ubicación, junto a la latitud, la longitud y la altitud; se podrá editar).
 2.2.0 Función SQL 'arca_file_title' (título propio de un archivo), registrada en cada
@@ -52,7 +54,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.catalog_schema
 """
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 __all__ = [
     "APPLICATION_ID",
     "BUSY_TIMEOUT_SECONDS",
@@ -528,12 +530,24 @@ UPDATE media_items
 ALTER TABLE photo_details DROP COLUMN gps_direction;
 """
 
+# Migración 4 (13/11/2026): el contorno de cada track, para pintar muchos a la vez en el mapa
+# sin abrir sus GPX (docs/MAPA.md, §5.3). Los puntos completos NO se guardan en el catálogo:
+# el GPX es la fuente y se lee cuando hace falta el detalle.
+_MIGRATION_004_TRACK_OVERVIEW = """
+-- Lo escribe el extractor de tracks. El recorrido SIMPLIFICADO (como mucho unos 1 000
+-- puntos) en el formato de polilínea codificada de Google (precisión 5, unos 1,1 m), un
+-- segmento por línea (core/tracks/simplify.py). NULL = sin puntos, o aún sin leer: lo
+-- rellena la relectura de los tracks (TRACK_EXTRACTOR_VERSION 3).
+ALTER TABLE track_details ADD COLUMN overview TEXT;
+"""
+
 # Lista ORDENADA de migraciones: la posición (empezando en 1) es la versión a la
 # que lleva cada una. Para evolucionar el esquema, añadir elementos AL FINAL.
 MIGRATIONS: tuple[str, ...] = (
     _MIGRATION_001_INITIAL_SCHEMA,
     _MIGRATION_002_METADATA_EDIT_PENDING,
     _MIGRATION_003_GPS_DIRECTION,
+    _MIGRATION_004_TRACK_OVERVIEW,
 )
 
 # Versión actual del esquema: se deduce sola del número de migraciones, así no
@@ -682,7 +696,7 @@ if __name__ == "__main__":
 
     # 1. Un catálogo vacío pasa de la versión 0 a la actual, con la marca de la aplicación
     assert db.execute("PRAGMA user_version").fetchone()[0] == 0
-    assert apply_migrations(db) == SCHEMA_VERSION == 3
+    assert apply_migrations(db) == SCHEMA_VERSION == 4
     assert db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert db.execute("PRAGMA application_id").fetchone()[0] == APPLICATION_ID
     print(f"Esquema creado: v{SCHEMA_VERSION}, application_id = {APPLICATION_ID:#x}")
@@ -773,6 +787,7 @@ if __name__ == "__main__":
     db.execute("INSERT INTO photo_details(media_id, camera_make) VALUES (1, 'Nikon')")
     db.execute("INSERT INTO video_details(media_id, camera_make) VALUES (1, 'Apple')")
     db.execute("INSERT INTO track_details(media_id, distance_m) VALUES (1, 12345.6)")
+    assert "overview" in columns_of(db, "track_details")  # migración 4
     assert rejected(db, "UPDATE track_details SET min_latitude = 95")
     db.execute("INSERT INTO folder_libraries(storage_location_id, folder, content) "
                "VALUES (1, 'Musica', 'audio')")  # fmt: skip
@@ -807,6 +822,26 @@ if __name__ == "__main__":
     db.execute("DELETE FROM collections WHERE id = 1")
     assert db.execute("SELECT COUNT(*) FROM collections").fetchone()[0] == 0
     print("Borrado en cascada: detalles, colecciones y palabras clave")
+
+    # 11b. Un catálogo de la versión anterior (v3) pasa a la v4 y conserva sus tracks; el
+    #      contorno queda vacío hasta que se releen
+    old = sqlite3.connect(":memory:")
+    configure_connection(old)
+    for number, script in enumerate(MIGRATIONS[:3], start=1):
+        mark = f"PRAGMA application_id = {APPLICATION_ID};\n" if number == 1 else ""
+        old.executescript(f"BEGIN;\n{script}\n{mark}PRAGMA user_version = {number};\nCOMMIT;")
+    old.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('P', '/p')")
+    old.execute(
+        """INSERT INTO media_items(storage_location_id, relative_path, file_name, media_type,
+               mime_type, file_size, file_mtime_ns, title)
+           VALUES (1, 'r.gpx', 'r.gpx', 'track', 'application/gpx+xml', 1, 0, 'r')"""
+    )
+    old.execute("INSERT INTO track_details(media_id, distance_m) VALUES (1, 9876.5)")
+    assert "overview" not in columns_of(old, "track_details")
+    assert apply_migrations(old) == 4
+    assert old.execute("SELECT distance_m, overview FROM track_details").fetchone() == (9876.5, None)
+    old.close()
+    print("Migración de la v3 a la v4: los tracks se conservan, sin contorno hasta releerlos")
 
     # 12. Borrar una ubicación se lleva sus carpetas declaradas
     db.execute("DELETE FROM storage_locations")

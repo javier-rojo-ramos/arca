@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| — | Nada pendiente: todo lo entregado está verificado (13/11/2026) |
+| **Mapa, paso 2.1: contorno de los tracks** (13/11/2026; migración 4 y `TRACK_EXTRACTOR_VERSION` 3) | Antes, una copia de `catalogo.db`. Al abrir el catálogo pasa solo al esquema v4 (sin aviso) y, en segundo plano, se releen los GPX (la barra de estado lo dice). Después, en el inspector, la distancia y el desnivel de Bujaruelo, Ordesa y Pineta, **iguales que antes**; el resto de la aplicación, igual. El contorno no se ve todavía (llega con el mapa del Catálogo, paso 2.3). Aparte: `python -m ui_helpers.map.map_view --ventana`, arrastrar tarjetas al mapa: ya sin imagen, solo el círculo ámbar |
 
 ## Comprobaciones sueltas
 
@@ -72,6 +72,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 13/11/2026: mapa, paso 2.1: el contorno simplificado de cada track, en el catálogo (migración 4; los tracks se releen solos).
 - 13/11/2026: mapa: borrada la prueba de concepto (`scripts/poc_map/`); en la ventana de prueba, las tarjetas se arrastran como en la cuadrícula (sin tapar dónde caen).
 - 13/11/2026: mapa, paso 1.5: soltar tarjetas sobre el mapa, arrastrar fotos sueltas, botón derecho y vista previa; el cursor se oculta sobre el punto del track. Componente base, completo.
 - 13/11/2026: mapa, paso 1.4: tracks en `MapView` (líneas con borde claro, track activo, punto bajo el ratón); las fotos sin miniatura, un punto pequeño.
@@ -81,4 +82,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 13/11/2026: mapa, diseño ([MAPA.md](MAPA.md)) y fase 0 (prueba de concepto en `scripts/poc_map/`): se hará con QtWebEngine + Leaflet.
 - 12/11/2026: cada módulo recuerda su archivo actual (al abrir el catálogo y al volver al módulo); al recargar se conserva la selección o queda el que ocupa su lugar.
 - 12/11/2026: al elegir algo en una barra, la primera foto queda seleccionada y el teclado sigue en las fotos (las barras no lo cogen), como Lightroom.
-- 12/11/2026: en los árboles de las barras, una letra o un número ya no elige otra fila (sin «búsqueda al teclear»).

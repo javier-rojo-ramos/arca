@@ -203,8 +203,8 @@ core/
     video/rules.py                     Reglas: fecha de captura (hora local de Keys/XML/H264/XMP, o QuickTime en UTC -> local), tamaño con rotación, GPS
     video/extractor.py                 VideoExtractor (ExifTool; tabla video_details)
     image/_fixtures.py                 Datos reales de ExifTool para las autopruebas
-    track/gpx_reader.py                read_gpx -> GpxSummary (distancia 2D haversine, desnivel con umbral, fechas, caja, actividad)
-    track/extractor.py                 TrackExtractor (GPX -> track_details; TRACK_EXTRACTOR_VERSION = 2)
+    track/gpx_reader.py                read_gpx -> GpxSummary (distancia 2D haversine, desnivel con umbral, fechas, caja, actividad; con collect_points, los puntos por segmentos en arrays compactos)
+    track/extractor.py                 TrackExtractor (GPX -> track_details, también su contorno 'overview'; TRACK_EXTRACTOR_VERSION = 3)
     track/inspect_cli.py               Diagnóstico de GPX (resumen y desnivel con varios umbrales)
     inspect_cli.py                     Herramienta de diagnóstico (qué lee ExifTool / qué se guardaría; --campos elige imagen o vídeo según el archivo)
   userdata/                          ── Datos del usuario fuera del catálogo ── (ver core/userdata/LEEME.md)
@@ -227,6 +227,9 @@ core/
   maps/                              ── Mapas (diseño y plan en docs/MAPA.md; los usa ui_helpers/map/) ──
     tile_layers.py                   ► LISTA de capas del mapa (TileLayer, TILE_LAYERS: aquí se añade una), tile_url, is_valid_tile, user_agent; sin Qt ni red
     tile_store.py                      TileStore: caché de teselas en disco (una carpeta por capa, escritura atómica, caducidad a los 30 días, tope de tamaño con 'prune', 'clear'); sin Qt ni red
+  tracks/                            ── Cálculos sobre recorridos (sin Qt ni base de datos; docs/MAPA.md) ──
+    geodesy.py                         haversine_m y EARTH_RADIUS_M: el ÚNICO sitio donde se calculan distancias sobre la Tierra
+    simplify.py                        Contorno de un track: simplify_track (distancia radial + Douglas-Peucker, tope de puntos), polilínea codificada (encode/decode_polyline) y encode_overview / decode_overview
 tools/exiftool/                      ExifTool (no se versiona; ver tools/exiftool/LEEME.txt)
 scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc (genera resources/recursos_rc.py)
 scripts/export_qtbase_es.py          Copia la traducción al español de Qt (qtbase_es.qm) a resources/locales

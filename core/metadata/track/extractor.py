@@ -22,6 +22,10 @@ Qué guarda:
         distancia, desnivel acumulado, altitudes mínima y máxima, horas UTC de inicio y
         fin, recuentos (puntos, segmentos, tracks, rutas, puntos de interés), caja
         geográfica, punto de llegada, tipo de actividad y programa que lo creó.
+        overview: el CONTORNO, el recorrido simplificado (como mucho 1 000 puntos),
+        para pintar muchos tracks a la vez en el mapa sin abrir sus GPX
+        (core/tracks/simplify.py; docs/MAPA.md, §5.3). Los puntos completos no se
+        guardan: el GPX es la fuente.
 
 Hora local: el GPX guarda las horas en UTC, pero 'content_created_at' es la hora LOCAL
 (la que muestra el reloj de la cámara en las fotos), para que un track se ordene junto a
@@ -30,11 +34,13 @@ horario de verano de esa fecha). Para una ruta hecha en otro huso horario la hor
 con el de casa; si hiciera falta, se podría deducir la zona a partir de las coordenadas
 (librería 'timezonefinder'), subiendo 'TRACK_EXTRACTOR_VERSION'.
 
+1.2.0 El contorno del track ('track_details.overview'; TRACK_EXTRACTOR_VERSION 3).
+
 Prueba rápida (desde la raíz del proyecto):
     python -m core.metadata.track.extractor
 """
 
-__version__ = "1.1.2"
+__version__ = "1.2.0"
 __all__ = ["SUPPORTED_EXTENSIONS", "TRACK_EXTRACTOR_VERSION", "TrackExtractor"]
 
 # Librerías estándar
@@ -51,13 +57,15 @@ from core.metadata.base import (
     UnsupportedFormatError,
 )
 from core.metadata.track.gpx_reader import GpxError, GpxSummary, read_gpx
+from core.tracks.simplify import encode_overview, simplify_track
 
 # Versión del extractor de tracks. Se guarda en 'media_items.scan_version'. Súbela cada vez
 # que el extractor lea campos nuevos o cambie un cálculo: los tracks se volverán a leer.
-TRACK_EXTRACTOR_VERSION = 2
+TRACK_EXTRACTOR_VERSION = 3
 # Historial:
 #   1  primera versión
 #   2  umbral del desnivel de 5 a 8 m (gpx_reader.ELEVATION_THRESHOLD_M)
+#   3  contorno del recorrido ('track_details.overview', migración 4)
 
 # Formato de fecha de la base de datos ('YYYY-MM-DD HH:MM:SS')
 _DB_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -87,7 +95,7 @@ class TrackExtractor(MetadataExtractor):
             raise UnsupportedFormatError(f"Formato de track sin soporte todavía: .{extension}")
 
         try:
-            summary = read_gpx(path)
+            summary = read_gpx(path, collect_points=True)
         except GpxError as error:
             raise MetadataError(str(error)) from error
         except FileNotFoundError:
@@ -155,6 +163,7 @@ def _detail_values(summary: GpxSummary) -> dict[str, Any]:
         "activity_type": summary.activity_type,
         "creator_app": summary.creator_app,
         "is_planned_route": 1 if summary.uses_route else 0,
+        "overview": encode_overview(simplify_track(summary.path_points)),
     }
 
 
@@ -240,6 +249,13 @@ if __name__ == "__main__":
         assert details["activity_type"] == "hiking" and details["creator_app"] == "Wikiloc"
         assert details["is_planned_route"] == 0 and details["point_count"] == 2
         assert result.user_data == {}  # los datos del usuario de un GPX van en .arca.json
+        # El contorno: dos puntos, que vuelven tal cual
+        from core.tracks.simplify import decode_overview
+
+        assert decode_overview(details["overview"]) == (((43.1, -4.8), (43.2, -4.8)),)
+        # Un GPX sin puntos no tiene contorno
+        (base / "vacio.gpx").write_text('<gpx version="1.1" creator="x"></gpx>', encoding="utf-8")
+        assert extractor.extract(base / "vacio.gpx").details["overview"] is None
 
         # Columnas que el extractor NUNCA puede escribir
         from core.metadata.base import PROTECTED_COLUMNS

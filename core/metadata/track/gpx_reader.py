@@ -8,6 +8,9 @@ Cómo lee el archivo:
     - Con 'defusedxml' (protege de XML malicioso: entidades recursivas, etc.).
     - En STREAMING ('iterparse'): va soltando cada punto en cuanto lo ha sumado, así que
       un track de cientos de miles de puntos no llena la memoria.
+    - Con 'collect_points=True' guarda además la latitud y la longitud de cada punto,
+      por segmentos, en arrays compactos (16 bytes por punto: 100 000 puntos, 1,6 MB):
+      'GpxSummary.path_points'. Los usa el extractor para el contorno del track.
     - Admite GPX 1.0 y 1.1 (se ignora el espacio de nombres de las etiquetas).
 
 Qué partes del GPX se usan:
@@ -19,7 +22,8 @@ Qué partes del GPX se usan:
 
 Cómo se calcula:
     - Distancia: suma de las distancias entre puntos consecutivos de un MISMO segmento
-      (fórmula del haversine, en 2D, sin la altitud: como Wikiloc, Strava o Garmin). Entre
+      ('core/tracks/geodesy.haversine_m', en 2D, sin la altitud: como Wikiloc, Strava o
+      Garmin). Entre
       un segmento y el siguiente (p. ej. pausa del GPS) no se suma nada.
     - Desnivel acumulado: con un UMBRAL ('ELEVATION_THRESHOLD_M'). La altitud del GPS
       oscila unos metros arriba y abajo; sumar cada oscilación inflaría el desnivel. Solo
@@ -28,13 +32,16 @@ Cómo se calcula:
     - Fechas: la del primer y la del último punto con hora (mínima y máxima, por si el
       archivo no está ordenado). El GPX las guarda en UTC.
 
+1.2.0 'collect_points': los puntos del recorrido, por segmentos ('path_points'), para el
+      contorno del track en el mapa. La distancia sale de 'core/tracks/geodesy.py' (el
+      mismo cálculo que antes estaba aquí: no cambia ningún resultado).
 1.1.0 Umbral del desnivel: 8 m (antes 5 m), calibrado con tracks reales de Wikiloc.
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.metadata.track.gpx_reader
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "ELEVATION_THRESHOLD_M",
     "GpxError",
@@ -45,7 +52,8 @@ __all__ = [
 
 # Librerías estándar
 import math
-from dataclasses import dataclass
+from array import array
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from xml.etree.ElementTree import Element, ParseError
@@ -54,8 +62,8 @@ from xml.etree.ElementTree import Element, ParseError
 from defusedxml import DefusedXmlException
 from defusedxml.ElementTree import iterparse
 
-# Radio medio de la Tierra (metros), el habitual para la fórmula del haversine
-EARTH_RADIUS_M = 6_371_008.8
+# Módulos del proyecto
+from core.tracks.geodesy import haversine_m
 
 # Umbral del desnivel acumulado (metros). Calibrado con tracks reales de Wikiloc
 # comparando con el desnivel que muestra Wikiloc (ver 'inspect_cli.py'): con 8 m el
@@ -99,6 +107,9 @@ class GpxSummary:
         route_count: Elementos <rte> del archivo.
         waypoint_count: Puntos de interés (<wpt>).
         uses_route: True si el recorrido sale de <rte> (no había track grabado).
+        path_points: Solo con 'collect_points=True': los puntos del recorrido, un array
+            plano [lat, lon, lat, lon...] por segmento (sin los puntos no válidos).
+            Vacío si no se pidieron. No cuenta al comparar ni se imprime.
     """
 
     name: str | None = None
@@ -123,6 +134,7 @@ class GpxSummary:
     route_count: int = 0
     waypoint_count: int = 0
     uses_route: bool = False
+    path_points: tuple[array, ...] = field(default=(), compare=False, repr=False)
 
     @property
     def duration_s(self) -> float | None:
@@ -155,15 +167,6 @@ def parse_gpx_time(text: str | None) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
-def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Distancia en metros entre dos puntos (grados), sobre una esfera."""
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    d_phi = phi2 - phi1
-    d_lambda = math.radians(lon2 - lon1)
-    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
-    return 2 * EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(a)))
-
-
 def _local_name(tag: str) -> str:
     """Nombre de una etiqueta sin el espacio de nombres ('{http://...}trkpt' -> 'trkpt')."""
     return tag.rsplit("}", 1)[-1]
@@ -187,10 +190,13 @@ def _clean(text: str | None) -> str | None:
 
 
 class _Accumulator:
-    """Va sumando los puntos de un recorrido (track o ruta) sin guardarlos en memoria."""
+    """Va sumando los puntos de un recorrido (track o ruta) sin guardarlos en memoria
+    (salvo, con 'collect_points', su latitud y su longitud en arrays compactos)."""
 
-    def __init__(self, threshold_m: float) -> None:
+    def __init__(self, threshold_m: float, *, collect_points: bool = False) -> None:
         self.threshold_m = threshold_m
+        self.collect_points = collect_points
+        self.paths: list[array] = []  # un array plano [lat, lon...] por segmento
         self.points = 0
         self.segments = 0
         self.distance_m = 0.0
@@ -215,10 +221,15 @@ class _Accumulator:
         if not self._segment_has_points:
             self._segment_has_points = True
             self.segments += 1
+            if self.collect_points:
+                self.paths.append(array("d"))
+        if self.collect_points:
+            self.paths[-1].append(lat)
+            self.paths[-1].append(lon)
 
         # Distancia desde el punto anterior del MISMO segmento
         if self._previous is not None:
-            self.distance_m += _haversine_m(*self._previous, lat, lon)
+            self.distance_m += haversine_m(*self._previous, lat, lon)
         self._previous = (lat, lon)
 
         # Desnivel con umbral (ver la cabecera del módulo)
@@ -260,12 +271,18 @@ class _Accumulator:
 # -----------------------------------------------------------------------------
 
 
-def read_gpx(path: str | Path, *, threshold_m: float = ELEVATION_THRESHOLD_M) -> GpxSummary:
+def read_gpx(
+    path: str | Path,
+    *,
+    threshold_m: float = ELEVATION_THRESHOLD_M,
+    collect_points: bool = False,
+) -> GpxSummary:
     """Lee un archivo GPX y devuelve su resumen.
 
     Args:
         path: Ruta del archivo.
         threshold_m: Umbral del desnivel acumulado (ver la cabecera del módulo).
+        collect_points: Si se guardan los puntos del recorrido ('path_points').
 
     Returns:
         El resumen del archivo.
@@ -275,8 +292,8 @@ def read_gpx(path: str | Path, *, threshold_m: float = ELEVATION_THRESHOLD_M) ->
         GpxError: Si no es un GPX o está dañado.
         OSError: Si no se puede leer (permisos...).
     """
-    track = _Accumulator(threshold_m)
-    route = _Accumulator(threshold_m)
+    track = _Accumulator(threshold_m, collect_points=collect_points)
+    route = _Accumulator(threshold_m, collect_points=collect_points)
 
     # Textos que se buscan (se queda el primero que aparece de cada uno)
     texts: dict[str, str | None] = {
@@ -361,6 +378,7 @@ def read_gpx(path: str | Path, *, threshold_m: float = ELEVATION_THRESHOLD_M) ->
         route_count=route_count,
         waypoint_count=waypoint_count,
         uses_route=uses_route,
+        path_points=tuple(path_data.paths),
     )
 
 
@@ -498,6 +516,15 @@ if __name__ == "__main__":
         assert s.start_point == (43.0, -3.0, 100.0) and s.end_point == (43.011, -3.0, 90.0)
         assert s.bounds == (43.0, 43.011, -3.0, -3.0)
         assert s.metadata_time == datetime(2024, 5, 1, 7, 0, tzinfo=UTC)
+        assert s.path_points == ()  # sin pedirlos, no se guardan
+
+        # 1b. Con los puntos: uno por segmento, sin el no válido; el resto, igual
+        p = read_gpx(base / "cares.gpx", threshold_m=5, collect_points=True)
+        assert [list(segment) for segment in p.path_points] == [
+            [43.0, -3.0, 43.001, -3.0, 43.002, -3.0, 43.003, -3.0],
+            [43.01, -3.0, 43.011, -3.0],
+        ]
+        assert p == s  # 'path_points' no cuenta al comparar
 
         # 2. El umbral cambia el resultado: con 0 se suma cada oscilación (también los
         #    6 m de bajada que el umbral de 5 m ya contaba); con 10 m, esa bajada no cuenta
@@ -514,6 +541,9 @@ if __name__ == "__main__":
         assert r.start_time is None and r.duration_s is None
         assert r.elevation_gain_m is None and r.elevation_min_m is None
         assert 850 < r.distance_m < 860, r.distance_m  # 0,01° de longitud a 40° N ≈ 852 m
+        # Sus puntos, los de la ruta
+        route_points = read_gpx(base / "plan.gpx", collect_points=True).path_points
+        assert [list(segment) for segment in route_points] == [[40.0, -3.0, 40.0, -2.99]]
 
         # 4. GPX vacío: válido, sin datos
         (base / "vacio.gpx").write_text('<gpx version="1.1" creator="x"></gpx>', encoding="utf-8")

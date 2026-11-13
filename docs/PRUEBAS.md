@@ -89,6 +89,10 @@ python -m ui_helpers.map.map_types                             (marcadores, trac
 python -m ui_helpers.map.map_view                              (MapView con un fondo simulado; sin ventana)
 python -m ui_helpers.map.map_view --ventana                    (una ventana: el mapa de verdad, con marcadores, tracks y tarjetas de prueba para soltar; descarga teselas)
 
+# core.tracks
+python -m core.tracks.geodesy                                  (distancias sobre la Tierra)
+python -m core.tracks.simplify                                 (contorno de un track: simplificación, tope de puntos, polilínea)
+
 # core.userdata
 python -m core.userdata.editable_fields                        (las etiquetas que se escriben son las mismas que se leen)
 python -m core.userdata.folder_file
