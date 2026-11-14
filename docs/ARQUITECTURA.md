@@ -243,6 +243,7 @@ core/
   tracks/                            ── Cálculos sobre recorridos (sin Qt ni base de datos; docs/MAPA.md) ──
     geodesy.py                         haversine_m y EARTH_RADIUS_M: el ÚNICO sitio donde se calculan distancias sobre la Tierra
     simplify.py                        Contorno de un track: simplify_track (distancia radial + Douglas-Peucker, tope de puntos), polilínea codificada (encode/decode_polyline) y encode_overview / decode_overview
+    gpx_document.py                    Lector completo del GPX (sin Qt): read_gpx_path (el recorrido en arrays compactos, TrackPath) y read_gpx_document (GpxDocument: tracks, segmentos, puntos, waypoints y lo que no se edita, tal cual)
 tools/exiftool/                      ExifTool (no se versiona; ver tools/exiftool/LEEME.txt)
 scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc (genera resources/recursos_rc.py)
 scripts/export_qtbase_es.py          Copia la traducción al español de Qt (qtbase_es.qm) a resources/locales

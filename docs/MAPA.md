@@ -445,6 +445,7 @@ class GpxDocument:
     trailing: list[bytes]          # <extensions> del documento
 ```
 
+- **Cambiado al implementarlo (paso 4.1, 14/11/2026)**: lo que no se edita se guarda como elementos XML sueltos (`Element`), no como texto: los tracks del autor tienen de 1 000 a 10 000 puntos (la memoria no aprieta) y así, al exportar, todo va en un solo árbol con los espacios de nombres declarados una vez. Los waypoints se leen con sus campos (nombre, descripción, símbolo), para verlos y editarlos. Y hay una lectura rápida aparte, `read_gpx_path`, solo con el recorrido. El resto de este apartado es el diseño original.
 - Se lee con `defusedxml` (como hoy). Cada parte que no se edita se guarda **como fragmento XML ya serializado** (`bytes`), no como árbol: un track de 100 000 puntos ocupa decenas de MB, no cientos, y al exportar esos fragmentos se escriben tal cual.
 - Los prefijos de los espacios de nombres (`gpxtpx:`, `ns3:`...) se recogen con los eventos `start-ns` y se registran antes de escribir, para que no salgan como `ns0`.
 - **Qué se conserva al exportar**: `<metadata>`, waypoints, rutas, nombre, descripción y tipo de cada track, las extensiones del documento, de los tracks y de **cada punto que no se borra** (mover un punto conserva su hora y sus extensiones). **Qué no**: los comentarios XML y el formato exacto (sangrías, orden de atributos): el resultado es equivalente, no idéntico byte a byte. La autoprueba lo comprueba: leer → exportar sin editar → leer da el mismo documento.
@@ -618,49 +619,71 @@ Aprendido para la implementación (irá a [TRAMPAS.md](TRAMPAS.md) con el paso 1
 | ~~**3.4** Deshacer en el mapa (según D6)~~ (hecho el 13/11/2026: `controllers/undo_history.py` y `core/catalog/geotagging.py`; sin rehacer) | El primer cliente de un deshacer para toda la aplicación (acordado el 13/11/2026; [PENDIENTE.md](PENDIENTE.md), B): un historial de cambios que saben deshacerse, con Ctrl+Z en la ventana; de momento, solo lo llena el mapa (ids → coordenadas anteriores) | `map_controller.py` (si crece, `controllers/geotag_history.py`) | 3.3 | Ctrl+Z devuelve las fotos a donde estaban (o las deja sin ubicación) | Ctrl+Z no hace nada fuera del mapa |
 | ~~**3.5** Ver quién no tiene ubicación~~ (hecho el 13/11/2026: el campo ya existía, «Tiene coordenadas GPS»; solo hacía falta el ajuste de fábrica «Sin ubicación». Con él, la fase 3 está completa) | Campo «Ubicación GPS» (tiene / no tiene) en `smart_fields.py` si no existe, y un ajuste de fábrica «Sin ubicación» en `filter_presets.py` | `smart_fields.py`, `filter_presets.py` | — | El filtro deja en la tira solo las fotos sin GPS | Autopruebas de `smart_fields`, `smart_rules`, `filter_presets` |
 
-### Fase 4 — Modo Tracks: ver
+### Plan del módulo Tracks (revisado el 14/11/2026)
 
-| Paso | Objetivo | Archivos | Depende de | Aceptación | Cómo comprobar que no rompe nada |
-|---|---|---|---|---|---|
-| **4.1** Lector completo | `GpxDocument`, `TrackPoint`, `read_gpx_document`, `read_gpx_points` (solo la geometría, rápido) | Nuevo: `core/tracks/gpx_document.py` | 2.1 | Autoprueba: GPX 1.0 y 1.1, varios segmentos, extensiones, rutas; mismo número de puntos que `read_gpx` | Módulo nuevo; `gpx_reader` no se toca |
-| **4.2** Módulo Tracks | `TracksModule` con barra («Biblioteca - Tracks», «Carpetas», «Fechas» reutilizando `FolderSection` y `DateSection` con `library="tracks"`), vistas mapa (inicial) y cuadrícula, orden y columnas de filtro propios; botón en la toolbar | Nuevos: `tracks_module.py`, `ui_helpers/sidebars/tracks_sidebar.py`. Cambios: `registry.py`, `ui/main_window.ui` (botón) + `build_ui.py`, `mode_toolbar.py`, `grid_orders.py` (distancia, desnivel, si se quieren) | 2.3 | El módulo aparece, lista los GPX y los muestra en el mapa en contorno; se recuerda como los demás | Catálogo e Imagen, igual; autoprueba de `module_view_state` |
-| **4.3** Track activo con detalle | Al elegir un track: geometría completa en segundo plano (memoria de 5), encuadre, resaltado; los demás, atenuados | `map_controller.py` | 4.1, 4.2 | Un GPX de 30 000 puntos se ve entero y nítido al acercar; cambiar de track deprisa no mezcla respuestas | — |
-| **4.4** Fotos de la ruta (según D4) | `fetch_track_photos` y su pintado junto al track; acción «Crear colección con esta ruta y sus fotos» | `map_queries.py`, `map_controller.py`, `tracks_module.py`; migración con `idx_media_geo` si se mide que hace falta | 4.3 | Las fotos hechas durante la ruta aparecen como marcadores; la colección creada se ve en el Catálogo con su mapa | Autoprueba de `map_queries` |
+Acordado con el autor el 14/11/2026, con su lista de funciones de edición y de creación: primero lo básico del módulo, después el perfil de elevación, la edición y la creación, **de lo más útil a lo menos necesario**. Sustituye a las fases 4 a 7 que había (ver, elevación, correlación, edición): la correlación foto-track y «las fotos de la ruta» pasan a la fase 8. Los diseños de §4 (elevación) y §7 (edición) siguen valiendo, con lo que se añade aquí.
 
-### Fase 5 — Elevación
+**Para todo el plan**:
 
-| Paso | Objetivo | Archivos | Depende de | Aceptación | Cómo comprobar que no rompe nada |
-|---|---|---|---|---|---|
-| **5.1** Cálculo del perfil | `build_profile(points) -> ElevationProfileData` | Nuevo: `core/tracks/profile.py` | 4.1 | Autoprueba: distancia y desnivel **iguales** a los de `read_gpx` con los mismos archivos; saltos de segmento; reducción por píxel | Módulo nuevo |
-| **5.2** Widget del perfil | `ElevationProfile` (dibujo, cursor, selección de tramo) | Nuevo: `ui_helpers/widgets/elevation_profile.py`; colores nuevos en `theme_colors.py` si hacen falta | 5.1 | Autoprueba con ventana (el autor): un perfil real, cursor con el ratón; aspecto a su gusto | Autoprueba de `theme_colors` |
-| **5.3** Sincronización | Perfil bajo el mapa en Tracks (`map_options.show_profile`), cursor en los dos sentidos, tramo resaltado | `map_page.py`, `map_controller.py` | 5.2, 4.3 | Pasar por el perfil mueve el punto en el mapa y al revés, sin retraso | Catálogo e Imagen no muestran perfil |
-| **5.4** Altitud del modelo | `dem.py` (decodificar terrarium, interpolar), capa `dem` en el almacén, trabajo en segundo plano; perfil «estimado» para GPX sin `ele` | Nuevo: `core/maps/dem.py`; `map_controller.py` | 5.3, 1.1 | Autoprueba con una tesela de prueba generada (sin red). Una ruta planificada sin altitud muestra un perfil creíble (comparar un track real con y sin su `ele`) | — |
+- **Los originales no se tocan**: un track editado o nuevo se exporta a un GPX (D2); si la carpeta está catalogada, se ofrece sincronizarla para que aparezca.
+- **Track activo**: el único track seleccionado (en el mapa, la tira o la cuadrícula). De él son el recorrido con detalle, el perfil y los datos del inspector.
+- **Deshacer y rehacer**: la edición tiene su historial en `core/` (`EditHistory`, sin Qt), con Ctrl+Z y Ctrl+Y mientras se edita; fuera de ella sigue el deshacer general (`UndoHistory`).
+- **Todo cambio es una orden** que sabe deshacerse (§7.2), también las limpiezas y la simplificación: enseñan lo que van a cambiar, se aplican de una vez y se deshacen de una vez.
+- **Servicios ajenos** (teselas de elevación, enrutado): necesitan red y ven la zona que se consulta. La aplicación funciona sin ellos (línea recta, perfil sin altitud) y sus direcciones se cambian en Opciones > Mapa.
 
-### Fase 6 — Correlación foto-track
+### Fase 4 — Tracks: lo básico
 
-| Paso | Objetivo | Archivos | Depende de | Aceptación | Cómo comprobar que no rompe nada |
-|---|---|---|---|---|---|
-| **6.1** Cálculo | `correlate(points, photos, options) -> list[Match]` | Nuevo: `core/tracks/correlation.py` | 4.1 | Autoprueba: interpolación, pausa larga, fuera de rango, zona y desfase, foto sin hora | Módulo nuevo |
-| **6.2** Guardar posiciones distintas | `update_media_positions` (mismos bits y validaciones que `update_metadata_fields`) | Nuevo: `core/catalog/geotagging.py` | — | Autoprueba: bits de pendiente, par latitud-longitud, no toca otras columnas | Autoprueba de `editable_fields` y `media_queries` |
-| **6.3** Ventana de vista previa | `GeotagDialog` + `GeotagController`; marcadores de vista previa en el mapa; desfase recordado | Nuevos: `ui_helpers/dialogs/geotag_dialog.py`, `controllers/geotag_controller.py`; menú de la cuadrícula o del track (`grid_actions.py`); `app_config_manager.py` | 6.1, 6.2, 3.2; D1 | Con una salida real (fotos + GPX del mismo día): las posiciones propuestas siguen el track; cambiar el desfase las mueve en vivo; «Aplicar» las guarda y quedan pendientes de escribir | La ventana se abre sola: la prueba el autor |
+| Paso | Objetivo | Archivos | Depende de | Aceptación |
+|---|---|---|---|---|
+| ~~**4.1** Lector completo~~ (hecho el 14/11/2026) | `read_gpx_path` (el recorrido en arrays compactos: para ver) y `read_gpx_document` (el archivo entero: tracks, puntos, waypoints y lo que no se edita, tal cual) | Nuevo: `core/tracks/gpx_document.py` | 2.1 | Autoprueba: GPX 1.0 y 1.1, varios segmentos, extensiones, waypoints, rutas; el mismo recorrido que `read_gpx` |
+| **4.2** Módulo Tracks | `TracksModule` en lugar del provisional (el botón, el icono y el modo `tracks` ya existen). Barra con «Biblioteca - Tracks», «Carpetas» y «Fechas» (`FolderSection` y `DateSection` con la biblioteca `tracks`; dadas de alta en `section_registry.py`); vistas mapa (inicial) y cuadrícula; orden por fecha, distancia, desnivel y duración | Nuevos: `tracks_module.py`, `ui_helpers/sidebars/tracks_sidebar.py`. Cambios: `registry.py`, `section_registry.py`, `grid_orders.py` | 2.3 | El módulo lista los GPX y los muestra en el mapa en contorno; se recuerda como los demás; Catálogo e Imagen, igual |
+| **4.3** Track activo con detalle | Al elegir un track: su recorrido completo en segundo plano (memoria de los 5 últimos), encuadrado y resaltado; los demás, atenuados; sus waypoints, a la vista | `map_controller.py`, `arca_map.js` | 4.1, 4.2 | Un GPX largo se ve entero y nítido al acercar; cambiar de track deprisa no mezcla respuestas |
+| **4.4** Sección «Track» del inspector | Distancia, desnivel de subida y de bajada, altitudes, duración, fechas, puntos y actividad (hoy no se ven en ningún sitio). De la biblioteca `tracks` (aparece también en el Catálogo con tracks seleccionados) | Nuevo: `ui_helpers/inspector/track_section.py`; `section_registry.py`, `inspector_panel.py` | — | Los números, los del catálogo (`track_details`) |
+| **4.5** Miniatura del recorrido | El contorno (`overview`) dibujado en la tarjeta de los tracks, en la cuadrícula y en la tira | A decidir en el paso: dibujado en el delegado o un origen más del motor de miniaturas (esto último sube `THUMBNAIL_VERSION`) | 2.1 | Cada track se reconoce por su forma |
 
-### Fase 7 — Edición de GPX
+### Fase 5 — Perfil de elevación
 
-| Paso | Objetivo | Archivos | Depende de | Aceptación | Cómo comprobar que no rompe nada |
-|---|---|---|---|---|---|
-| **7.1** Exportar sin pérdidas | `write_gpx`; ida y vuelta | `core/tracks/gpx_document.py` | 4.1 | Autoprueba: leer → escribir → leer da lo mismo (extensiones, waypoints, metadatos, prefijos); con GPX reales del autor (Garmin, Wikiloc, móvil), `read_gpx` da el mismo resumen antes y después | — |
-| **7.2** Modelo y deshacer | `TrackModel`, órdenes, `EditHistory`, `TrackPatch`, validación | Nuevo: `core/tracks/track_model.py` (si pasa de ~400 líneas, `track_commands.py` y `track_validation.py`) | 7.1 | Autoprueba: cada orden y su deshacer; fusión de arrastres; avisos de validación | Módulo nuevo |
-| **7.3** Editar en el mapa | `TrackEditController`, modo `EDIT_TRACK` (asas, mover, insertar, borrar), barra de edición nativa (deshacer, rehacer, exportar, salir), aviso de cambios sin exportar | Nuevo: `controllers/track_edit_controller.py`; `web_backend.py`, `arca_map.js`, `map_page.py`, `tracks_module.py` | 7.2, 5.3; D2 | Mover, insertar y borrar puntos de un track real; Ctrl+Z / Ctrl+Y; el perfil se actualiza; «Exportar a GPX…» crea un archivo que abre bien en otro programa; el original no cambia (comparar su fecha y tamaño) | Fuera del modo edición, el mapa se comporta igual |
-| **7.4** Recortar, cortar y unir | Selección de tramo en el perfil → borrar; «Cortar aquí»; unir segmentos; añadir los de otro GPX | `track_edit_controller.py`, `arca_map.js` | 7.3 | Recortar el principio y el final de un track; unir dos GPX de una misma salida; los avisos de horas aparecen | — |
-| **7.5** Crear un GPX nuevo | Modo `DRAW_TRACK`: marcar puntos, altitud del modelo, exportar a una carpeta (y ofrecer sincronizarla) | `track_edit_controller.py`, `tracks_module.py` | 7.3, 5.4 | Se dibuja una ruta, se exporta y, tras sincronizar la carpeta, aparece en Tracks con su distancia y su perfil estimado | — |
+| Paso | Objetivo | Archivos | Depende de | Aceptación |
+|---|---|---|---|---|
+| **5.1** Cálculo | `build_profile(path) -> ElevationProfileData` (§4.2) y las estadísticas de un tramo (distancia, subida, bajada, tiempo, velocidad media) | Nuevo: `core/tracks/profile.py` | 4.1 | Autoprueba: distancia y desnivel **iguales** a los de `read_gpx` con los mismos archivos; saltos de segmento; reducción por píxel |
+| **5.2** Widget | `ElevationProfile` (§4.3): área, ejes, cursor (distancia, altitud, hora) y selección de un tramo arrastrando | Nuevo: `ui_helpers/widgets/elevation_profile.py`; colores en `theme_colors.py` | 5.1 | Autoprueba con ventana (el autor): un perfil real, a su gusto |
+| **5.3** Banda bajo el mapa | El perfil del track activo en una banda ocultable (botón y atajo) y de alto ajustable y recordado, como la tira de fotos (D11); cursor sincronizado en los dos sentidos; el tramo elegido, resaltado en el mapa, con sus estadísticas | `map_page.py`, `map_controller.py`, `arca_map.js` | 5.2, 4.3 | Pasar por el perfil mueve el punto en el mapa y al revés, sin retraso; Catálogo e Imagen, sin perfil |
+| **5.4** Extras (si se quieren) | Eje por tiempo además de por distancia; pendiente por colores | `profile.py`, `elevation_profile.py` | 5.3 | — |
+
+### Fase 6 — Edición
+
+Imprescindibles (6.1 a 6.5) y útiles (6.6 a 6.8).
+
+| Paso | Objetivo | Archivos | Depende de | Aceptación |
+|---|---|---|---|---|
+| **6.1** Exportar sin pérdidas | `write_gpx` (§7.4) | `core/tracks/gpx_document.py` | 4.1; D2 | Autoprueba: leer → escribir → leer da lo mismo (extensiones, waypoints, metadatos, prefijos); con los GPX del autor, `read_gpx` da el mismo resumen antes y después |
+| **6.2** Modelo de edición | `TrackModel`, las órdenes (mover, insertar, borrar un punto o un rango, cortar, unir, invertir), `EditHistory` con deshacer y rehacer, `TrackPatch`, validación (§7.2, §7.3) | Nuevo: `core/tracks/track_model.py` (si crece, `track_commands.py` y `track_validation.py`) | 6.1; D8, D12 | Autoprueba: cada orden, su deshacer y su rehacer; fusión de arrastres; avisos |
+| **6.3** Editar en el mapa | Modo edición del track activo: asas de los vértices visibles; mover, borrar e **insertar arrastrando el punto medio fantasma** entre dos vértices; barra de edición (deshacer, rehacer, exportar, salir); Ctrl+Z / Ctrl+Y; el perfil, al día; aviso de cambios sin exportar | Nuevo: `controllers/track_edit_controller.py`; `web_backend.py`, `arca_map.js`, `map_page.py`, `tracks_module.py` | 6.2, 5.3 | Editar un track real y exportarlo; abre bien en otro programa; el original no cambia |
+| **6.4** Tramos | Seleccionar un rango en el perfil o en el mapa; sus estadísticas; borrarlo; recortar el principio o el final («Borrar hasta aquí», «Borrar desde aquí»); quedarse solo con el tramo | `track_edit_controller.py`, `arca_map.js`, `elevation_profile.py` | 6.3 | Quitar el trozo del coche del principio y del final de un track |
+| **6.5** Dividir, unir, invertir | Cortar en un punto (dos segmentos, o exportar cada parte); unir segmentos; añadir los de otro GPX y unirlos; invertir el sentido | `track_edit_controller.py`, `track_model.py` | 6.3 | Unir dos GPX de una misma salida; los avisos de horas aparecen |
+| **6.6** Simplificar | Douglas-Peucker (`simplify.py`, que ya existe) con tolerancia ajustable, viendo los puntos que quedan antes de aplicar; el resultado se guarda | `track_model.py`, `track_edit_controller.py`; un diálogo o una fila en la barra de edición | 6.3 | Un track de 3 000 puntos, a unos cientos sin que cambie su forma a la vista |
+| **6.7** Limpiar errores del GPS | Detectores que **proponen** puntos: duplicados, picos de posición, saltos de velocidad imposibles y nubes de puntos estando parado; se ven resaltados y se quitan como una sola orden | Nuevo: `core/tracks/cleanup.py`; `track_edit_controller.py` | 6.3 | Autoprueba con tracks inventados (un pico, una nube, un salto); en uno real, lo que propone es razonable |
+| **6.8** Elevación | El modelo de elevaciones (`core/maps/dem.py`, §4.1) y sus tres acciones: «Rellenar la altitud que falta», «Sustituir por la del modelo» y «Suavizar la altitud» | Nuevo: `core/maps/dem.py`; `track_model.py` (`SetElevations`), `track_edit_controller.py` | 6.3, 1.1 | Autoprueba con una tesela generada (sin red); un track real con y sin su altitud da perfiles parecidos |
+
+### Fase 7 — Creación
+
+| Paso | Objetivo | Archivos | Depende de | Aceptación |
+|---|---|---|---|---|
+| **7.1** Dibujar punto a punto | Modo de dibujo: cada clic añade un punto; distancia acumulada y número de puntos en vivo; deshacer y rehacer (el mismo historial); altitud del modelo para cada punto; exportar a una carpeta y ofrecer sincronizarla | `track_edit_controller.py`, `arca_map.js`, `tracks_module.py` | 6.3, 6.8 | Se dibuja una ruta, se exporta y, tras sincronizar, aparece en Tracks con su distancia y su perfil |
+| **7.2** Enrutado por caminos | Entre el último punto y el clic, la línea sigue la red de caminos, con perfil a pie, en bici o en coche; se activa y se desactiva tramo a tramo; sin red o con error, línea recta | Nuevo: `core/maps/routing.py` (un proveedor intercambiable); Opciones > Mapa (servidor, clave si hace falta) | 7.1; D13 | Dos clics en un sendero conocido dan una línea que lo sigue |
+| **7.3** Waypoints | Añadir, mover, cambiar y borrar puntos de interés, con nombre, descripción y símbolo (leerlos y verlos, desde 4.1 y 4.3) | `track_model.py`, `track_edit_controller.py`, `arca_map.js` | 6.3 | Un waypoint creado aquí se ve con su nombre en otro programa |
+
+### Fase 8 — Fotos y tracks
+
+Lo que no estaba en la lista del autor, para después: **las fotos de la ruta** (antes 4.4: `fetch_track_photos`, D4, y «Crear colección con esta ruta y sus fotos») y **ubicar fotos por la hora con un GPX** (antes fase 6: `core/tracks/correlation.py`, `update_media_positions`, `GeotagDialog`; §6).
 
 ### Después (sin fecha)
 
-Descarga de zonas para usarlas sin conexión; sección «Ubicación» del inspector con mapa; miniatura del recorrido en la tarjeta de los tracks (con `overview`); rumbo de la foto (`gps_direction`) dibujado y editable en el mapa; pendiente por colores en el perfil; MDT05 del IGN; otros formatos de track.
+Descarga de zonas para usarlas sin conexión; sección «Ubicación» del inspector con mapa; rumbo de la foto (`gps_direction`) dibujado y editable en el mapa; MDT05 del IGN; otros formatos de track.
 
 ### Sobre el orden
 
-Se mantiene el sugerido (base → Catálogo → Imagen → Tracks: ver, elevación, edición). Encaja con la arquitectura: el Catálogo solo necesita «pintar lo del origen», Imagen añade escribir coordenadas con un mecanismo que ya existe, y Tracks es el único que pide un módulo nuevo y un modelo de edición. El único añadido es la **correlación (fase 6) entre la elevación y la edición**: necesita el lector completo (4.1) y el geoetiquetado (fase 3), no depende de editar GPX y da valor antes. Las fases 5, 6 y 7 son independientes entre sí a partir de la 4: el autor puede cambiar su orden.
+Hasta la fase 3, el sugerido al principio (base → Catálogo → Imagen). Desde la 4, el acordado el 14/11/2026: lo básico de Tracks, el perfil, la edición y la creación, cada bloque de lo más útil a lo menos necesario. Dependencias que fijan el orden dentro de él: el perfil necesita el lector completo (4.1) y el track activo (4.3); editar en el mapa (6.3), el perfil sincronizado (5.3); dibujar (7.1), la altitud del modelo (6.8). La fase 8 no depende de la edición y se puede adelantar.
 
 ---
 
@@ -675,4 +698,7 @@ Se mantiene el sugerido (base → Catálogo → Imagen → Tracks: ver, elevaci�
 - **D7. Altitud al recolocar una foto.** Dejarla, vaciarla o rellenarla con el modelo de elevaciones. Recomendación: dejarla (como Lightroom) y ofrecer el relleno más adelante. Afecta a 3.3.
 - **D8. Hora de los puntos insertados en un GPX.** Interpolada por distancia (recomendada: algunos servicios rechazan tracks con puntos sin hora) o sin hora. Afecta a 7.2.
 - **D9. Textos y aspecto**: icono y atajo de la vista «Mapa», nombres de las capas, textos de la ventana de correlación, de la barra de edición y de los avisos; marcador con miniatura o punto. Cada paso los propone antes de escribirlos.
+- **D11. La banda del perfil y la tira de fotos** (para 5.3). En Tracks, ¿conviven las dos bajo el mapa o el perfil ocupa el sitio de la tira? Recomendación: conviven, cada una con su botón, y en Tracks la tira empieza oculta.
+- **D12. Horas al invertir un track** (para 6.5). Recomendación: quitarlas, con aviso (conservarlas dejaría un track que retrocede en el tiempo).
+- **D13. Servicio de enrutado** (para 7.2). Sin elegir: al llegar al paso, comparar BRouter, OpenRouteService y GraphHopper (perfiles de senderismo, si piden clave, condiciones de uso) y que decida el autor.
 - **D10. Identificación ante los servidores de teselas**: `User-Agent` con el nombre y la versión de la aplicación; OSM recomienda añadir una forma de contacto. Recomendación: sin datos personales, salvo que el autor quiera ponerlos.

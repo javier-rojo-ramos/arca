@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Tracks, paso 4.1: lector completo del GPX** (14/11/2026) | Nada que ver en la aplicación (aún nadie lo usa): que arranca igual. La autoprueba, `python -m core.tracks.gpx_document` |
 | **Iconos: flechas en «Paneles», Vídeo y Audio con su icono, botón de Tracks** (14/11/2026) | Opciones > «Paneles»: debajo de cada lista, dos botones cuadrados con flecha (arriba y abajo) en lugar de «Subir» y «Bajar», separados, apagados si no se puede mover y con su texto de ayuda al pasar el ratón. En la toolbar de módulos: Vídeo y Audio con su icono (ya no «V» y «A») y, debajo, el botón nuevo de **Tracks** con su icono (el marco de los demás con el recorrido de las tarjetas); al pulsarlo, la página provisional «próximamente», el inspector y su icono en ámbar, como Vídeo y Audio. En «Paneles», «Tracks» en el desplegable de módulos. Mirar si el icono de Tracks convence a 24 px (se puede retocar: `resources/images/library_tracks.svg`) |
 | **Mapa, paso 3.5: «Sin ubicación»** (13/11/2026) | En el desplegable de ajustes de la barra de filtros, «Sin ubicación» (detrás de «Ubicación»): enciende «Metadatos» con la columna «Tiene coordenadas GPS» y «No» elegido; la cuadrícula y la tira, solo con lo que no tiene ubicación. **Si ya tenías tu lista de ajustes guardada, no aparece sola**: «Gestionar ajustes personalizados…» > «Restaurar los de fábrica» la añade al final. Al soltar fotos en el mapa siguen en la tira, con su chincheta, hasta volver a elegir la carpeta. La tira tiene ahora siempre su barra de desplazamiento: con cualquier número de fotos (también las 8 de la captura), las tarjetas en fila y a la misma distancia |
 
@@ -83,6 +84,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 14/11/2026: plan del módulo Tracks, revisado (lo básico, perfil de elevación, edición, creación); paso 4.1: lector completo del GPX (`core/tracks/gpx_document.py`).
 - 14/11/2026: flechas en los botones de subir y bajar de «Paneles»; iconos de los módulos Vídeo y Audio; botón e icono del módulo Tracks (provisional).
 - 14/11/2026: secciones personalizables, fase 4: página «Paneles» en Opciones (las secciones de las dos barras de cualquier módulo: mostrar, ocultar, reordenar y restaurar). Con ella, las cuatro fases, entregadas.
 - 14/11/2026: secciones personalizables, fase 3: reordenar las secciones de una barra arrastrando sus cabeceras, con una raya que dice dónde caerán.
@@ -92,4 +94,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 13/11/2026: mapa, paso 3.5: ajuste de fábrica «Sin ubicación» en la barra de filtros. Fase 3 (Imagen), completa; lo siguiente, el módulo Tracks (recordatorio en [PENDIENTE.md](PENDIENTE.md)).
 - 13/11/2026: mapa, pasos 3.3 y 3.4: «Quitar la ubicación» con el botón derecho y Ctrl+Z para deshacer lo hecho en el mapa; el mapa se pinta entero al cambiar de módulo.
 - 13/11/2026: mapa, paso 3.2: ubicar fotos soltándolas en el mapa de Imagen y moverlas (se escribe en los archivos).
-- 13/11/2026: tira del mapa con tarjetas compactas (solo la imagen, sin banda ni círculo de la selección rápida), como Lightroom, y una chincheta en las que tienen ubicación.

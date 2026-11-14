@@ -5,18 +5,21 @@
 
 **Plan de interfaz** (acordado el 29/10/2026 y revisado el 08/11/2026; ver [FLUJOS.md §11](FLUJOS.md) y [DECISIONES.md](DECISIONES.md)): el mismo esqueleto en todos los módulos (izquierda navegar, centro ver, derecha el inspector), la edición en el inspector y ventanas solo para lo pesado o por lotes, una tarjeta configurable por «perfiles» y un único motor de filtros (`RuleSet`) con estado por módulo.
 
-## Siguiente: el módulo Tracks (fase 4 del mapa)
+## Siguiente: el módulo Tracks
 
-Recordatorio pedido por el autor el 13/11/2026, al cerrar la fase 3 (Imagen). El plan completo, paso a paso y con sus criterios, está en [MAPA.md](MAPA.md) §10; lo que sigue es el orden y lo que hay que decidir antes.
+Plan revisado con el autor el 14/11/2026 (su lista de funciones de edición y de creación): lo básico del módulo, el perfil de elevación, la edición y la creación, por este orden y de lo más útil a lo menos necesario. El detalle de cada paso (archivos, de qué depende, cómo se acepta) está en [MAPA.md](MAPA.md) §10; las decisiones, en §11.
 
-- **Fase 4, ver los tracks** (en este orden; cada paso deja la aplicación funcionando):
-  - **4.1. Lector completo del GPX** (`core/tracks/gpx_document.py`, sin Qt): todos los puntos, por segmentos, y lo que no se edita guardado tal cual (para exportar sin perder nada en la fase 7). El lector del extractor (`gpx_reader`) no se toca.
-  - **4.2. Módulo Tracks**: `TracksModule`, en lugar del provisional de `registry.py` (el botón `btn_tracks`, su icono y el modo `tracks` ya existen desde el 14/11/2026); las secciones de su barra, dadas de alta en `ui_helpers/layout/section_registry.py` (así entran en la colocación personalizable: [COMO_AMPLIAR.md](COMO_AMPLIAR.md)); su barra con «Biblioteca - Tracks», «Carpetas» y «Fechas» (las secciones que ya existen, con la biblioteca `tracks`); vistas: el mapa (la inicial) y la cuadrícula; orden por fecha y, si se quiere, por distancia o desnivel.
-  - **4.3. El track elegido, con detalle**: su recorrido completo leído del GPX en segundo plano (los demás, con su contorno), encuadrado y resaltado.
-  - **4.4. Las fotos de la ruta**: las tomadas durante el recorrido (por la hora y la cercanía), junto al track; y «Crear colección con esta ruta y sus fotos».
-- **Después**: fase 5, el perfil de elevación sincronizado con el mapa; fase 6, ubicar fotos por la hora con un GPX (con el desfase de la cámara y vista previa); fase 7, crear y editar GPX (mover, insertar y borrar puntos, cortar y unir segmentos, exportar). Las fases 5, 6 y 7 se pueden hacer en cualquier orden.
-- **Por decidir** (detalle y recomendación en [MAPA.md](MAPA.md) §11): **D4** (para 4.4: cómo se calculan las fotos de una ruta: margen de tiempo y distancia máxima), **D2** (para la fase 7: guardar un GPX editado siempre en un archivo nuevo, recomendado, o sobrescribirlo), **D8** (para la fase 7: hora de los puntos insertados), y los textos del módulo Tracks (D9; el icono, hecho el 14/11/2026: `library_tracks.svg`).
-- **Anotado aparte, del módulo Tracks**: una sección del inspector con los datos del track (distancia, desnivel, altitudes, duración, actividad), que hoy no se ven en ningún sitio (A.6); y la miniatura del recorrido en su tarjeta (con el contorno que ya guarda el catálogo).
+- **Fase 4, lo básico** (cada paso deja la aplicación funcionando):
+  - ~~**4.1. Lector completo del GPX**~~ (hecho el 14/11/2026: `core/tracks/gpx_document.py`).
+  - **4.2. Módulo Tracks**: `TracksModule` en lugar del provisional de `registry.py` (el botón `btn_tracks`, su icono y el modo `tracks` ya existen); su barra con «Biblioteca - Tracks», «Carpetas» y «Fechas» (las secciones que ya existen, con la biblioteca `tracks`), dadas de alta en `ui_helpers/layout/section_registry.py`; vistas: el mapa (la inicial) y la cuadrícula; orden por fecha, distancia, desnivel y duración.
+  - **4.3. El track activo, con detalle**: su recorrido completo leído en segundo plano (los demás, con su contorno), encuadrado y resaltado, con sus waypoints.
+  - **4.4. Sección «Track» del inspector**: distancia, desnivel, altitudes, duración, fechas, puntos y actividad (hoy no se ven en ningún sitio).
+  - **4.5. Miniatura del recorrido** en la tarjeta de los tracks (con el contorno que ya guarda el catálogo).
+- **Fase 5, el perfil de elevación**: 5.1 el cálculo (los mismos números que el catálogo; estadísticas de un tramo); 5.2 el widget (cursor y selección de un tramo); 5.3 la banda bajo el mapa, ocultable y sincronizada con él; 5.4 extras (eje por tiempo, pendiente por colores).
+- **Fase 6, la edición**: 6.1 exportar sin pérdidas; 6.2 el modelo de edición con deshacer y rehacer; 6.3 editar en el mapa (mover, borrar, insertar con el punto medio fantasma); 6.4 tramos (seleccionar, estadísticas, borrar, recortar el principio o el final); 6.5 dividir, unir e invertir. Después, lo útil: 6.6 simplificar; 6.7 limpiar errores del GPS (duplicados, picos, saltos de velocidad, nubes estando parado); 6.8 la elevación (modelo de elevaciones: rellenar, sustituir, suavizar).
+- **Fase 7, la creación**: 7.1 dibujar punto a punto (estadísticas en vivo, altitud del modelo, exportar); 7.2 el enrutado por caminos; 7.3 los waypoints (nombre, descripción, símbolo).
+- **Fase 8, fotos y tracks** (para después; se puede adelantar): las fotos de la ruta y «Crear colección con esta ruta y sus fotos»; ubicar fotos por la hora con un GPX.
+- **Por decidir** (detalle y recomendación en [MAPA.md](MAPA.md) §11; ninguna bloquea hasta su paso): **D11** (para 5.3: si la banda del perfil convive con la tira de fotos; recomendado, sí), **D2** (para 6.1: guardar un GPX editado siempre en un archivo nuevo, recomendado, o sobrescribirlo), **D8** (para 6.2: hora de los puntos insertados; recomendado, interpolada), **D12** (para 6.5: las horas al invertir un track; recomendado, quitarlas con aviso), **D13** (para 7.2: el servicio de enrutado, a comparar al llegar), **D4** (para la fase 8: cómo se calculan las fotos de una ruta) y los textos del módulo (D9; se proponen en cada paso).
 
 ## A. Módulos e interfaz
 
