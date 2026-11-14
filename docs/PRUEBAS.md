@@ -140,6 +140,7 @@ python -m ui_helpers.models.original_image_loader              (el original ente
 python -m ui_helpers.widgets.attribute_filter_row              (clics en marcas, estrellas, colores, selección rápida y tipos; operador; dibujo; sin ventana)
 python -m ui_helpers.widgets.filter_bar                        (pestañas, «Ninguno», candado y paneles; sin ventana)
 python -m ui_helpers.widgets.filter_preset_button              (texto del botón, menú, ✓, qué se puede pulsar; sin ventana)
+python -m ui_helpers.dialogs.section_layout_page               (página «Paneles» de Opciones: casillas, orden, restaurar, aceptar y cancelar, con una configuración de mentira; sin ventana)
 python -m ui_helpers.widgets.keyword_checklist
 python -m ui_helpers.widgets.section_stack                     (secciones colocadas por el modelo: orden, visible y disponible, plegar, cambio de modo, restaurar; el menú y el clic derecho en la cabecera; arrastrar las cabeceras con eventos de ratón; sin ventana)
 python -m ui_helpers.widgets.metadata_column                   (textos, selección, fechas, menú de campos y engranaje; sin ventana. Con --ventana, tres columnas de ejemplo en una ventana)

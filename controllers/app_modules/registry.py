@@ -11,9 +11,11 @@ provisional por el de verdad):
 
 Los botones de la toolbar están en el .ui (se diseñan con Qt Designer); aquí solo se dice
 qué módulo activa cada uno.
+
+1.2.0 Módulo provisional Tracks (botón 'btn_tracks'); Vídeo y Audio, con su icono.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["create_modules"]
 
 # Librerías estándar
@@ -25,7 +27,7 @@ from controllers.app_modules.base import AppModule, ModuleContext
 from controllers.app_modules.catalog_module import CatalogModule
 from controllers.app_modules.image_module import ImageModule
 from controllers.app_modules.placeholder_module import PlaceholderModule
-from ui_helpers.helpers.mode_toolbar import MODE_AUDIO, MODE_VIDEO
+from ui_helpers.helpers.mode_toolbar import MODE_AUDIO, MODE_TRACKS, MODE_VIDEO
 
 
 def create_modules(ui: Any, context: ModuleContext) -> list[AppModule]:
@@ -48,20 +50,26 @@ def create_modules(ui: Any, context: ModuleContext) -> list[AppModule]:
         ),
         # Imagen: fotos y vídeos del móvil, con el árbol de palabras clave (barra propia)
         ImageModule(context, button=ui.btn_image),
-        # Provisionales hasta que tengan su clase ('getattr': si falta el icono en
-        # 'AppIcons', el botón muestra su inicial)
+        # Provisionales hasta que tengan su clase (ya con su botón y su icono)
         PlaceholderModule(
             context,
             key=MODE_VIDEO,
             title="Vídeo",
-            icon=getattr(AppIcons, "LIB_VIDEO", None),
+            icon=AppIcons.LIB_VIDEO,
             button=ui.btn_video,
         ),
         PlaceholderModule(
             context,
             key=MODE_AUDIO,
             title="Audio",
-            icon=getattr(AppIcons, "LIB_AUDIO", None),
+            icon=AppIcons.LIB_AUDIO,
             button=ui.btn_audio,
+        ),
+        PlaceholderModule(
+            context,
+            key=MODE_TRACKS,
+            title="Tracks",
+            icon=AppIcons.LIB_TRACKS,
+            button=ui.btn_tracks,
         ),
     ]

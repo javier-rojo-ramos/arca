@@ -70,6 +70,8 @@ class AppIcons:
     SELECT_NONE = ":/img/check_box_none.svg"
     UP = ":/img/arrow_circle_up.svg"
     DOWN = ":/img/arrow_circle_down.svg"
+    ARROW_UP = ":/img/arrow_upward.svg"  # subir una fila de una lista
+    ARROW_DOWN = ":/img/arrow_downward.svg"  # bajarla
     EQUAL = ":/img/equal.svg"
     SETTINGS = ":/img/settings.svg"
     SETTINGS_APP = ":/img/settings_applications.svg"
@@ -77,6 +79,10 @@ class AppIcons:
     FORWARD = ":/img/arrow_forward_ios.svg"
     LIB_IMAGE = ":/img/library_image.svg"
     LIB_ALL = ":/img/library_all.svg"
+    LIB_VIDEO = ":/img/library_video.svg"
+    LIB_AUDIO = ":/img/library_music.svg"
+    # Propio (no es de Material): el marco de los 'library' con el recorrido de las tarjetas
+    LIB_TRACKS = ":/img/library_tracks.svg"
     VIEW_GRID = ":/img/view_grid.svg"
     VIEW_FULL = ":/img/view_full.svg"
     VIEW_MAP = ":/img/view_map.svg"

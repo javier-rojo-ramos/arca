@@ -40,6 +40,7 @@ Uso:
     SECTION_REGISTRY.defaults("image", Sidebar.LEFT)  # sus secciones, en el orden de partida
     SECTION_REGISTRY.get("folders").title_for("image")
 
+1.1.0 Modo 'tracks' (módulo provisional: de momento, solo con las secciones del inspector).
 1.0.0 Primera versión (14/11/2026), con las secciones que ya existían: las del Catálogo y
       las de Imagen en la barra izquierda, y las cuatro del inspector en la derecha.
 
@@ -47,7 +48,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_registry
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "LEFT",
     "RIGHT",
@@ -210,6 +211,7 @@ def _build_default_registry() -> SectionRegistry:
     registry.register_mode("image", "Imagen")
     registry.register_mode("video", "Vídeo")
     registry.register_mode("audio", "Audio")
+    registry.register_mode("tracks", "Tracks")
 
     # --- Barra izquierda (la de cada módulo). Los 'id' son las claves con las que ya se
     # guardaba lo plegado de cada barra
@@ -250,7 +252,7 @@ if __name__ == "__main__":
 
     # El registro de la aplicación: lo que hoy muestra cada barra, en su orden
     reg = SECTION_REGISTRY
-    assert reg.mode_keys() == ("catalog", "image", "video", "audio"), reg.mode_keys()
+    assert reg.mode_keys() == ("catalog", "image", "video", "audio", "tracks"), reg.mode_keys()
     assert _ids(reg, "catalog", Sidebar.LEFT) == ["catalog", "folders", "collections"]
     assert _ids(reg, "image", Sidebar.LEFT) == ["library", "folders", "dates", "keywords"]
     assert _ids(reg, "video", Sidebar.LEFT) == []  # módulo provisional: sin barra propia

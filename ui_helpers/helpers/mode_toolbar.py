@@ -25,11 +25,20 @@ Uso (en el controlador):
     )
     self.mode_toolbar.mode_changed.connect(...)
 
+1.2.0 Modo Tracks ('MODE_TRACKS').
 1.1.0 El icono ya no se pone en el acento al pasar el ratón: solo el del modo activo.
 """
 
-__version__ = "1.1.0"
-__all__ = ["MODE_AUDIO", "MODE_CATALOG", "MODE_IMAGE", "MODE_VIDEO", "ModeToolbar", "toolbar_accent_color"]
+__version__ = "1.2.0"
+__all__ = [
+    "MODE_AUDIO",
+    "MODE_CATALOG",
+    "MODE_IMAGE",
+    "MODE_TRACKS",
+    "MODE_VIDEO",
+    "ModeToolbar",
+    "toolbar_accent_color",
+]
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QFile, QObject, Qt, Signal
@@ -45,6 +54,7 @@ MODE_CATALOG = "catalog"
 MODE_IMAGE = "image"
 MODE_VIDEO = "video"
 MODE_AUDIO = "audio"
+MODE_TRACKS = "tracks"
 
 
 def toolbar_accent_color() -> QColor:

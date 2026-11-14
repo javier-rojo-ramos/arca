@@ -28,12 +28,19 @@ Uso:
     model.reset("image", Sidebar.LEFT)                 # solo una barra de un modo
     model.is_default("image", Sidebar.LEFT)            # ¿hay algo que restaurar?
 
+    Para una interfaz que edita y solo aplica al aceptar (la página de Opciones):
+    layout = model.working_copy()                      # un 'SectionLayout' suelto
+    layout.move(...); layout.set_visible(...); layout.reset(...)
+    model.apply(layout)                                # ahora sí: guarda y avisa
+
 La barra de la señal llega como texto ('Sidebar' es un 'StrEnum': se puede comparar con
 'Sidebar.LEFT' directamente).
 
 'config' es cualquier objeto con 'get(clave, defecto)' y 'set(clave, valor)' (como
 'config.app_config.config'): así la autoprueba no toca el settings.json de verdad.
 
+1.3.0 'working_copy' y 'apply': editar una copia y aplicarla de una vez (fase 4, la página
+      «Paneles» de Opciones).
 1.2.0 'reset' de una sola barra de un modo e 'is_default' (fase 2).
 1.1.0 La primera vez, recoge lo plegado guardado con el formato anterior (fase 1b).
 1.0.0 Primera versión (14/11/2026).
@@ -42,7 +49,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m ui_helpers.layout.section_layout_model
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["SectionLayoutModel"]
 
 # Librerías estándar
@@ -212,6 +219,34 @@ class SectionLayoutModel(QObject):
         """True si esa barra de ese modo está como de partida (nada que restaurar)."""
         return self._layout.is_default(mode, sidebar)
 
+    def working_copy(self) -> SectionLayout:
+        """Una copia suelta de la colocación, para editarla sin que nada cambie hasta
+        pasarla a 'apply' (así trabaja la página de Opciones, que solo aplica al aceptar)."""
+        return SectionLayout.from_state(self._layout.to_state(), self._registry)
+
+    def apply(self, layout: SectionLayout) -> bool:
+        """Sustituye la colocación por la de 'layout' (una copia editada). Guarda una vez y
+        avisa por cada barra de cada modo que queda distinta.
+
+        Returns:
+            True si cambia algo.
+        """
+        changed = [
+            (mode, sidebar)
+            for mode in self._registry.mode_keys()
+            for sidebar in Sidebar
+            if layout.entries(mode, sidebar) != self._layout.entries(mode, sidebar)
+        ]
+        if not changed:
+            return False
+        # Otra copia (pasada por el registro): lo que haga después quien la editaba no
+        # toca la del modelo
+        self._layout = SectionLayout.from_state(layout.to_state(), self._registry)
+        self._save()
+        for changed_mode, changed_sidebar in changed:
+            self.layout_changed.emit(changed_mode, changed_sidebar.value)
+        return True
+
     # -------------------------------------------------------------------------
     # Interno
     # -------------------------------------------------------------------------
@@ -272,7 +307,7 @@ if __name__ == "__main__":
     model.layout_changed.connect(lambda mode, sidebar: seen.append((mode, sidebar)))
     assert _ids(model, "image") == ["library", "folders", "dates", "keywords"]
     assert model.title("image", "library") == "Biblioteca - Imagen" and model.title("image", "x") == ""
-    assert [mode.key for mode in model.modes()] == ["catalog", "image", "video", "audio"]
+    assert [mode.key for mode in model.modes()] == ["catalog", "image", "video", "audio", "tracks"]
     assert config.writes == 1 and not seen
     config.writes = 0
 
@@ -320,6 +355,21 @@ if __name__ == "__main__":
     assert model.entry("image", "metadata").expanded is False
     assert model.reset() is True
 
+    # --- Editar una copia y aplicarla de una vez (la página de Opciones)
+    writes = config.writes
+    seen.clear()
+    draft = model.working_copy()
+    draft.move("image", "keywords", 0)
+    draft.set_visible("catalog", "folders", False)
+    assert _ids(model, "image")[0] == "library" and not seen and config.writes == writes
+    assert model.apply(draft) is True and config.writes == writes + 1
+    assert sorted(seen) == [("catalog", "left"), ("image", "left")], seen
+    assert _ids(model, "image")[0] == "keywords" and not model.entry("catalog", "folders").visible
+    assert model.apply(draft) is False and config.writes == writes + 1  # ya está igual
+    draft.reset()  # lo que se haga después con la copia no toca el modelo
+    assert _ids(model, "image")[0] == "keywords"
+    assert model.apply(draft) is True and model.is_default("image", Sidebar.LEFT)
+
     # --- Lo guardado ilegible o de otra versión: de partida, sin error
     for bad in ("roto", {"version": 99, "modes": {}}, []):
         broken = SectionLayoutModel(SECTION_REGISTRY, _FakeConfig({SETTING_SECTION_LAYOUT: bad}))
@@ -345,7 +395,7 @@ if __name__ == "__main__":
 
     assert _folded("catalog", Sidebar.LEFT) == ["collections"], _folded("catalog", Sidebar.LEFT)
     assert _folded("image", Sidebar.LEFT) == ["dates"]
-    for mode_key in ("catalog", "image", "video", "audio"):  # el inspector, a todos los modos
+    for mode_key in SECTION_REGISTRY.mode_keys():  # el inspector, a todos los modos
         assert _folded(mode_key, Sidebar.RIGHT) == ["metadata"], mode_key
     assert legacy.writes == 1 and SETTING_SECTION_LAYOUT in legacy.data
     # La segunda vez ya hay algo guardado: no se vuelve a importar

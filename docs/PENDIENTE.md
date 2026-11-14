@@ -5,29 +5,17 @@
 
 **Plan de interfaz** (acordado el 29/10/2026 y revisado el 08/11/2026; ver [FLUJOS.md §11](FLUJOS.md) y [DECISIONES.md](DECISIONES.md)): el mismo esqueleto en todos los módulos (izquierda navegar, centro ver, derecha el inspector), la edición en el inspector y ventanas solo para lo pesado o por lotes, una tarjeta configurable por «perfiles» y un único motor de filtros (`RuleSet`) con estado por módulo.
 
-## En curso: secciones de las barras personalizables por modo
-
-Pedido por el autor el 14/11/2026, antes de seguir con Tracks. Diseño y decisiones en [DECISIONES.md](DECISIONES.md); el código, en `ui_helpers/layout/`. Cada fase se entrega y se espera el visto bueno.
-
-- ~~**1a. Registro, modelo y persistencia**~~ (hecha el 14/11/2026; sin conectar a las barras).
-- ~~**1b. Las tres barras, colocadas por el modelo**~~ (hecha el 14/11/2026: `SectionStack`; a la vista, igual; lo plegado, importado).
-- ~~**2. Clic derecho en una cabecera**~~ (hecha el 14/11/2026: también en el hueco vacío de la barra; «Restaurar por defecto» restaura esa barra de ese modo).
-- ~~**3. Arrastrar las cabeceras**~~ (hecha el 14/11/2026: por el título, con una raya que dice dónde caerá; soltar a un lado cancela).
-- **4. Página «Paneles» en Opciones**: la colocación de cualquier modo y barra, con el mismo modelo; «Restaurar este modo» y «Restaurar todos».
-
-Al terminar, sale de B el apunte «cambiar el orden de las secciones de la barra de un módulo».
-
-## Después: el módulo Tracks (fase 4 del mapa)
+## Siguiente: el módulo Tracks (fase 4 del mapa)
 
 Recordatorio pedido por el autor el 13/11/2026, al cerrar la fase 3 (Imagen). El plan completo, paso a paso y con sus criterios, está en [MAPA.md](MAPA.md) §10; lo que sigue es el orden y lo que hay que decidir antes.
 
 - **Fase 4, ver los tracks** (en este orden; cada paso deja la aplicación funcionando):
   - **4.1. Lector completo del GPX** (`core/tracks/gpx_document.py`, sin Qt): todos los puntos, por segmentos, y lo que no se edita guardado tal cual (para exportar sin perder nada en la fase 7). El lector del extractor (`gpx_reader`) no se toca.
-  - **4.2. Módulo Tracks**: `TracksModule` y su botón en la toolbar (en el `.ui`); su barra con «Biblioteca - Tracks», «Carpetas» y «Fechas» (las secciones que ya existen, con la biblioteca `tracks`); vistas: el mapa (la inicial) y la cuadrícula; orden por fecha y, si se quiere, por distancia o desnivel.
+  - **4.2. Módulo Tracks**: `TracksModule`, en lugar del provisional de `registry.py` (el botón `btn_tracks`, su icono y el modo `tracks` ya existen desde el 14/11/2026); las secciones de su barra, dadas de alta en `ui_helpers/layout/section_registry.py` (así entran en la colocación personalizable: [COMO_AMPLIAR.md](COMO_AMPLIAR.md)); su barra con «Biblioteca - Tracks», «Carpetas» y «Fechas» (las secciones que ya existen, con la biblioteca `tracks`); vistas: el mapa (la inicial) y la cuadrícula; orden por fecha y, si se quiere, por distancia o desnivel.
   - **4.3. El track elegido, con detalle**: su recorrido completo leído del GPX en segundo plano (los demás, con su contorno), encuadrado y resaltado.
   - **4.4. Las fotos de la ruta**: las tomadas durante el recorrido (por la hora y la cercanía), junto al track; y «Crear colección con esta ruta y sus fotos».
 - **Después**: fase 5, el perfil de elevación sincronizado con el mapa; fase 6, ubicar fotos por la hora con un GPX (con el desfase de la cámara y vista previa); fase 7, crear y editar GPX (mover, insertar y borrar puntos, cortar y unir segmentos, exportar). Las fases 5, 6 y 7 se pueden hacer en cualquier orden.
-- **Por decidir** (detalle y recomendación en [MAPA.md](MAPA.md) §11): **D4** (para 4.4: cómo se calculan las fotos de una ruta: margen de tiempo y distancia máxima), **D2** (para la fase 7: guardar un GPX editado siempre en un archivo nuevo, recomendado, o sobrescribirlo), **D8** (para la fase 7: hora de los puntos insertados), y los textos e icono del módulo Tracks (D9).
+- **Por decidir** (detalle y recomendación en [MAPA.md](MAPA.md) §11): **D4** (para 4.4: cómo se calculan las fotos de una ruta: margen de tiempo y distancia máxima), **D2** (para la fase 7: guardar un GPX editado siempre en un archivo nuevo, recomendado, o sobrescribirlo), **D8** (para la fase 7: hora de los puntos insertados), y los textos del módulo Tracks (D9; el icono, hecho el 14/11/2026: `library_tracks.svg`).
 - **Anotado aparte, del módulo Tracks**: una sección del inspector con los datos del track (distancia, desnivel, altitudes, duración, actividad), que hoy no se ven en ningún sitio (A.6); y la miniatura del recorrido en su tarjeta (con el contorno que ya guarda el catálogo).
 
 ## A. Módulos e interfaz
@@ -45,7 +33,8 @@ Numerados como se citan en [HISTORIAL.md](HISTORIAL.md); el orden se decide al p
 ## B. Mejoras anotadas (sin orden)
 
 - **Cuadrícula**: recordar el desplazamiento exacto de cada módulo (desde el 12/11/2026 cada módulo recuerda su archivo actual, que queda a la vista al volver, pero no la posición; al recargar con el mismo origen, la posición se conserva); refresco por filas al terminar los metadatos (hoy recarga entera); recargar una colección inteligente que se está viendo cuando un elemento deja de cumplir las reglas; «Orden personalizado» en las colecciones estáticas (`collection_items.position`); un módulo sin cuadrícula oculta el deslizador (y el orden, si no ofrece campos).
-- **Barra lateral y colecciones**: cambiar el orden de las secciones de la barra de un módulo (pedido por el autor el 12/11/2026); mover colecciones entre conjuntos arrastrando; orden personalizado; exportar e importar colecciones, o que sobrevivan a recrear el catálogo (hoy solo están en la BD); «Clasificación» del sistema con «≥» en lugar de «=»; «Duplicar» una colección del sistema como inteligente del usuario; campo «Colección» (pertenencia) en las inteligentes; «Guardar la selección rápida como colección»; «Últimos archivos añadidos» en la sección Catálogo.
+- **Secciones de las barras** (personalizables desde el 14/11/2026; [FLUJOS.md §9](FLUJOS.md)): si se quiere, mover una sección de una barra a la otra (el registro ya lo admite: `SectionSpec.sidebars`; faltaría que la sección sirva en las dos y revisar `reset` de una sola barra); un icono propio para la página «Paneles». En `resources/images` está `library_books.svg` sin registrar (para el módulo Ebooks).
+- **Barra lateral y colecciones**: mover colecciones entre conjuntos arrastrando; orden personalizado; exportar e importar colecciones, o que sobrevivan a recrear el catálogo (hoy solo están en la BD); «Clasificación» del sistema con «≥» en lugar de «=»; «Duplicar» una colección del sistema como inteligente del usuario; campo «Colección» (pertenencia) en las inteligentes; «Guardar la selección rápida como colección»; «Últimos archivos añadidos» en la sección Catálogo.
 - **Vista individual**: mantener el 1:1 y la zona al pasar de foto (como Lightroom, para comparar el enfoque de una ráfaga); más niveles de zoom con Ctrl + rueda (2:1, 4:1, para ver los píxeles).
 - **Archivos ausentes**: filtro «ocultar ausentes»; en la vista individual, «Localizar…» junto al aviso de archivo no encontrado.
 - **Inspector**: en «Metadatos», una vista «Personalizada» (el usuario elige los campos; en `settings.json`) y vistas IPTC y DNG; miniatura grande arriba cuando la selección es de una sola biblioteca. Más metadatos editables (la fecha, en su ventana), en C.5.

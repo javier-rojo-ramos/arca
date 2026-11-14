@@ -22,6 +22,8 @@ leerlo en 'load()' y guardarlo en 'save()' (y añadir la clave a
 
 Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 
+1.5.0 Sección «Paneles» (las secciones de las barras de cada módulo; en su propio archivo:
+      'section_layout_page.py').
 1.4.1 La aceleración por GPU, sin elegir, según el sistema; «Aceptar» sin tocarla no la
       guarda ni avisa.
 1.4.0 "General": opción «Usar aceleración por GPU si está disponible» (al volver a abrir
@@ -36,7 +38,7 @@ Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 1.1.0 Sección "Catálogo": mostrar o no los elementos de las subcarpetas.
 """
 
-__version__ = "1.4.1"
+__version__ = "1.5.0"
 __all__ = [
     "PAGES",
     "CatalogPage",
@@ -551,9 +553,20 @@ def _clear_quietly(store: TileStore, key: str) -> None:
         logger.warning(f"No se pudo vaciar la caché de la capa {key!r}: {error}")
 
 
+# La página «Paneles» está en su archivo (esta ventana ya es grande). Se importa AQUÍ, y no
+# arriba con las demás importaciones, porque ella importa 'SettingsPage' de este módulo: a
+# estas alturas ya está definida y el cruce no da problemas
+from ui_helpers.dialogs.section_layout_page import SectionLayoutPage
+
 # Secciones de la ventana, en el orden en que aparecen. Para añadir una, crear su
 # clase (heredando de SettingsPage) y añadirla aquí.
-PAGES: tuple[type[SettingsPage], ...] = (GeneralPage, CatalogPage, MetadataPage, MapSettingsPage)
+PAGES: tuple[type[SettingsPage], ...] = (
+    GeneralPage,
+    CatalogPage,
+    MetadataPage,
+    MapSettingsPage,
+    SectionLayoutPage,
+)
 
 
 class SettingsDialog(QDialog):
@@ -576,7 +589,8 @@ class SettingsDialog(QDialog):
 
         Args:
             config: Gestor de settings.json ('ConfigManager').
-            context: Datos para las páginas (p. ej. {'catalog_dir': Path}).
+            context: Datos para las páginas (p. ej. {'catalog_dir': Path}; 'section_layout'
+                y 'active_mode' para la página «Paneles»).
             start_page: Título de la sección que se muestra al abrir (por defecto, la
                 primera).
             parent: Ventana padre.

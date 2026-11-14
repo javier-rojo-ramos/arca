@@ -781,8 +781,17 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         changed: set[str] = set()
         self.btn_settings.setIcon(self.icon_settings_active)
         try:
+            active = self.module_host.active_module if self.module_host is not None else None
             dialog = SettingsDialog(
-                self.config, context={"catalog_dir": self.catalog_dir}, parent=self
+                self.config,
+                context={
+                    "catalog_dir": self.catalog_dir,
+                    # Para la página «Paneles»: el modelo de la colocación de las secciones
+                    # y el módulo que se enseña al abrir
+                    "section_layout": getattr(self, "section_layout", None),
+                    "active_mode": active.key if active is not None else None,
+                },
+                parent=self,
             )
             dialog.exec()
             changed = dialog.changed_keys

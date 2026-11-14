@@ -108,6 +108,14 @@ class Ui_MainWindow(object):
 
         self.layout_toolbar.addWidget(self.btn_audio)
 
+        self.btn_tracks = QToolButton(self.frame_toolbar)
+        self.btn_tracks.setObjectName(u"btn_tracks")
+        self.btn_tracks.setMinimumSize(QSize(40, 40))
+        self.btn_tracks.setIconSize(QSize(24, 24))
+        self.btn_tracks.setAutoRaise(True)
+
+        self.layout_toolbar.addWidget(self.btn_tracks)
+
         self.spacer_toolbar_vertical = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.layout_toolbar.addItem(self.spacer_toolbar_vertical)
@@ -390,6 +398,9 @@ class Ui_MainWindow(object):
 #endif // QT_CONFIG(tooltip)
 #if QT_CONFIG(tooltip)
         self.btn_audio.setToolTip(QCoreApplication.translate("MainWindow", u"Audio", None))
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
+        self.btn_tracks.setToolTip(QCoreApplication.translate("MainWindow", u"Tracks", None))
 #endif // QT_CONFIG(tooltip)
 #if QT_CONFIG(tooltip)
         self.btn_settings.setToolTip(QCoreApplication.translate("MainWindow", u"Ajustes", None))
