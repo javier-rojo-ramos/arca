@@ -13,6 +13,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'restore_state'; el 'ModuleHost' los escribe en settings.json). Lo desplegado del
       árbol con casillas del inspector ya no es de este módulo: lo guarda el inspector.
 
+1.16.0 Une su barra al modelo de colocación de las secciones ('context.section_layout').
 1.15.0 'map_options': en su mapa se ubican fotos soltándolas y se mueven las ubicadas
        (docs/MAPA.md, paso 3.2).
 1.14.0 'views': también el mapa, con la tira de fotos (docs/MAPA.md, paso 3.1; ubicar
@@ -38,7 +39,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.15.0"
+__version__ = "1.16.0"
 __all__ = ["ImageModule"]
 
 # Librerías estándar
@@ -102,6 +103,10 @@ class ImageModule(AppModule):
         """Crea su barra lateral (todavía sin catálogo: ver 'attach')."""
         super().__init__(context, button=button, parent=parent)
         self.sidebar = ImageSidebar()
+        # El orden de sus secciones, si se ven y si están plegadas: como las tenga el
+        # usuario en este modo
+        if context.section_layout is not None:
+            self.sidebar.bind_layout(context.section_layout, self.key)
         self.sidebar.source_selected.connect(self.source_selected)
         self.sidebar.reveal_folder_requested.connect(self._on_reveal_folder)
         # Carpetas con o sin sus subcarpetas: la misma opción que el Catálogo

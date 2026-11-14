@@ -21,6 +21,7 @@ el controlador principal, que conecta esas señales de 'CatalogSidebar' directam
 Orden de la cuadrícula: todos los campos de 'grid_orders.py'; parte de «Nombre» (con tipos
 mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 
+1.6.0 Une su barra al modelo de colocación de las secciones ('context.section_layout').
 1.5.0 'views': también el mapa (docs/MAPA.md, paso 2.3): lo elegido a la izquierda, en un
       mapa; solo para ver y seleccionar.
 1.4.0 'filter_metadata_fields': Tipo de archivo, Fecha de captura y Palabra clave
@@ -32,7 +33,7 @@ mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 1.1.0 'sort_fields' y 'default_order' (orden de partida: «Nombre»).
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = ["CatalogModule"]
 
 # Librerías estándar
@@ -100,6 +101,10 @@ class CatalogModule(AppModule):
 
         # Lo que se elige en la barra se pasa tal cual al 'ModuleHost' (señal a señal)
         sidebar.source_selected.connect(self.source_selected)
+        # El orden de sus secciones, si se ven y si están plegadas: como las tenga el
+        # usuario en este modo
+        if context.section_layout is not None:
+            sidebar.bind_layout(context.section_layout, self.key)
 
         # Colecciones del usuario: barra lateral + menú de la cuadrícula + base de datos
         self.collection_actions = CollectionActions(

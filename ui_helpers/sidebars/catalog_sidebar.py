@@ -41,7 +41,9 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula):
     - Menú contextual de «Selección rápida»: "Vaciar selección rápida" emite
       'clear_quick_selection_requested' (desactivado si está vacía).
     - Solo hay UNA fila seleccionada en toda la barra, aunque esté en otra sección.
-    - Lo desplegado (secciones, carpetas, conjuntos, grupos del sistema) y la fila
+    - El orden de las secciones, si se ven y si están plegadas lo lleva el modelo de
+      colocación ('ui_helpers/layout/'; 'bind_layout'), común a todos los catálogos.
+    - Lo desplegado (carpetas, conjuntos, grupos del sistema) y la fila
       ELEGIDA se pueden guardar y recuperar con 'save_state' / 'restore_state' (el
       controlador lo guarda por catálogo en settings.json al cerrarlo y lo recupera al
       abrirlo: la cuadrícula vuelve a mostrar la carpeta o colección que se estaba viendo).
@@ -52,6 +54,9 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.13.0 Las secciones, en una 'SectionStack' colocada por el modelo de colocación
+       ('bind_layout'): lo plegado de cada sección deja de guardarse por catálogo
+       ('save_state' ya no lleva 'sections').
 1.12.2 El área con desplazamiento no coge el teclado: un clic en la barra no se lo
        quita a las fotos (decidido por el autor el 12/11/2026, como Lightroom).
 1.12.1 Iconos de los menús de colecciones con su variante ':menu' (en la opción
@@ -89,7 +94,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.12.2"
+__version__ = "1.13.0"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -145,8 +150,11 @@ from ui_helpers.helpers.ui_color_labels import label_icon
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_theme import ACCENT_COLOR
+from ui_helpers.layout.section_layout_model import SectionLayoutModel
+from ui_helpers.layout.section_registry import Sidebar
 from ui_helpers.models.media_mime import MEDIA_IDS_MIME, decode_media_ids
 from ui_helpers.widgets.collapsible_section import CollapsibleSection
+from ui_helpers.widgets.section_stack import SectionStack
 from ui_helpers.widgets.sidebar_tree_view import ROLE_COUNT, ROLE_SOURCE, SidebarTreeView
 
 # Roles propios de las filas del árbol de carpetas (además de ROLE_SOURCE y ROLE_COUNT)
@@ -296,6 +304,11 @@ class CatalogSidebar(QWidget):
         layout.setSpacing(2)
         scroll.setWidget(content)
 
+        # Las secciones van en una pila que las coloca como diga el modelo de colocación
+        # ('bind_layout'). Se dan de alta en su orden de partida, con su 'id' del registro
+        # ('ui_helpers/layout/section_registry.py')
+        self._stack = SectionStack(content)
+
         # --- Catálogo ---
         # Árbol "con ramas" (flat=False) aunque sus filas no tengan hijos: así reserva el
         # hueco de la flecha y las filas quedan alineadas con las de Carpetas y Colecciones
@@ -332,7 +345,7 @@ class CatalogSidebar(QWidget):
         view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         view.customContextMenuRequested.connect(self._show_catalog_menu)
         self.section_catalog.set_content(view)
-        layout.addWidget(self.section_catalog)
+        self._stack.add_section("catalog", self.section_catalog)
 
         # --- Carpetas ---
         self.section_folders = CollapsibleSection("Carpetas", content)
@@ -345,7 +358,7 @@ class CatalogSidebar(QWidget):
         self._folders_view.customContextMenuRequested.connect(self._show_folder_menu)
         self.section_folders.set_content(self._folders_view)
         self.section_folders.add_header_widget(self._make_add_folder_button())
-        layout.addWidget(self.section_folders)
+        self._stack.add_section("folders", self.section_folders)
 
         # --- Colecciones: primero las del sistema, después las del usuario ---
         self.section_collections = CollapsibleSection("Colecciones", content)
@@ -368,10 +381,17 @@ class CatalogSidebar(QWidget):
         view.viewport().installEventFilter(self)
         self.section_collections.set_content(view)
         self.section_collections.add_header_widget(self._make_add_collection_button())
-        layout.addWidget(self.section_collections)
+        self._stack.add_section("collections", self.section_collections)
 
         # Lo que sobre queda abajo, vacío: las secciones se apilan arriba
+        layout.addWidget(self._stack)
         layout.addStretch(1)
+
+    def bind_layout(self, model: SectionLayoutModel, mode: str) -> None:
+        """Une las secciones al modelo de colocación (orden, visibles y plegadas), para el
+        modo de esta barra. Sin llamarlo, quedan en el orden de '_build_ui', todas a la
+        vista."""
+        self._stack.bind(model, mode, Sidebar.LEFT)
 
     def _load_icons(self) -> dict[str, QIcon]:
         """Iconos de las filas (ver 'ui_helpers/helpers/sidebar_icons.py', compartidos con
@@ -710,11 +730,6 @@ class CatalogSidebar(QWidget):
         tienen sentido en ESTE catálogo (el controlador lo guarda por catálogo).
         """
         return {
-            "sections": {
-                "catalog": self.section_catalog.is_expanded(),
-                "folders": self.section_folders.is_expanded(),
-                "collections": self.section_collections.is_expanded(),
-            },
             "expanded_folders": sorted(
                 [source.location_id, source.folder]
                 for source in self._expanded
@@ -736,16 +751,7 @@ class CatalogSidebar(QWidget):
         if not isinstance(state, dict):
             return
 
-        sections = state.get("sections")
-        if isinstance(sections, dict):
-            for key, section in (
-                ("catalog", self.section_catalog),
-                ("folders", self.section_folders),
-                ("collections", self.section_collections),
-            ):
-                if isinstance(sections.get(key), bool):
-                    section.set_expanded(sections[key])
-
+        # (Lo plegado de las secciones ya no está aquí: lo lleva el modelo de colocación)
         folders = state.get("expanded_folders")
         if isinstance(folders, list):
             self._expanded = {

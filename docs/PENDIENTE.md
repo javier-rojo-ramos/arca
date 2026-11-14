@@ -10,7 +10,7 @@
 Pedido por el autor el 14/11/2026, antes de seguir con Tracks. Diseño y decisiones en [DECISIONES.md](DECISIONES.md); el código, en `ui_helpers/layout/`. Cada fase se entrega y se espera el visto bueno.
 
 - ~~**1a. Registro, modelo y persistencia**~~ (hecha el 14/11/2026; sin conectar a las barras).
-- **1b. Conectar las tres barras al modelo**: un contenedor común (`ui_helpers/widgets/section_stack.py`) que coloca las `CollapsibleSection` por id según el modelo; lo usan `CatalogSidebar`, `ImageSidebar` e `InspectorPanel` (este se recoloca al cambiar de módulo). A la vista, igual. Lo plegado pasa al modelo: se migra lo de `inspector_sections` y lo de `sections` de cada barra, que dejan de usarse.
+- ~~**1b. Las tres barras, colocadas por el modelo**~~ (hecha el 14/11/2026: `SectionStack`; a la vista, igual; lo plegado, importado).
 - **2. Clic derecho en una cabecera** (y en el hueco vacío de la barra): las secciones con casillas para mostrar u ocultar y «Restaurar por defecto».
 - **3. Arrastrar las cabeceras** para reordenar dentro de la barra.
 - **4. Página «Paneles» en Opciones**: la colocación de cualquier modo y barra, con el mismo modelo; «Restaurar este modo» y «Restaurar todos».

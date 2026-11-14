@@ -104,6 +104,8 @@ from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.helpers.ui_status import message_bar
 from ui_helpers.helpers.ui_theme import TOOLBAR_MARGIN
 from ui_helpers.inspector.inspector_panel import InspectorPanel
+from ui_helpers.layout.section_layout_model import SectionLayoutModel
+from ui_helpers.layout.section_registry import SECTION_REGISTRY
 from ui_helpers.mixins.window_snap import WindowSnapMixin
 from ui_helpers.models.media_grid_model import QUICK_SELECTION_FIELD, MediaGridModel
 from ui_helpers.widgets.attribute_filter_row import AttributeFilterRow
@@ -830,6 +832,9 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         'controllers/app_modules/registry.py'; cada uno trae su barra lateral, y el
         'ModuleHost' decide cuál se ve y cuál manda en la cuadrícula.
         """
+        # Colocación de las secciones de las dos barras (orden, visibles, plegadas), por
+        # modo: la comparten las barras de los módulos y el inspector
+        self.section_layout = SectionLayoutModel(SECTION_REGISTRY, self.config, parent=self)
         context = ModuleContext(
             window=self,
             config=self.config,
@@ -837,6 +842,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             grid_view=self.list_view_grid,
             grid_model=self.mosaico_model,
             grid_actions=self.grid_actions,
+            section_layout=self.section_layout,
         )
         self.module_host = ModuleHost(
             create_modules(self, context),
@@ -995,6 +1001,11 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # El inspector es el mismo en todos los módulos (sus secciones dependen de la
         # selección, no del módulo)
         if self.module_host is not None:
+            # ...pero cada módulo tiene su colocación de las secciones (orden, visibles y
+            # plegadas): el panel la toma del modelo y la cambia con el módulo
+            active = self.module_host.active_module
+            panel.bind_layout(self.section_layout, active.key if active is not None else "")
+            self.module_host.module_changed.connect(panel.set_layout_mode)
             # Cambios pedidos desde la barra de un módulo (p. ej. el menú del árbol de
             # palabras clave): por la misma cola que los del inspector
             self.module_host.catalog_edit_requested.connect(self.inspector.request_edit)

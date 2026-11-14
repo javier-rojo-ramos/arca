@@ -123,8 +123,9 @@ SETTING_INSPECTOR_METADATA_PRESET = "inspector_metadata_preset"
 # valores distintos (aviso «Edición múltiple»; False = «No volver a mostrar»). True si no consta
 SETTING_CONFIRM_MULTI_EDIT = "confirm_multi_edit"
 
-# Secciones del inspector desplegadas o plegadas: {clave de la sección: True/False}.
-# Es común a todos los catálogos (la barra izquierda, en cambio, se guarda por catálogo)
+# Lo plegado dentro de las secciones del inspector: hoy, solo «Últimas palabras clave»
+# ('keyword_editor.recent'). Antes guardaba también las secciones plegadas ({clave: bool}):
+# eso lo lleva ahora SETTING_SECTION_LAYOUT (que lo importa la primera vez)
 SETTING_INSPECTOR_SECTIONS = "inspector_sections"
 
 # Alto del panel «Metadatos» de la barra de filtros (px lógicos; se cambia arrastrando su

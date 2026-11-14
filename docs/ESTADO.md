@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Secciones personalizables, fase 1a: registro, modelo y persistencia** (14/11/2026) | Nada cambia a la vista (las barras aún no usan el modelo): que la aplicación arranca y se comporta igual. En `settings.json` aparece la clave `section_layout` con `null` |
+| **Secciones personalizables, fase 1b: las tres barras, colocadas por el modelo** (14/11/2026) | Todo se ve igual que antes: las barras del Catálogo y de Imagen y el inspector, con las mismas secciones, en el mismo orden y a la misma distancia. Lo que tenías plegado sigue plegado (se importa la primera vez). Plegar o desplegar una sección se recuerda al reiniciar. **Lo nuevo**: lo plegado de la barra izquierda es ya igual en todos los catálogos, y lo del inspector es por módulo (plegar «Metadatos» en Imagen no la pliega en el Catálogo; al cambiar de módulo, el inspector se pone como estaba en él). Lo desplegado dentro de los árboles y la fila elegida, como siempre, por catálogo. En `settings.json`, `section_layout` con los cuatro modos |
 | **Mapa, paso 3.5: «Sin ubicación»** (13/11/2026) | En el desplegable de ajustes de la barra de filtros, «Sin ubicación» (detrás de «Ubicación»): enciende «Metadatos» con la columna «Tiene coordenadas GPS» y «No» elegido; la cuadrícula y la tira, solo con lo que no tiene ubicación. **Si ya tenías tu lista de ajustes guardada, no aparece sola**: «Gestionar ajustes personalizados…» > «Restaurar los de fábrica» la añade al final. Al soltar fotos en el mapa siguen en la tira, con su chincheta, hasta volver a elegir la carpeta. La tira tiene ahora siempre su barra de desplazamiento: con cualquier número de fotos (también las 8 de la captura), las tarjetas en fila y a la misma distancia |
 
 ## Comprobaciones sueltas
@@ -82,6 +82,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 14/11/2026: secciones personalizables, fase 1b: las barras del Catálogo y de Imagen y el inspector colocan sus secciones según el modelo (`SectionStack`); lo plegado pasa a ser por modo y común a todos los catálogos. A la vista, igual.
 - 14/11/2026: secciones de las barras personalizables por modo, fase 1a: registro de secciones, modelo único de la colocación y su guardado en `settings.json` (`ui_helpers/layout/`), sin conectar todavía a las barras. Plan en [PENDIENTE.md](PENDIENTE.md).
 - 13/11/2026: mapa, paso 3.5: ajuste de fábrica «Sin ubicación» en la barra de filtros. Fase 3 (Imagen), completa; lo siguiente, el módulo Tracks (recordatorio en [PENDIENTE.md](PENDIENTE.md)).
 - 13/11/2026: mapa, pasos 3.3 y 3.4: «Quitar la ubicación» con el botón derecho y Ctrl+Z para deshacer lo hecho en el mapa; el mapa se pinta entero al cambiar de módulo.
@@ -91,4 +92,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 13/11/2026: la aceleración por GPU, sin elegir, según el sistema (sí en Windows y macOS, no en Linux).
 - 13/11/2026: la ventana se dibuja con la GPU desde que se abre (opción en Opciones > General): sin parpadeo al abrir el mapa y sin cortes a 1:1.
 - 13/11/2026: mapa, paso 2.4: Opciones > Mapa (capas propias y caché de teselas); el mapa, al día tras un cambio del inspector. Fase 2 (Catálogo), completa.
-- 13/11/2026: mapa, paso 2.3: la vista «Mapa» en el Catálogo (botón y M; selección compartida con la cuadrícula; Esc vuelve al mapa desde la vista individual).

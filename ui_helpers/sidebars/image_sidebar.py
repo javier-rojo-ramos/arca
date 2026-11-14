@@ -15,10 +15,12 @@ Esta barra es el CONTENEDOR: cada sección con árbol está en su archivo de 'se
       rápida» (04/11/2026) es la misma del Catálogo (una sola para todo el catálogo), pero
       solo se ven sus imágenes y vídeos del móvil ('quick_source("image")'). Sin menú:
       «Vaciar selección rápida» vaciaría también lo que no se ve; está en el Catálogo.
-    - Las secciones, en el orden de '_build_ui' (una lista: cambiarlo es cambiar la lista).
+    - Las secciones, dadas de alta en una 'SectionStack' con su 'id' del registro
+      ('ui_helpers/layout/section_registry.py'): el orden, si se ven y si están plegadas
+      lo lleva el modelo de colocación ('bind_layout'), común a todos los catálogos.
     - Una sola fila elegida en toda la barra; al elegirla, emite 'source_selected'.
     - La fila elegida, otra vez marcada cuando una sección rehace su árbol ('rebuilt').
-    - El estado por catálogo: secciones plegadas, lo de cada sección y la fila elegida.
+    - El estado por catálogo: lo de cada sección (lo desplegado) y la fila elegida.
 
 Esta barra es para NAVEGAR (decidido por el autor el 04/11/2026): editar las palabras clave
 se hace en el inspector, en su «Lista de palabras clave».
@@ -29,12 +31,15 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula; lo une
     - 'set_library_count', 'set_folder_tree', 'set_date_tree' y 'set_keyword_tree' reciben
       lo que el módulo lee en segundo plano. Si un árbol no ha cambiado, no se reconstruye (no se pierde lo
       desplegado).
-    - 'save_state' / 'restore_state': secciones plegadas, lo desplegado y la fila elegida
-      (el módulo lo guarda por catálogo).
+    - 'save_state' / 'restore_state': lo desplegado y la fila elegida (el módulo lo guarda
+      por catálogo).
 
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
 'scroll_image_sidebar' y 'widget_image_sidebar_content' (y los de cada sección).
 
+2.2.0 Las secciones, en una 'SectionStack' colocada por el modelo de colocación
+      ('bind_layout'): lo plegado de cada sección deja de guardarse por catálogo
+      ('save_state' ya no lleva 'sections').
 2.1.1 El área con desplazamiento no coge el teclado: un clic en la barra no se lo quita
       a las fotos (decidido por el autor el 12/11/2026, como Lightroom).
 2.1.0 Sección «Fechas» debajo de «Carpetas» ('sections/date_section.py', 'set_date_tree';
@@ -70,7 +75,7 @@ El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres 
       también el árbol con casillas del inspector (paso K4b).
 """
 
-__version__ = "2.1.1"
+__version__ = "2.2.0"
 __all__ = ["ALL_IMAGES", "IMAGE_QUICK", "LIBRARY", "ImageSidebar"]
 
 # Librerías estándar
@@ -97,11 +102,14 @@ from core.catalog.metadata_values import MetadataValue
 from ui_helpers.helpers.keyword_expansion import KeywordExpansion
 from ui_helpers.helpers.sidebar_icons import load_sidebar_icons
 from ui_helpers.helpers.signal_blocker import blocked_signals as _blocked
+from ui_helpers.layout.section_layout_model import SectionLayoutModel
+from ui_helpers.layout.section_registry import Sidebar
 from ui_helpers.sidebars.sections.date_section import DateSection
 from ui_helpers.sidebars.sections.folder_section import FolderSection
 from ui_helpers.sidebars.sections.keyword_section import KeywordSection
 from ui_helpers.sidebars.sections.tree_section import TreeSection, make_item
 from ui_helpers.widgets.collapsible_section import CollapsibleSection
+from ui_helpers.widgets.section_stack import SectionStack
 from ui_helpers.widgets.sidebar_tree_view import ROLE_COUNT, ROLE_SOURCE, SidebarTreeView
 
 # Biblioteca del módulo y su origen «todas las imágenes»
@@ -163,9 +171,10 @@ class ImageSidebar(QWidget):
         # Las secciones con árbol (en 'sections/'): la fila elegida se busca en ellas
         self._sections: tuple[TreeSection, ...] = (self._folders, self._dates, self._keywords)
 
-        # Las secciones plegables, de arriba abajo: (clave en el estado guardado, título,
-        # contenido). Para cambiar el orden basta con cambiar esta lista
-        self._collapsibles: dict[str, CollapsibleSection] = {}
+        # Las secciones plegables, en su orden de partida: ('id' en el registro de
+        # secciones, título, contenido). Van en una pila que las coloca como diga el modelo
+        # de colocación ('bind_layout')
+        self._stack = SectionStack(content)
         for key, title, widget in (
             ("library", "Biblioteca - Imagen", self._build_library(content)),
             ("folders", "Carpetas", self._folders),
@@ -174,8 +183,8 @@ class ImageSidebar(QWidget):
         ):
             section = CollapsibleSection(title, content)
             section.set_content(widget)
-            layout.addWidget(section)
-            self._collapsibles[key] = section
+            self._stack.add_section(key, section)
+        layout.addWidget(self._stack)
         layout.addStretch(1)
 
         # Una sola fila elegida en toda la barra; al rehacer un árbol, la elegida se marca
@@ -187,6 +196,12 @@ class ImageSidebar(QWidget):
             view.selectionModel().selectionChanged.connect(
                 lambda selected, _deselected, v=view: self._on_selection_changed(v, selected)
             )
+
+    def bind_layout(self, model: SectionLayoutModel, mode: str) -> None:
+        """Une las secciones al modelo de colocación (orden, visibles y plegadas), para el
+        modo de esta barra. Sin llamarlo, quedan en el orden de '_build_ui', todas a la
+        vista."""
+        self._stack.bind(model, mode, Sidebar.LEFT)
 
     def _build_library(self, parent: QWidget) -> SidebarTreeView:
         """«Todas las imágenes» y «Selección rápida»."""
@@ -287,12 +302,10 @@ class ImageSidebar(QWidget):
     # -------------------------------------------------------------------------
 
     def save_state(self) -> dict:
-        """Secciones plegadas, lo de cada sección (lo desplegado) y la fila elegida (para
-        JSON). Claves: 'sections', 'expanded_folders', 'known_locations', 'expanded_dates'
-        (desde la 2.1.0), 'expanded_keywords' y 'selected'."""
-        state: dict = {
-            "sections": {key: section.is_expanded() for key, section in self._collapsibles.items()}
-        }
+        """Lo de cada sección (lo desplegado) y la fila elegida (para JSON). Claves:
+        'expanded_folders', 'known_locations', 'expanded_dates', 'expanded_keywords' y
+        'selected'. Lo plegado de las secciones lo lleva el modelo de colocación."""
+        state: dict = {}
         for tree_section in self._sections:
             state.update(tree_section.save_state())
         state["selected"] = source_to_dict(self._current)
@@ -302,11 +315,6 @@ class ImageSidebar(QWidget):
         """Recupera lo guardado con 'save_state' (lo que no se entienda se ignora)."""
         if not isinstance(state, dict):
             return
-        sections = state.get("sections")
-        if isinstance(sections, dict):
-            for key, section in self._collapsibles.items():
-                if isinstance(sections.get(key), bool):
-                    section.set_expanded(sections[key])
         for tree_section in self._sections:
             tree_section.restore_state(state)
         selected = source_from_dict(

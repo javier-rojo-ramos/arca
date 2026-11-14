@@ -8,6 +8,9 @@ su propia copia del orden.
 Qué hace:
     - Al crearse, lee lo guardado en settings.json ('SETTING_SECTION_LAYOUT') y lo fusiona
       con el registro (secciones nuevas, 'id' desconocidos...: ver 'section_layout.py').
+    - La PRIMERA vez (aún no hay nada guardado) recoge lo plegado que se guardaba antes de
+      existir este modelo, para que nadie pierda cómo lo tenía, y lo guarda ya con el
+      formato nuevo (ver '_import_legacy_states').
     - Cada cambio se guarda al momento y se avisa con 'layout_changed(modo, barra)'.
       Un cambio que no cambia nada (ocultar lo que ya está oculto) ni guarda ni avisa.
     - Si no se puede guardar, se anota en el registro y se sigue: el cambio vale mientras
@@ -29,13 +32,14 @@ La barra de la señal llega como texto ('Sidebar' es un 'StrEnum': se puede comp
 'config' es cualquier objeto con 'get(clave, defecto)' y 'set(clave, valor)' (como
 'config.app_config.config'): así la autoprueba no toca el settings.json de verdad.
 
+1.1.0 La primera vez, recoge lo plegado guardado con el formato anterior (fase 1b).
 1.0.0 Primera versión (14/11/2026).
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m ui_helpers.layout.section_layout_model
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["SectionLayoutModel"]
 
 # Librerías estándar
@@ -46,11 +50,73 @@ from typing import Any
 from qtpy.QtCore import QObject, Signal
 
 # Módulos del proyecto
-from config.app_constants import SETTING_SECTION_LAYOUT
+from config.app_constants import (
+    SETTING_INSPECTOR_SECTIONS,
+    SETTING_SECTION_LAYOUT,
+    SETTING_SIDEBAR_STATE,
+)
 from ui_helpers.layout.section_layout import SectionEntry, SectionLayout
 from ui_helpers.layout.section_registry import ModeSpec, SectionRegistry, SectionSpec, Sidebar
 
 logger = logging.getLogger(__name__)
+
+# Clave de settings.json con la carpeta del catálogo abierto la última vez (así la escribe
+# 'ConfigManager.DEFAULTS'; no tiene constante)
+_SETTING_CATALOG_PATH = "catalogo_ruta"
+
+
+def _legacy_sections(entry: object, mode: str) -> dict | None:
+    """Lo plegado de la barra izquierda de un modo, dentro de la entrada de un catálogo de
+    'sidebar_state' ({id de la sección: desplegada}), o None si no consta.
+
+    Entiende los dos formatos que ha tenido esa entrada: {"modules": {modo: {...}}} y el
+    primero, que era directamente el estado de la barra del Catálogo.
+    """
+    if not isinstance(entry, dict):
+        return None
+    modules = entry.get("modules")
+    if isinstance(modules, dict):
+        state = modules.get(mode)
+    else:
+        state = entry if mode == "catalog" else None
+    sections = state.get("sections") if isinstance(state, dict) else None
+    return sections if isinstance(sections, dict) else None
+
+
+def _import_legacy_states(layout: SectionLayout, registry: SectionRegistry, config: Any) -> None:
+    """Pasa a 'layout' lo plegado que se guardaba antes de existir este modelo.
+
+    - El inspector lo guardaba en 'inspector_sections', igual para todos los módulos: se
+      copia a todos los modos (ahora es por modo).
+    - Cada barra izquierda lo guardaba por catálogo, en 'sidebar_state': se toma lo del
+      catálogo abierto la última vez y, si no tiene, lo del primero que lo tenga (ahora es
+      común a todos los catálogos).
+
+    Lo que no se entienda o nombre secciones que no existen se ignora. Las claves antiguas
+    no se borran (en 'inspector_sections' hay además otras cosas), pero ya nadie las lee.
+    """
+    inspector = config.get(SETTING_INSPECTOR_SECTIONS, None)
+    if isinstance(inspector, dict):
+        for mode in registry.mode_keys():
+            for section_id, expanded in inspector.items():
+                if isinstance(expanded, bool) and layout.sidebar_of(mode, section_id) is Sidebar.RIGHT:
+                    layout.set_expanded(mode, section_id, expanded)
+
+    catalogs = config.get(SETTING_SIDEBAR_STATE, None)
+    if not isinstance(catalogs, dict):
+        return
+    last = config.get(_SETTING_CATALOG_PATH, None)
+    # El catálogo de la última vez, el primero; después, los demás
+    entries = [catalogs[last]] if isinstance(last, str) and last in catalogs else []
+    entries += [entry for key, entry in catalogs.items() if key != last]
+    for mode in registry.mode_keys():
+        sections = next(
+            (found for entry in entries if (found := _legacy_sections(entry, mode)) is not None),
+            None,
+        )
+        for section_id, expanded in (sections or {}).items():
+            if isinstance(expanded, bool) and layout.sidebar_of(mode, section_id) is Sidebar.LEFT:
+                layout.set_expanded(mode, section_id, expanded)
 
 
 class SectionLayoutModel(QObject):
@@ -77,7 +143,13 @@ class SectionLayoutModel(QObject):
         super().__init__(parent)
         self._registry = registry
         self._config = config
-        self._layout = SectionLayout.from_state(config.get(SETTING_SECTION_LAYOUT, None), registry)
+        saved = config.get(SETTING_SECTION_LAYOUT, None)
+        self._layout = SectionLayout.from_state(saved, registry)
+        if saved is None:
+            # Primera vez: lo plegado que hubiera con el formato anterior, y se guarda ya
+            # (así no se vuelve a importar)
+            _import_legacy_states(self._layout, registry, config)
+            self._save()
 
     # -------------------------------------------------------------------------
     # Consultas
@@ -187,7 +259,7 @@ if __name__ == "__main__":
     def _ids(model: SectionLayoutModel, mode: str, sidebar: Sidebar = Sidebar.LEFT) -> list[str]:
         return [entry.id for entry in model.entries(mode, sidebar)]
 
-    # --- Sin nada guardado: la colocación de partida, y nada escrito todavía
+    # --- Sin nada guardado: la colocación de partida, que se guarda ya (una vez)
     config = _FakeConfig()
     model = SectionLayoutModel(SECTION_REGISTRY, config)
     seen: list[tuple[str, str]] = []
@@ -195,7 +267,8 @@ if __name__ == "__main__":
     assert _ids(model, "image") == ["library", "folders", "dates", "keywords"]
     assert model.title("image", "library") == "Biblioteca - Imagen" and model.title("image", "x") == ""
     assert [mode.key for mode in model.modes()] == ["catalog", "image", "video", "audio"]
-    assert config.writes == 0 and not seen
+    assert config.writes == 1 and not seen
+    config.writes = 0
 
     # --- Cada cambio guarda y avisa una vez, con su modo y su barra
     assert model.move("image", "keywords", 0) is True
@@ -236,6 +309,41 @@ if __name__ == "__main__":
     for bad in ("roto", {"version": 99, "modes": {}}, []):
         broken = SectionLayoutModel(SECTION_REGISTRY, _FakeConfig({SETTING_SECTION_LAYOUT: bad}))
         assert _ids(broken, "catalog") == ["catalog", "folders", "collections"], bad
+
+    # --- La primera vez se recoge lo plegado guardado con el formato anterior
+    legacy = _FakeConfig({
+        "catalogo_ruta": "C:/cat2",
+        SETTING_INSPECTOR_SECTIONS: {"metadata": False, "keyword_editor.recent": False, "selection": "x"},
+        SETTING_SIDEBAR_STATE: {
+            # el primer formato: el estado de la barra del Catálogo, sin "modules"
+            "C:/viejo": {"sections": {"catalog": False}, "expanded_folders": []},
+            "C:/cat1": {"modules": {"catalog": {"sections": {"folders": False}},
+                                    "image": {"sections": {"dates": False, "no_existe": False}}}},
+            # el de la última vez manda; no tiene nada de Imagen: se toma del primero que sí
+            "C:/cat2": {"modules": {"catalog": {"sections": {"collections": False, "folders": 3}}}},
+        },
+    })  # fmt: skip
+    imported = SectionLayoutModel(SECTION_REGISTRY, legacy)
+
+    def _folded(mode: str, sidebar: Sidebar) -> list[str]:
+        return [entry.id for entry in imported.entries(mode, sidebar) if not entry.expanded]
+
+    assert _folded("catalog", Sidebar.LEFT) == ["collections"], _folded("catalog", Sidebar.LEFT)
+    assert _folded("image", Sidebar.LEFT) == ["dates"]
+    for mode_key in ("catalog", "image", "video", "audio"):  # el inspector, a todos los modos
+        assert _folded(mode_key, Sidebar.RIGHT) == ["metadata"], mode_key
+    assert legacy.writes == 1 and SETTING_SECTION_LAYOUT in legacy.data
+    # La segunda vez ya hay algo guardado: no se vuelve a importar
+    legacy.data[SETTING_INSPECTOR_SECTIONS] = {"selection": False}
+    assert SectionLayoutModel(SECTION_REGISTRY, legacy).entry("image", "selection").expanded is True
+    # Con lo antiguo ilegible, la colocación de partida
+    for bad_key in (SETTING_INSPECTOR_SECTIONS, SETTING_SIDEBAR_STATE):
+        odd = SectionLayoutModel(SECTION_REGISTRY, _FakeConfig({bad_key: ["roto"], "catalogo_ruta": 7}))
+        assert all(e.expanded for e in odd.entries("catalog", Sidebar.LEFT))
+    odd = SectionLayoutModel(
+        SECTION_REGISTRY, _FakeConfig({SETTING_SIDEBAR_STATE: {"a": "roto", "b": {"modules": []}}})
+    )
+    assert all(e.expanded for e in odd.entries("catalog", Sidebar.LEFT))
 
     # --- Si no se puede guardar, el cambio vale igual y se avisa (queda en el registro)
     logging.disable(logging.CRITICAL)  # el error esperado no ensucia la salida

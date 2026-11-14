@@ -38,6 +38,8 @@ Qué aporta cada módulo (sobrescribiendo los métodos de 'AppModule'):
 Quién los coordina: 'module_host.ModuleHost' (toolbar, barras laterales, cuadrícula y
 estado guardado). Dónde se da de alta un módulo nuevo: 'registry.py'.
 
+1.8.0 'ModuleContext.section_layout': el modelo de colocación de las secciones de las
+      barras (cada módulo une a él su barra, con su clave como modo).
 1.7.0 'map_options': qué permite su mapa (de momento, ubicar fotos; docs/MAPA.md, paso 3.2).
 1.6.0 'filter_metadata_fields': las columnas de partida del panel «Metadatos» (paso A.3).
 1.5.0 'filter_media_types': los tipos de la fila «Atributos» (paso A.3).
@@ -51,7 +53,7 @@ Los módulos son la capa que une la interfaz de su barra lateral con 'core/' (co
 sincronizar una carpeta, trabajos en segundo plano...) siguen en el controlador principal.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = ["AppModule", "ModuleContext"]
 
 # Librerías estándar
@@ -69,6 +71,7 @@ from core.catalog.grid_orders import GridOrder
 from core.catalog.grid_source import GridSource
 from ui_helpers.helpers.grid_actions import GridActions
 from ui_helpers.helpers.ui_message import MessageBoxHelper
+from ui_helpers.layout.section_layout_model import SectionLayoutModel
 from ui_helpers.models.media_grid_model import MediaGridModel
 
 
@@ -83,6 +86,8 @@ class ModuleContext:
         grid_view: Vista de la cuadrícula (compartida por todos los módulos).
         grid_model: Modelo de la cuadrícula (compartido).
         grid_actions: Atajos de teclado y menú contextual de la cuadrícula.
+        section_layout: Modelo de la colocación de las secciones de las barras
+            ('SectionLayoutModel'); None = sin él (las barras, en su orden de partida).
     """
 
     window: QWidget
@@ -91,6 +96,7 @@ class ModuleContext:
     grid_view: QListView
     grid_model: MediaGridModel
     grid_actions: GridActions
+    section_layout: SectionLayoutModel | None = None
 
 
 class AppModule(QObject):

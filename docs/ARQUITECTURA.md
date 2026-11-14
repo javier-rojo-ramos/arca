@@ -111,7 +111,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   sidebars/sections/keyword_section.py KeywordSection: «Lista de palabras clave» (filtro y árbol con recuentos que incluyen las hijas; las que no tienen nada, en gris; lo desplegado en KeywordExpansion)
   layout/section_registry.py         SECTION_REGISTRY (sin Qt): el registro de modos y de secciones plegables de las dos barras (SectionSpec: id estable, título, barras, modos, posición y estado de partida); AQUÍ se da de alta una sección o un modo
   layout/section_layout.py           SectionLayout (sin Qt): la colocación por modo y barra (lista ordenada de SectionEntry: id, visible, expanded); mover, ocultar, plegar, restaurar; to_state / from_state con versión (LAYOUT_VERSION) y fusión con el registro
-  layout/section_layout_model.py     SectionLayoutModel: la única fuente de verdad de la colocación; lee y guarda 'section_layout' en settings.json y avisa con layout_changed(modo, barra). Aún sin conectar a las barras (fase 1b)
+  layout/section_layout_model.py     SectionLayoutModel: la única fuente de verdad de la colocación; lee y guarda 'section_layout' en settings.json y avisa con layout_changed(modo, barra); la primera vez importa lo plegado que se guardaba antes. Lo crea el controlador y llega a los módulos en ModuleContext.section_layout
   helpers/sidebar_icons.py           load_sidebar_icons: iconos de unidades, carpetas y colecciones (barras del Catálogo e Imagen), con sus variantes ':open' y ':menu'
   widgets/keyword_checklist.py       KeywordChecklist: filtro + árbol de palabras con casillas de tres estados (editor del inspector); padres de lo asignado resaltados; menú contextual y soltar tarjetas
   widgets/recent_keywords.py         RecentKeywords: «Últimas palabras clave», 6 botones de ancho fijo (asignar / quitar con un clic)
@@ -119,6 +119,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/keyword_menu.py            Menú contextual de los árboles de palabras clave (crear, renombrar, mover, borrar, purgar): pregunta y devuelve la operación; «Borrar» devuelve el recuento (fetch_keyword_usage) y confirm_keyword_deletion pregunta después; «Purgar», la lista (fetch_unused_keywords) y ask_keyword_purge pregunta enseñándola
   helpers/keyword_expansion.py       KeywordExpansion: palabras desplegadas de cada árbol (SIDEBAR, INSPECTOR), para recuperarlas al abrir
   widgets/sidebar_tree_view.py       SidebarTreeView (alto ajustado, sin scroll propio, sin teclado ni «búsqueda al teclear», ROLE_SOURCE / ROLE_COUNT / ROLE_EMPHASIS) + CountDelegate (name_indent: el nombre, unos px más a la derecha)
+  widgets/section_stack.py           SectionStack: las secciones plegables de una barra, colocadas por el modelo (orden, visibles, plegadas; bind, set_mode, set_available); la usan CatalogSidebar, ImageSidebar e InspectorPanel
   widgets/collapsible_section.py     CollapsibleSection: sección plegable con cabecera y botones ("+")
   widgets/elided_label.py            ElidedLabel: etiqueta de una línea que recorta con «…» (por la derecha, la izquierda o el centro)
   widgets/organize_bar.py            OrganizeBar: barra inferior para clasificar la selección (marcar, rechazar, estrellas, colores, selección rápida); attach(vista, modelo)

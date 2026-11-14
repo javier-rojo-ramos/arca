@@ -141,6 +141,7 @@ python -m ui_helpers.widgets.attribute_filter_row              (clics en marcas,
 python -m ui_helpers.widgets.filter_bar                        (pestañas, «Ninguno», candado y paneles; sin ventana)
 python -m ui_helpers.widgets.filter_preset_button              (texto del botón, menú, ✓, qué se puede pulsar; sin ventana)
 python -m ui_helpers.widgets.keyword_checklist
+python -m ui_helpers.widgets.section_stack                     (secciones colocadas por el modelo: orden, visible y disponible, plegar, cambio de modo, restaurar; sin ventana)
 python -m ui_helpers.widgets.metadata_column                   (textos, selección, fechas, menú de campos y engranaje; sin ventana. Con --ventana, tres columnas de ejemplo en una ventana)
 python -m ui_helpers.widgets.metadata_filter_panel             (columnas, añadir y quitar, qué recontar, alto y arrastre; sin ventana. Con --ventana, el panel sobre un catálogo de ejemplo en memoria, con la cascada)
 python -m ui_helpers.widgets.organize_bar                      (lógica de la barra y la barra sola en una ventana)
