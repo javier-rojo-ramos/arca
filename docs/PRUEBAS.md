@@ -88,7 +88,7 @@ python -m core.maps.tile_store                                 (caché de tesela
 
 # ui_helpers.map
 python -m ui_helpers.map.map_types                             (marcadores, tracks y rectángulos del mapa; sin Qt)
-python -m ui_helpers.map.map_view                              (MapView con un fondo simulado; sin ventana)
+python -m ui_helpers.map.map_view                              (MapView con un fondo simulado, y la función de la página que busca el punto del track bajo el ratón, ejecutada con el motor de JavaScript de Qt; sin ventana)
 python -m ui_helpers.map.map_view --ventana                    (una ventana: el mapa de verdad, con marcadores, tracks y tarjetas de prueba para soltar; descarga teselas)
 
 # core.tracks
@@ -111,6 +111,7 @@ python -m controllers.filter_controller                        (barra <-> filtro
 python -m controllers.filter_preset_controller                 (ajustes del módulo, el que coincide, elegir, restaurar, guardar y reemplazar, con host y configuración de mentira y las preguntas cambiadas; sin ventana)
 python -m controllers.folder_actions                           (solo el texto del aviso)
 python -m controllers.undo_history                             (el historial de deshacer: orden, tope, vaciar, Ctrl+Z en la ventana; sin ventana)
+python -m controllers.track_detail_controller                  (recorrido completo del track activo: lectura, memoria, respuestas tardías, catálogo cerrado; con un gestor de mentira; sin ventana)
 python -m controllers.metadata_filter_controller               (columnas de partida, qué se recuenta, respuestas tardías, alto guardado, con host, modelo y BD de mentira; sin ventana)
 
 # ui_helpers

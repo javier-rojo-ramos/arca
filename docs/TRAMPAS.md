@@ -31,6 +31,10 @@
 
 - **Un `QVBoxLayout` reparte el alto que le sobra entre sus hijos** (14/11/2026): `SectionStack` mide justo lo que sus secciones porque su política vertical es `Maximum` y la barra pone un `addStretch` debajo. Si en una prueba se le da más alto a mano (`resize(200, 400)`), las secciones se separan y dejan de estar pegadas arriba: darle `sizeHint().height()`.
 
+- **`QJSEngine` sin `QApplication` cierra el proceso sin avisar** (14/11/2026): ni excepción ni mensaje, solo el código de salida 127. Crear antes la aplicación (`QApplication.instance() or QApplication([])`). Sirve para probar funciones sueltas de `arca_map.js` sin la vista web (no hay Node en el equipo): la autoprueba de `map_view` saca la función del archivo y la ejecuta.
+
+- **En el mapa, lo que se ve en la ventana de prueba no es lo de la aplicación** (14/11/2026): la ventana de `map_view --ventana` pinta tracks con todos sus puntos; la aplicación, su contorno simplificado (pocos vértices, lejos unos de otros con el zoom cerca). Lo que dependa de la densidad de puntos (el punto bajo el ratón) hay que pensarlo sobre los TRAMOS, no sobre los vértices.
+
 ## ExifTool y escritura en los archivos
 
 - ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.

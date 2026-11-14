@@ -12,7 +12,8 @@ Plan revisado con el autor el 14/11/2026 (su lista de funciones de edición y de
 - **Fase 4, lo básico** (cada paso deja la aplicación funcionando):
   - ~~**4.1. Lector completo del GPX**~~ (hecho el 14/11/2026: `core/tracks/gpx_document.py`).
   - ~~**4.2. Módulo Tracks**~~ (hecho el 14/11/2026: `TracksModule` y `LibrarySidebar`; empieza en el mapa; orden por distancia, desnivel y duración).
-  - **4.3. El track activo, con detalle**: su recorrido completo leído en segundo plano (los demás, con su contorno), encuadrado y resaltado, con sus waypoints.
+  - ~~**4.3. El track activo, con detalle**~~ (hecho el 14/11/2026: recorrido completo en segundo plano, los demás atenuados, encuadre al elegirlo fuera del mapa).
+  - **4.3b. Los waypoints del track activo, en el mapa**: `read_gpx_path` los recoge (`TrackPath.waypoints`), tipo `MapWaypoint` y `MapView.set_waypoints` (contrato, fondo web y página), y `TrackDetailController` los pone con el recorrido. Marcador pequeño con el nombre al pasar el ratón.
   - **4.4. Sección «Track» del inspector**: distancia, desnivel, altitudes, duración, fechas, puntos y actividad (hoy no se ven en ningún sitio).
   - **4.5. Miniatura del recorrido** en la tarjeta de los tracks (con el contorno que ya guarda el catálogo).
 - **Fase 5, el perfil de elevación**: 5.1 el cálculo (los mismos números que el catálogo; estadísticas de un tramo); 5.2 el widget (cursor y selección de un tramo); 5.3 la banda bajo el mapa, ocultable y sincronizada con él; 5.4 extras (eje por tiempo, pendiente por colores).

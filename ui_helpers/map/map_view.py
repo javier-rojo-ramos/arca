@@ -28,6 +28,8 @@ Mover una foto: el mapa avisa con 'markers_moved' y la deja donde se soltó; qui
 guarda el cambio y lo confirma con 'update_markers' (o, si no se puede, la devuelve a
 su sitio con 'update_markers' y sus coordenadas de antes).
 
+1.2.3 La autoprueba ejecuta la función de la página que busca el punto de un track más
+      cercano al ratón ('arcaNearestOnPath' de 'resources/map/arca_map.js'), sin el mapa.
 1.2.2 Ventana de prueba: las tarjetas se arrastran SIN imagen; sobre el mapa solo se ve el
       círculo ámbar que dice dónde caen (preferencia del autor, 13/11/2026).
 1.2.1 Ventana de prueba: las tarjetas se arrastran como en la cuadrícula (la imagen, abajo
@@ -44,7 +46,7 @@ Con el mapa de verdad (abre una ventana y se queda abierta):
     python -m ui_helpers.map.map_view --ventana
 """
 
-__version__ = "1.2.2"
+__version__ = "1.2.3"
 __all__ = ["MapView"]
 
 # Librerías estándar
@@ -929,6 +931,61 @@ def _run_window() -> None:
     app.exec()
 
 
+def _run_page_geometry_selftest() -> None:
+    """Ejecuta, sin el mapa, la función de la página que busca el sitio de un track más
+    cercano al ratón ('arcaNearestOnPath', tal cual está en 'arca_map.js'), con el motor de
+    JavaScript de Qt (no hace falta la vista web)."""
+    import json
+    import re
+    from pathlib import Path
+
+    from qtpy.QtQml import QJSEngine
+    from qtpy.QtWidgets import QApplication
+
+    # El motor de JavaScript necesita que exista la aplicación de Qt (sin ella, se cierra
+    # el proceso sin avisar). La misma que usa después la otra parte de la autoprueba
+    app = QApplication.instance() or QApplication([])
+    assert app is not None
+
+    source = (Path(__file__).parents[2] / "resources" / "map" / "arca_map.js").read_text(
+        encoding="utf-8"
+    )
+    found = re.search(r"^function arcaNearestOnPath\(.*?^}\n", source, re.DOTALL | re.MULTILINE)
+    assert found is not None, "no se encuentra 'arcaNearestOnPath' en arca_map.js"
+    engine = QJSEngine()
+    result = engine.evaluate(found.group(0))
+    assert not result.isError(), result.toString()
+
+    def nearest(points: list[float], starts: list[int], x: float, y: float) -> tuple:
+        value = engine.evaluate(
+            f"JSON.stringify(arcaNearestOnPath(Float64Array.from({points}), "
+            f"Uint8Array.from({starts}), {x}, {y}))"
+        )
+        assert not value.isError(), value.toString()
+        data = json.loads(value.toString())
+        # Sin puntos, la distancia es infinita (en JSON, null)
+        distance = None if data["d2"] is None else round(data["d2"], 6)
+        return data["index"], round(data["x"], 6), round(data["y"], 6), distance
+
+    # Un tramo horizontal de (0, 0) a (100, 0) y, en otro segmento, de (200, 0) a (200, 100)
+    path = [0, 0, 100, 0, 200, 0, 200, 100]
+    starts = [1, 0, 1, 0]
+    # Sobre el tramo, entre sus vértices: el punto va por la línea (no salta a un vértice)
+    assert nearest(path, starts, 30, 7) == (0, 30, 0, 49)
+    assert nearest(path, starts, 70, -7) == (1, 70, 0, 49)  # el vértice que le toca cambia
+    # Más allá de los extremos, se queda en el vértice
+    assert nearest(path, starts, -10, 0) == (0, 0, 0, 100)
+    assert nearest(path, starts, 120, 0) == (1, 100, 0, 400)
+    # Entre dos segmentos NO hay línea: (150, 0) queda a 50 de los dos extremos, no a 0
+    assert nearest(path, starts, 150, 0)[3] == 2500
+    assert nearest(path, starts, 205, 40) == (2, 200, 40, 25)
+    assert nearest(path, starts, 205, 60) == (3, 200, 60, 25)
+    # Un segmento de un solo punto, dos puntos iguales y un recorrido vacío
+    assert nearest([5, 5], [1], 8, 9) == (0, 5, 5, 25)
+    assert nearest([5, 5, 5, 5], [1, 0], 8, 9) == (0, 5, 5, 25)  # a igual distancia, el primero
+    assert nearest([], [], 1, 1) == (-1, 0, 0, None)
+
+
 if __name__ == "__main__":
     # Ejecutar desde la raíz del proyecto:  python -m ui_helpers.map.map_view [--ventana]
     import sys
@@ -936,4 +993,5 @@ if __name__ == "__main__":
     if "--ventana" in sys.argv:
         _run_window()
     else:
+        _run_page_geometry_selftest()
         _run_logic_selftest()

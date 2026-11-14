@@ -9,6 +9,39 @@
 // textos y encuadre inicial) -> se crea el mapa -> 'on_ready'.
 "use strict";
 
+// El punto de un recorrido más cercano a (x, y), mirando sus TRAMOS y no solo sus vértices:
+// así el punto señalado se desliza por la línea aunque los vértices estén lejos unos de
+// otros (el contorno de un track tiene pocos puntos; con el zoom cerca, quedan a muchos
+// píxeles). Función suelta y sin Leaflet, para poder probarla sola (la autoprueba de
+// 'ui_helpers/map/map_view.py' la ejecuta tal cual).
+//   merc:   [x0, y0, x1, y1, ...] en metros de Mercator, todos los segmentos seguidos
+//   starts: starts[i] = 1 si el punto i empieza un segmento (no hay tramo desde el anterior)
+// Devuelve {index, x, y, d2}: el vértice más cercano de ese tramo (el índice que viaja a
+// Python), el punto sobre la línea y su distancia al cuadrado. index = -1 sin puntos.
+function arcaNearestOnPath(merc, starts, x, y) {
+  let best = Infinity, bestIndex = -1, bestX = 0, bestY = 0;
+  const count = merc.length / 2;
+  for (let i = 0; i < count; i++) {
+    const bx = merc[2 * i], by = merc[2 * i + 1];
+    let px = bx, py = by, index = i;
+    if (i > 0 && !starts[i]) {
+      // Proyección del ratón sobre el tramo que llega a este punto, sin salirse de él
+      const ax = merc[2 * i - 2], ay = merc[2 * i - 1];
+      const vx = bx - ax, vy = by - ay;
+      const length2 = vx * vx + vy * vy;
+      let t = length2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / length2 : 1;
+      t = t < 0 ? 0 : (t > 1 ? 1 : t);
+      px = ax + t * vx;
+      py = ay + t * vy;
+      index = t < 0.5 ? i - 1 : i;
+    }
+    const dx = px - x, dy = py - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < best) { best = d2; bestIndex = index; bestX = px; bestY = py; }
+  }
+  return { index: bestIndex, x: bestX, y: bestY, d2: best };
+}
+
 const arca = (() => {
   let bridge = null;             // puente con Python
   let map = null;                // el mapa de Leaflet
@@ -20,7 +53,7 @@ const arca = (() => {
   let index = null;              // índice de Supercluster
   const items = new Map();       // id -> [id, lat, lon, tipo, miniatura (1/0)]
   let selected = new Set();      // id seleccionados
-  const tracks = new Map();      // id -> {id, halo, line, points, merc}
+  const tracks = new Map();      // id -> {id, halo, line, points, merc, starts}
   let activeTrack = null;        // id del track activo (el único que avisa del ratón)
   let trackCursor = null;        // punto señalado en un track
   let lastHover = -1;            // último índice avisado con 'on_track_hover'
@@ -35,7 +68,8 @@ const arca = (() => {
   const CLUSTER_RADIUS = 60;     // fotos a menos de estos px se agrupan
   const FIT_PADDING = 40;        // margen al encuadrar, en px
   const FIT_MAX_ZOOM = 16;       // al encuadrar un solo punto no se acerca más que esto
-  const HOVER_PX = 12;           // distancia al track activo para señalar su punto, en px
+  const HOVER_PX = 12;           // distancia a la línea del track activo para señalarlo, en px
+  const DIMMED_OPACITY = 0.45;   // con un track activo, opacidad de los demás
   const MERC_WORLD = 40075016.686;  // metros de Mercator del mundo entero (zoom 0 = 256 px)
 
   // --- Arranque ----------------------------------------------------------------
@@ -242,6 +276,8 @@ const arca = (() => {
     const old = tracks.get(data.id);
     if (old) removeTrack(old);
     if (trackCursor && trackCursor.trackId === data.id) hideTrackCursor();
+    // Sus puntos se numeran de otra forma: el último índice avisado ya no vale
+    if (data.id === activeTrack) lastHover = -1;
     addTrack(data);
     restyleTracks();
   }
@@ -250,11 +286,13 @@ const arca = (() => {
     const segments = [];
     const points = [];
     const merc = [];
+    const starts = [];             // 1 = ese punto empieza un segmento
     for (const flat of data.segments) {
       const latlngs = [];
       for (let i = 0; i + 1 < flat.length; i += 2) {
         const latlng = L.latLng(flat[i], flat[i + 1]);
         const projected = L.CRS.EPSG3857.project(latlng);
+        starts.push(latlngs.length === 0 ? 1 : 0);
         latlngs.push(latlng);
         points.push(latlng);
         merc.push(projected.x, projected.y);
@@ -266,7 +304,10 @@ const arca = (() => {
     const line = L.polyline(segments, { bubblingMouseEvents: false }).addTo(map);
     if (data.name) line.bindTooltip(data.name, { sticky: true });
     line.on("click", () => bridge.on_track_click(data.id));
-    const track = { id: data.id, halo, line, points, merc: Float64Array.from(merc) };
+    const track = {
+      id: data.id, halo, line, points,
+      merc: Float64Array.from(merc), starts: Uint8Array.from(starts),
+    };
     line.on("contextmenu", (e) => contextMenu("track", e, {
       track: data.id,
       index: nearestPoint(track, e.latlng).index,
@@ -287,16 +328,21 @@ const arca = (() => {
     restyleTracks();
   }
 
-  // El activo, más grueso, con su color y por encima de los demás
+  // El activo, más grueso, con su color y por encima de los demás, que se atenúan
+  // mientras haya uno activo (sin ninguno, todos se ven igual)
   function restyleTracks() {
+    const anyActive = tracks.has(activeTrack);
     for (const track of tracks.values()) {
       const active = track.id === activeTrack;
       const weight = active ? 4 : 3;
-      track.halo.setStyle({ color: colors["track-halo"], weight: weight + 3, opacity: 0.85 });
+      const fade = anyActive && !active ? DIMMED_OPACITY : 1;
+      track.halo.setStyle({
+        color: colors["track-halo"], weight: weight + 3, opacity: 0.85 * fade,
+      });
       track.line.setStyle({
         color: active ? colors["track-active"] : colors["track"],
         weight: weight,
-        opacity: 1,
+        opacity: fade,
       });
     }
     const active = tracks.get(activeTrack);
@@ -316,50 +362,68 @@ const arca = (() => {
     showTrackCursor(track, pointIndex);
   }
 
-  function showTrackCursor(track, pointIndex) {
+  // 'latlng' (opcional): dónde pintarlo, si no es justo en el vértice (el ratón sobre un
+  // tramo: el punto va por la línea)
+  function showTrackCursor(track, pointIndex, latlng) {
+    const position = latlng || track.points[pointIndex];
     if (!trackCursor) {
-      trackCursor = L.circleMarker(track.points[pointIndex], {
+      trackCursor = L.circleMarker(position, {
         radius: 6, weight: 2, fillOpacity: 1, interactive: false,
         color: colors["text-on-accent"], fillColor: colors["accent"],
       });
     }
+    const added = map.hasLayer(trackCursor);
     trackCursor.trackId = track.id;
-    trackCursor.setLatLng(track.points[pointIndex]).addTo(map);
-    trackCursor.bringToFront();
+    trackCursor.setLatLng(position);
+    // Ponerlo en el mapa y subirlo, solo al aparecer: mientras se mueve (una vez por
+    // fotograma) basta con cambiarle el sitio
+    if (!added) {
+      trackCursor.addTo(map);
+      trackCursor.bringToFront();
+    }
   }
 
-  // El punto de un track más cercano a un sitio del mapa y a cuántos píxeles queda
+  // El sitio de la LÍNEA de un track más cercano a un punto del mapa: el vértice que le
+  // toca ('index'), a cuántos píxeles queda y dónde está ('latlng')
   function nearestPoint(track, latlng) {
     const mouse = L.CRS.EPSG3857.project(latlng);
-    const merc = track.merc;
-    let best = Infinity, bestIndex = -1;
-    for (let i = 0; i < merc.length; i += 2) {
-      const dx = merc[i] - mouse.x, dy = merc[i + 1] - mouse.y;
-      const d = dx * dx + dy * dy;
-      if (d < best) { best = d; bestIndex = i / 2; }
-    }
+    const nearest = arcaNearestOnPath(track.merc, track.starts, mouse.x, mouse.y);
     const metersPerPixel = MERC_WORLD / (256 * Math.pow(2, map.getZoom()));
-    return { index: bestIndex, pixels: Math.sqrt(best) / metersPerPixel };
+    return {
+      index: nearest.index,
+      pixels: Math.sqrt(nearest.d2) / metersPerPixel,
+      latlng: nearest.index < 0 ? null
+        : L.CRS.EPSG3857.unproject(L.point(nearest.x, nearest.y)),
+    };
   }
 
   function hideTrackCursor() {
     if (trackCursor) map.removeLayer(trackCursor);
   }
 
-  // El punto del track activo más cercano al ratón (si está a menos de HOVER_PX píxeles).
-  // Con 10 000 puntos son 10 000 restas: muy por debajo de un milisegundo.
+  // El ratón sobre el track activo (a menos de HOVER_PX píxeles de su LÍNEA): el punto
+  // ámbar lo sigue por la línea, en cada fotograma, y a Python se le avisa solo cuando
+  // cambia el vértice que le toca. Con 10 000 puntos son unas decenas de miles de
+  // operaciones: muy por debajo de un milisegundo.
   function hover() {
     hoverFrame = 0;
     const track = tracks.get(activeTrack);
     if (!track) return;
-    let found = -1;
+    let found = -1, position = null;
     if (lastMouse) {
       const nearest = nearestPoint(track, lastMouse);
-      if (nearest.index >= 0 && nearest.pixels <= HOVER_PX) found = nearest.index;
+      if (nearest.index >= 0 && nearest.pixels <= HOVER_PX) {
+        found = nearest.index;
+        position = nearest.latlng;
+      }
+    }
+    if (found >= 0) {
+      showTrackCursor(track, found, position);
+    } else if (lastHover >= 0) {
+      hideTrackCursor();   // solo al salir: no quita un punto puesto desde Python (el perfil)
     }
     if (found === lastHover) return;
     lastHover = found;
-    if (found >= 0) showTrackCursor(track, found); else hideTrackCursor();
     // El punto ámbar ya hace de cursor: el del ratón se oculta para no taparlo
     map.getContainer().classList.toggle("arca-hide-cursor", found >= 0);
     bridge.on_track_hover(track.id, found);

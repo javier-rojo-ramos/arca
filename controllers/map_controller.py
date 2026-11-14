@@ -15,6 +15,10 @@ Qué hace (decidido por el autor el 13/11/2026):
       Clic en una foto o en un grupo: solo eso; Ctrl+clic: se añade o se quita; clic en
       el mapa vacío: nada seleccionado. Clic en un track: solo ese track. El track
       seleccionado se ve resaltado (el «activo» del mapa).
+    - Track activo (paso 4.3 de docs/MAPA.md): su recorrido COMPLETO sustituye a su
+      contorno en cuanto se lee del GPX, en segundo plano ('TrackDetailController'); los
+      demás tracks se ven atenuados. Si se elige FUERA del mapa (en la tira o en la
+      cuadrícula), el mapa lo encuadra; si se pulsa en el propio mapa, no se mueve.
     - Doble clic en una foto: la vista individual (Esc vuelve al mapa: lo lleva el
       'CenterViewController').
     - Aviso encima del mapa: «12 fotos sin ubicación» (fotos y vídeos que no salen), o
@@ -107,6 +111,7 @@ from config.app_constants import (
 from controllers.app_modules.center_views import CenterView, MapOptions
 from controllers.app_modules.module_host import ModuleHost
 from controllers.center_view_controller import CenterViewController
+from controllers.track_detail_controller import TrackDetailController
 from controllers.undo_history import UndoHistory, UndoStep
 from core.catalog.geotagging import PositionChange, restore_media_positions, set_media_position
 from core.catalog.grid_source import GridSource
@@ -242,6 +247,15 @@ class MapController(QObject):
         self._items: MapItems | None = None
         self._media_types: dict[int, str] = {}  # id -> tipo (para buscar su miniatura)
         self._track_ids: set[int] = set()
+        self._track_names: dict[int, str] = {}
+        # El recorrido completo del track activo (lo lee en segundo plano y lo pone)
+        self._track_detail = TrackDetailController(self)
+        # El track cuyo recorrido completo ya se ha pedido para lo que hay pintado (al
+        # volver a pintar los tracks vuelven a su contorno: se pide otra vez)
+        self._detailed_track: int | None = None
+        # Lo último que se eligió pulsando EN el mapa: si el track activo sale de ahí, el
+        # mapa no se mueve (ya se está viendo)
+        self._map_pick: frozenset[int] = frozenset()
 
         # Desplegable de la capa (barra inferior, a la derecha; solo con el mapa a la vista)
         self._layer_box = QComboBox()
@@ -297,6 +311,7 @@ class MapController(QObject):
         self._db = db
         self._dirty = True
         self._fitted_source = _NO_SOURCE
+        self._track_detail.attach(db)
         if self._shown():
             self._load()
 
@@ -334,6 +349,9 @@ class MapController(QObject):
         self._items = None
         self._media_types = {}
         self._track_ids = set()
+        self._track_names = {}
+        self._detailed_track = None
+        self._track_detail.detach()
         if self._page.has_map():
             self._page.map_view().clear()
         self._page.set_notice("")
@@ -392,6 +410,10 @@ class MapController(QObject):
         self._items = items
         self._media_types = {point.media_id: point.media_type for point in items.points}
         self._track_ids = {track.track_id for track in items.tracks}
+        self._track_names = {track.track_id: track.name for track in items.tracks}
+        # Los tracks se van a pintar otra vez con su contorno: el recorrido completo del
+        # activo se vuelve a poner después ('_push_selection')
+        self._detailed_track = None
         view.set_markers(
             [
                 MapMarker(p.media_id, p.latitude, p.longitude, p.media_type, p.has_thumbnail, p.direction)
@@ -549,13 +571,29 @@ class MapController(QObject):
         ids = self._selected_ids()
         view = self._page.map_view()
         view.set_selected_ids(ids)
-        view.set_active_track(next((i for i in ids if i in self._track_ids), None))
+        active = next((i for i in ids if i in self._track_ids), None)
+        changed = active != view.active_track()
+        view.set_active_track(active)
+        picked, self._map_pick = self._map_pick, frozenset()
+        if active is None:
+            self._detailed_track = None
+            self._track_detail.show(view, None)
+            return
+        # Elegido fuera del mapa (la tira, la cuadrícula): se encuadra. Pulsado en el
+        # mapa, ya se está viendo: no se mueve
+        if changed and active not in picked:
+            view.fit_track(active)
+        # Su recorrido completo, en lugar del contorno (llega en segundo plano)
+        if active != self._detailed_track:
+            self._detailed_track = active
+            self._track_detail.show(view, active, self._track_names.get(active, ""))
 
     def _on_selection_requested(self, media_ids: list[int], mode: SelectionMode) -> None:
         self._select_ids(media_ids, mode)
 
     def _select_ids(self, media_ids: list[int], mode: SelectionMode) -> None:
         """Lo pulsado en el mapa pasa a ser la selección de la cuadrícula."""
+        self._map_pick = frozenset(media_ids)  # viene del mapa: no hará falta encuadrarlo
         selection_model = self._grid.selectionModel()
         rows = sorted({row for row in map(self._model.row_of_id, media_ids) if row is not None})
         if not rows:
