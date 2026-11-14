@@ -29,6 +29,8 @@
 
 - **Una prueba sin ventana no puede enviar un clic derecho a algo con menú** (14/11/2026): `menu.exec()` se queda esperando para siempre (no hay quien lo cierre). Probar lo que construye el menú (`SectionStack.build_menu` y `action.trigger()`), no el clic; y, al enviar `QContextMenuEvent`, saltarse los widgets con `CustomContextMenu`.
 
+- **Un `QVBoxLayout` reparte el alto que le sobra entre sus hijos** (14/11/2026): `SectionStack` mide justo lo que sus secciones porque su política vertical es `Maximum` y la barra pone un `addStretch` debajo. Si en una prueba se le da más alto a mano (`resize(200, 400)`), las secciones se separan y dejan de estar pegadas arriba: darle `sizeHint().height()`.
+
 ## ExifTool y escritura en los archivos
 
 - ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.

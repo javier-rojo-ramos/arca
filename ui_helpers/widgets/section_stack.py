@@ -17,6 +17,12 @@ Además pone el MENÚ de las secciones (clic derecho en la cabecera de cualquier
 u ocultarla y «Restaurar por defecto» (el orden, las ocultas y las plegadas de ESTA barra
 en ESTE modo). El menú solo escribe en el modelo.
 
+Y permite REORDENAR arrastrando las cabeceras (por el título) dentro de la barra: mientras
+se arrastra, una raya del color de acento dice dónde quedará la sección; al soltar, se
+apunta en el modelo. Soltar con el ratón fuera de la barra, a un lado, lo cancela (la raya
+desaparece para avisar). Un clic sin mover sigue plegando o desplegando. Si la barra no cabe
+entera, se desplaza al acercar el ratón a su borde de arriba o de abajo.
+
 Y se recoloca sola cuando el modelo avisa de un cambio ('layout_changed'), venga de donde
 venga. La pila no guarda nada: la única fuente de verdad es el modelo.
 
@@ -35,6 +41,7 @@ Sin modelo (antes de 'bind', o en una prueba suelta de una barra) las secciones 
 el orden en el que se dieron de alta, todas a la vista. Una sección que el modelo no conoce
 para ese modo (falta registrarla) se queda al final, visible: se ve que falta, sin fallar.
 
+1.2.0 Reordenar arrastrando las cabeceras, con una raya que dice dónde caerá (fase 3).
 1.1.0 Menú de las secciones: casillas para mostrar u ocultar y «Restaurar por defecto»
       ('build_menu', 'show_menu', 'watch_empty_area'; fase 2).
 1.0.0 Primera versión (14/11/2026; fase 1b de las secciones personalizables).
@@ -43,12 +50,20 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.section_stack
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["RESTORE_TEXT", "SECTION_SPACING", "SectionStack"]
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QPoint, Qt, Signal
-from qtpy.QtWidgets import QMenu, QSizePolicy, QVBoxLayout, QWidget
+from qtpy.QtWidgets import (
+    QApplication,
+    QFrame,
+    QMenu,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 # Módulos del proyecto
 from ui_helpers.layout.section_layout import SectionEntry
@@ -58,6 +73,13 @@ from ui_helpers.widgets.collapsible_section import CollapsibleSection
 
 # Separación vertical entre secciones (px lógicos): la que tenían las barras
 SECTION_SPACING = 2
+# Grosor de la raya que dice dónde caerá la sección arrastrada (px lógicos): el del hueco
+# entre secciones, que es donde se pinta. Su color, en 'ui_theme.py'
+# ('#frame_section_drop_indicator')
+DROP_INDICATOR_HEIGHT = SECTION_SPACING
+# Al arrastrar una cabecera cerca del borde de arriba o de abajo de la barra, esta se
+# desplaza para que el ratón quede al menos a esta distancia del borde (px lógicos)
+DRAG_SCROLL_MARGIN = 32
 # Texto de la opción del menú que devuelve la barra a su colocación de partida
 RESTORE_TEXT = "Restaurar por defecto"
 
@@ -95,6 +117,16 @@ class SectionStack(QWidget):
         self._mode = ""
         self._sidebar: Sidebar | None = None
 
+        # Arrastre de una cabecera: el 'id' de la sección que se arrastra (None = ninguna)
+        self._drag_id: str | None = None
+        # La raya que dice dónde caerá: fuera del layout (se coloca a mano sobre el hueco)
+        self._drop_indicator = QFrame(self)
+        self._drop_indicator.setObjectName("frame_section_drop_indicator")
+        self._drop_indicator.setFixedHeight(DROP_INDICATOR_HEIGHT)
+        # Que no se lleve los clics ni los movimientos del ratón
+        self._drop_indicator.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._drop_indicator.hide()
+
     # -------------------------------------------------------------------------
     # API pública
     # -------------------------------------------------------------------------
@@ -113,6 +145,10 @@ class SectionStack(QWidget):
         self._layout.addWidget(section)  # el layout la hace hija de la pila
         # Clic derecho en su cabecera: el menú de las secciones
         section.header_menu_requested.connect(self.show_menu)
+        # Arrastrar su cabecera: cambiarla de sitio
+        section.header_drag_started.connect(lambda sid=section_id: self._on_drag_started(sid))
+        section.header_drag_moved.connect(self._on_drag_moved)
+        section.header_drag_finished.connect(self._on_drag_finished)
         # Plegar o desplegar con la cabecera se apunta en el modelo
         section.toggled.connect(
             lambda expanded, sid=section_id: self._on_section_toggled(sid, expanded)
@@ -213,6 +249,120 @@ class SectionStack(QWidget):
         widget.customContextMenuRequested.connect(
             lambda position: self.show_menu(widget.mapToGlobal(position))
         )
+
+    # -------------------------------------------------------------------------
+    # Reordenar arrastrando las cabeceras
+    # -------------------------------------------------------------------------
+
+    def _drop_candidates(self) -> list[str]:
+        """Las secciones entre las que se puede soltar: las del modelo que están a la
+        vista, en su orden en pantalla (también la que se arrastra)."""
+        if self._model is None or self._sidebar is None:
+            return []
+        known = {entry.id for entry in self._model.entries(self._mode, self._sidebar)}
+        return [
+            sid for sid in self._order if sid in known and not self._sections[sid].isHidden()
+        ]
+
+    def drop_target(self, position: QPoint) -> tuple[bool, str | None]:
+        """Dónde caería la sección arrastrada si se soltara en ese punto de la pila.
+
+        Se suelta ANTES de la primera sección cuya mitad queda por debajo del ratón (así,
+        con secciones altas, basta con pasar de su mitad); por debajo de todas, al final.
+
+        Returns:
+            (vale, antes_de): 'vale' es False si soltar ahí cancela (el ratón, a un lado
+            de la barra); 'antes_de' es el 'id' de la sección delante de la cual quedaría,
+            o None = la última.
+        """
+        if not 0 <= position.x() <= self.width():
+            return False, None
+        for section_id in self._drop_candidates():
+            geometry = self._sections[section_id].geometry()
+            if position.y() < geometry.center().y():
+                return True, section_id
+        return True, None
+
+    def drop_index(self, before: str | None) -> int | None:
+        """Posición del modelo ('SectionLayoutModel.move') en la que queda la sección
+        arrastrada al soltarla delante de 'before' (None = la última de las que se ven).
+        None = se queda donde está (nada que mover)."""
+        if self._model is None or self._sidebar is None or self._drag_id is None:
+            return None
+        if before == self._drag_id:
+            return None  # delante de sí misma
+        # La lista del modelo sin la arrastrada: la posición que se pide es en esa lista.
+        # Tiene también las ocultas: se cuenta por 'id', no por lo que se ve
+        rest = [
+            entry.id
+            for entry in self._model.entries(self._mode, self._sidebar)
+            if entry.id != self._drag_id
+        ]
+        if before is not None:
+            return rest.index(before) if before in rest else None
+        others = [sid for sid in self._drop_candidates() if sid != self._drag_id]
+        if not others:
+            return None  # es la única a la vista
+        return rest.index(others[-1]) + 1  # detrás de la última que se ve
+
+    def _on_drag_started(self, section_id: str) -> None:
+        """Se empieza a arrastrar una cabecera (solo las secciones que el modelo conoce)."""
+        if section_id not in self._drop_candidates():
+            return
+        self._drag_id = section_id
+        QApplication.setOverrideCursor(Qt.CursorShape.ClosedHandCursor)
+
+    def _on_drag_moved(self, global_position: QPoint) -> None:
+        """El ratón se mueve con una cabecera cogida: la raya, donde caería."""
+        if self._drag_id is None:
+            return
+        self._scroll_towards(global_position)
+        valid, before = self.drop_target(self.mapFromGlobal(global_position))
+        if not valid:
+            self._drop_indicator.hide()  # soltar aquí cancela
+            return
+        self._place_indicator(before)
+
+    def _scroll_towards(self, global_position: QPoint) -> None:
+        """Si la barra tiene desplazamiento y el ratón se acerca a su borde de arriba o de
+        abajo, la desplaza hacia allí: así se llega a una sección que no cabe a la vista."""
+        parent = self.parentWidget()
+        while parent is not None and not isinstance(parent, QScrollArea):
+            parent = parent.parentWidget()
+        if parent is None or parent.widget() is None:
+            return
+        point = parent.widget().mapFromGlobal(global_position)
+        # Solo en vertical (las barras no se desplazan a lo ancho)
+        parent.ensureVisible(0, point.y(), 0, DRAG_SCROLL_MARGIN)
+
+    def _on_drag_finished(self, global_position: QPoint) -> None:
+        """Se suelta la cabecera: la sección, a su sitio nuevo (lo apunta el modelo, que
+        avisa y la pila se recoloca)."""
+        if self._drag_id is None:
+            return
+        QApplication.restoreOverrideCursor()
+        self._drop_indicator.hide()
+        valid, before = self.drop_target(self.mapFromGlobal(global_position))
+        index = self.drop_index(before) if valid else None
+        section_id, self._drag_id = self._drag_id, None
+        if index is not None and self._model is not None:
+            self._model.move(self._mode, section_id, index)
+
+    def _place_indicator(self, before: str | None) -> None:
+        """Pone la raya en el hueco de encima de 'before' (None = debajo de la última)."""
+        candidates = self._drop_candidates()
+        if before is not None:
+            # El hueco entre secciones mide lo que la raya: lo llena
+            y = self._sections[before].y() - SECTION_SPACING
+        elif candidates:
+            y = self._sections[candidates[-1]].geometry().bottom() + 1
+        else:
+            y = 0
+        # Dentro de la pila (encima de la primera y debajo de la última no hay hueco)
+        y = max(0, min(y, self.height() - DROP_INDICATOR_HEIGHT))
+        self._drop_indicator.setGeometry(0, y, self.width(), DROP_INDICATOR_HEIGHT)
+        self._drop_indicator.raise_()
+        self._drop_indicator.show()
 
     # -------------------------------------------------------------------------
     # Interno
@@ -457,6 +607,114 @@ if __name__ == "__main__":
     assert len(asked) == 2 and not reached
     _right_click(holder)  # el fondo de la barra sí tiene su menú
     assert len(reached) == 1
+
+    # --- Arrastrar las cabeceras: con el ratón de verdad (eventos), sin ventana
+    from qtpy.QtCore import QEvent, QPointF
+    from qtpy.QtGui import QMouseEvent
+
+    left, no_button = Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton
+
+    def _mouse(widget: QWidget, kind: QEvent.Type, point: QPoint, pressed: bool) -> None:
+        """Manda al widget un evento de ratón en ese punto de la pantalla."""
+        button = no_button if kind == QEvent.Type.MouseMove else left
+        event = QMouseEvent(
+            kind, QPointF(widget.mapFromGlobal(point)), QPointF(point), button,
+            left if pressed else no_button, Qt.KeyboardModifier.NoModifier,
+        )  # fmt: skip
+        QApplication.sendEvent(widget, event)
+
+    def _point(sid: str, where: float, x: int = 20) -> QPoint:
+        """Un punto de la pantalla sobre la sección 'sid', a esa fracción de su alto."""
+        section = stack.section(sid)
+        return section.mapToGlobal(QPoint(x, int(section.height() * where)))
+
+    def _drag(sid: str, target: QPoint, *, check=None) -> None:
+        """Coge la cabecera de 'sid' por el título, la lleva a 'target' y la suelta."""
+        title = stack.section(sid)._toggle_button
+        start = title.mapToGlobal(QPoint(10, 5))
+        _mouse(title, QEvent.Type.MouseButtonPress, start, True)
+        _mouse(title, QEvent.Type.MouseMove, target, True)
+        if check is not None:
+            check()
+        _mouse(title, QEvent.Type.MouseButtonRelease, target, False)
+
+    # Del alto justo de sus secciones, como en una barra (con más alto, el layout las separaría)
+    stack.resize(200, stack.sizeHint().height())
+    stack.show()
+    app.processEvents()
+    assert _on_screen(stack) == ["one", "two", "three", "extra"] and model.is_default("a", Sidebar.LEFT)
+    indicator = stack._drop_indicator
+    assert indicator.isHidden()
+
+    # Dónde caería: delante de la primera cuya mitad queda por debajo; abajo del todo, la última
+    def _target(sid: str, where: float, x: int = 20) -> tuple[bool, str | None]:
+        return stack.drop_target(stack.mapFromGlobal(_point(sid, where, x)))
+
+    assert _target("one", 0.2) == (True, "one") and _target("one", 0.8) == (True, "two")
+    assert _target("three", 0.8) == (True, None)  # 'extra' no es del modelo: no cuenta
+    assert _target("two", 0.2, x=-30) == (False, None) and _target("two", 0.2, x=260) == (False, None)
+
+    # Un clic sin mover (o moviendo muy poco) sigue plegando
+    title_two = stack.section("two")._toggle_button
+    start_two = title_two.mapToGlobal(QPoint(10, 5))
+    _mouse(title_two, QEvent.Type.MouseButtonPress, start_two, True)
+    _mouse(title_two, QEvent.Type.MouseMove, start_two + QPoint(1, 1), True)
+    _mouse(title_two, QEvent.Type.MouseButtonRelease, start_two + QPoint(1, 1), False)
+    assert model.entry("a", "two").expanded is False and _on_screen(stack)[:3] == ["one", "two", "three"]
+    model.set_expanded("a", "two", True)
+    app.processEvents()
+
+    # Arrastrar «three» encima de «one»: pasa a ser la primera; no se pliega; la raya, solo
+    # mientras se arrastra, en el hueco de encima de donde caerá
+    def _while_dragging() -> None:
+        assert not indicator.isHidden() and indicator.y() == 0 and indicator.width() == stack.width()
+        assert QApplication.overrideCursor() is not None
+
+    _drag("three", _point("one", 0.2), check=_while_dragging)
+    assert _on_screen(stack) == ["three", "one", "two", "extra"]
+    assert [e.id for e in model.entries("a", Sidebar.LEFT)] == ["three", "one", "two"]
+    assert model.entry("a", "three").expanded is True and stack.section("three").is_expanded()
+    assert indicator.isHidden() and QApplication.overrideCursor() is None
+    app.processEvents()
+
+    # Hacia abajo: «three» pasada la mitad de «one» queda entre «one» y «two» (la raya, en
+    # el hueco de encima de «two»)
+    def _between() -> None:
+        assert indicator.y() == stack.section("two").y() - SECTION_SPACING
+
+    _drag("three", _point("one", 0.8), check=_between)
+    assert _on_screen(stack) == ["one", "three", "two", "extra"]
+    app.processEvents()
+    # Al final (por debajo de todas): la última de las del modelo
+    _drag("one", _point("extra", 0.9))
+    assert _on_screen(stack) == ["three", "two", "one", "extra"]
+    app.processEvents()
+    # Soltarla donde está (encima de sí misma o de la siguiente): nada cambia
+    _drag("two", _point("two", 0.2))
+    _drag("two", _point("one", 0.2))
+    assert _on_screen(stack) == ["three", "two", "one", "extra"]
+    # Soltar a un lado de la barra cancela (la raya desaparece para avisar)
+    _drag("one", _point("three", 0.2, x=300), check=lambda: indicator.isHidden() or 1 / 0)
+    assert _on_screen(stack) == ["three", "two", "one", "extra"]
+    assert QApplication.overrideCursor() is None
+    # Una sección que el modelo no conoce no se arrastra
+    _drag("extra", _point("three", 0.2), check=lambda: indicator.isHidden() or 1 / 0)
+    assert _on_screen(stack) == ["three", "two", "one", "extra"]
+    assert QApplication.overrideCursor() is None
+
+    # Con una oculta en medio se cuenta por 'id': «one» delante de «three» salta también
+    # a la oculta, y la oculta conserva su sitio respecto a las demás
+    model.set_visible("a", "two", False)
+    app.processEvents()
+    _drag("one", _point("three", 0.2))
+    assert [e.id for e in model.entries("a", Sidebar.LEFT)] == ["one", "three", "two"]
+    # La única a la vista no tiene adónde ir
+    model.set_visible("a", "three", False)
+    app.processEvents()
+    _drag("one", _point("extra", 0.9))
+    assert [e.id for e in model.entries("a", Sidebar.LEFT)] == ["one", "three", "two"]
+    model.reset()
+    stack.hide()
 
     # --- Dar de alta una sección con la pila ya unida: va a su sitio
     late = _build("three")

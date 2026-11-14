@@ -12,7 +12,7 @@ Pedido por el autor el 14/11/2026, antes de seguir con Tracks. Diseño y decisio
 - ~~**1a. Registro, modelo y persistencia**~~ (hecha el 14/11/2026; sin conectar a las barras).
 - ~~**1b. Las tres barras, colocadas por el modelo**~~ (hecha el 14/11/2026: `SectionStack`; a la vista, igual; lo plegado, importado).
 - ~~**2. Clic derecho en una cabecera**~~ (hecha el 14/11/2026: también en el hueco vacío de la barra; «Restaurar por defecto» restaura esa barra de ese modo).
-- **3. Arrastrar las cabeceras** para reordenar dentro de la barra.
+- ~~**3. Arrastrar las cabeceras**~~ (hecha el 14/11/2026: por el título, con una raya que dice dónde caerá; soltar a un lado cancela).
 - **4. Página «Paneles» en Opciones**: la colocación de cualquier modo y barra, con el mismo modelo; «Restaurar este modo» y «Restaurar todos».
 
 Al terminar, sale de B el apunte «cambiar el orden de las secciones de la barra de un módulo».

@@ -18,6 +18,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.18.0 Raya que dice dónde cae una sección al arrastrar su cabecera
+       ('#frame_section_drop_indicator').
 1.17.0 Botón de la tira de fotos del mapa ('#btn_map_filmstrip', como los de vista).
 1.16.0 Aviso sobre el mapa ('#lbl_map_notice').
 1.15.0 Cajas editables del inspector ('#edit_inspector_value': parecen texto hasta pasar
@@ -59,7 +61,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.17.0"
+__version__ = "1.18.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -413,6 +415,12 @@ QToolButton#btn_section_header {{
     background: transparent;
     font-weight: bold;
     padding: 4px 2px;
+}}
+/* Raya que dice dónde va a quedar una sección mientras se arrastra su cabecera
+   (ui_helpers/widgets/section_stack.py) */
+QFrame#frame_section_drop_indicator {{
+    background-color: {COLORS.accent};
+    border: none;
 }}
 
 /* Botones "+" de las cabeceras de Carpetas y Colecciones: sin marco ni relleno, solo el

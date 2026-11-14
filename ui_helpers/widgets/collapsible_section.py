@@ -15,6 +15,9 @@ El aspecto (fondo de la cabecera, negrita...) se define en la hoja de estilos gl
     - QFrame#frame_section_header     la barra de la cabecera
     - QToolButton#btn_section_header  la flecha + el título
 
+1.4.0 Arrastrar la cabecera (por el título): señales 'header_drag_started',
+      'header_drag_moved' y 'header_drag_finished' (lo que se hace con el arrastre lo decide
+      quien la usa: 'SectionStack' la cambia de sitio). Un clic sin mover sigue plegando.
 1.3.0 Señal 'header_menu_requested': clic derecho en la cabecera (el menú lo pone quien la
       usa: 'SectionStack', con las secciones para mostrar u ocultar). El clic derecho en un
       hueco del contenido no hace nada (no se pasa a la barra).
@@ -23,12 +26,13 @@ El aspecto (fondo de la cabecera, negrita...) se define en la hoja de estilos gl
       contadores de los árboles ('HEADER_RIGHT_MARGIN').
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["HEADER_RIGHT_MARGIN", "CollapsibleSection"]
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QPoint, Qt, Signal
+from qtpy.QtCore import QEvent, QObject, QPoint, Qt, Signal
 from qtpy.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QSizePolicy,
@@ -50,10 +54,19 @@ class CollapsibleSection(QWidget):
         toggled(bool): la sección se ha desplegado (True) o plegado (False).
         header_menu_requested(QPoint): clic derecho en la cabecera (en cualquier punto,
             también sobre sus botones); lleva la posición en la pantalla.
+        header_drag_started(): se empieza a arrastrar la cabecera por el título (el botón
+            izquierdo pulsado y el ratón movido más que la distancia de arrastre del sistema).
+        header_drag_moved(QPoint): el ratón se mueve durante el arrastre (posición en la
+            pantalla).
+        header_drag_finished(QPoint): se suelta el botón (posición en la pantalla). La
+            sección NO se pliega ni se despliega: no ha sido un clic.
     """
 
     toggled = Signal(bool)
     header_menu_requested = Signal(QPoint)
+    header_drag_started = Signal()
+    header_drag_moved = Signal(QPoint)
+    header_drag_finished = Signal(QPoint)
 
     def __init__(
         self, title: str, parent: QWidget | None = None, *, expanded: bool = True
@@ -105,6 +118,11 @@ class CollapsibleSection(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
         self._toggle_button.toggled.connect(self._on_toggled)
+        # Arrastrar la cabecera por el título (ver 'eventFilter'): dónde se pulsó el botón
+        # izquierdo (None = no está pulsado) y si ya se está arrastrando
+        self._press_position: QPoint | None = None
+        self._dragging = False
+        self._toggle_button.installEventFilter(self)
         header_layout.addWidget(self._toggle_button)
         self._header_layout = header_layout
 
@@ -159,6 +177,46 @@ class CollapsibleSection(QWidget):
     # -------------------------------------------------------------------------
     # Interno
     # -------------------------------------------------------------------------
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Convierte en un ARRASTRE de la cabecera el pulsar el título y mover el ratón.
+
+        Mientras el botón del título está pulsado, Qt le manda a él todos los movimientos
+        del ratón, aunque salga de la cabecera: basta con mirarlos aquí. Un clic sin mover
+        (o moviendo menos que la distancia de arrastre del sistema) no se toca: pliega o
+        despliega, como siempre.
+        """
+        if watched is self._toggle_button:
+            kind = event.type()
+            if kind == QEvent.Type.MouseButtonPress:
+                if event.button() == Qt.MouseButton.LeftButton:
+                    self._press_position = event.globalPosition().toPoint()
+                    self._dragging = False
+            elif kind == QEvent.Type.MouseMove and self._press_position is not None:
+                position = event.globalPosition().toPoint()
+                distance = (position - self._press_position).manhattanLength()
+                if not self._dragging and distance >= QApplication.startDragDistance():
+                    self._dragging = True
+                    # Ya no es un clic: el botón deja de estar hundido, así al soltar no
+                    # pliega la sección
+                    self._toggle_button.setDown(False)
+                    self.header_drag_started.emit()
+                if self._dragging:
+                    self.header_drag_moved.emit(position)
+                    return True  # el botón no lo ve (si no, se hundiría otra vez al pasar)
+            elif (
+                kind == QEvent.Type.MouseButtonRelease
+                and event.button() == Qt.MouseButton.LeftButton
+            ):
+                was_dragging = self._dragging
+                self._press_position = None
+                self._dragging = False
+                if was_dragging:
+                    self._toggle_button.setDown(False)
+                    self.header_drag_finished.emit(event.globalPosition().toPoint())
+                    # El botón sí ve que se suelta (para quedar en reposo), pero como no
+                    # está hundido no hace clic
+        return super().eventFilter(watched, event)
 
     def _on_toggled(self, expanded: bool) -> None:
         self._apply_state(expanded)
