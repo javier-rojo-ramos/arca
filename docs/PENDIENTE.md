@@ -5,7 +5,19 @@
 
 **Plan de interfaz** (acordado el 29/10/2026 y revisado el 08/11/2026; ver [FLUJOS.md §11](FLUJOS.md) y [DECISIONES.md](DECISIONES.md)): el mismo esqueleto en todos los módulos (izquierda navegar, centro ver, derecha el inspector), la edición en el inspector y ventanas solo para lo pesado o por lotes, una tarjeta configurable por «perfiles» y un único motor de filtros (`RuleSet`) con estado por módulo.
 
-## Siguiente: el módulo Tracks (fase 4 del mapa)
+## En curso: secciones de las barras personalizables por modo
+
+Pedido por el autor el 14/11/2026, antes de seguir con Tracks. Diseño y decisiones en [DECISIONES.md](DECISIONES.md); el código, en `ui_helpers/layout/`. Cada fase se entrega y se espera el visto bueno.
+
+- ~~**1a. Registro, modelo y persistencia**~~ (hecha el 14/11/2026; sin conectar a las barras).
+- **1b. Conectar las tres barras al modelo**: un contenedor común (`ui_helpers/widgets/section_stack.py`) que coloca las `CollapsibleSection` por id según el modelo; lo usan `CatalogSidebar`, `ImageSidebar` e `InspectorPanel` (este se recoloca al cambiar de módulo). A la vista, igual. Lo plegado pasa al modelo: se migra lo de `inspector_sections` y lo de `sections` de cada barra, que dejan de usarse.
+- **2. Clic derecho en una cabecera** (y en el hueco vacío de la barra): las secciones con casillas para mostrar u ocultar y «Restaurar por defecto».
+- **3. Arrastrar las cabeceras** para reordenar dentro de la barra.
+- **4. Página «Paneles» en Opciones**: la colocación de cualquier modo y barra, con el mismo modelo; «Restaurar este modo» y «Restaurar todos».
+
+Al terminar, sale de B el apunte «cambiar el orden de las secciones de la barra de un módulo».
+
+## Después: el módulo Tracks (fase 4 del mapa)
 
 Recordatorio pedido por el autor el 13/11/2026, al cerrar la fase 3 (Imagen). El plan completo, paso a paso y con sus criterios, está en [MAPA.md](MAPA.md) §10; lo que sigue es el orden y lo que hay que decidir antes.
 

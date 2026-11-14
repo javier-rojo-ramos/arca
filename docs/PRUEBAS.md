@@ -124,6 +124,9 @@ python -m ui_helpers.helpers.theme_colors                      (contraste y form
 python -m ui_helpers.helpers.theme_qss                         (la hoja general, solo con colores del tema)
 python -m ui_helpers.helpers.theme_style                       (colores de los indicadores y una ventana con todos sus estados)
 python -m ui_helpers.helpers.zoom_geometry                     (cuentas del zoom 1:1 de la vista individual; sin Qt)
+python -m ui_helpers.layout.section_registry                   (registro de secciones de las barras: lo de hoy, altas y rechazos; sin Qt)
+python -m ui_helpers.layout.section_layout                     (colocación de las secciones: mover, ocultar, plegar, restaurar, guardar y fusionar con el registro; sin Qt)
+python -m ui_helpers.layout.section_layout_model               (el modelo: guarda y avisa en cada cambio, con una configuración de mentira; sin ventana)
 python -m ui_helpers.inspector.editable_row                    (cajas editables; sin ventana)
 python -m ui_helpers.inspector.formatting
 python -m ui_helpers.inspector.keyword_editor_section

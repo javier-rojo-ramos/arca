@@ -166,3 +166,9 @@ SETTING_MAP_CACHE_MB = "map_cache_mb"
 # Tira de fotos debajo del mapa: {"visible": bool, "height": px lógicos}. Una para toda
 # la aplicación (se muestra u oculta con su botón de la barra inferior o con F6)
 SETTING_MAP_FILMSTRIP = "map_filmstrip"
+
+# Orden, visibilidad y plegado de las secciones de las dos barras laterales, por modo:
+# {"version": 1, "modes": {"image": {"left": [{"id", "visible", "expanded"}...], "right": [...]}}}
+# (ver 'ui_helpers/layout/section_layout.py'). Común a todos los catálogos. None = la
+# colocación de partida del registro ('ui_helpers/layout/section_registry.py')
+SETTING_SECTION_LAYOUT = "section_layout"

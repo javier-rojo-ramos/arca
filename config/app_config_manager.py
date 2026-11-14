@@ -5,6 +5,7 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.17 Se añade 'section_layout' (orden, visibilidad y plegado de las secciones de las barras).
 1.16 Se añade 'map_filmstrip' (la tira de fotos del mapa: si se ve y su alto).
 1.15 Se añade 'gpu_rendering' (dibujar la ventana con la GPU).
 1.14 Se añaden 'map_user_layers' y 'map_cache_mb' (Opciones > Mapa).
@@ -24,7 +25,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.16"
+__version__ = "1.17"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -53,6 +54,7 @@ from config.app_constants import (
     SETTING_MAP_FILMSTRIP,
     SETTING_MAP_LAYER,
     SETTING_MAP_USER_LAYERS,
+    SETTING_SECTION_LAYOUT,
     SETTING_SHOW_SUBFOLDER_ITEMS,
     SETTING_SIDEBAR_STATE,
     SETTING_WRITE_USER_DATA_TO_FILES,
@@ -109,6 +111,9 @@ class ConfigManager:
         SETTING_MAP_CACHE_MB: 2048,
         # La tira de fotos del mapa: si se ve y su alto
         SETTING_MAP_FILMSTRIP: {"visible": True, "height": 140},
+        # Orden, visibilidad y plegado de las secciones de las barras laterales, por modo
+        # (None = la colocación de partida; ver 'ui_helpers/layout/')
+        SETTING_SECTION_LAYOUT: None,
         # Aquí se añaden nuevas variables
     }
 

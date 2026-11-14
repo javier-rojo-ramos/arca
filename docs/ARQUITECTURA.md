@@ -43,7 +43,7 @@ config/
   app_config.py                      Instancia única (singleton) de la configuración: `from config.app_config import config`
   app_config_manager.py              ConfigManager: settings.json (claves: catalogo_ruta, thumbnail_size, write_user_data_to_files,
                                      main_splitter_state, show_subfolder_items, sidebar_state, inspector_metadata_preset, inspector_sections, active_module, filter_metadata_height, filter_presets, confirm_multi_edit,
-                                     last_add_folder_parent, map_layer, map_user_layers, map_cache_mb, map_filmstrip, gpu_rendering, window_geometry; todas, con su valor por defecto, en DEFAULTS)
+                                     last_add_folder_parent, map_layer, map_user_layers, map_cache_mb, map_filmstrip, gpu_rendering, section_layout, window_geometry; todas, con su valor por defecto, en DEFAULTS)
   app_info.py                        Texto de ayuda en HTML (pendiente de implementar; hoy no lo usa nadie)
   app_constants.py                   Constantes, iconos (AppIcons), tamaños de miniatura, claves compartidas de settings.json
   app_logging_manager.py             setup_logging (loguru + InterceptHandler)
@@ -109,6 +109,9 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   sidebars/sections/folder_section.py  FolderSection: «Carpetas» con lo de una biblioteca (recuentos, opción de subcarpetas, lo desplegado, menú «Mostrar en el Explorador»)
   sidebars/sections/date_section.py  DateSection: «Fechas» (años ▸ meses ▸ días con recuentos y «Sin fecha»; filas con date_source; lo desplegado en expanded_dates); date_label, date_tooltip
   sidebars/sections/keyword_section.py KeywordSection: «Lista de palabras clave» (filtro y árbol con recuentos que incluyen las hijas; las que no tienen nada, en gris; lo desplegado en KeywordExpansion)
+  layout/section_registry.py         SECTION_REGISTRY (sin Qt): el registro de modos y de secciones plegables de las dos barras (SectionSpec: id estable, título, barras, modos, posición y estado de partida); AQUÍ se da de alta una sección o un modo
+  layout/section_layout.py           SectionLayout (sin Qt): la colocación por modo y barra (lista ordenada de SectionEntry: id, visible, expanded); mover, ocultar, plegar, restaurar; to_state / from_state con versión (LAYOUT_VERSION) y fusión con el registro
+  layout/section_layout_model.py     SectionLayoutModel: la única fuente de verdad de la colocación; lee y guarda 'section_layout' en settings.json y avisa con layout_changed(modo, barra). Aún sin conectar a las barras (fase 1b)
   helpers/sidebar_icons.py           load_sidebar_icons: iconos de unidades, carpetas y colecciones (barras del Catálogo e Imagen), con sus variantes ':open' y ':menu'
   widgets/keyword_checklist.py       KeywordChecklist: filtro + árbol de palabras con casillas de tres estados (editor del inspector); padres de lo asignado resaltados; menú contextual y soltar tarjetas
   widgets/recent_keywords.py         RecentKeywords: «Últimas palabras clave», 6 botones de ancho fijo (asignar / quitar con un clic)

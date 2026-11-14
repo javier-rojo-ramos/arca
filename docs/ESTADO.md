@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 13/11/2026.
+**Actualizado**: 14/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes: añadir y sincronizar carpetas, metadatos con ExifTool, miniaturas, cuadrícula y vista individual, clasificación (valoración, marca, color y selección rápida) guardada también en los archivos, palabras clave, colecciones (también inteligentes, con grupos de reglas), barra de filtros («Texto», «Atributos», «Metadatos» y ajustes personalizados) e inspector, que edita las palabras clave en todos los módulos y, en las fotos y vídeos de Imagen, el título, el pie, el creador, el copyright, la ubicación y el GPS (también guardados en los archivos). El módulo Imagen navega por carpetas, fechas y palabras clave. Vídeo, audio, GPX y ebooks se catalogan y se clasifican en bibliotecas, pero los módulos Vídeo y Audio aún son provisionales. Lo siguiente, en [PENDIENTE.md](PENDIENTE.md).
 
@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Secciones personalizables, fase 1a: registro, modelo y persistencia** (14/11/2026) | Nada cambia a la vista (las barras aún no usan el modelo): que la aplicación arranca y se comporta igual. En `settings.json` aparece la clave `section_layout` con `null` |
 | **Mapa, paso 3.5: «Sin ubicación»** (13/11/2026) | En el desplegable de ajustes de la barra de filtros, «Sin ubicación» (detrás de «Ubicación»): enciende «Metadatos» con la columna «Tiene coordenadas GPS» y «No» elegido; la cuadrícula y la tira, solo con lo que no tiene ubicación. **Si ya tenías tu lista de ajustes guardada, no aparece sola**: «Gestionar ajustes personalizados…» > «Restaurar los de fábrica» la añade al final. Al soltar fotos en el mapa siguen en la tira, con su chincheta, hasta volver a elegir la carpeta. La tira tiene ahora siempre su barra de desplazamiento: con cualquier número de fotos (también las 8 de la captura), las tarjetas en fila y a la misma distancia |
 
 ## Comprobaciones sueltas
@@ -81,6 +82,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 14/11/2026: secciones de las barras personalizables por modo, fase 1a: registro de secciones, modelo único de la colocación y su guardado en `settings.json` (`ui_helpers/layout/`), sin conectar todavía a las barras. Plan en [PENDIENTE.md](PENDIENTE.md).
 - 13/11/2026: mapa, paso 3.5: ajuste de fábrica «Sin ubicación» en la barra de filtros. Fase 3 (Imagen), completa; lo siguiente, el módulo Tracks (recordatorio en [PENDIENTE.md](PENDIENTE.md)).
 - 13/11/2026: mapa, pasos 3.3 y 3.4: «Quitar la ubicación» con el botón derecho y Ctrl+Z para deshacer lo hecho en el mapa; el mapa se pinta entero al cambiar de módulo.
 - 13/11/2026: mapa, paso 3.2: ubicar fotos soltándolas en el mapa de Imagen y moverlas (se escribe en los archivos).
@@ -90,4 +92,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 13/11/2026: la ventana se dibuja con la GPU desde que se abre (opción en Opciones > General): sin parpadeo al abrir el mapa y sin cortes a 1:1.
 - 13/11/2026: mapa, paso 2.4: Opciones > Mapa (capas propias y caché de teselas); el mapa, al día tras un cambio del inspector. Fase 2 (Catálogo), completa.
 - 13/11/2026: mapa, paso 2.3: la vista «Mapa» en el Catálogo (botón y M; selección compartida con la cuadrícula; Esc vuelve al mapa desde la vista individual).
-- 13/11/2026: mapa, paso 2.2: la consulta del mapa (lo mismo que la cuadrícula: fotos con coordenadas, tracks con su contorno y cuántas no tienen ubicación).
