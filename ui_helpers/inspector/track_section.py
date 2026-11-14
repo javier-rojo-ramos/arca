@@ -10,12 +10,14 @@ Tracks y también en el Catálogo), debajo de «Selección»:
         Duración   5:32:10
        Velocidad   2,6 km/h
           Puntos   2.566 · 2 segmentos · 3 waypoints
-       Actividad   hiking
+       Actividad   Senderismo
       Creado con   Wikiloc
 
 Con VARIOS tracks seleccionados el título pasa a «TRACKS» y los números se juntan: se
 suman la distancia, el desnivel, la duración y los puntos; la altitud es la mínima y la
-máxima de todos; la actividad y el programa, el valor común o «Varios» en gris. Si algún
+máxima de todos; la actividad y el programa, el valor común o «Varios» en gris. La
+actividad se muestra en español ('core/tracks/activities.py': el GPX y el catálogo guardan
+su clave en inglés, «hiking»; una que no esté en la lista sale tal cual). Si algún
 dato no lo tienen todos (una ruta planificada no tiene horas; un GPX puede venir sin
 altitud), el texto emergente de esa fila lo dice.
 
@@ -27,10 +29,11 @@ y se escriben. No se edita nada.
 Las filas son siempre las mismas (las que no tienen dato quedan en blanco): así la
 sección no cambia de alto al pasar de un track a otro.
 
+1.1.0 La actividad, en español ('activity_label'; paso 4.6a).
 1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.4).
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["TrackSection"]
 
 # Librerías estándar
@@ -44,6 +47,7 @@ from qtpy.QtWidgets import QVBoxLayout, QWidget
 from core.catalog.libraries import Library
 from core.catalog.selection_summary import SelectionSummary
 from core.catalog.track_stats import MIXED, TrackStats, fetch_track_stats
+from core.tracks.activities import activity_label, is_known_activity
 from ui_helpers.inspector.base_section import (
     InfoGrid,
     InfoRow,
@@ -187,7 +191,7 @@ class TrackSection(InspectorSection):
         )
 
         self._points.value.set_full_text(self._points_text(stats))
-        self._show_text(self._activity, stats.activity_type)
+        self._show_activity(stats.activity_type)
         self._show_text(self._creator, stats.creator_app)
 
     # -------------------------------------------------------------------------
@@ -209,6 +213,15 @@ class TrackSection(InspectorSection):
         if stats.planned_routes and stats.planned_routes == stats.count:
             parts.append("ruta planificada" if stats.count == 1 else "rutas planificadas")
         return " · ".join(parts)
+
+    def _show_activity(self, value: str | None) -> None:
+        """La actividad, en español; al pasar el ratón, su clave (lo que lleva el GPX)."""
+        if value is None or value == MIXED:
+            self._show_text(self._activity, value)
+            return
+        tooltip = f"En el archivo: {value}" if is_known_activity(value) else ""
+        self._activity.value.set_full_text(activity_label(value), tooltip)
+        set_secondary_text(self._activity.value, False)
 
     @staticmethod
     def _show_text(row: InfoRow, value: str | None) -> None:

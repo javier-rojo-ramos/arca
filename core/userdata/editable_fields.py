@@ -2,11 +2,20 @@
 
 Este módulo NO depende de Qt ni de la base de datos: es una lista declarativa.
 
-Cada campo editable (título, pie de ilustración, creador, copyright, ubicación y GPS) es
-una línea de 'EDITABLE_FIELDS', y de esa línea sale todo lo demás:
+UN CAMPO, VARIOS ESCRITORES (decidido con el autor el 14/11/2026, pensando en los módulos
+que vienen: Audio con sus etiquetas ID3, Vídeo con las de su contenedor o un '.nfo'): el
+campo se declara aquí UNA vez (dónde se guarda, de qué tipo es, a qué tipos de archivo se
+aplica) y cada escritor dice qué campos sabe guardar. Hoy hay dos escritores: el de XMP
+('xmp_writer.py': los campos con 'xmp_tag') y el archivo de carpeta ('.arca.json': todos,
+por su 'folder_key'). Lo que el escritor de un formato no sabe guardar va al '.arca.json'.
+Un campo puede estar en 'media_items' o en una tabla de detalles ('table'), y no tener
+etiqueta XMP: el primero así es la ACTIVIDAD de un track ('track_details.activity_type').
+
+Cada campo editable (título, pie de ilustración, creador, copyright, ubicación, GPS y la
+actividad de los tracks) es una línea de 'EDITABLE_FIELDS', y de esa línea sale todo lo demás:
     - 'update_metadata_fields' (core/catalog/media_queries.py) guarda el valor en su
-      columna de 'media_items' y pone el BIT del campo en 'metadata_edit_pending'
-      (pendiente de escribir en el archivo);
+      columna (de 'media_items' o de su tabla de detalles) y pone el BIT del campo en
+      'media_items.metadata_edit_pending' (pendiente de escribir en el archivo);
     - al releer el archivo no se pisan las columnas con su bit puesto;
     - el escritor pone el valor en la etiqueta XMP y en las antiguas que el archivo ya
       tenga, o en la clave del '.arca.json' (según el destino del formato, 'policy.py');
@@ -35,11 +44,17 @@ Cómo añadir un campo:
     1. Una línea más en 'EDITABLE_FIELDS' con un BIT NUEVO (el doble del último). Un bit
        no se cambia ni se reutiliza nunca: los catálogos lo tienen guardado en
        'metadata_edit_pending'.
-    2. La columna tiene que existir en 'media_items' (si no, una migración) y leerse de
-       las mismas etiquetas (la autoprueba lo comprueba con 'IMAGE_FIELDS').
+    2. La columna tiene que existir en 'media_items' o en su tabla de detalles ('table';
+       si no, una migración). Si tiene etiqueta XMP, se lee de las mismas etiquetas (la
+       autoprueba lo comprueba con 'IMAGE_FIELDS'). Si es de un solo tipo de archivo,
+       'media_types' (en los demás ni se guarda ni queda pendiente).
     3. La clave del '.arca.json' tampoco se cambia después: está en los archivos de los
        usuarios.
 
+1.3.0 Un campo puede no tener etiqueta XMP, estar en una tabla de detalles ('table') y ser
+      solo de algunos tipos de archivo ('media_types'): la actividad de los tracks
+      ('activity_type', bit 8192). 'XMP_COLUMNS', 'MAIN_COLUMNS', 'read_sql', 'upsert_sql' y
+      'applies_sql'; 'unless_pending_sql' vale también para una tabla de detalles.
 1.2.0 GPS: latitud, longitud, altitud y dirección (bits 512 a 4096), campos NUMÉRICOS con
       sus límites ('kind', 'limits', 'circular'); la latitud y la longitud, juntas
       ('PAIRED_COLUMNS', 'incomplete_pairs').
@@ -50,15 +65,19 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.editable_fields
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "ALL_EDIT_BITS",
     "EDITABLE_COLUMNS",
     "EDITABLE_FIELDS",
+    "MAIN_COLUMNS",
+    "MAIN_TABLE",
     "NUMBER",
     "PAIRED_COLUMNS",
     "TEXT",
+    "XMP_COLUMNS",
     "EditableField",
+    "applies_sql",
     "bits_for",
     "default_title",
     "field_for",
@@ -66,7 +85,9 @@ __all__ = [
     "incomplete_pairs",
     "normalize_value",
     "pending_columns",
+    "read_sql",
     "unless_pending_sql",
+    "upsert_sql",
 ]
 
 # Librerías estándar
@@ -80,17 +101,22 @@ from pathlib import Path
 TEXT = "text"
 NUMBER = "number"
 
+# La tabla de los elementos: la de los campos comunes y la que lleva las marcas de pendiente
+MAIN_TABLE = "media_items"
+
 
 @dataclass(frozen=True, slots=True)
 class EditableField:
     """Un metadato descriptivo editable.
 
     Attributes:
-        column: Columna de 'media_items' que guarda el valor.
+        column: Columna que guarda el valor (de 'media_items', o de 'table'). Única entre
+            todos los campos: es su nombre en todo el mecanismo.
         bit: Su bit en 'media_items.metadata_edit_pending' (una potencia de 2, fija).
         xmp_tag: Etiqueta XMP (con su grupo, como la pide ExifTool) que se escribe siempre
             y se comprueba al releer. En los numéricos (GPS), la del XMP, que se escribe
-            con la regla del GPS (ver la cabecera).
+            con la regla del GPS (ver la cabecera). Vacía = el campo no se guarda en XMP
+            (solo en el '.arca.json'): el escritor de XMP no lo conoce.
         legacy_tags: Etiquetas antiguas (IPTC, EXIF) que se actualizan solo si el archivo
             ya las tiene. En los numéricos (GPS), su etiqueta EXIF.
         folder_key: Clave del valor en la entrada del archivo de carpeta ('.arca.json').
@@ -99,6 +125,10 @@ class EditableField:
         limits: En los numéricos, (mínimo, máximo) admitidos; None = sin límites.
         circular: En los numéricos con límites, True si el valor da la vuelta (la
             dirección: 360° = 0°, −90° = 270°) en lugar de rechazarse.
+        table: Tabla de detalles en la que está la columna (1:1 con 'media_items' por
+            'media_id': 'track_details'...); None = en 'media_items'.
+        media_types: Tipos de archivo a los que se aplica ('track'...); vacío = a todos.
+            En los demás, el campo ni se guarda ni queda pendiente.
     """
 
     column: str
@@ -110,6 +140,8 @@ class EditableField:
     kind: str = TEXT
     limits: tuple[float, float] | None = None
     circular: bool = False
+    table: str | None = None
+    media_types: tuple[str, ...] = ()
 
 
 # Los campos editables, en el orden en que se escriben. Las claves del '.arca.json' son
@@ -164,6 +196,14 @@ EDITABLE_FIELDS: tuple[EditableField, ...] = (
         "gps_direction", 4096, "XMP-exif:GPSImgDirection", ("GPS:GPSImgDirection",),
         "gps_direction", kind=NUMBER, limits=(0.0, 360.0), circular=True,
     ),
+    # La actividad de un track: su clave ('hiking', 'mountain_biking'...; ver
+    # 'core/tracks/activities.py'). Sin etiqueta XMP (un GPX no lleva XMP): va al
+    # '.arca.json'. Está en la tabla de detalles de los tracks, que también rellena el
+    # extractor con lo que diga el GPX
+    EditableField(
+        "activity_type", 8192, "", (), "activity",
+        table="track_details", media_types=("track",),
+    ),
 )  # fmt: skip
 
 # Columnas que se editan siempre juntas (una sola caja del inspector, «GPS»): o las dos
@@ -172,6 +212,12 @@ PAIRED_COLUMNS: tuple[tuple[str, str], ...] = (("latitude", "longitude"),)
 
 # Columnas editables, en el mismo orden
 EDITABLE_COLUMNS: tuple[str, ...] = tuple(spec.column for spec in EDITABLE_FIELDS)
+
+# Las que están en 'media_items' (las demás, cada una en su tabla de detalles)
+MAIN_COLUMNS: tuple[str, ...] = tuple(spec.column for spec in EDITABLE_FIELDS if spec.table is None)
+
+# Las que sabe guardar el escritor de XMP (las que tienen etiqueta)
+XMP_COLUMNS: tuple[str, ...] = tuple(spec.column for spec in EDITABLE_FIELDS if spec.xmp_tag)
 
 # Todos los bits juntos (para quitar del pendiente lo que ya no es de ningún campo)
 ALL_EDIT_BITS: int = sum(spec.bit for spec in EDITABLE_FIELDS)
@@ -212,12 +258,25 @@ def pending_columns(mask: int) -> tuple[str, ...]:
     return tuple(spec.column for spec in EDITABLE_FIELDS if mask & spec.bit)
 
 
+def _pending_sql(spec: EditableField) -> str:
+    """Expresión SQL (verdadera o falsa) de si el campo está pendiente de escribir, vista
+    desde una sentencia sobre SU tabla."""
+    if spec.table is None:
+        return f"metadata_edit_pending & {spec.bit}"
+    # Desde la tabla de detalles, la marca está en la fila de 'media_items' del elemento
+    return (
+        f"(SELECT m.metadata_edit_pending FROM {MAIN_TABLE} AS m "
+        f"WHERE m.id = {spec.table}.media_id) & {spec.bit}"
+    )
+
+
 def unless_pending_sql(column: str) -> str:
     """Asignación SQL que no pisa una columna editable si su bit está pendiente.
 
-    Para un UPDATE de 'media_items' con lo leído de un archivo: el cambio del usuario aún
-    sin escribir es más nuevo. Se comprueba en la misma sentencia, así que tampoco se
-    pierde una edición hecha mientras se leía el archivo. Lleva un parámetro ('?').
+    Para un UPDATE de la tabla del campo ('media_items' o su tabla de detalles) con lo
+    leído de un archivo: el cambio del usuario aún sin escribir es más nuevo. Se comprueba
+    en la misma sentencia, así que tampoco se pierde una edición hecha mientras se leía
+    el archivo. Lleva un parámetro ('?').
 
     Ejemplo: 'title = CASE WHEN metadata_edit_pending & 1 THEN title ELSE ? END'.
 
@@ -225,8 +284,45 @@ def unless_pending_sql(column: str) -> str:
         ValueError: Si la columna no es editable (así el nombre es siempre de la lista
             cerrada y se puede poner en el SQL sin riesgo).
     """
-    bit = field_for(column).bit
-    return f"{column} = CASE WHEN metadata_edit_pending & {bit} THEN {column} ELSE ? END"
+    spec = field_for(column)
+    return f"{column} = CASE WHEN {_pending_sql(spec)} THEN {column} ELSE ? END"
+
+
+def upsert_sql(table: str, column: str) -> str:
+    """Asignación para el 'ON CONFLICT ... DO UPDATE SET' con el que el procesador guarda
+    una tabla de detalles: el valor nuevo ('excluded'), salvo que la columna sea un campo
+    editable de esa tabla pendiente de escribir (entonces se queda como está)."""
+    spec = _BY_COLUMN.get(column)
+    if spec is None or spec.table != table:
+        return f"{column} = excluded.{column}"
+    return (
+        f"{column} = CASE WHEN {_pending_sql(spec)} THEN {table}.{column} "
+        f"ELSE excluded.{column} END"
+    )
+
+
+def read_sql(column: str) -> str:
+    """Expresión SQL que LEE una columna editable desde una consulta sobre 'media_items'
+    (sin alias): la propia columna o, si está en una tabla de detalles, una subconsulta
+    por su clave primaria.
+
+    Raises:
+        ValueError: Si la columna no es editable.
+    """
+    spec = field_for(column)
+    if spec.table is None:
+        return column
+    return f"(SELECT d.{column} FROM {spec.table} AS d WHERE d.media_id = {MAIN_TABLE}.id)"
+
+
+def applies_sql(column: str) -> tuple[str, tuple[str, ...]]:
+    """Condición SQL (para un WHERE sobre 'media_items', empieza por ' AND ') y sus
+    parámetros que deja solo los elementos a los que se aplica un campo; vacía si se aplica
+    a todos."""
+    types = field_for(column).media_types
+    if not types:
+        return "", ()
+    return f" AND media_type IN ({', '.join('?' * len(types))})", types
 
 
 def normalize_value(column: str, value: object) -> str | float | None:
@@ -335,7 +431,7 @@ if __name__ == "__main__":
     # 1. Bits: potencias de 2 distintas; columnas y claves sin repetir
     bits = [spec.bit for spec in EDITABLE_FIELDS]
     assert all(bit > 0 and bit & (bit - 1) == 0 for bit in bits), bits
-    assert len(set(bits)) == len(bits) and ALL_EDIT_BITS == sum(bits) == 8191
+    assert len(set(bits)) == len(bits) and ALL_EDIT_BITS == sum(bits) == 16383
     assert len(set(EDITABLE_COLUMNS)) == len(EDITABLE_COLUMNS)
     assert len({spec.folder_key for spec in EDITABLE_FIELDS}) == len(EDITABLE_FIELDS)
     # Las claves de los datos del usuario que ya están en el '.arca.json' no se reutilizan
@@ -349,6 +445,10 @@ if __name__ == "__main__":
     #    lectura usa el compuesto de ExifTool, que sale de ella)
     sources = {spec.column: spec.sources for spec in IMAGE_FIELDS}
     for spec in EDITABLE_FIELDS:
+        if not spec.xmp_tag:
+            # Sin XMP: solo va al '.arca.json' (no tiene etiquetas antiguas que mantener)
+            assert spec.legacy_tags == () and spec.column not in XMP_COLUMNS, spec.column
+            continue
         assert spec.xmp_tag.startswith("XMP-"), spec.xmp_tag
         if spec.kind == TEXT:
             assert sources[spec.column] == (spec.xmp_tag, *spec.legacy_tags), spec.column
@@ -356,6 +456,13 @@ if __name__ == "__main__":
             assert spec.kind == NUMBER and sources[spec.column][0] == spec.xmp_tag, spec.column
             assert len(spec.legacy_tags) == 1 and spec.legacy_tags[0].startswith("GPS:"), spec
     print("Etiquetas: las mismas que la lectura de imagen (IMAGE_FIELDS)")
+    # Los campos de imagen de siempre están en 'media_items', con XMP y para todos los tipos
+    assert MAIN_COLUMNS == XMP_COLUMNS == EDITABLE_COLUMNS[:13]
+    assert all(not field_for(c).media_types for c in MAIN_COLUMNS)
+    # La actividad: en su tabla de detalles, sin XMP y solo de los tracks
+    activity = field_for("activity_type")
+    assert (activity.table, activity.xmp_tag, activity.folder_key) == ("track_details", "", "activity")
+    assert activity.media_types == ("track",) and activity.bit == 8192
 
     # 3. Máscaras de bits
     assert bits_for(["title", "city"]) == 1 | 32
@@ -387,6 +494,50 @@ if __name__ == "__main__":
         raise AssertionError("debía rechazar una columna no editable")
     except ValueError:
         pass
+    db.close()
+
+    # 3c. Un campo de una tabla de detalles: leerlo, protegerlo y a quién se aplica
+    db = sqlite3.connect(":memory:")
+    db.execute(
+        "CREATE TABLE media_items (id INTEGER PRIMARY KEY, media_type TEXT, city TEXT, "
+        "metadata_edit_pending INTEGER)"
+    )
+    db.execute(
+        "CREATE TABLE track_details (media_id INTEGER PRIMARY KEY, activity_type TEXT, "
+        "distance_m REAL)"
+    )
+    # 1: sin editar; 2: actividad pendiente (8192); 3: otro campo pendiente; 4: una foto
+    db.executemany(
+        "INSERT INTO media_items VALUES (?, ?, 'Soria', ?)",
+        [(1, "track", 0), (2, "track", 8192), (3, "track", 32), (4, "photo", 0)],
+    )
+    db.executemany(
+        "INSERT INTO track_details VALUES (?, 'hiking', 1.0)", [(1,), (2,), (3,)]
+    )
+    assert read_sql("city") == "city"
+    read = dict(db.execute(f"SELECT id, {read_sql('activity_type')} FROM media_items"))
+    assert read == {1: "hiking", 2: "hiking", 3: "hiking", 4: None}, read
+    # Lo leído del archivo no pisa la actividad pendiente (ni en un UPDATE ni en el
+    # 'INSERT ... ON CONFLICT' del procesador); las columnas normales, sí se actualizan
+    db.execute(f"UPDATE track_details SET {unless_pending_sql('activity_type')}", ("cycling",))
+    assert dict(db.execute("SELECT media_id, activity_type FROM track_details")) == {
+        1: "cycling", 2: "hiking", 3: "cycling"
+    }  # fmt: skip
+    assert upsert_sql("track_details", "distance_m") == "distance_m = excluded.distance_m"
+    assert upsert_sql("video_details", "activity_type") == "activity_type = excluded.activity_type"
+    for media_id in (1, 2, 5):
+        db.execute(
+            "INSERT INTO track_details (media_id, activity_type, distance_m) VALUES (?, 'walking', 9.0) "
+            f"ON CONFLICT(media_id) DO UPDATE SET {upsert_sql('track_details', 'activity_type')}, "
+            f"{upsert_sql('track_details', 'distance_m')}",
+            (media_id,),
+        )
+    rows = {r[0]: r[1:] for r in db.execute("SELECT * FROM track_details")}
+    assert rows == {1: ("walking", 9.0), 2: ("hiking", 9.0), 3: ("cycling", 1.0), 5: ("walking", 9.0)}, rows
+    # A quién se aplica: la actividad, solo a los tracks; los campos de siempre, a todos
+    condition, parameters = applies_sql("activity_type")
+    ids = [r[0] for r in db.execute(f"SELECT id FROM media_items WHERE 1{condition}", parameters)]
+    assert ids == [1, 2, 3] and applies_sql("city") == ("", ())
     db.close()
 
     # 4. Valores: limpios, vacío = None, saltos de línea solo donde caben

@@ -36,6 +36,9 @@ Metadatos descriptivos editables (título, pie, ubicación...; ver
 formatos sin XMP, lo editado está en el '.arca.json' de la carpeta y manda siempre sobre lo
 leído. Sin título en el archivo, 'title' vale el nombre del archivo sin extensión.
 
+2.4.0 Campos editables de la tabla de detalles del tipo (la actividad de un track): lo
+      pendiente de escribir no se pisa ('upsert_sql') y, en los formatos sin XMP, manda
+      lo editado en el '.arca.json'.
 2.3.0 Metadatos editables: no se pisan los pendientes de escribir; en los formatos sin XMP
       manda el '.arca.json'; un archivo sin título deja el nombre sin extensión (antes se
       conservaba el título anterior).
@@ -54,7 +57,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.metadata.processor
 """
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 __all__ = [
     "DEFAULT_BATCH_SIZE",
     "SCAN_STAGE_METADATA",
@@ -85,8 +88,11 @@ from core.metadata.base import (
 from core.metadata.registry import ExtractorRegistry, default_registry
 from core.userdata.editable_fields import (
     EDITABLE_COLUMNS,
+    MAIN_COLUMNS,
     default_title,
+    field_for,
     unless_pending_sql,
+    upsert_sql,
 )
 from core.userdata.policy import uses_xmp
 from core.userdata.sync import (
@@ -531,13 +537,26 @@ def _write_success(
     values = dict(result.common)
     # Metadatos editados en la aplicación, en los formatos sin XMP: viven en el '.arca.json'
     # (el original no se toca) y mandan SIEMPRE sobre lo leído del archivo
+    # Lo mismo para los campos editables de la tabla de detalles del tipo (la actividad de
+    # un track): 'details' es lo que se guardará en ella
+    details = dict(result.details) if result.details else {}
+    detail_edits = [
+        column for column in EDITABLE_COLUMNS if field_for(column).table == extractor.details_table
+    ] if extractor.details_table else []
     if not uses_xmp(outcome.extension):
         if outcome.folder_edits is None:
             # '.arca.json' dañado: no se sabe qué se editó; mejor no tocar esas columnas
-            for column in EDITABLE_COLUMNS:
+            for column in MAIN_COLUMNS:
                 values.pop(column, None)
+            for column in detail_edits:
+                details.pop(column, None)
         else:
-            values.update(outcome.folder_edits)
+            for column, value in outcome.folder_edits.items():
+                if column in MAIN_COLUMNS:
+                    values[column] = value
+                elif column in detail_edits:
+                    details[column] = value
+                # (un campo de la tabla de otro tipo de archivo no es de este: se ignora)
     # El título es NOT NULL: sin título, el nombre del archivo sin extensión
     if "title" in values and values["title"] is None:
         values["title"] = default_title(PurePosixPath(outcome.relative_path).name)
@@ -545,7 +564,7 @@ def _write_success(
     # editables): no hay inyección SQL. Un campo editado pendiente de escribir en el
     # archivo no se pisa (se comprueba en la misma sentencia: 'unless_pending_sql')
     assignments = [
-        unless_pending_sql(column) if column in EDITABLE_COLUMNS else f"{column} = ?"
+        unless_pending_sql(column) if column in MAIN_COLUMNS else f"{column} = ?"
         for column in values
     ]
     assignments += ["scan_version = ?", "last_scanned_at = CURRENT_TIMESTAMP"]
@@ -566,26 +585,27 @@ def _write_success(
             conn, outcome.media_id, result.user_data.get("keywords"), expected_state=outcome.state
         )
 
-    # Tabla de detalles del tipo (1:1): se crea la fila o se actualiza la existente
-    if result.details and extractor.details_table:
+    # Tabla de detalles del tipo (1:1): se crea la fila o se actualiza la existente. Un
+    # campo editable de esa tabla pendiente de escribir no se pisa ('upsert_sql')
+    if details and extractor.details_table:
         table = extractor.details_table
         allowed = _columns_of(conn, table, table_columns) - {"media_id"}
         if not allowed:
             raise ValueError(f"La tabla '{table}' no existe: ¿falta una migración?")
-        unknown = set(result.details) - allowed
+        unknown = set(details) - allowed
         if unknown:
             raise ValueError(
                 f"{extractor_name} devolvió columnas que no existen en '{table}': "
                 f"{sorted(unknown)} (¿falta la migración?)"
             )
 
-        columns = list(result.details)
+        columns = list(details)
         conn.execute(
             f"INSERT INTO {table} (media_id, {', '.join(columns)}) "
             f"VALUES (?, {', '.join('?' * len(columns))}) "
             f"ON CONFLICT(media_id) DO UPDATE SET "
-            f"{', '.join(f'{column} = excluded.{column}' for column in columns)}",
-            (outcome.media_id, *result.details.values()),
+            f"{', '.join(upsert_sql(table, column) for column in columns)}",
+            (outcome.media_id, *details.values()),
         )
 
     _clear_error(conn, outcome)

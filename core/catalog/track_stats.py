@@ -11,7 +11,9 @@ aquí solo se LEEN y, si hay varios tracks, se juntan:
       puntos de interés (lo que se ha andado entre todos).
     - Altitud: la mínima y la máxima de todos.
     - Actividad y programa: el valor si es el MISMO en todos los que lo tienen; si hay
-      varios distintos, 'MIXED'.
+      varios distintos, 'MIXED'. La actividad se compara por su CLAVE
+      ('core/tracks/activities.normalize_activity'): «hiking», «Hike» y «Senderismo» son
+      la misma, y es la clave lo que se devuelve.
     - 'with_duration' y 'with_elevation' dicen cuántos tienen ese dato (una ruta
       planificada no tiene horas; un GPX puede no tener altitud): así se sabe que una suma
       no los incluye a todos.
@@ -24,13 +26,14 @@ Uso (el inspector lo lanza con 'execute_async'):
     stats.count, stats.distance_m, stats.elevation_gain_m, stats.duration_s
     stats.average_speed_kmh        # con la distancia de los que tienen duración
 
+1.1.0 La actividad, por su clave ('normalize_activity'; paso 4.6a).
 1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.4).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.track_stats
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["MIXED", "TrackStats", "fetch_track_stats"]
 
 # Librerías estándar
@@ -40,6 +43,7 @@ from dataclasses import dataclass
 
 # Módulos del proyecto
 from core.catalog.media_types import MediaType
+from core.tracks.activities import normalize_activity
 
 # Valor de un texto cuando los tracks resumidos tienen varios distintos
 MIXED = "\x00varios"
@@ -155,7 +159,7 @@ def fetch_track_stats(conn: sqlite3.Connection, media_ids: Sequence[int]) -> Tra
             segments += row_segments or 0
             waypoints += row_waypoints or 0
             planned += 1 if row_planned else 0
-            activity = _common(activity, row_activity)
+            activity = _common(activity, normalize_activity(row_activity))
             creator = _common(creator, row_creator)
     return TrackStats(
         count=count,
@@ -254,6 +258,15 @@ if __name__ == "__main__":
     assert route.distance_m == 4000.0 and route.elevation_gain_m is None
     assert route.elevation_min_m is None and route.duration_s is None
     assert route.average_speed_kmh is None and route.activity_type is None
+
+    # --- La actividad se compara por su clave: escrita de otra forma, es la misma
+    add(6, "track", None, {"distance_m": 1.0, "is_planned_route": 0, "activity_type": "Hike"})
+    add(7, "track", None, {"distance_m": 1.0, "is_planned_route": 0, "activity_type": "Senderismo"})
+    add(8, "track", None, {"distance_m": 1.0, "is_planned_route": 0, "activity_type": "Parapente"})
+    assert fetch_track_stats(db, [1, 6, 7]).activity_type == "hiking"
+    assert fetch_track_stats(db, [6]).activity_type == "hiking"  # se devuelve la clave
+    assert fetch_track_stats(db, [8]).activity_type == "Parapente"  # la que no se conoce, tal cual
+    assert fetch_track_stats(db, [1, 8]).activity_type == MIXED
 
     # --- Lo que no es un track con datos se ignora; sin nada, vacío
     assert fetch_track_stats(db, [1, 4, 5, 999]) == one

@@ -35,6 +35,8 @@ Cómo añadir:
     - La vista personalizada (más adelante): una lista de claves guardada en
       'settings.json'; 'preset_rows' ya acepta cualquier lista de claves.
 
+1.7.1 La comprobación de que todo lo editable se edita aquí mira solo los campos con
+      etiqueta XMP (los de otro tipo de archivo los edita su sección).
 1.7.0 GPS, altitud y dirección editables ('EDITABLE_KEYS'): sus cajas muestran lo mismo que
       la fila ('editor_value' recibe ahora la clave del campo) y cambian las columnas de
       'value_parsing.NUMERIC_COLUMNS' (la caja «GPS», latitud y longitud).
@@ -54,7 +56,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.metadata_fields
 """
 
-__version__ = "1.7.0"
+__version__ = "1.7.1"
 __all__ = [
     "COMMON_HEAD",
     "DEFAULT_PRESET",
@@ -79,7 +81,7 @@ from typing import Any
 
 # Módulos del proyecto
 from core.catalog.selection_metadata import MIXED, VALUE, FieldSource, FieldValue
-from core.userdata.editable_fields import EDITABLE_COLUMNS
+from core.userdata.editable_fields import EDITABLE_COLUMNS, XMP_COLUMNS
 from ui_helpers.inspector.formatting import (
     EXPOSURE_PROGRAMS,
     FLASH_STATES,
@@ -498,8 +500,10 @@ if __name__ == "__main__":
     # Todos los metadatos que se saben escribir se editan aquí, y en todas las vistas donde
     # están (la ubicación, en «Por defecto» y «Ubicación»), también el GPS (sus cajas cambian
     # las columnas de 'NUMERIC_COLUMNS')
+    # (los de las imágenes: los que tienen etiqueta XMP; los de otro tipo de archivo, como
+    # la actividad de un track, los edita su propia sección)
     covered = {column for key in EDITABLE_KEYS for column in NUMERIC_COLUMNS.get(key, (key,))}
-    assert covered == set(EDITABLE_COLUMNS), covered ^ set(EDITABLE_COLUMNS)
+    assert covered == set(XMP_COLUMNS), covered ^ set(XMP_COLUMNS)
     for preset in ("default", "location"):
         assert set(_PLACE_BLOCK) <= set(preset_rows(preset)) & set(EDITABLE_KEYS), preset
     print("3. Foto, vista por defecto: como el ejemplo")

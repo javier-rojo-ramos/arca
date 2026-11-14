@@ -108,6 +108,8 @@ del destino nuevo (vacío). Si algún día hiciera falta, habría que migrarlos.
 
 ## Receta: un metadato descriptivo editable nuevo
 
+**Un campo, varios escritores** (14/11/2026): el campo se declara una vez en `EDITABLE_FIELDS` y cada escritor dice qué campos sabe guardar. Un campo puede **no tener etiqueta XMP** (`xmp_tag` vacío: el escritor de XMP no lo conoce y va al `.arca.json`), estar en una **tabla de detalles** (`table`: se lee con `read_sql`, se protege con `unless_pending_sql` o, en el guardado del procesador, con `upsert_sql`) y ser **solo de algunos tipos de archivo** (`media_types`: en los demás ni se guarda ni queda pendiente, `applies_sql`). El primero así es la actividad de un track (`activity_type`, en `track_details`). Un escritor nuevo (ID3, `.nfo`...) llevará su tabla campo → etiqueta y su destino en `policy.py`.
+
 Una línea en `EDITABLE_FIELDS` (`editable_fields.py`) con el siguiente bit libre, su
 etiqueta XMP, sus etiquetas antiguas (las mismas, y en el mismo orden, que las de lectura en
 `IMAGE_FIELDS`: la autoprueba lo comprueba) y su clave del `.arca.json`. La columna tiene

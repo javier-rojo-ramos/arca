@@ -34,13 +34,15 @@ horario de verano de esa fecha). Para una ruta hecha en otro huso horario la hor
 con el de casa; si hiciera falta, se podría deducir la zona a partir de las coordenadas
 (librería 'timezonefinder'), subiendo 'TRACK_EXTRACTOR_VERSION'.
 
+1.3.0 La actividad, como CLAVE ('core/tracks/activities.normalize_activity'): 'hiking'
+      para «Hike»; lo que no se reconoce, tal cual. TRACK_EXTRACTOR_VERSION 4.
 1.2.0 El contorno del track ('track_details.overview'; TRACK_EXTRACTOR_VERSION 3).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.metadata.track.extractor
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["SUPPORTED_EXTENSIONS", "TRACK_EXTRACTOR_VERSION", "TrackExtractor"]
 
 # Librerías estándar
@@ -57,11 +59,12 @@ from core.metadata.base import (
     UnsupportedFormatError,
 )
 from core.metadata.track.gpx_reader import GpxError, GpxSummary, read_gpx
+from core.tracks.activities import normalize_activity
 from core.tracks.simplify import encode_overview, simplify_track
 
 # Versión del extractor de tracks. Se guarda en 'media_items.scan_version'. Súbela cada vez
 # que el extractor lea campos nuevos o cambie un cálculo: los tracks se volverán a leer.
-TRACK_EXTRACTOR_VERSION = 3
+TRACK_EXTRACTOR_VERSION = 4
 # Historial:
 #   1  primera versión
 #   2  umbral del desnivel de 5 a 8 m (gpx_reader.ELEVATION_THRESHOLD_M)
@@ -160,7 +163,9 @@ def _detail_values(summary: GpxSummary) -> dict[str, Any]:
         "max_longitude": bounds[3] if bounds else None,
         "end_latitude": end[0] if end else None,
         "end_longitude": end[1] if end else None,
-        "activity_type": summary.activity_type,
+        # La CLAVE de la actividad ('hiking'...; lo que no se reconoce, tal cual). Es un
+        # campo editable: si el usuario la ha cambiado, el procesador no la pisa
+        "activity_type": normalize_activity(summary.activity_type),
         "creator_app": summary.creator_app,
         "is_planned_route": 1 if summary.uses_route else 0,
         "overview": encode_overview(simplify_track(summary.path_points)),

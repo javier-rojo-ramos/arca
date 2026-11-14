@@ -71,6 +71,8 @@ Rendimiento: arrancar ExifTool tarda unos cientos de milisegundos, así que cada
 de archivos se escribe con UNA sola llamada ('-execute' separa los archivos dentro de
 la misma llamada) y se lee con otra antes y otra después.
 
+1.3.1 Solo conoce los campos editables con etiqueta XMP (los demás, como la actividad de
+      un track, van al '.arca.json'). Nada cambia en lo que se escribe.
 1.3.0 El GPS editado (latitud, longitud, altitud y dirección): donde ya esté y, si no está,
       en el EXIF; con sus referencias; comprobado como el extractor y con margen.
 1.2.1 Los metadatos editados que se leen y escriben aquí son los de TEXTO: el GPS (números)
@@ -87,7 +89,7 @@ Prueba rápida (necesita ExifTool instalado; trabaja sobre archivos de prueba te
     python -m core.userdata.xmp_writer
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = [
     "XMP_READ_TAGS",
     "XmpWriteOutcome",
@@ -135,10 +137,12 @@ _IPTC_DIGEST_TAG = "Photoshop:IPTCDigest"
 
 # Metadatos editables de TEXTO (título, pie, ubicación...): XMP y las antiguas que existan.
 # Los del GPS son números y se escriben con otra regla (docs/DECISIONES.md, 11/11/2026)
-_TEXT_FIELDS = tuple(spec for spec in EDITABLE_FIELDS if spec.kind == TEXT)
+# Solo los campos con etiqueta XMP: los que no la tienen (la actividad de un track) no son
+# de este escritor (van al '.arca.json')
+_TEXT_FIELDS = tuple(spec for spec in EDITABLE_FIELDS if spec.kind == TEXT and spec.xmp_tag)
 
 # El GPS (números): latitud, longitud, altitud y dirección
-_GPS_FIELDS = tuple(spec for spec in EDITABLE_FIELDS if spec.kind == NUMBER)
+_GPS_FIELDS = tuple(spec for spec in EDITABLE_FIELDS if spec.kind == NUMBER and spec.xmp_tag)
 _GPS_COLUMNS = frozenset(spec.column for spec in _GPS_FIELDS)
 
 # En el XMP, la latitud y la longitud llevan el signo en el propio valor ('41,23.244N'):

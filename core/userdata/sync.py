@@ -47,6 +47,9 @@ Dos sentidos:
          archivo, el procesador con 'folder_file_edits'. En los formatos con XMP, los
          escribe el procesador como cualquier metadato extraído (salvo lo pendiente).
 
+1.8.0 Campos editables de una tabla de detalles (la actividad de un track): se leen, se
+      escriben en el '.arca.json' y se aplican desde él como los demás ('read_sql',
+      '_apply_detail_edit').
 1.7.0 El GPS editado se escribe también en los formatos con XMP (el escritor ya sabe: ver
       'xmp_writer.py'); fuera el aplazamiento de la 1.6.0.
 1.6.0 GPS editado (números): al '.arca.json' ya; en los formatos con XMP queda pendiente
@@ -66,7 +69,7 @@ Prueba rápida (desde la raíz del proyecto; la parte de XMP necesita ExifTool):
     python -m core.userdata.sync
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = [
     "SCAN_STAGE_USERDATA",
     "FolderFileCache",
@@ -99,10 +102,12 @@ from core.metadata.exiftool_runner import ExifToolError, ExifToolRunner, find_si
 from core.metadata.keyword_tags import FileKeywords
 from core.userdata.editable_fields import (
     EDITABLE_COLUMNS,
+    applies_sql,
     default_title,
     field_for,
     file_title,
     pending_columns,
+    read_sql,
     unless_pending_sql,
 )
 from core.userdata.folder_file import (
@@ -321,7 +326,8 @@ def write_pending_user_data(
             f"""SELECT id, storage_location_id, relative_path, file_extension,
                       rating, flag, color_label, user_data_pending,
                       file_size, file_mtime_ns, thumbnail_mtime_ns, sidecar_mtime_ns,
-                      keywords_pending, metadata_edit_pending, {", ".join(EDITABLE_COLUMNS)}
+                      keywords_pending, metadata_edit_pending,
+                      {", ".join(read_sql(column) for column in EDITABLE_COLUMNS)}
                  FROM media_items
                 WHERE {_PENDING_SQL} AND id > ?
                 ORDER BY id LIMIT ?""",
@@ -651,7 +657,7 @@ def _save_results(conn: sqlite3.Connection, items: Iterable[_Item]) -> None:
             for column in pending_columns(item.metadata_pending):
                 conn.execute(
                     "UPDATE media_items SET metadata_edit_pending = metadata_edit_pending & ~? "
-                    f"WHERE id = ? AND {column} IS ?",
+                    f"WHERE id = ? AND {read_sql(column)} IS ?",
                     (field_for(column).bit, item.media_id, item.metadata[column]),
                 )
             # Las palabras clave: solo si siguen siendo las escritas (si el usuario las
@@ -913,10 +919,17 @@ def _apply_edited_values(
     """
     if not edits:
         return False
+    # Los campos de una tabla de detalles (la actividad de un track), aparte
+    changed = False
+    for column in [column for column in edits if field_for(column).table]:
+        changed |= _apply_detail_edit(conn, media_id, column, edits[column])
     values = {
         column: default_title(file_name) if column == "title" and value is None else value
         for column, value in edits.items()
+        if not field_for(column).table
     }
+    if not values:
+        return changed
     # Nombres de columna de la lista cerrada de 'editable_fields.py': sin inyección SQL.
     # Cada columna conserva su valor si su bit está pendiente; solo se cuenta como cambio
     # si alguna columna no pendiente tenía otro valor.
@@ -928,6 +941,32 @@ def _apply_edited_values(
     cursor = conn.execute(
         f"UPDATE media_items SET {assignments} WHERE id = ? AND ({changed_condition})",
         (*values.values(), media_id, *values.values()),
+    )
+    return changed or cursor.rowcount > 0
+
+
+def _apply_detail_edit(
+    conn: sqlite3.Connection, media_id: int, column: str, value: str | float | None
+) -> bool:
+    """Pone en la tabla de detalles de un elemento un metadato editado del archivo de
+    carpeta, si el campo se aplica a su tipo de archivo y no está pendiente de escribir.
+
+    Returns:
+        True si cambió algo.
+    """
+    spec = field_for(column)
+    only, types = applies_sql(column)
+    applies = conn.execute(
+        f"SELECT 1 FROM media_items WHERE id = ?{only} AND NOT metadata_edit_pending & ?",
+        (media_id, *types, spec.bit),
+    ).fetchone()
+    if applies is None:
+        return False  # no es de ese tipo de archivo, o el cambio del usuario es más nuevo
+    # Nombres de tabla y de columna de la lista cerrada de 'editable_fields.py'
+    conn.execute(f"INSERT OR IGNORE INTO {spec.table} (media_id) VALUES (?)", (media_id,))
+    cursor = conn.execute(
+        f"UPDATE {spec.table} SET {column} = ? WHERE media_id = ? AND {column} IS NOT ?",
+        (value, media_id, value),
     )
     return cursor.rowcount > 0
 

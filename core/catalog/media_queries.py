@@ -29,6 +29,8 @@ solo la mitad del trabajo: 'update_user_field' deja además el elemento PENDIENT
 archivo, en su sidecar XMP o en el archivo de carpeta, para que sobreviva a recrear el
 catálogo.
 
+2.7.0 'update_metadata_fields' guarda también los campos editables de una tabla de
+      detalles (la actividad de un track), solo en los elementos a los que se aplican.
 2.6.0 'fetch_grid_rows' trae 'track_overview': el contorno de los tracks (de
       'track_details'), para dibujar su recorrido en la tarjeta. Solo se busca en las
       filas de tipo track.
@@ -64,7 +66,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_queries
 """
 
-__version__ = "2.6.0"
+__version__ = "2.7.0"
 # ruff: noqa: RUF022
 __all__ = [
     "AVAILABLE",
@@ -101,8 +103,10 @@ from core.catalog.keywords import KEYWORD_MEDIA_SQL
 from core.catalog.media_types import MediaType
 from core.catalog.smart_rules import RuleSet, rules_to_sql
 from core.userdata.editable_fields import (
+    applies_sql,
     bits_for,
     default_title,
+    field_for,
     incomplete_pairs,
     normalize_value,
 )
@@ -446,6 +450,10 @@ def update_metadata_fields(
     'metadata_edit_pending'. Hasta que el trabajo de escritura los lleve al archivo, lo que
     se lea de él no pisa estas columnas.
 
+    Un campo de una tabla de detalles (la actividad de un track) se guarda en ella (se
+    crea su fila si aún no existe) y solo en los elementos a los que se aplica (los
+    tracks): en los demás 'id', ni se guarda ni queda pendiente.
+
     Un título vacío (None, '' o solo espacios) vuelve, en cada elemento, al nombre de su
     archivo sin extensión ('title' es NOT NULL), y queda pendiente igual: en el archivo se
     vacía.
@@ -470,11 +478,15 @@ def update_metadata_fields(
         raise ValueError(f"{pair[0]!r} y {pair[1]!r} se cambian juntas (o se vacían las dos)")
     if not clean:
         return 0
-    bits = bits_for(clean)
-    reset_title = "title" in clean and clean["title"] is None
+    # Los campos de 'media_items' van en una sola sentencia; los de las tablas de detalles,
+    # aparte, cada uno en la suya
+    detail = {column: value for column, value in clean.items() if field_for(column).table}
+    main = {column: value for column, value in clean.items() if column not in detail}
+    bits = bits_for(main)
+    reset_title = "title" in main and main["title"] is None
     assigned = {
         column: value
-        for column, value in clean.items()
+        for column, value in main.items()
         if not (column == "title" and value is None)
     }
     # Las columnas ya están validadas contra una lista cerrada: es seguro ponerlas en el SQL
@@ -484,13 +496,35 @@ def update_metadata_fields(
     for start in range(0, len(ids), _CHUNK):
         chunk = ids[start : start + _CHUNK]
         marks = ",".join("?" * len(chunk))
-        cursor = conn.execute(
-            f"UPDATE media_items SET {assignments}"
-            "metadata_edit_pending = metadata_edit_pending | ?, "
-            f"updated_at = CURRENT_TIMESTAMP WHERE id IN ({marks})",
-            (*assigned.values(), bits, *chunk),
-        )
-        changed += cursor.rowcount
+        touched = 0
+        if main:
+            cursor = conn.execute(
+                f"UPDATE media_items SET {assignments}"
+                "metadata_edit_pending = metadata_edit_pending | ?, "
+                f"updated_at = CURRENT_TIMESTAMP WHERE id IN ({marks})",
+                (*assigned.values(), bits, *chunk),
+            )
+            touched = cursor.rowcount
+        for column, value in detail.items():
+            spec = field_for(column)
+            # Solo los elementos a los que se aplica el campo (p. ej. los tracks)
+            only, types = applies_sql(column)
+            targets = f"SELECT id FROM media_items WHERE id IN ({marks}){only}"
+            # Nombres de tabla y de columna de la lista cerrada de 'editable_fields.py'
+            conn.execute(
+                f"INSERT OR IGNORE INTO {spec.table} (media_id) {targets}", (*chunk, *types)
+            )
+            conn.execute(
+                f"UPDATE {spec.table} SET {column} = ? WHERE media_id IN ({targets})",
+                (value, *chunk, *types),
+            )
+            cursor = conn.execute(
+                "UPDATE media_items SET metadata_edit_pending = metadata_edit_pending | ?, "
+                f"updated_at = CURRENT_TIMESTAMP WHERE id IN ({marks}){only}",
+                (spec.bit, *chunk, *types),
+            )
+            touched = max(touched, cursor.rowcount)
+        changed += touched
         if reset_title:
             # El nombre sin extensión se calcula en Python, igual que lo hace el escáner
             rows = conn.execute(
