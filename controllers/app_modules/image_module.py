@@ -13,6 +13,8 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'restore_state'; el 'ModuleHost' los escribe en settings.json). Lo desplegado del
       árbol con casillas del inspector ya no es de este módulo: lo guarda el inspector.
 
+1.16.1 Ordena por los campos comunes ('COMMON_SORT_FIELDS': los mismos seis de antes; los
+       de los tracks son de su módulo).
 1.16.0 Une su barra al modelo de colocación de las secciones ('context.section_layout').
 1.15.0 'map_options': en su mapa se ubican fotos soltándolas y se mueven las ubicadas
        (docs/MAPA.md, paso 3.2).
@@ -39,7 +41,7 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.16.0"
+__version__ = "1.16.1"
 __all__ = ["ImageModule"]
 
 # Librerías estándar
@@ -59,7 +61,7 @@ from config.app_constants import SETTING_SHOW_SUBFOLDER_ITEMS, AppIcons
 from controllers.app_modules.base import AppModule, ModuleContext
 from controllers.app_modules.center_views import CenterView, MapOptions
 from core.catalog.folder_tree import fetch_folder_tree
-from core.catalog.grid_orders import CAPTURE_TIME_ORDER, SORT_FIELDS, GridOrder
+from core.catalog.grid_orders import CAPTURE_TIME_ORDER, COMMON_SORT_FIELDS, GridOrder
 from core.catalog.grid_source import GridSource, SourceKind, keyword_source
 from core.catalog.keywords import fetch_keyword_tree
 from core.catalog.libraries import Library
@@ -146,7 +148,7 @@ class ImageModule(AppModule):
 
     def sort_fields(self) -> tuple[str, ...]:
         """Todos los campos de orden (de momento; llegarán los propios de las fotos)."""
-        return tuple(SORT_FIELDS)
+        return COMMON_SORT_FIELDS
 
     def default_order(self) -> GridOrder:
         """Por hora de captura, ascendente (como Lightroom)."""

@@ -11,7 +11,7 @@ Plan revisado con el autor el 14/11/2026 (su lista de funciones de edición y de
 
 - **Fase 4, lo básico** (cada paso deja la aplicación funcionando):
   - ~~**4.1. Lector completo del GPX**~~ (hecho el 14/11/2026: `core/tracks/gpx_document.py`).
-  - **4.2. Módulo Tracks**: `TracksModule` en lugar del provisional de `registry.py` (el botón `btn_tracks`, su icono y el modo `tracks` ya existen); su barra con «Biblioteca - Tracks», «Carpetas» y «Fechas» (las secciones que ya existen, con la biblioteca `tracks`), dadas de alta en `ui_helpers/layout/section_registry.py`; vistas: el mapa (la inicial) y la cuadrícula; orden por fecha, distancia, desnivel y duración.
+  - ~~**4.2. Módulo Tracks**~~ (hecho el 14/11/2026: `TracksModule` y `LibrarySidebar`; empieza en el mapa; orden por distancia, desnivel y duración).
   - **4.3. El track activo, con detalle**: su recorrido completo leído en segundo plano (los demás, con su contorno), encuadrado y resaltado, con sus waypoints.
   - **4.4. Sección «Track» del inspector**: distancia, desnivel, altitudes, duración, fechas, puntos y actividad (hoy no se ven en ningún sitio).
   - **4.5. Miniatura del recorrido** en la tarjeta de los tracks (con el contorno que ya guarda el catálogo).
@@ -36,6 +36,7 @@ Numerados como se citan en [HISTORIAL.md](HISTORIAL.md); el orden se decide al p
 ## B. Mejoras anotadas (sin orden)
 
 - **Cuadrícula**: recordar el desplazamiento exacto de cada módulo (desde el 12/11/2026 cada módulo recuerda su archivo actual, que queda a la vista al volver, pero no la posición; al recargar con el mismo origen, la posición se conserva); refresco por filas al terminar los metadatos (hoy recarga entera); recargar una colección inteligente que se está viendo cuando un elemento deja de cumplir las reglas; «Orden personalizado» en las colecciones estáticas (`collection_items.position`); un módulo sin cuadrícula oculta el deslizador (y el orden, si no ofrece campos).
+- **Una sola barra de biblioteca**: `ImageSidebar` y `LibrarySidebar` (la de Tracks, 14/11/2026) hacen casi lo mismo; pasar Imagen a `LibrarySidebar` con la «Lista de palabras clave» como sección opcional (y usarla en Vídeo y Audio). Es una refactorización: paso aparte.
 - **Secciones de las barras** (personalizables desde el 14/11/2026; [FLUJOS.md §9](FLUJOS.md)): si se quiere, mover una sección de una barra a la otra (el registro ya lo admite: `SectionSpec.sidebars`; faltaría que la sección sirva en las dos y revisar `reset` de una sola barra); un icono propio para la página «Paneles». En `resources/images` está `library_books.svg` sin registrar (para el módulo Ebooks).
 - **Barra lateral y colecciones**: mover colecciones entre conjuntos arrastrando; orden personalizado; exportar e importar colecciones, o que sobrevivan a recrear el catálogo (hoy solo están en la BD); «Clasificación» del sistema con «≥» en lugar de «=»; «Duplicar» una colección del sistema como inteligente del usuario; campo «Colección» (pertenencia) en las inteligentes; «Guardar la selección rápida como colección»; «Últimos archivos añadidos» en la sección Catálogo.
 - **Vista individual**: mantener el 1:1 y la zona al pasar de foto (como Lightroom, para comparar el enfoque de una ráfaga); más niveles de zoom con Ctrl + rueda (2:1, 4:1, para ver los píxeles).

@@ -18,6 +18,7 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.19.0 Barra de un módulo de biblioteca ('#scroll_library_sidebar', como las demás barras).
 1.18.0 Raya que dice dónde cae una sección al arrastrar su cabecera
        ('#frame_section_drop_indicator').
 1.17.0 Botón de la tira de fotos del mapa ('#btn_map_filmstrip', como los de vista).
@@ -61,7 +62,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.18.0"
+__version__ = "1.19.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -387,6 +388,8 @@ QScrollArea#scroll_catalog_sidebar,
 QWidget#widget_catalog_sidebar_content,
 QScrollArea#scroll_image_sidebar,
 QWidget#widget_image_sidebar_content,
+QScrollArea#scroll_library_sidebar,
+QWidget#widget_library_sidebar_content,
 QScrollArea#scroll_inspector,
 QWidget#widget_inspector_content,
 SidebarTreeView {{

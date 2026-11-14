@@ -40,6 +40,8 @@ Uso:
     SECTION_REGISTRY.defaults("image", Sidebar.LEFT)  # sus secciones, en el orden de partida
     SECTION_REGISTRY.get("folders").title_for("image")
 
+1.2.0 Las secciones de la barra del módulo Tracks: «Biblioteca - Tracks», «Carpetas» y
+      «Fechas» (las mismas 'library', 'folders' y 'dates' de Imagen).
 1.1.0 Modo 'tracks' (módulo provisional: de momento, solo con las secciones del inspector).
 1.0.0 Primera versión (14/11/2026), con las secciones que ya existían: las del Catálogo y
       las de Imagen en la barra izquierda, y las cuatro del inspector en la derecha.
@@ -48,7 +50,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_registry
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "LEFT",
     "RIGHT",
@@ -217,16 +219,19 @@ def _build_default_registry() -> SectionRegistry:
     # guardaba lo plegado de cada barra
     catalog = frozenset({"catalog"})
     image = frozenset({"image"})
+    tracks = frozenset({"tracks"})
     registry.register(SectionSpec("catalog", "Catálogo", LEFT, 100, modes=catalog))
     registry.register(
         SectionSpec(
-            "library", "Biblioteca", LEFT, 100, modes=image,
-            mode_titles={"image": "Biblioteca - Imagen"},
+            "library", "Biblioteca", LEFT, 100, modes=image | tracks,
+            mode_titles={"image": "Biblioteca - Imagen", "tracks": "Biblioteca - Tracks"},
         )
     )  # fmt: skip
-    registry.register(SectionSpec("folders", "Carpetas", LEFT, 200, modes=catalog | image))
+    registry.register(
+        SectionSpec("folders", "Carpetas", LEFT, 200, modes=catalog | image | tracks)
+    )
     registry.register(SectionSpec("collections", "Colecciones", LEFT, 300, modes=catalog))
-    registry.register(SectionSpec("dates", "Fechas", LEFT, 300, modes=image))
+    registry.register(SectionSpec("dates", "Fechas", LEFT, 300, modes=image | tracks))
     registry.register(SectionSpec("keywords", "Lista de palabras clave", LEFT, 400, modes=image))
 
     # --- Barra derecha (el inspector): las mismas en todos los modos. Los 'id' son las
@@ -256,6 +261,8 @@ if __name__ == "__main__":
     assert _ids(reg, "catalog", Sidebar.LEFT) == ["catalog", "folders", "collections"]
     assert _ids(reg, "image", Sidebar.LEFT) == ["library", "folders", "dates", "keywords"]
     assert _ids(reg, "video", Sidebar.LEFT) == []  # módulo provisional: sin barra propia
+    assert _ids(reg, "tracks", Sidebar.LEFT) == ["library", "folders", "dates"]
+    assert reg.get("library").title_for("tracks") == "Biblioteca - Tracks"
     inspector = ["selection", "keyword_editor", "keyword_list", "metadata"]
     for mode_key in reg.mode_keys():
         assert _ids(reg, mode_key, Sidebar.RIGHT) == inspector, mode_key

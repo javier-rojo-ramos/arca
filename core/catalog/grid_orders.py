@@ -23,9 +23,17 @@ Reglas del ORDER BY (ver 'order_by_sql'):
       fotos con la misma fecha no bailan entre consultas) y la flecha invierte la lista
       exactamente.
 
-Añadir un campo: una línea en '_FIELD_LIST'. Si ordena por una columna de otra tabla
-('photo_details', 'video_details'...), hará falta antes un JOIN en 'fetch_grid_rows'.
+Añadir un campo: una línea en '_FIELD_LIST'. Si ordena por una columna de una tabla de
+detalles ('track_details', 'photo_details'...), se dice en 'SortColumn.table': sale como
+una subconsulta por la clave primaria, sin JOIN (como en las colecciones inteligentes).
 Las claves son las de las colecciones inteligentes ('smart_fields.py') cuando existen.
+
+No todos los campos valen para todos los módulos: 'COMMON_SORT_FIELDS' son los de cualquier
+archivo (los que ofrecen el Catálogo e Imagen) y 'TRACK_SORT_FIELDS', los del módulo Tracks.
+
+1.1.0 Campos de los tracks: «Distancia», «Desnivel positivo» (de 'track_details') y
+      «Duración»; 'SortColumn.table'; 'COMMON_SORT_FIELDS' y 'TRACK_SORT_FIELDS' (docs/MAPA.md,
+      paso 4.2).
 
 1.0.1 Textos como en las colecciones inteligentes: «Extensión» y «Fecha de importación».
 1.0.0 Primera versión (07/11/2026): seis campos, con dirección; sustituye a
@@ -35,11 +43,13 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.grid_orders
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = [
     "CAPTURE_TIME_ORDER",
+    "COMMON_SORT_FIELDS",
     "NAME_ORDER",
     "SORT_FIELDS",
+    "TRACK_SORT_FIELDS",
     "GridOrder",
     "SortColumn",
     "SortField",
@@ -53,10 +63,12 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class SortColumn:
-    """Una columna de 'media_items' dentro del orden de un campo.
+    """Una columna de 'media_items' (o de una tabla de detalles) dentro del orden de un campo.
 
     Attributes:
         name: Nombre de la columna (sin alias: 'order_by_sql' le pone 'm.').
+        table: Tabla de detalles en la que está (1:1 con 'media_items' por 'media_id':
+            'track_details'...); None = en 'media_items'.
         nocase: Comparar sin distinguir mayúsculas (texto).
         nullable: La columna puede ser NULL: se añade 'IS NULL' delante para mandarlos
             al final.
@@ -65,6 +77,7 @@ class SortColumn:
     name: str
     nocase: bool = False
     nullable: bool = False
+    table: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,9 +114,28 @@ _FIELD_LIST: tuple[SortField, ...] = (
     SortField("file_modified_at", "Fecha de modificación", (SortColumn("file_mtime_ns"),)),
     # Cuándo entró en el catálogo (la «Hora de adición» de Lightroom)
     SortField("added_at", "Fecha de importación", (SortColumn("added_at"),)),
+    # --- Tracks GPS (claves y textos de 'smart_fields.py'). Sin el dato, al final
+    SortField("track_distance", "Distancia",
+              (SortColumn("distance_m", nullable=True, table="track_details"),)),
+    SortField("track_gain", "Desnivel positivo",
+              (SortColumn("elevation_gain_m", nullable=True, table="track_details"),)),
+    # Segundos entre el primer y el último punto (también la de un vídeo o una canción)
+    SortField("duration", "Duración", (SortColumn("duration", nullable=True),)),
 )  # fmt: skip
 
 SORT_FIELDS: dict[str, SortField] = {field.key: field for field in _FIELD_LIST}
+
+# Los campos que valen para cualquier archivo, en el orden del desplegable (los del
+# Catálogo y de Imagen)
+COMMON_SORT_FIELDS: tuple[str, ...] = (
+    "captured_at", "file_name", "file_extension", "file_size", "file_modified_at", "added_at",
+)  # fmt: skip
+
+# Los del módulo Tracks: primero lo propio de un recorrido (su fecha es la hora de salida)
+TRACK_SORT_FIELDS: tuple[str, ...] = (
+    "captured_at", "track_distance", "track_gain", "duration",
+    "file_name", "file_size", "file_modified_at", "added_at",
+)  # fmt: skip
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,7 +209,14 @@ def order_by_sql(order: GridOrder, alias: str = "m") -> str:
     names = {column.name for column in columns}
     parts = []
     for column in (*columns, *(c for c in _TIEBREAK if c.name not in names)):
-        qualified = f"{alias}.{column.name}"
+        if column.table is None:
+            qualified = f"{alias}.{column.name}"
+        else:
+            # De una tabla de detalles: subconsulta por su clave primaria (sin JOIN). Los
+            # nombres salen de '_FIELD_LIST', nunca de fuera
+            qualified = (
+                f"(SELECT d.{column.name} FROM {column.table} AS d WHERE d.media_id = {alias}.id)"
+            )
         if column.nullable:
             # 'X IS NULL' vale 0 o 1 y va siempre ascendente: los NULL, al final
             parts.append(f"{qualified} IS NULL")
@@ -255,5 +294,30 @@ if __name__ == "__main__":
     assert names(CAPTURE_TIME_ORDER.reversed()) == ["b.jpg", "c.mp4", "A.dng"]
     # Fecha de importación: todas iguales en la prueba (CURRENT_TIMESTAMP) -> desempata por nombre
     assert names(GridOrder("added_at")) == ["A.dng", "b.jpg", "c.mp4"]
+
+    # Las listas por módulo solo nombran campos que existen, sin repetir
+    for keys in (COMMON_SORT_FIELDS, TRACK_SORT_FIELDS):
+        assert set(keys) <= set(SORT_FIELDS) and len(set(keys)) == len(keys), keys
+    assert not {"track_distance", "track_gain", "duration"} & set(COMMON_SORT_FIELDS)
+
+    # Campos de los tracks: de 'track_details' (subconsulta) y la duración; sin dato, al final
+    assert order_by_sql(GridOrder("track_distance", descending=True)) == (
+        "(SELECT d.distance_m FROM track_details AS d WHERE d.media_id = m.id) IS NULL, "
+        "(SELECT d.distance_m FROM track_details AS d WHERE d.media_id = m.id) DESC, "
+        "m.file_name COLLATE NOCASE DESC, m.id DESC"
+    )
+    ids = {name: media_id for media_id, name in db.execute("SELECT id, file_name FROM media_items")}
+    db.execute("UPDATE media_items SET duration = 3600 WHERE file_name = 'c.mp4'")
+    db.execute("UPDATE media_items SET duration = 60 WHERE file_name = 'A.dng'")
+    for name, distance, gain in (("b.jpg", 12000.0, 300.0), ("c.mp4", 5000.0, 900.0)):
+        db.execute(
+            "INSERT INTO track_details(media_id, distance_m, elevation_gain_m) VALUES (?, ?, ?)",
+            (ids[name], distance, gain),
+        )
+    assert names(GridOrder("track_distance")) == ["c.mp4", "b.jpg", "A.dng"]
+    assert names(GridOrder("track_distance", descending=True)) == ["b.jpg", "c.mp4", "A.dng"]
+    assert names(GridOrder("track_gain", descending=True)) == ["c.mp4", "b.jpg", "A.dng"]
+    assert names(GridOrder("duration")) == ["A.dng", "c.mp4", "b.jpg"]
+    assert names(GridOrder("duration", descending=True)) == ["c.mp4", "A.dng", "b.jpg"]
 
     print("Autoprueba finalizada correctamente.")

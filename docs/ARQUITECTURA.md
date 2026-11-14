@@ -66,6 +66,7 @@ controllers/
     center_views.py                    CenterView: vistas del centro (cuadrícula, individual, lista, mapa) con su texto emergente e icono; MapOptions (qué permite el mapa de un módulo: ubicar fotos); sin Qt
     catalog_module.py                  CatalogModule: barra CatalogSidebar (contadores, árboles, colecciones, opción de subcarpetas, estado)
     image_module.py                    ImageModule: barra ImageSidebar (Biblioteca - Imagen con su selección rápida, carpetas con imágenes, fechas y árbol de palabras clave con recuentos), estado; vistas: cuadrícula, individual y mapa (en el que se ubican fotos)
+    tracks_module.py                   TracksModule: barra LibrarySidebar (Biblioteca - Tracks con su selección rápida, carpetas con tracks y fechas), estado; vistas: cuadrícula y mapa (el inicial; solo mira); orden por fecha, distancia, desnivel y duración
     placeholder_module.py              PlaceholderModule: botón sin módulo todavía (página «próximamente»)
 ui/main_window.ui, main_window.py    Interfaz de Qt Designer (main_window.py se GENERA con build_ui.py; no editar a mano).
                                      Widgets promocionados: widget_catalog_sidebar (CatalogSidebar), list_view_grid (MediaGridView),
@@ -106,6 +107,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   dialogs/remove_dialog.py           RemoveDialog: «Eliminar N archivos del catálogo», como Lightroom: explicación y botones «Eliminar del disco» / «Eliminar del catálogo» (por defecto) / «Cancelar»
   sidebars/catalog_sidebar.py        CatalogSidebar: barra lateral del catálogo (Catálogo, Carpetas, Colecciones); emite GridSource
   sidebars/image_sidebar.py          ImageSidebar: barra del módulo Imagen, solo para navegar (Biblioteca - Imagen, Carpetas, Fechas y Lista de palabras clave). Es el contenedor: Biblioteca - Imagen, las secciones en orden (una lista), una sola fila elegida y el estado guardado; cada sección con árbol, en sections/
+  sidebars/library_sidebar.py        LibrarySidebar: barra de un módulo de una biblioteca (la de Tracks): «Biblioteca - …» (todo y su selección rápida), Carpetas y Fechas, con sus textos en LibraryTexts; el mismo contenedor que ImageSidebar, sin palabras clave
   sidebars/sections/tree_section.py  TreeSection: base de las secciones con árbol de la barra de un módulo (views, find_item, owns, reveal, save_state / restore_state, reset; señal rebuilt), make_item y TEXT_NAME_INDENT
   sidebars/sections/folder_section.py  FolderSection: «Carpetas» con lo de una biblioteca (recuentos, opción de subcarpetas, lo desplegado, menú «Mostrar en el Explorador»)
   sidebars/sections/date_section.py  DateSection: «Fechas» (años ▸ meses ▸ días con recuentos y «Sin fecha»; filas con date_source; lo desplegado en expanded_dates); date_label, date_tooltip

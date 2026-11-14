@@ -21,6 +21,8 @@ el controlador principal, que conecta esas señales de 'CatalogSidebar' directam
 Orden de la cuadrícula: todos los campos de 'grid_orders.py'; parte de «Nombre» (con tipos
 mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 
+1.6.1 Ordena por los campos comunes ('COMMON_SORT_FIELDS': los mismos seis de antes; los
+      de los tracks son de su módulo).
 1.6.0 Une su barra al modelo de colocación de las secciones ('context.section_layout').
 1.5.0 'views': también el mapa (docs/MAPA.md, paso 2.3): lo elegido a la izquierda, en un
       mapa; solo para ver y seleccionar.
@@ -33,7 +35,7 @@ mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 1.1.0 'sort_fields' y 'default_order' (orden de partida: «Nombre»).
 """
 
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 __all__ = ["CatalogModule"]
 
 # Librerías estándar
@@ -54,7 +56,7 @@ from controllers.app_modules.base import AppModule, ModuleContext
 from controllers.app_modules.center_views import CenterView
 from controllers.collection_actions import CollectionActions
 from core.catalog.folder_tree import LocationNode, fetch_folder_tree
-from core.catalog.grid_orders import NAME_ORDER, SORT_FIELDS, GridOrder
+from core.catalog.grid_orders import COMMON_SORT_FIELDS, NAME_ORDER, GridOrder
 from core.catalog.grid_source import GridSource, SourceKind
 from core.catalog.media_queries import count_grid_items
 from core.catalog.media_types import MediaType
@@ -160,7 +162,7 @@ class CatalogModule(AppModule):
 
     def sort_fields(self) -> tuple[str, ...]:
         """Todos los campos de orden (sirven para cualquier tipo de archivo)."""
-        return tuple(SORT_FIELDS)
+        return COMMON_SORT_FIELDS
 
     def default_order(self) -> GridOrder:
         """Por nombre, ascendente."""
