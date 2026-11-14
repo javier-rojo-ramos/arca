@@ -33,7 +33,8 @@ Contenido de una tarjeta, de arriba abajo:
                           la biblioteca de películas y series)
           audio        -> cuadrado con una corchea (♪)
           libro        -> 2:3 con un libro
-          track GPS    -> cuadrado con un recorrido
+          track GPS    -> cuadrado con SU recorrido (el contorno del catálogo); si aún
+                          no lo tiene, un recorrido de adorno
           foto (error) -> 3:2 con un paisaje
       Una foto cuya miniatura aún se está leyendo NO lleva marcador (solo el hueco gris).
     - En los vídeos y el audio, la DURACIÓN ("0:42", "1:32:05") en la esquina inferior
@@ -60,6 +61,9 @@ Si la tarjeta pulsada forma parte de una selección de VARIAS, el cambio se apli
 las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
 seleccionada, solo cambia ella.
 
+2.17.0 La tarjeta de un track dibuja su recorrido ('ROLE_TRACK_OUTLINE',
+       'track_outline.draw_track_outline') en lugar del símbolo común; sin contorno,
+       el símbolo de siempre.
 2.16.0 Tarjeta compacta: la chincheta de lo que tiene ubicación, abajo a la derecha de la
        imagen (la duración se aparta a su izquierda).
 2.15.0 Tarjeta compacta ('compact'): sin banda inferior ni círculo de la selección
@@ -88,7 +92,7 @@ seleccionada, solo cambia ella.
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.16.0"
+__version__ = "2.17.0"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -102,6 +106,7 @@ from qtpy.QtWidgets import QStyle, QStyledItemDelegate, QToolTip
 
 # Módulos del proyecto
 from ui_helpers.helpers import card_glyphs, card_marks
+from ui_helpers.helpers.track_outline import draw_track_outline
 from ui_helpers.helpers.ui_color_labels import blend, label_color
 from ui_helpers.helpers.ui_theme import CARD_COLORS
 from ui_helpers.models.media_roles import (
@@ -116,6 +121,7 @@ from ui_helpers.models.media_roles import (
     ROLE_QUICK_SELECTION,
     ROLE_RATING,
     ROLE_THUMBNAIL_STATUS,
+    ROLE_TRACK_OUTLINE,
 )
 
 # Valores de la marca (los mismos que 'core.catalog.media_queries.FLAG_*')
@@ -442,7 +448,13 @@ class ThumbnailsDelegate(QStyledItemDelegate):
             if has_pixmap:
                 painter.drawPixmap(target, pixmap)
             else:
-                self._draw_placeholder(painter, target, index.data(ROLE_MEDIA_TYPE))
+                media_type = index.data(ROLE_MEDIA_TYPE)
+                # Un track enseña la forma de su recorrido; sin contorno, el símbolo común
+                outline = index.data(ROLE_TRACK_OUTLINE) if media_type == _TRACK else None
+                if outline:
+                    draw_track_outline(painter, target, outline)
+                else:
+                    self._draw_placeholder(painter, target, media_type)
             if is_rejected:
                 # Velo blanco translúcido solo sobre la imagen: la miniatura queda blanquecina
                 # y destaca sobre el fondo oscuro, sin tocar el color de fondo de la tarjeta

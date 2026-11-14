@@ -23,6 +23,8 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.17.0 'ROLE_TRACK_OUTLINE': el recorrido de un track, encajado para dibujarlo en su
+       tarjeta (de 'track_overview'; se calcula la primera vez que se pide y se guarda).
 1.16.0 'ROLE_HAS_LOCATION' (de 'has_location') y 'set_located': quién tiene coordenadas,
        al día sin recargar la lista (lo llama el controlador del mapa).
 1.15.0 'request_media_file': ruta completa y dimensiones de UN archivo, en segundo plano
@@ -55,7 +57,7 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.16.0"
+__version__ = "1.17.0"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
@@ -94,6 +96,7 @@ from core.catalog.media_queries import (
 from core.catalog.smart_rules import RuleSet
 from core.thumbnails.cache import ThumbnailCache
 from core.thumbnails.sizes import ThumbnailSize, smallest_covering
+from ui_helpers.helpers.track_outline import outline_from_overview
 from ui_helpers.models.media_mime import MEDIA_IDS_MIME, encode_media_ids
 from ui_helpers.models.media_roles import (
     ROLE_AVAILABILITY,
@@ -108,6 +111,7 @@ from ui_helpers.models.media_roles import (
     ROLE_QUICK_SELECTION,
     ROLE_RATING,
     ROLE_THUMBNAIL_STATUS,
+    ROLE_TRACK_OUTLINE,
 )
 
 _DISPLAY = Qt.ItemDataRole.DisplayRole
@@ -124,6 +128,8 @@ _ROLES_OF_FIELD: dict[str, list[int]] = {
 # Campo de la selección rápida (columna de 'media_items'; 0 o 1). A diferencia de los
 # otros tres, NO se escribe en los archivos: el controlador lo guarda aparte
 QUICK_SELECTION_FIELD = "in_quick_selection"
+# Clave, dentro de cada fila, del recorrido ya encajado de un track (se calcula una vez)
+_OUTLINE_KEY = "_track_outline"
 
 
 class _LoadSignals(QObject):
@@ -612,7 +618,18 @@ class MediaGridModel(QAbstractListModel):
             return row.get("thumbnail_status", 0)
         if role == ROLE_HAS_LOCATION:
             return bool(row.get("has_location"))
+        if role == ROLE_TRACK_OUTLINE:
+            return self._track_outline(row)
         return None
+
+    @staticmethod
+    def _track_outline(row: dict[str, Any]) -> Any:
+        """El recorrido de un track, encajado para dibujarlo ('TrackOutline'); None si la
+        fila no es un track o no tiene contorno. Se calcula la primera vez que se pide y se
+        guarda en la propia fila (se pinta muchas veces)."""
+        if _OUTLINE_KEY not in row:
+            row[_OUTLINE_KEY] = outline_from_overview(row.get("track_overview"))
+        return row[_OUTLINE_KEY]
 
     # -------------------------------------------------------------------------
     # Arrastrar tarjetas (solo se COPIAN sus 'id': nunca se mueve ni se borra nada)

@@ -29,6 +29,9 @@ solo la mitad del trabajo: 'update_user_field' deja además el elemento PENDIENT
 archivo, en su sidecar XMP o en el archivo de carpeta, para que sobreviva a recrear el
 catálogo.
 
+2.6.0 'fetch_grid_rows' trae 'track_overview': el contorno de los tracks (de
+      'track_details'), para dibujar su recorrido en la tarjeta. Solo se busca en las
+      filas de tipo track.
 2.5.0 'fetch_grid_rows' trae también 'has_location' (0/1: latitud y longitud, sin el 0, 0):
       la chincheta de las tarjetas de la tira del mapa.
 2.4.0 'fetch_media_file': ruta completa y dimensiones de UN archivo (la vista individual
@@ -61,7 +64,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_queries
 """
 
-__version__ = "2.5.0"
+__version__ = "2.6.0"
 # ruff: noqa: RUF022
 __all__ = [
     "AVAILABLE",
@@ -95,6 +98,7 @@ from core.catalog.color_labels import is_valid_color_label
 from core.catalog.grid_orders import NAME_ORDER, GridOrder, order_by_sql
 from core.catalog.grid_source import ALL_ITEMS, GridSource, SourceKind
 from core.catalog.keywords import KEYWORD_MEDIA_SQL
+from core.catalog.media_types import MediaType
 from core.catalog.smart_rules import RuleSet, rules_to_sql
 from core.userdata.editable_fields import (
     bits_for,
@@ -283,7 +287,11 @@ def fetch_grid_rows(
                     AND NOT (m.latitude = 0 AND m.longitude = 0)),
                    CASE WHEN l.is_online = 0 THEN {OFFLINE}
                         WHEN m.is_missing = 1 THEN {MISSING}
-                        ELSE {AVAILABLE} END
+                        ELSE {AVAILABLE} END,
+                   -- El contorno del recorrido, solo de los tracks (los demás ni lo buscan)
+                   CASE WHEN m.media_type = '{MediaType.TRACK.value}'
+                        THEN (SELECT d.overview FROM track_details AS d WHERE d.media_id = m.id)
+                   END
               FROM media_items AS m
               JOIN storage_locations AS l ON l.id = m.storage_location_id
              WHERE {where_sql}
@@ -293,7 +301,7 @@ def fetch_grid_rows(
     keys = (
         "id", "media_type", "file_name", "rating", "flag", "color_label",
         "thumbnail_status", "in_quick_selection", "library", "library_manual", "duration",
-        "has_location", "availability",
+        "has_location", "availability", "track_overview",
     )  # fmt: skip
     return [dict(zip(keys, row, strict=True)) for row in rows]
 
@@ -585,10 +593,20 @@ if __name__ == "__main__":
     assert set(rows[0]) == {
         "id", "media_type", "file_name", "rating", "flag", "color_label", "thumbnail_status",
         "in_quick_selection", "library", "library_manual", "duration", "has_location",
-        "availability",
+        "availability", "track_overview",
     }  # fmt: skip
     # Sin coordenadas (las filas de prueba no tienen): sin ubicación
     assert {r["has_location"] for r in rows} == {0}
+    # El contorno, solo en los tracks que lo tienen (las filas de prueba son fotos: ninguna)
+    assert {r["track_overview"] for r in rows} == {None}
+    probe = rows[0]["id"]
+    db.execute("INSERT INTO track_details(media_id, overview) VALUES (?, 'abc')", (probe,))
+    assert {r["track_overview"] for r in fetch_grid_rows(db)} == {None}  # no es un track
+    db.execute("UPDATE media_items SET media_type = 'track' WHERE id = ?", (probe,))
+    with_outline = {r["id"]: r["track_overview"] for r in fetch_grid_rows(db)}
+    assert with_outline[probe] == "abc" and set(with_outline.values()) == {"abc", None}
+    db.execute("UPDATE media_items SET media_type = ? WHERE id = ?", (rows[0]["media_type"], probe))
+    db.execute("DELETE FROM track_details WHERE media_id = ?", (probe,))
     # Hora de captura (EXIF): el orden cambia; sin ella, al final (desempate por nombre)
     by_content = [r["file_name"] for r in fetch_grid_rows(db, CAPTURE_TIME_ORDER)]
     assert by_content == ["c.jpg", "a.jpg", "b.jpg", "B2.jpg", "gone.jpg"], by_content

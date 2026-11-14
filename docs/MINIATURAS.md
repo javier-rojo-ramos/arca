@@ -34,4 +34,6 @@ Reglas:
 
 **Sin miniatura** (vídeo, audio, ebook y track, hasta el paso 4b; o una foto con error): la cuadrícula dibuja un marcador por tipo y, en vídeo y audio, la duración ([FLUJOS.md §6](FLUJOS.md)). No se guarda ningún archivo por elemento.
 
+**Tracks** (14/11/2026): no tienen miniatura en la caché ni la tendrán: su tarjeta dibuja al vuelo la forma del recorrido, con el contorno que guarda el catálogo (`track_details.overview`; `ui_helpers/helpers/track_outline.py`). Un track sin contorno (aún sin leer, o sin puntos) enseña el marcador de su tipo.
+
 **Límites conocidos**: la imagen de partida de un RAW es su vista previa, normalmente menor que el sensor. El DNG de prueba (guardado por Lightroom) trae un JPEG de 1024 px y tres JPEG XL (1600, 512 y 256 px) que Pillow no abre, así que sus miniaturas llegan a 1024 px (los tamaños de 1200 y 2560 contienen esa misma imagen, sin ampliar). Lightroom re-renderiza esa vista previa con sus ediciones (probablemente incluido el recorte), de modo que la miniatura de un DNG editado puede salir recortada y la de un HEIC o JPG, no. Está prevista una opción con `rawpy` (revelado sin editar) para cuando haga falta.
