@@ -10,8 +10,11 @@ aquí solo se LEEN y, si hay varios tracks, se juntan:
     - Se SUMAN: distancia, desnivel de subida y de bajada, duración, puntos, segmentos y
       puntos de interés (lo que se ha andado entre todos).
     - Altitud: la mínima y la máxima de todos.
-    - Actividad y programa: el valor si es el MISMO en todos los que lo tienen; si hay
-      varios distintos, 'MIXED'. La actividad se compara por su CLAVE
+    - Programa: el valor si es el MISMO en todos los que lo tienen; si hay varios
+      distintos, 'MIXED'.
+    - Actividad: se EDITA, así que «sin actividad» cuenta como un valor más: solo se
+      devuelve una si la tienen TODOS; unos con una y otros sin ninguna es 'MIXED' (si no,
+      parecería que todos la tienen). Se compara por su CLAVE
       ('core/tracks/activities.normalize_activity'): «hiking», «Hike» y «Senderismo» son
       la misma, y es la clave lo que se devuelve.
     - 'with_duration' y 'with_elevation' dicen cuántos tienen ese dato (una ruta
@@ -26,6 +29,8 @@ Uso (el inspector lo lanza con 'execute_async'):
     stats.count, stats.distance_m, stats.elevation_gain_m, stats.duration_s
     stats.average_speed_kmh        # con la distancia de los que tienen duración
 
+1.2.0 La actividad de varios tracks: unos con ella y otros sin ninguna es 'MIXED' (antes,
+      los que no tenían se ignoraban y salía la de los demás: lo vio el autor).
 1.1.0 La actividad, por su clave ('normalize_activity'; paso 4.6a).
 1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.4).
 
@@ -33,7 +38,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.track_stats
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["MIXED", "TrackStats", "fetch_track_stats"]
 
 # Librerías estándar
@@ -71,8 +76,10 @@ class TrackStats:
         planned_routes: Cuántos son rutas planificadas (sin track grabado).
         with_duration: Cuántos tienen duración.
         with_elevation: Cuántos tienen altitud.
-        activity_type: Tipo de actividad común, 'MIXED' si hay varios, None si ninguno.
-        creator_app: Programa con el que se crearon: igual que 'activity_type'.
+        activity_type: La actividad (su clave) si TODOS tienen la misma; None si ninguno
+            tiene; 'MIXED' si hay varias o si unos tienen y otros no.
+        creator_app: Programa con el que se crearon, si es el mismo en todos los que lo
+            dicen; 'MIXED' si hay varios; None si ninguno lo dice.
     """
 
     count: int = 0
@@ -125,7 +132,8 @@ def fetch_track_stats(conn: sqlite3.Connection, media_ids: Sequence[int]) -> Tra
     points = segments = waypoints = 0
     distance = gain = loss = duration = timed_distance = None
     lowest = highest = None
-    activity = creator = None
+    creator = None
+    activities: set[str | None] = set()  # las distintas, contando «sin actividad» (None)
     for start in range(0, len(ids), _CHUNK):
         chunk = ids[start : start + _CHUNK]
         marks = ",".join("?" * len(chunk))
@@ -159,7 +167,7 @@ def fetch_track_stats(conn: sqlite3.Connection, media_ids: Sequence[int]) -> Tra
             segments += row_segments or 0
             waypoints += row_waypoints or 0
             planned += 1 if row_planned else 0
-            activity = _common(activity, normalize_activity(row_activity))
+            activities.add(normalize_activity(row_activity))
             creator = _common(creator, row_creator)
     return TrackStats(
         count=count,
@@ -176,7 +184,7 @@ def fetch_track_stats(conn: sqlite3.Connection, media_ids: Sequence[int]) -> Tra
         planned_routes=planned,
         with_duration=with_duration,
         with_elevation=with_elevation,
-        activity_type=activity,
+        activity_type=MIXED if len(activities) > 1 else next(iter(activities), None),
         creator_app=creator,
     )
 
@@ -252,7 +260,11 @@ if __name__ == "__main__":
     assert (mixed.with_duration, mixed.with_elevation) == (1, 1)
     assert mixed.duration_s == 7200.0 and mixed.timed_distance_m == 12000.0
     assert mixed.average_speed_kmh == 6.0
-    assert mixed.activity_type == "hiking"  # la ruta no tiene: no lo convierte en «varios»
+    # Uno con actividad y otro sin ella: «varios» (la actividad se edita: sin ella es un
+    # valor más); el programa, que solo se mira, sigue siendo el de los que lo dicen
+    assert mixed.activity_type == MIXED and mixed.creator_app == "Wikiloc"
+    add(9, "track", None, {"distance_m": 1.0, "is_planned_route": 0})
+    assert fetch_track_stats(db, [3, 9]).activity_type is None  # ninguno tiene: sin actividad
     # Solo la ruta: sin desnivel, sin duración, sin velocidad
     route = fetch_track_stats(db, [3])
     assert route.distance_m == 4000.0 and route.elevation_gain_m is None

@@ -20,12 +20,18 @@ deportes, el ciclismo de montaña del de carretera ni la carrera de montaña (so
 'normalize_activity' es el traductor de lo que llega escrito de fuera: reconoce la clave
 (con mayúsculas, espacios o guiones), las variantes habituales ('hike', 'mtb', 'ride',
 'kayak'...) y el propio texto en español («Senderismo»). Lo que NO reconoce lo devuelve
-tal cual: no se pierde, y se muestra como venga.
+tal cual.
+
+'activity_key' es lo que se GUARDA en el catálogo: siempre una clave de la lista. Una
+actividad que no se reconoce pasa a ser «Otra actividad» ('GENERIC'; decidido por el autor
+el 14/11/2026: así los filtros y el desplegable solo tienen las de la lista). El texto
+original sigue en el GPX.
 
 Uso:
     normalize_activity("Hike")            # 'hiking'
     normalize_activity("mountain biking") # 'mountain_biking'
     normalize_activity("Parapente")       # 'Parapente' (no está en la lista: tal cual)
+    activity_key("Parapente")             # 'generic' (lo que se guarda: «Otra actividad»)
     activity_label("hiking")              # 'Senderismo'
     activity_label("Parapente")           # 'Parapente'
     ACTIVITIES                            # la lista, en el orden del desplegable
@@ -34,17 +40,20 @@ Uso:
 Añadir una actividad: una línea en 'ACTIVITIES' (la clave no se cambia nunca después:
 está en los catálogos y en los '.arca.json') y, si tiene variantes, en '_ALIASES'.
 
+1.1.0 'activity_key': lo que se guarda (lo que no se reconoce, «Otra actividad»); el texto
+      de 'generic' pasa de «Otra» a «Otra actividad» (paso 4.6b).
 1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.6a).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.tracks.activities
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "ACTIVITIES",
     "GENERIC",
     "Activity",
+    "activity_key",
     "activity_label",
     "is_known_activity",
     "normalize_activity",
@@ -68,7 +77,7 @@ class Activity:
     label: str
 
 
-# Clave de «Otra»: una actividad que no es ninguna de la lista
+# Clave de «Otra actividad»: una actividad que no es ninguna de la lista
 GENERIC = "generic"
 
 # La lista, en el orden del desplegable: a pie, en bici, en la nieve, en el agua, a motor
@@ -91,7 +100,7 @@ ACTIVITIES: tuple[Activity, ...] = (
     Activity("swimming", "Natación"),
     Activity("driving", "Coche"),
     Activity("motorcycling", "Moto"),
-    Activity(GENERIC, "Otra"),
+    Activity(GENERIC, "Otra actividad"),
 )
 
 _LABELS: dict[str, str] = {activity.key: activity.label for activity in ACTIVITIES}
@@ -182,6 +191,15 @@ def normalize_activity(text: object) -> str | None:
     return _ALIASES.get(flat) or _BY_LABEL.get(flat) or value
 
 
+def activity_key(text: object) -> str | None:
+    """La clave que se GUARDA de una actividad: la de la lista si se reconoce; 'GENERIC'
+    («Otra actividad») si es un texto que no se reconoce; None si no hay actividad."""
+    key = normalize_activity(text)
+    if key is None:
+        return None
+    return key if key in _LABELS else GENERIC
+
+
 def is_known_activity(value: object) -> bool:
     """True si es (o se reconoce como) una actividad de la lista."""
     return normalize_activity(value) in _LABELS
@@ -235,7 +253,11 @@ if __name__ == "__main__":
     # --- Lo que se muestra
     assert activity_label("hiking") == "Senderismo" and activity_label("Hike") == "Senderismo"
     assert activity_label("mountain_biking") == "Ciclismo de montaña"
-    assert activity_label("generic") == "Otra"
+    assert activity_label("generic") == "Otra actividad"
+    # Lo que se guarda: siempre una clave de la lista
+    assert activity_key("Hike") == "hiking" and activity_key("mountain_biking") == "mountain_biking"
+    assert activity_key("Parapente") == GENERIC and activity_key("9") == GENERIC
+    assert activity_key(None) is None and activity_key("  ") is None
     assert activity_label("Parapente") == "Parapente" and activity_label(None) == ""
     assert is_known_activity("MTB") and is_known_activity("Senderismo")
     assert not is_known_activity("Parapente") and not is_known_activity(None)

@@ -41,6 +41,8 @@ Cómo añadir un campo:
 Cómo añadir un grupo (p. ej. vídeo, cuando exista 'video_details'): una línea en
 'GROUPS' con sus 'media_types'; sus campos, con 'group=' su clave.
 
+1.6.0 «Actividad» ('track_activity') pasa a ser una lista ('KIND_ENUM') con las actividades
+      de 'core/tracks/activities.py' (antes, un texto).
 1.5.1 «Lugar» (antes «Ubicación secundaria»): el mismo nombre que en el inspector
       (decidido por el autor el 09/11/2026; la clave 'sublocation' no cambia).
 1.5.0 'SmartField.browse' y 'browse_fields()': los 29 campos que se ofrecen como columnas
@@ -57,7 +59,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.smart_fields
 """
 
-__version__ = "1.5.1"
+__version__ = "1.6.0"
 # ruff: noqa: RUF022
 __all__ = [
     "KIND_BOOL",
@@ -86,6 +88,7 @@ from typing import Any
 # Módulos del proyecto
 from core.catalog.libraries import LIBRARY_NAMES, Library
 from core.catalog.media_types import MediaType
+from core.tracks.activities import ACTIVITIES
 
 # -----------------------------------------------------------------------------
 # Tipos de valor (cada uno tiene sus operadores y su editor en la interfaz)
@@ -264,6 +267,7 @@ def _detail(table: str, column: str) -> str:
 
 
 # Opciones de los campos de tipo lista
+_ACTIVITY_CHOICES = tuple((activity.key, activity.label) for activity in ACTIVITIES)
 _MEDIA_TYPE_CHOICES = (
     (MediaType.PHOTO.value, "Foto"),
     (MediaType.VIDEO.value, "Vídeo"),
@@ -378,8 +382,10 @@ _FIELD_LIST: tuple[SmartField, ...] = (
                _detail("track_details", "elevation_loss_m"), unit="m"),
     SmartField("track_max_elevation", "Altitud máxima", "track", "Recorrido", KIND_NUMBER,
                _detail("track_details", "elevation_max_m"), unit="m"),
-    SmartField("track_activity", "Actividad", "track", "Recorrido", KIND_TEXT,
-               _detail("track_details", "activity_type"), browse=True),
+    # Una lista: las de 'core/tracks/activities.py' (el catálogo guarda su clave)
+    SmartField("track_activity", "Actividad", "track", "Recorrido", KIND_ENUM,
+               _detail("track_details", "activity_type"), choices=_ACTIVITY_CHOICES,
+               operators=("eq", "ne", "is_set", "is_not_set"), browse=True),
     SmartField("track_creator_app", "Creado con", "track", "Recorrido", KIND_TEXT,
                _detail("track_details", "creator_app"), browse=True),
 )

@@ -374,7 +374,7 @@ if __name__ == "__main__":
             "f_number, flash_fired) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (media_id, make, model, lens, iso, f_number, flash),
         )
-    db.execute("INSERT INTO track_details(media_id, activity_type) VALUES (?, 'Senderismo')", (f,))
+    db.execute("INSERT INTO track_details(media_id, activity_type) VALUES (?, 'hiking')", (f,))
     db.execute("INSERT INTO keywords(id, name, name_folded) VALUES (1, 'Montaña', 'montana')")
     db.execute("INSERT INTO keywords(id, parent_id, name, name_folded) VALUES (2, 1, 'Pico', 'pico')")
     # La misma palabra en otra rama del árbol: se cuenta junto a la primera (como su regla)
@@ -406,7 +406,7 @@ if __name__ == "__main__":
     assert rows("iso") == [(100, 2), (200, 1), (None, 1)]  # d.jpg no tiene detalles
     assert rows("f_number") == [(1.78, 1), (2.8, 2), (None, 1)]
     assert rows("flash_fired") == [(1, 1), (0, 3)]  # sin dato = no
-    assert rows("track_activity") == [("Senderismo", 1)]
+    assert rows("track_activity") == [("hiking", 1)]  # la clave; el texto lo pone la lista
 
     # 3. Listas, valoración y sí / no: en su orden; sin «Desconocido» si no hay regla
     assert rows("flag") == [(1, 1), (0, 4), (-1, 1)]
