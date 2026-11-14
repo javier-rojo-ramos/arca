@@ -12,6 +12,11 @@ modelo ('SectionLayoutModel') para el modo y la barra a los que está unida:
     - si están DESPLEGADAS. Al plegar o desplegar una con su cabecera, se apunta en el
       modelo (que lo guarda).
 
+Además pone el MENÚ de las secciones (clic derecho en la cabecera de cualquiera y, con
+'watch_empty_area', en el hueco vacío de la barra): una casilla por sección para mostrarla
+u ocultarla y «Restaurar por defecto» (el orden, las ocultas y las plegadas de ESTA barra
+en ESTE modo). El menú solo escribe en el modelo.
+
 Y se recoloca sola cuando el modelo avisa de un cambio ('layout_changed'), venga de donde
 venga. La pila no guarda nada: la única fuente de verdad es el modelo.
 
@@ -24,23 +29,26 @@ Uso (dentro de una barra):
     stack.bind(model, "image", Sidebar.LEFT)           # cuando se conoce el modelo
     stack.set_mode("catalog")                          # el inspector, al cambiar de módulo
     stack.set_available("metadata", False)             # el inspector, según lo seleccionado
+    stack.watch_empty_area(content)                    # el menú, también en el hueco vacío
 
 Sin modelo (antes de 'bind', o en una prueba suelta de una barra) las secciones quedan en
 el orden en el que se dieron de alta, todas a la vista. Una sección que el modelo no conoce
 para ese modo (falta registrarla) se queda al final, visible: se ve que falta, sin fallar.
 
+1.1.0 Menú de las secciones: casillas para mostrar u ocultar y «Restaurar por defecto»
+      ('build_menu', 'show_menu', 'watch_empty_area'; fase 2).
 1.0.0 Primera versión (14/11/2026; fase 1b de las secciones personalizables).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.section_stack
 """
 
-__version__ = "1.0.0"
-__all__ = ["SECTION_SPACING", "SectionStack"]
+__version__ = "1.1.0"
+__all__ = ["RESTORE_TEXT", "SECTION_SPACING", "SectionStack"]
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import Signal
-from qtpy.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
+from qtpy.QtCore import QPoint, Qt, Signal
+from qtpy.QtWidgets import QMenu, QSizePolicy, QVBoxLayout, QWidget
 
 # Módulos del proyecto
 from ui_helpers.layout.section_layout import SectionEntry
@@ -50,6 +58,8 @@ from ui_helpers.widgets.collapsible_section import CollapsibleSection
 
 # Separación vertical entre secciones (px lógicos): la que tenían las barras
 SECTION_SPACING = 2
+# Texto de la opción del menú que devuelve la barra a su colocación de partida
+RESTORE_TEXT = "Restaurar por defecto"
 
 
 class SectionStack(QWidget):
@@ -101,6 +111,8 @@ class SectionStack(QWidget):
         self._sections[section_id] = section
         self._order.append(section_id)
         self._layout.addWidget(section)  # el layout la hace hija de la pila
+        # Clic derecho en su cabecera: el menú de las secciones
+        section.header_menu_requested.connect(self.show_menu)
         # Plegar o desplegar con la cabecera se apunta en el modelo
         section.toggled.connect(
             lambda expanded, sid=section_id: self._on_section_toggled(sid, expanded)
@@ -149,6 +161,58 @@ class SectionStack(QWidget):
         que el modelo no conoce)."""
         entry = self._entry(section_id)
         return entry.visible if entry is not None else True
+
+    # -------------------------------------------------------------------------
+    # Menú de las secciones
+    # -------------------------------------------------------------------------
+
+    def build_menu(self) -> QMenu | None:
+        """El menú de las secciones de esta barra en el modo actual: una casilla por
+        sección (marcada = a la vista), en su orden, y «Restaurar por defecto».
+
+        Están todas las del modo, también las que ahora no tienen nada que mostrar (p. ej.
+        «Metadatos» sin una foto seleccionada): la casilla dice si el usuario la quiere ver.
+
+        Returns:
+            El menú (hijo de la pila; quien lo pide lo muestra y lo descarta), o None si no
+            hay modelo o ninguna sección que ofrecer.
+        """
+        model, mode, sidebar = self._model, self._mode, self._sidebar
+        if model is None or sidebar is None:
+            return None
+        entries = [entry for entry in model.entries(mode, sidebar) if entry.id in self._sections]
+        if not entries:
+            return None
+        menu = QMenu(self)
+        for entry in entries:
+            action = menu.addAction(model.title(mode, entry.id))
+            action.setCheckable(True)
+            action.setChecked(entry.visible)
+            action.toggled.connect(
+                lambda checked, sid=entry.id: model.set_visible(mode, sid, checked)
+            )
+        menu.addSeparator()
+        restore = menu.addAction(RESTORE_TEXT)
+        # Sin nada cambiado no hay nada que restaurar
+        restore.setEnabled(not model.is_default(mode, sidebar))
+        restore.triggered.connect(lambda: model.reset(mode, sidebar))
+        return menu
+
+    def show_menu(self, global_position: QPoint) -> None:
+        """Abre el menú de las secciones en ese punto de la pantalla (si hay qué ofrecer)."""
+        menu = self.build_menu()
+        if menu is None:
+            return
+        menu.exec(global_position)
+        menu.deleteLater()
+
+    def watch_empty_area(self, widget: QWidget) -> None:
+        """El clic derecho en 'widget' (el fondo de la barra, donde está la pila) abre también
+        el menú: así se llega a él aunque estén todas las secciones ocultas."""
+        widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        widget.customContextMenuRequested.connect(
+            lambda position: self.show_menu(widget.mapToGlobal(position))
+        )
 
     # -------------------------------------------------------------------------
     # Interno
@@ -327,6 +391,72 @@ if __name__ == "__main__":
     model.reset()
     assert _on_screen(stack) == ["one", "two", "three", "extra"] and not _hidden(stack)
     assert stack.section("two").is_expanded() is True
+
+    # --- Menú: una casilla por sección del modelo, en su orden, y «Restaurar por defecto»
+    def _menu_items(a_menu) -> list[tuple[str, bool]]:
+        return [(a.text(), a.isChecked()) for a in a_menu.actions() if a.isCheckable()]
+
+    assert _build("one").build_menu() is None  # sin modelo no hay menú
+    menu = stack.build_menu()
+    # 'extra' no está en el registro: no se ofrece
+    assert _menu_items(menu) == [("One", True), ("Two", True), ("Three", True)]
+    restore = menu.actions()[-1]
+    assert restore.text() == RESTORE_TEXT and not restore.isEnabled()  # nada que restaurar
+    assert menu.actions()[-2].isSeparator()
+    menu.actions()[1].trigger()  # desmarcar «Two»: se oculta, en el modelo y en pantalla
+    assert model.entry("a", "two").visible is False and _hidden(stack) == {"two"}
+    menu.deleteLater()
+    model.move("a", "three", 0)
+    menu = stack.build_menu()
+    assert _menu_items(menu) == [("Three", True), ("One", True), ("Two", False)]
+    assert menu.actions()[-1].isEnabled()
+    menu.actions()[2].trigger()  # marcar «Two»: vuelve
+    assert model.entry("a", "two").visible is True and not _hidden(stack)
+    model.set_expanded("a", "info", False)  # la otra barra, cambiada
+    menu.actions()[-1].trigger()  # «Restaurar por defecto»: solo esta barra de este modo
+    assert _on_screen(stack) == ["one", "two", "three", "extra"]
+    assert model.is_default("a", Sidebar.LEFT) and model.entry("a", "info").expanded is False
+    menu.deleteLater()
+    model.reset()
+    # Con todas ocultas, el menú sigue ofreciéndolas
+    for sid in ("one", "two", "three"):
+        model.set_visible("a", sid, False)
+    menu = stack.build_menu()
+    assert _menu_items(menu) == [("One", False), ("Two", False), ("Three", False)]
+    menu.deleteLater()
+    model.reset()
+
+    # --- Clic derecho en la cabecera (también sobre el botón del título): avisa con el
+    # punto de la pantalla; en el contenido, no. (Con una sección suelta: en la pila
+    # abriría el menú de verdad y se quedaría esperando.)
+    from qtpy.QtCore import QPoint
+    from qtpy.QtGui import QContextMenuEvent
+
+    loose = CollapsibleSection("Suelta")
+    loose_label = QLabel("contenido")
+    loose.set_content(loose_label)
+    loose.resize(200, 80)
+    asked: list[QPoint] = []
+    loose.header_menu_requested.connect(asked.append)
+    reached: list[int] = []  # lo que llega al padre de la sección (la barra)
+    holder = QWidget()
+    holder.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+    holder.customContextMenuRequested.connect(lambda _position: reached.append(1))
+    loose.setParent(holder)
+
+    def _right_click(widget: QWidget) -> None:
+        point = QPoint(3, 3)
+        event = QContextMenuEvent(QContextMenuEvent.Reason.Mouse, point, widget.mapToGlobal(point))
+        QApplication.sendEvent(widget, event)
+
+    _right_click(loose._toggle_button)
+    assert len(asked) == 1 and not reached
+    _right_click(loose._header)
+    assert len(asked) == 2 and not reached
+    _right_click(loose_label)  # en el contenido: ni avisa ni sube a la barra
+    assert len(asked) == 2 and not reached
+    _right_click(holder)  # el fondo de la barra sí tiene su menú
+    assert len(reached) == 1
 
     # --- Dar de alta una sección con la pila ya unida: va a su sitio
     late = _build("three")

@@ -54,6 +54,7 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.13.1 El menú de las secciones, también con el clic derecho en el hueco vacío de la barra.
 1.13.0 Las secciones, en una 'SectionStack' colocada por el modelo de colocación
        ('bind_layout'): lo plegado de cada sección deja de guardarse por catálogo
        ('save_state' ya no lleva 'sections').
@@ -94,7 +95,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.13.0"
+__version__ = "1.13.1"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -386,6 +387,8 @@ class CatalogSidebar(QWidget):
         # Lo que sobre queda abajo, vacío: las secciones se apilan arriba
         layout.addWidget(self._stack)
         layout.addStretch(1)
+        # El menú de las secciones (mostrar, ocultar, restaurar), también en ese hueco
+        self._stack.watch_empty_area(content)
 
     def bind_layout(self, model: SectionLayoutModel, mode: str) -> None:
         """Une las secciones al modelo de colocación (orden, visibles y plegadas), para el

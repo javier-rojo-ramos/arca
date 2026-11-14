@@ -11,7 +11,7 @@ Pedido por el autor el 14/11/2026, antes de seguir con Tracks. Diseño y decisio
 
 - ~~**1a. Registro, modelo y persistencia**~~ (hecha el 14/11/2026; sin conectar a las barras).
 - ~~**1b. Las tres barras, colocadas por el modelo**~~ (hecha el 14/11/2026: `SectionStack`; a la vista, igual; lo plegado, importado).
-- **2. Clic derecho en una cabecera** (y en el hueco vacío de la barra): las secciones con casillas para mostrar u ocultar y «Restaurar por defecto».
+- ~~**2. Clic derecho en una cabecera**~~ (hecha el 14/11/2026: también en el hueco vacío de la barra; «Restaurar por defecto» restaura esa barra de ese modo).
 - **3. Arrastrar las cabeceras** para reordenar dentro de la barra.
 - **4. Página «Paneles» en Opciones**: la colocación de cualquier modo y barra, con el mismo modelo; «Restaurar este modo» y «Restaurar todos».
 

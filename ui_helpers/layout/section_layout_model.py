@@ -25,6 +25,8 @@ Uso:
     model.set_visible("image", "dates", False)
     model.set_expanded("image", "dates", False)
     model.reset("image")                               # o 'reset()': todos los modos
+    model.reset("image", Sidebar.LEFT)                 # solo una barra de un modo
+    model.is_default("image", Sidebar.LEFT)            # ¿hay algo que restaurar?
 
 La barra de la señal llega como texto ('Sidebar' es un 'StrEnum': se puede comparar con
 'Sidebar.LEFT' directamente).
@@ -32,6 +34,7 @@ La barra de la señal llega como texto ('Sidebar' es un 'StrEnum': se puede comp
 'config' es cualquier objeto con 'get(clave, defecto)' y 'set(clave, valor)' (como
 'config.app_config.config'): así la autoprueba no toca el settings.json de verdad.
 
+1.2.0 'reset' de una sola barra de un modo e 'is_default' (fase 2).
 1.1.0 La primera vez, recoge lo plegado guardado con el formato anterior (fase 1b).
 1.0.0 Primera versión (14/11/2026).
 
@@ -39,7 +42,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m ui_helpers.layout.section_layout_model
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["SectionLayoutModel"]
 
 # Librerías estándar
@@ -194,17 +197,20 @@ class SectionLayoutModel(QObject):
         changed = self._layout.set_expanded(mode, section_id, expanded)
         return self._changed(mode, section_id, changed)
 
-    def reset(self, mode: str | None = None) -> bool:
-        """Restaura la colocación de partida de un modo (None = de todos). Avisa por cada
-        barra de cada modo que cambia."""
-        modes = self._layout.reset(mode)
-        if not modes:
+    def reset(self, mode: str | None = None, sidebar: Sidebar | None = None) -> bool:
+        """Restaura la colocación de partida de un modo (None = de todos) y de una barra
+        (None = de las dos). Avisa por cada barra de cada modo que cambia."""
+        changed = self._layout.reset(mode, sidebar)
+        if not changed:
             return False
         self._save()
-        for changed_mode in modes:
-            for sidebar in Sidebar:
-                self.layout_changed.emit(changed_mode, sidebar.value)
+        for changed_mode, changed_sidebar in changed:
+            self.layout_changed.emit(changed_mode, changed_sidebar.value)
         return True
+
+    def is_default(self, mode: str, sidebar: Sidebar) -> bool:
+        """True si esa barra de ese modo está como de partida (nada que restaurar)."""
+        return self._layout.is_default(mode, sidebar)
 
     # -------------------------------------------------------------------------
     # Interno
@@ -302,8 +308,17 @@ if __name__ == "__main__":
     assert model.reset("image") is False and len(seen) == 2
     # Restaurar todos: solo avisa de los que cambian
     seen.clear()
-    assert model.reset() is True and seen == [("catalog", "left"), ("catalog", "right")]
+    assert model.reset() is True and seen == [("catalog", "left")]
     assert model.reset() is False
+    # Restaurar una sola barra de un modo
+    model.set_visible("image", "dates", False)
+    model.set_expanded("image", "metadata", False)
+    seen.clear()
+    assert not model.is_default("image", Sidebar.LEFT)
+    assert model.reset("image", Sidebar.LEFT) is True and seen == [("image", "left")]
+    assert model.is_default("image", Sidebar.LEFT) and not model.is_default("image", Sidebar.RIGHT)
+    assert model.entry("image", "metadata").expanded is False
+    assert model.reset() is True
 
     # --- Lo guardado ilegible o de otra versión: de partida, sin error
     for bad in ("roto", {"version": 99, "modes": {}}, []):

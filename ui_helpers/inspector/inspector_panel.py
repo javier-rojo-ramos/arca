@@ -39,6 +39,7 @@ Las secciones que no tienen nada que mostrar para lo seleccionado se ocultan ent
 El título de cada sección puede cambiar con lo que se ve ('InspectorSection.title_for'):
 p. ej. «SELECCIÓN» con algo seleccionado y «SELECCIÓN (VISTA ACTUAL)» sin selección.
 
+1.7.1 El menú de las secciones, también con el clic derecho en el hueco vacío del panel.
 1.7.0 Las secciones, en una 'SectionStack' colocada por el modelo de colocación, por modo
       ('bind_layout', 'set_layout_mode'); lo plegado ya no se guarda aquí (antes, en
       'inspector_sections'). Al volver a verse una sección oculta, pide sus datos.
@@ -64,7 +65,7 @@ El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.p
 nombres de objeto 'scroll_inspector', 'widget_inspector_content' y los 'lbl_inspector_*'.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.7.1"
 __all__ = ["DEFAULT_SECTIONS", "InspectorPanel"]
 
 # Librerías estándar
@@ -183,6 +184,8 @@ class InspectorPanel(QWidget):
 
         layout.addWidget(self._stack)
         layout.addStretch(1)  # las secciones arriba, el hueco abajo
+        # El menú de las secciones (mostrar, ocultar, restaurar), también en ese hueco
+        self._stack.watch_empty_area(content)
         self.show_no_catalog()
 
     # -------------------------------------------------------------------------

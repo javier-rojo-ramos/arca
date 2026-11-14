@@ -37,6 +37,7 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula; lo une
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
 'scroll_image_sidebar' y 'widget_image_sidebar_content' (y los de cada sección).
 
+2.2.1 El menú de las secciones, también con el clic derecho en el hueco vacío de la barra.
 2.2.0 Las secciones, en una 'SectionStack' colocada por el modelo de colocación
       ('bind_layout'): lo plegado de cada sección deja de guardarse por catálogo
       ('save_state' ya no lleva 'sections').
@@ -75,7 +76,7 @@ El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres 
       también el árbol con casillas del inspector (paso K4b).
 """
 
-__version__ = "2.2.0"
+__version__ = "2.2.1"
 __all__ = ["ALL_IMAGES", "IMAGE_QUICK", "LIBRARY", "ImageSidebar"]
 
 # Librerías estándar
@@ -186,6 +187,8 @@ class ImageSidebar(QWidget):
             self._stack.add_section(key, section)
         layout.addWidget(self._stack)
         layout.addStretch(1)
+        # El menú de las secciones (mostrar, ocultar, restaurar), también en el hueco vacío
+        self._stack.watch_empty_area(content)
 
         # Una sola fila elegida en toda la barra; al rehacer un árbol, la elegida se marca
         self._views: list[SidebarTreeView] = [self._library_view]

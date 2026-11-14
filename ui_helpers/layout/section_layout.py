@@ -36,15 +36,19 @@ Uso:
     layout.set_visible("image", "dates", False)
     layout.set_expanded("image", "dates", False)
     layout.reset("image")                          # o 'reset()' para todos los modos
+    layout.reset("image", Sidebar.LEFT)            # solo una barra de un modo
+    layout.is_default("image", Sidebar.LEFT)       # True si está como de partida
     saved = layout.to_state()
 
+1.1.0 'reset' de una sola barra de un modo (devuelve los pares (modo, barra) que cambian) e
+      'is_default' (fase 2: «Restaurar por defecto» del menú de las cabeceras).
 1.0.0 Primera versión (14/11/2026).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_layout
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["LAYOUT_VERSION", "SectionEntry", "SectionLayout"]
 
 # Librerías estándar
@@ -136,14 +140,19 @@ class SectionLayout:
         """Despliega o pliega una sección en ese modo."""
         return self._replace(mode, section_id, expanded=bool(expanded))
 
-    def reset(self, mode: str | None = None) -> tuple[str, ...]:
+    def reset(
+        self, mode: str | None = None, sidebar: Sidebar | None = None
+    ) -> tuple[tuple[str, Sidebar], ...]:
         """Vuelve a la colocación de partida del registro.
 
         Args:
             mode: El modo que se restaura; None = todos.
+            sidebar: La barra que se restaura; None = las dos. (Vale mientras cada sección
+                sea de una sola barra, como hoy: si un día se mueven entre barras, restaurar
+                solo una tendría que recoger también las suyas que estén en la otra.)
 
         Returns:
-            Los modos que han cambiado.
+            Los pares (modo, barra) que han cambiado.
         """
         keys = self._registry.mode_keys()
         changed = []
@@ -151,10 +160,17 @@ class SectionLayout:
             if key not in keys:
                 continue
             default = self._default_mode(key)
-            if self._modes.get(key) != default:
-                self._modes[key] = default
-                changed.append(key)
+            current = self._modes.setdefault(key, {side: [] for side in Sidebar})
+            for side in Sidebar if sidebar is None else (sidebar,):
+                if current[side] != default[side]:
+                    current[side] = default[side]
+                    changed.append((key, side))
         return tuple(changed)
+
+    def is_default(self, mode: str, sidebar: Sidebar) -> bool:
+        """True si esa barra de ese modo está como de partida (orden, visibles y
+        desplegadas): no hay nada que restaurar."""
+        return list(self.entries(mode, sidebar)) == self._default_mode(mode)[sidebar]
 
     # -------------------------------------------------------------------------
     # Guardar y cargar
@@ -401,10 +417,20 @@ if __name__ == "__main__":
 
     # --- Restaurar: un modo o todos
     layout.move("b", "three", 0)
-    assert layout.reset("a") == ("a",) and _ids(layout, "a") == ["one", "two", "three"]
+    assert not layout.is_default("a", Sidebar.LEFT) and not layout.is_default("a", Sidebar.RIGHT)
+    assert layout.is_default("b", Sidebar.RIGHT)
+    # ...solo una barra: la otra se queda como estaba
+    assert layout.reset("a", Sidebar.RIGHT) == (("a", Sidebar.RIGHT),)
+    assert layout.entry("a", "info").expanded is True and _ids(layout, "a") == ["two", "one", "three"]
+    assert layout.is_default("a", Sidebar.RIGHT) and layout.reset("a", Sidebar.RIGHT) == ()
+    layout.set_expanded("a", "info", False)
+    both_sides = (("a", Sidebar.LEFT), ("a", Sidebar.RIGHT))
+    assert layout.reset("a") == both_sides and _ids(layout, "a") == ["one", "two", "three"]
+    assert layout.is_default("a", Sidebar.LEFT)
     assert layout.entry("a", "one").visible is True and _ids(layout, "b") == ["three", "one", "two"]
     assert layout.reset("a") == () and layout.reset("zzz") == ()
     layout.set_expanded("a", "two", False)
-    assert layout.reset() == ("a", "b") and layout.to_state() == default_state
+    assert layout.reset() == (("a", Sidebar.LEFT), ("b", Sidebar.LEFT))
+    assert layout.to_state() == default_state
 
     print("Autoprueba finalizada correctamente.")

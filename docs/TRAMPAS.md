@@ -25,6 +25,10 @@
 
 - **Un widget sin foco no basta para no quitarle el teclado a otro**: al pulsar un widget `NoFocus`, Qt da el foco al primer contenedor de más arriba que lo acepte (p. ej. el `QScrollArea` de una barra). Para que un clic en las barras deje el teclado en las fotos, los árboles Y sus áreas con desplazamiento son `NoFocus`.
 
+- **El clic derecho sube de hijo a padre hasta que alguien tiene menú** (14/11/2026): un widget sin menú propio (una etiqueta, un árbol sin `CustomContextMenu`) pasa el clic derecho a su padre, y así hasta el fondo de la barra, que abre el menú de las secciones. Por eso el cuerpo de `CollapsibleSection` lleva `PreventContextMenu`: lo corta ahí. Si un contenido nuevo necesita menú, se lo pone él (`CustomContextMenu`); no llegará al de la barra.
+
+- **Una prueba sin ventana no puede enviar un clic derecho a algo con menú** (14/11/2026): `menu.exec()` se queda esperando para siempre (no hay quien lo cierre). Probar lo que construye el menú (`SectionStack.build_menu` y `action.trigger()`), no el clic; y, al enviar `QContextMenuEvent`, saltarse los widgets con `CustomContextMenu`.
+
 ## ExifTool y escritura en los archivos
 
 - ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.

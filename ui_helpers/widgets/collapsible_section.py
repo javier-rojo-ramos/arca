@@ -15,16 +15,19 @@ El aspecto (fondo de la cabecera, negrita...) se define en la hoja de estilos gl
     - QFrame#frame_section_header     la barra de la cabecera
     - QToolButton#btn_section_header  la flecha + el título
 
+1.3.0 Señal 'header_menu_requested': clic derecho en la cabecera (el menú lo pone quien la
+      usa: 'SectionStack', con las secciones para mostrar u ocultar). El clic derecho en un
+      hueco del contenido no hace nada (no se pasa a la barra).
 1.2.0 'set_title': cambiar el título después de crearla (p. ej. «SELECCIÓN (VISTA ACTUAL)»).
 1.1.0 Título en mayúsculas. Los botones de la cabecera se alinean a la derecha con los
       contadores de los árboles ('HEADER_RIGHT_MARGIN').
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["HEADER_RIGHT_MARGIN", "CollapsibleSection"]
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import Qt, Signal
+from qtpy.QtCore import QPoint, Qt, Signal
 from qtpy.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -45,9 +48,12 @@ class CollapsibleSection(QWidget):
 
     Signals:
         toggled(bool): la sección se ha desplegado (True) o plegado (False).
+        header_menu_requested(QPoint): clic derecho en la cabecera (en cualquier punto,
+            también sobre sus botones); lleva la posición en la pantalla.
     """
 
     toggled = Signal(bool)
+    header_menu_requested = Signal(QPoint)
 
     def __init__(
         self, title: str, parent: QWidget | None = None, *, expanded: bool = True
@@ -72,6 +78,12 @@ class CollapsibleSection(QWidget):
         # --- Cabecera: [▼ Título ............ (botones)] ---
         self._header = QFrame(self)
         self._header.setObjectName("frame_section_header")
+        # Clic derecho en la cabecera: se avisa (el botón del título y los de la derecha no
+        # tienen menú propio, así que el suyo también llega aquí)
+        self._header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._header.customContextMenuRequested.connect(
+            lambda position: self.header_menu_requested.emit(self._header.mapToGlobal(position))
+        )
         header_layout = QHBoxLayout(self._header)
         header_layout.setContentsMargins(2, 0, HEADER_RIGHT_MARGIN, 0)
         header_layout.setSpacing(2)
@@ -100,6 +112,10 @@ class CollapsibleSection(QWidget):
 
         # --- Contenido ---
         self._body = QWidget(self)
+        # El clic derecho en un hueco del contenido se queda aquí: no sube a la barra (que
+        # abriría el menú de las secciones, reservado a las cabeceras y al hueco de abajo).
+        # Los menús propios del contenido (árboles, cajas de texto) no cambian
+        self._body.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
         self._body_layout = QVBoxLayout(self._body)
         self._body_layout.setContentsMargins(0, 2, 0, 6)  # un poco de aire debajo
         self._body_layout.setSpacing(0)
