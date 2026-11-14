@@ -14,6 +14,14 @@ Metadatos (sección «Metadatos»), como los muestra Lightroom pero con coma dec
     fotogramas    '29,97 fps'                  códec          'HEVC (H.265)'
     fecha         '19/10/2026 18:44:05'
 
+Tracks (sección «Track»):
+    distancia     '850 m', '14,5 km'           desnivel       '↑ 850 m   ↓ 830 m'
+    altitud       '1.200 – 2.100 m'            velocidad      '2,6 km/h'
+    número        '2.566'
+
+1.6.0 Formatos de los tracks: 'format_distance', 'format_elevation_change',
+      'format_altitude_range', 'format_speed' y 'format_count'.
+
 1.5.0 'MONTH_NAMES' y 'WEEKDAY_NAMES': los nombres de los meses y de los días, para las
       fechas en árbol (columna «Fecha de captura» de «Metadatos» y sección «Fechas» de la
       barra de Imagen).
@@ -26,7 +34,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.formatting
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = [
     "DATE_SOURCE_TEXTS",
     "EXPOSURE_PROGRAMS",
@@ -35,15 +43,19 @@ __all__ = [
     "MONTH_NAMES",
     "WEEKDAY_NAMES",
     "format_altitude",
+    "format_altitude_range",
     "format_bytes_exact",
     "format_camera",
     "format_codec",
+    "format_count",
     "format_date",
     "format_date_range",
     "format_datetime",
     "format_dimensions",
     "format_direction",
+    "format_distance",
     "format_duration",
+    "format_elevation_change",
     "format_exposure",
     "format_exposure_exact",
     "format_exposure_bias",
@@ -54,6 +66,7 @@ __all__ = [
     "format_media_types",
     "format_shutter",
     "format_size",
+    "format_speed",
     "media_type_count",
 ]
 
@@ -415,6 +428,50 @@ def format_duration(seconds: float | None) -> str:
     return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
 
 
+def format_count(number: int) -> str:
+    """Un número entero con punto de miles: '2.566'."""
+    return _decimal(number, 0)
+
+
+def format_distance(meters: float | None) -> str:
+    """'850 m' por debajo de un kilómetro; '14,5 km' a partir de ahí."""
+    if meters is None or meters < 0:
+        return ""
+    if meters < 1000:
+        return f"{round(meters)} m"
+    return f"{_decimal(meters / 1000, 1)} km"
+
+
+def format_elevation_change(gain: float | None, loss: float | None) -> str:
+    """Desnivel acumulado de subida y de bajada: '↑ 850 m   ↓ 830 m' (lo que falte, no sale)."""
+    parts = []
+    if gain is not None:
+        parts.append(f"↑ {_decimal(gain, 0)} m")
+    if loss is not None:
+        parts.append(f"↓ {_decimal(loss, 0)} m")
+    return "   ".join(parts)
+
+
+def format_altitude_range(lowest: float | None, highest: float | None) -> str:
+    """Altitud mínima y máxima: '1.200 – 2.100 m' (si son la misma, '1.200 m')."""
+    if lowest is None or highest is None:
+        return ""
+
+    def text(meters: float) -> str:
+        return ("−" if round(meters) < 0 else "") + _decimal(abs(round(meters)), 0)
+
+    if round(lowest) == round(highest):
+        return f"{text(lowest)} m"
+    return f"{text(lowest)} – {text(highest)} m"
+
+
+def format_speed(kmh: float | None) -> str:
+    """'2,6 km/h'."""
+    if kmh is None or kmh < 0:
+        return ""
+    return f"{_decimal(kmh, 1)} km/h"
+
+
 def format_frame_rate(fps: float | None) -> str:
     """'29,97 fps', '30 fps'."""
     return f"{_trimmed(fps, 2)} fps" if fps else ""
@@ -493,5 +550,16 @@ if __name__ == "__main__":
     ]
     assert format_duration(15.38) == "0:15" and format_duration(5182) == "1:26:22"
     assert format_frame_rate(29.9772) == "29,98 fps" and format_frame_rate(30.0) == "30 fps"
+    # Tracks
+    assert format_count(2566) == "2.566" and format_count(7) == "7"
+    assert format_distance(849.6) == "850 m" and format_distance(999.4) == "999 m"
+    assert format_distance(1000) == "1,0 km" and format_distance(14460) == "14,5 km"
+    assert format_distance(123456) == "123,5 km" and format_distance(None) == ""
+    assert format_elevation_change(850.4, 1230.0) == "↑ 850 m   ↓ 1.230 m"
+    assert format_elevation_change(None, None) == "" and format_elevation_change(12, None) == "↑ 12 m"
+    assert format_altitude_range(1200.4, 2100.2) == "1.200 – 2.100 m"
+    assert format_altitude_range(-12.3, 40) == "−12 – 40 m" and format_altitude_range(5, 5.2) == "5 m"
+    assert format_altitude_range(None, 5) == ""
+    assert format_speed(2.61) == "2,6 km/h" and format_speed(None) == ""
     assert format_codec("hvc1") == "HEVC (H.265)" and format_codec("xyz") == "xyz"
     print("Autoprueba finalizada correctamente.")

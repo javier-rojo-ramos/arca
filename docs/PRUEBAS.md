@@ -43,6 +43,7 @@ python -m core.catalog.libraries
 python -m core.catalog.media_detector
 python -m core.catalog.geotagging                              (ubicar, mover y quitar recordando lo de antes; deshacer)
 python -m core.catalog.map_queries                             (el mapa ve lo mismo que la cuadrícula; 20 000 puntos)
+python -m core.catalog.track_stats                             (datos de los tracks seleccionados: uno, varios, ruta planificada, lo que no es un track)
 python -m core.catalog.media_queries
 python -m core.catalog.media_removal                           (papelera simulada: nunca toca la del sistema)
 python -m core.catalog.metadata_values                         (cada fila filtra lo que cuenta)

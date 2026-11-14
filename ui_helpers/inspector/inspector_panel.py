@@ -5,6 +5,8 @@ plegables una debajo de otra dentro de un área con desplazamiento. Cada secció
 'InspectorSection' (ver 'base_section.py'):
 
     ▼ SELECCIÓN     nombre, carpeta, tamaño, fecha, biblioteca y estado (selection_section.py)
+    ▼ TRACK         distancia, desnivel, altitud, duración... de los tracks seleccionados
+                    (track_section.py; solo si todo es de la biblioteca Tracks)
     ▼ PALABRAS CLAVE  la caja para verlas y escribirlas, con cualquier selección
                     (keyword_editor_section.py)
     ▼ LISTA DE PALABRAS CLAVE  el árbol con casillas, siempre (keyword_list_section.py)
@@ -39,6 +41,7 @@ Las secciones que no tienen nada que mostrar para lo seleccionado se ocultan ent
 El título de cada sección puede cambiar con lo que se ve ('InspectorSection.title_for'):
 p. ej. «SELECCIÓN» con algo seleccionado y «SELECCIÓN (VISTA ACTUAL)» sin selección.
 
+1.8.0 Sección «Track» (debajo de «Selección»).
 1.7.1 El menú de las secciones, también con el clic derecho en el hueco vacío del panel.
 1.7.0 Las secciones, en una 'SectionStack' colocada por el modelo de colocación, por modo
       ('bind_layout', 'set_layout_mode'); lo plegado ya no se guarda aquí (antes, en
@@ -65,7 +68,7 @@ El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.p
 nombres de objeto 'scroll_inspector', 'widget_inspector_content' y los 'lbl_inspector_*'.
 """
 
-__version__ = "1.7.1"
+__version__ = "1.8.0"
 __all__ = ["DEFAULT_SECTIONS", "InspectorPanel"]
 
 # Librerías estándar
@@ -83,6 +86,7 @@ from ui_helpers.inspector.keyword_editor_section import KeywordEditorSection
 from ui_helpers.inspector.keyword_list_section import KeywordListSection
 from ui_helpers.inspector.metadata_section import MetadataSection
 from ui_helpers.inspector.selection_section import SelectionSection
+from ui_helpers.inspector.track_section import TrackSection
 from ui_helpers.layout.section_layout_model import SectionLayoutModel
 from ui_helpers.layout.section_registry import Sidebar
 from ui_helpers.widgets.collapsible_section import CollapsibleSection
@@ -93,6 +97,7 @@ from ui_helpers.widgets.section_stack import SectionStack
 # y registrar su 'key' en 'ui_helpers/layout/section_registry.py' (barra derecha)
 DEFAULT_SECTIONS: tuple[Callable[[QWidget], InspectorSection], ...] = (
     SelectionSection,
+    TrackSection,           # solo si todo es de la biblioteca Tracks
     KeywordEditorSection,   # la caja de texto (con cualquier selección)
     KeywordListSection,     # el árbol con casillas (siempre)
     MetadataSection,        # solo si todo es de la biblioteca Imagen

@@ -388,7 +388,7 @@ if __name__ == "__main__":
     # --- «Aceptar»: al modelo, que guarda una vez y avisa de cada barra que cambia
     assert page.save() == {SETTING_SECTION_LAYOUT}
     assert _model_ids(Sidebar.LEFT) == ["folders", "keywords", "dates", "library"]
-    assert _model_ids(Sidebar.RIGHT)[:2] == ["keyword_editor", "selection"]
+    assert _model_ids(Sidebar.RIGHT)[:2] == ["track", "selection"]
     assert model.entry("image", "folders").visible is False and model.entry("image", "dates").visible
     assert model.entry("catalog", "catalog").visible is False
     assert model.entry("image", "metadata").expanded is False  # lo plegado se conserva

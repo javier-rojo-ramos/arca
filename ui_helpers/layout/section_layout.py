@@ -324,7 +324,8 @@ if __name__ == "__main__":
     app = SectionLayout(SECTION_REGISTRY)
     assert _ids(app, "catalog") == ["catalog", "folders", "collections"]
     assert _ids(app, "image") == ["library", "folders", "dates", "keywords"]
-    assert _ids(app, "image", Sidebar.RIGHT) == ["selection", "keyword_editor", "keyword_list", "metadata"]
+    assert _ids(app, "image", Sidebar.RIGHT) == [
+        "selection", "track", "keyword_editor", "keyword_list", "metadata"]  # fmt: skip
     assert all(e.visible and e.expanded for e in app.entries("image", Sidebar.LEFT))
     assert app.entries("no_existe", Sidebar.LEFT) == ()
     # Sin cambios, cargar lo guardado da lo mismo; y lo guardado cabe en JSON

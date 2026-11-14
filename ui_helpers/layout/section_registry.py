@@ -40,6 +40,7 @@ Uso:
     SECTION_REGISTRY.defaults("image", Sidebar.LEFT)  # sus secciones, en el orden de partida
     SECTION_REGISTRY.get("folders").title_for("image")
 
+1.3.0 Sección «Track» del inspector (entre «Selección» y «Palabras clave»).
 1.2.0 Las secciones de la barra del módulo Tracks: «Biblioteca - Tracks», «Carpetas» y
       «Fechas» (las mismas 'library', 'folders' y 'dates' de Imagen).
 1.1.0 Modo 'tracks' (módulo provisional: de momento, solo con las secciones del inspector).
@@ -50,7 +51,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_registry
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "LEFT",
     "RIGHT",
@@ -238,6 +239,8 @@ def _build_default_registry() -> SectionRegistry:
     # 'key' de cada 'InspectorSection'. Que se vean depende además de lo seleccionado
     # ('InspectorSection.fits' y 'applies_to')
     registry.register(SectionSpec("selection", "Selección", RIGHT, 100))
+    # Los datos del recorrido: solo sale con tracks seleccionados (en cualquier modo)
+    registry.register(SectionSpec("track", "Track", RIGHT, 150))
     registry.register(SectionSpec("keyword_editor", "Palabras clave", RIGHT, 200))
     registry.register(SectionSpec("keyword_list", "Lista de palabras clave", RIGHT, 300))
     registry.register(SectionSpec("metadata", "Metadatos", RIGHT, 400))
@@ -263,7 +266,7 @@ if __name__ == "__main__":
     assert _ids(reg, "video", Sidebar.LEFT) == []  # módulo provisional: sin barra propia
     assert _ids(reg, "tracks", Sidebar.LEFT) == ["library", "folders", "dates"]
     assert reg.get("library").title_for("tracks") == "Biblioteca - Tracks"
-    inspector = ["selection", "keyword_editor", "keyword_list", "metadata"]
+    inspector = ["selection", "track", "keyword_editor", "keyword_list", "metadata"]
     for mode_key in reg.mode_keys():
         assert _ids(reg, mode_key, Sidebar.RIGHT) == inspector, mode_key
     assert reg.get("library").title_for("image") == "Biblioteca - Imagen"
