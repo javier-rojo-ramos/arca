@@ -21,7 +21,7 @@ Este módulo solo declara: no tiene lógica que probar (sin autoprueba).
       la edición de tracks se añadirá con la fase 7.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["MapBackend"]
 
 # Librerías estándar
@@ -34,7 +34,14 @@ from qtpy.QtWidgets import QWidget
 
 # Módulos del proyecto
 from core.maps.tile_layers import TileLayer
-from ui_helpers.map.map_types import MapBounds, MapMarker, MapMode, MapTrack, MapViewport
+from ui_helpers.map.map_types import (
+    MapBounds,
+    MapMarker,
+    MapMode,
+    MapTrack,
+    MapViewport,
+    MapWaypoint,
+)
 
 
 class MapBackend(QWidget):
@@ -114,6 +121,11 @@ class MapBackend(QWidget):
 
     def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
         """Señala un punto de un track (None = quitar la señal)."""
+        raise NotImplementedError
+
+    def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:
+        """Los puntos de interés que se ven (los del track activo); vacío = ninguno. Solo
+        se miran: su nombre sale al pasar el ratón."""
         raise NotImplementedError
 
     # --- Encuadre ---

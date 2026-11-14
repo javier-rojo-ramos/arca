@@ -112,6 +112,19 @@ html, body, #map {
   border-radius: 50%;
 }
 
+/* Punto de interés de un track (waypoint): un rombo pequeño, con el borde del color del
+   track activo sobre un fondo claro, para que se lea sobre cualquier mapa */
+.arca-waypoint i {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  background: var(--arca-track-halo);
+  border: 2px solid var(--arca-track-active);
+  transform: rotate(45deg);
+  box-shadow: 0 0 3px var(--arca-shadow);
+}
+
 /* Con el punto del track bajo el ratón, el cursor se oculta (el punto hace de cursor) */
 .arca-hide-cursor,
 .arca-hide-cursor * {

@@ -15,6 +15,9 @@ Qué hace (docs/MAPA.md, paso 4.3):
       catálogo) pero no se pinta.
     - Si el archivo no está (ausente, disco desconectado) o no se puede leer, el track se
       queda con su contorno: se ve igual, con menos detalle. Se anota en el registro.
+    - Con el recorrido van los PUNTOS DE INTERÉS del GPX (waypoints; paso 4.3b): se ven
+      los del track activo y solo esos ('MapView.set_waypoints'); al elegir otro track, o
+      ninguno, los anteriores se quitan al momento.
 
 La usa 'MapController', que decide cuál es el track activo. No toca la selección ni el
 encuadre.
@@ -25,18 +28,26 @@ Uso:
     detail.show(view, track_id, "Ordesa")   # al pasar a ser el activo
     detail.detach()                         # al cerrarlo (olvida la memoria)
 
+1.1.0 Los puntos de interés del track activo, con su recorrido (paso 4.3b).
 1.0.0 Primera versión (14/11/2026).
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.track_detail_controller
 """
 
-__version__ = "1.0.0"
-__all__ = ["CACHE_SIZE", "TrackDetailController", "load_track_path", "path_segments"]
+__version__ = "1.1.0"
+__all__ = [
+    "CACHE_SIZE",
+    "TrackDetailController",
+    "load_track_path",
+    "path_segments",
+    "path_waypoints",
+]
 
 # Librerías estándar
 import sqlite3
 from collections import OrderedDict
+from collections.abc import Sequence
 from functools import partial
 from typing import Any, Protocol
 
@@ -50,7 +61,7 @@ from qtpy.QtCore import QObject
 from core.catalog.media_queries import AVAILABLE, fetch_media_file
 from core.metadata.track.gpx_reader import GpxError
 from core.tracks.gpx_document import TrackPath, read_gpx_path
-from ui_helpers.map.map_types import MapTrack
+from ui_helpers.map.map_types import MapTrack, MapWaypoint, is_valid_position
 
 # Recorridos completos que se guardan en memoria (los últimos leídos): volver a un track
 # visto hace poco no relee su archivo
@@ -61,6 +72,8 @@ class _TrackView(Protocol):
     """Lo que se necesita del mapa ('MapView' lo cumple)."""
 
     def set_track_geometry(self, track: MapTrack) -> None: ...
+
+    def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None: ...
 
 
 def load_track_path(conn: sqlite3.Connection, track_id: int) -> TrackPath | None:
@@ -85,6 +98,16 @@ def path_segments(path: TrackPath) -> tuple[tuple[tuple[float, float], ...], ...
     longitud)."""
     return tuple(
         tuple(zip(segment.latitudes, segment.longitudes, strict=True)) for segment in path.segments
+    )
+
+
+def path_waypoints(path: TrackPath) -> tuple[MapWaypoint, ...]:
+    """Los puntos de interés de un recorrido, como los quiere el mapa (los que estén en
+    0, 0, que el mapa toma por «sin coordenadas», se dejan fuera)."""
+    return tuple(
+        MapWaypoint(w.latitude, w.longitude, w.name or "", w.description or "")
+        for w in path.waypoints
+        if is_valid_position(w.latitude, w.longitude)
     )
 
 
@@ -123,10 +146,15 @@ class TrackDetailController(QObject):
     def show(self, view: _TrackView, track_id: int | None, name: str = "") -> None:
         """El track activo es 'track_id' (None = ninguno): su recorrido completo, al mapa
         en cuanto se tenga."""
+        changed = track_id != self._wanted
         self._wanted = track_id
+        path = self._cache.get(track_id) if track_id is not None and self._db is not None else None
+        if path is None and changed:
+            # Otro track (o ninguno) y aún sin su recorrido: fuera los puntos de interés
+            # del anterior; los suyos llegarán con su recorrido
+            view.set_waypoints(())
         if track_id is None or self._db is None:
             return
-        path = self._cache.get(track_id)
         if path is not None:
             self._cache.move_to_end(track_id)  # el más reciente
             self._apply(view, track_id, name, path)
@@ -170,8 +198,10 @@ class TrackDetailController(QObject):
 
     @staticmethod
     def _apply(view: _TrackView, track_id: int, name: str, path: TrackPath) -> None:
-        """Cambia en el mapa el contorno del track por su recorrido completo."""
+        """Cambia en el mapa el contorno del track por su recorrido completo, y pone sus
+        puntos de interés."""
         view.set_track_geometry(MapTrack(track_id, name, path_segments(path), detailed=True))
+        view.set_waypoints(path_waypoints(path))
 
 
 if __name__ == "__main__":
@@ -189,8 +219,13 @@ if __name__ == "__main__":
             f'<trkpt lat="{first_latitude + i * 0.001:.3f}" lon="-3.0"><ele>{100 + i}</ele></trkpt>'
             for i in range(count)
         )
+        # Cada GPX, con tantos puntos de interés como puntos tiene su primer segmento
+        marks = "".join(
+            f'<wpt lat="{first_latitude + i * 0.001:.3f}" lon="-3.0"><name>W{i}</name></wpt>'
+            for i in range(count)
+        )
         return (
-            '<gpx version="1.1" creator="x"><trk><trkseg>'
+            f'<gpx version="1.1" creator="x">{marks}<trk><trkseg>'
             f"{points}</trkseg><trkseg><trkpt lat=\"50\" lon=\"1\"/></trkseg></trk></gpx>"
         )
 
@@ -221,10 +256,16 @@ if __name__ == "__main__":
         def __init__(self) -> None:
             self.shown: list[tuple[int, str, bool, int, int]] = []
 
+            # Los puntos de interés que se ven ahora (None = nadie los ha puesto aún)
+            self.waypoints: list[str] | None = None
+
         def set_track_geometry(self, track: MapTrack) -> None:
             self.shown.append(
                 (track.track_id, track.name, track.detailed, len(track.segments), track.point_count)
             )
+
+        def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:
+            self.waypoints = [w.name for w in waypoints]
 
         def take(self) -> list:
             shown, self.shown = self.shown, []
@@ -263,6 +304,8 @@ if __name__ == "__main__":
         assert path_segments(loaded) == (((41.0, -3.0), (41.001, -3.0), (41.002, -3.0)), ((50.0, 1.0),))
         for missing in (8, 9, 10, 999):
             assert load_track_path(conn, missing) is None, missing
+        assert [(w.name, w.latitude) for w in path_waypoints(loaded)] == [
+            ("W0", 41.0), ("W1", 41.001), ("W2", 41.002)]  # fmt: skip
 
         db = _FakeDb(conn)
         view = _FakeView()
@@ -278,25 +321,30 @@ if __name__ == "__main__":
         assert db.requests == 1 and view.take() == []  # aún no ha llegado
         detail.show(view, 1, "Uno")
         assert db.requests == 1  # ya se está leyendo: no se pide otra vez
+        assert view.waypoints == []  # mientras llega, sin puntos de interés
         db.deliver()
         assert view.take() == [(1, "Uno", True, 2, 4)]
+        assert view.waypoints == ["W0", "W1", "W2"]  # los suyos, con su recorrido
         # La segunda vez sale de la memoria, al momento
         detail.show(view, 1, "Uno")
         assert db.requests == 1 and view.take() == [(1, "Uno", True, 2, 4)]
 
         # --- Cambiar de track deprisa: solo se pinta el último elegido; los otros, a la memoria
         detail.show(view, 2, "Dos")
+        assert view.waypoints == []  # los del track anterior se quitan al momento
         detail.show(view, 3, "Tres")
         assert db.requests == 3
         db.deliver()
         assert view.take() == [(3, "Tres", True, 2, 6)]
+        assert view.waypoints == ["W0", "W1", "W2", "W3", "W4"]  # los del 3, no los del 2
         detail.show(view, 2, "Dos")
         assert db.requests == 3 and view.take() == [(2, "Dos", True, 2, 5)]
+        assert view.waypoints == ["W0", "W1", "W2", "W3"]
         # Ningún track activo: lo que llegue después no se pinta
         detail.show(view, 4, "Cuatro")
         detail.show(view, None)
         db.deliver()
-        assert view.take() == []
+        assert view.take() == [] and view.waypoints == []
 
         # --- Lo que no se puede leer se queda con su contorno (y se puede volver a pedir)
         for missing in (8, 9, 10):

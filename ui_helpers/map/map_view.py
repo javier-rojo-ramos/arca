@@ -28,6 +28,7 @@ Mover una foto: el mapa avisa con 'markers_moved' y la deja donde se soltó; qui
 guarda el cambio y lo confirma con 'update_markers' (o, si no se puede, la devuelve a
 su sitio con 'update_markers' y sus coordenadas de antes).
 
+1.3.0 'set_waypoints': los puntos de interés del track activo (paso 4.3b).
 1.2.3 La autoprueba ejecuta la función de la página que busca el punto de un track más
       cercano al ratón ('arcaNearestOnPath' de 'resources/map/arca_map.js'), sin el mapa.
 1.2.2 Ventana de prueba: las tarjetas se arrastran SIN imagen; sobre el mapa solo se ve el
@@ -46,7 +47,7 @@ Con el mapa de verdad (abre una ventana y se queda abierta):
     python -m ui_helpers.map.map_view --ventana
 """
 
-__version__ = "1.2.3"
+__version__ = "1.3.0"
 __all__ = ["MapView"]
 
 # Librerías estándar
@@ -63,7 +64,14 @@ from qtpy.QtWidgets import QVBoxLayout, QWidget
 # Módulos del proyecto
 from core.maps.tile_layers import DEFAULT_LAYER_KEY, TILE_LAYERS, TileLayer
 from ui_helpers.map.map_backend import MapBackend
-from ui_helpers.map.map_types import MapBounds, MapMarker, MapTrack, MapViewport, bounds_of
+from ui_helpers.map.map_types import (
+    MapBounds,
+    MapMarker,
+    MapTrack,
+    MapViewport,
+    MapWaypoint,
+    bounds_of,
+)
 
 
 class MapView(QWidget):
@@ -126,6 +134,7 @@ class MapView(QWidget):
         self._active_track: int | None = None
         self._drop_enabled = False
         self._preview: tuple[MapMarker, ...] = ()
+        self._waypoints: tuple[MapWaypoint, ...] = ()
         self._layers: tuple[TileLayer, ...] = TILE_LAYERS
         self._layer_key = DEFAULT_LAYER_KEY
         # Último encuadre pedido antes de estar listo: ("bounds", rectángulo, animar) o
@@ -270,6 +279,20 @@ class MapView(QWidget):
         if self._ready and track_id in self._tracks:
             self._backend.set_track_cursor(track_id, point_index)
 
+    def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:
+        """Los puntos de interés que se ven (los del track activo); vacío = quitarlos. Solo
+        se miran: su nombre y su descripción salen al pasar el ratón."""
+        waypoints = tuple(waypoints)
+        if waypoints == self._waypoints:
+            return  # lo normal al no haber ninguno: no se molesta a la página
+        self._waypoints = waypoints
+        if self._ready:
+            self._backend.set_waypoints(self._waypoints)
+
+    def waypoints(self) -> tuple[MapWaypoint, ...]:
+        """Los puntos de interés que se ven."""
+        return self._waypoints
+
     # -------------------------------------------------------------------------
     # Encuadre
     # -------------------------------------------------------------------------
@@ -367,6 +390,7 @@ class MapView(QWidget):
         self._tracks = {}
         self._active_track = None
         self._preview = ()
+        self._waypoints = ()
         if self._ready:
             self._backend.clear()
 
@@ -417,6 +441,8 @@ class MapView(QWidget):
             self._backend.set_drop_enabled(True)
         if self._preview:
             self._backend.set_preview_markers(self._preview)
+        if self._waypoints:
+            self._backend.set_waypoints(self._waypoints)
         pending, self._pending_view = self._pending_view, None
         if pending is not None:
             if pending[0] == "bounds":
@@ -485,6 +511,9 @@ def _run_logic_selftest() -> None:
 
         def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
             self.calls.append(("cursor", track_id, point_index))
+
+        def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:
+            self.calls.append(("waypoints", [w.name for w in waypoints]))
 
         def fit_bounds(self, bounds: MapBounds, *, animate: bool = True) -> None:
             self.calls.append(("fit", bounds, animate))
@@ -668,6 +697,20 @@ def _run_logic_selftest() -> None:
     view.set_preview_markers([])
     assert backend.take() == [("drop", False), ("preview", [])]
 
+    # Puntos de interés (los del track activo): se ponen, no se repiten y se quitan
+    spring, summit = MapWaypoint(42.6, 0.0, "Fuente", "agua"), MapWaypoint(42.7, 0.1)
+    view.set_waypoints([spring, summit])
+    view.set_waypoints((spring, summit))  # los mismos: no se vuelve a mandar
+    assert backend.take() == [("waypoints", ["Fuente", ""])] and view.waypoints() == (spring, summit)
+    view.set_waypoints([])
+    view.set_waypoints([])
+    assert backend.take() == [("waypoints", [])] and view.waypoints() == ()
+    try:
+        MapWaypoint(91, 0, "Imposible")
+        raise AssertionError("debía rechazar unas coordenadas imposibles")
+    except ValueError:
+        pass
+
     # 16. Avisos de soltar, mover y botón derecho, reenviados tal cual
     seen.clear()
     view.media_dropped.connect(lambda drag, lat, lon: seen.append(("drop", drag.ids, lat, lon)))
@@ -842,6 +885,16 @@ def _run_window() -> None:
         )
         view.set_active_track(9001)
         view.fit_track(9001)
+        # Puntos de interés del track activo: al principio, a mitad y al final, y uno con
+        # un nombre que parece HTML (debe verse tal cual, como texto)
+        view.set_waypoints(
+            [
+                MapWaypoint(*long_one[0], "Salida", "Aparcamiento"),
+                MapWaypoint(*long_one[3000], "Fuente"),
+                MapWaypoint(*long_one[5999], "<b>Collado</b> & <i>mirador</i>", "Solo descripción"),
+                MapWaypoint(*long_one[-1], "", "Punto sin nombre"),
+            ]
+        )
 
     def on_track_clicked(track_id: int) -> None:
         # Lo que haría el controlador: activar el track pulsado

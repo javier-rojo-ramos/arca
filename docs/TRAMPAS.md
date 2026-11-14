@@ -35,6 +35,10 @@
 
 - **En el mapa, lo que se ve en la ventana de prueba no es lo de la aplicación** (14/11/2026): la ventana de `map_view --ventana` pinta tracks con todos sus puntos; la aplicación, su contorno simplificado (pocos vértices, lejos unos de otros con el zoom cerca). Lo que dependa de la densidad de puntos (el punto bajo el ratón) hay que pensarlo sobre los TRAMOS, no sobre los vértices.
 
+- **En la página del mapa, ningún texto de los archivos como HTML** (14/11/2026): `bindTooltip(texto)` y `bindPopup(texto)` de Leaflet interpretan el texto como HTML, y los nombres salen de los GPX (que pueden venir de cualquier sitio) hacia una página que tiene el puente con Python. Pasarles un elemento hecho con `textContent` (`textBlock` en `arca_map.js`).
+
+- **Girar un marcador de Leaflet lo descoloca** (14/11/2026): Leaflet pone cada marcador en su sitio con un `transform` en su elemento; un `transform` o un `rotate` propios en ese mismo elemento se mezclan con el suyo. El dibujo girado va en un elemento de dentro (el rombo de los waypoints).
+
 ## ExifTool y escritura en los archivos
 
 - ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.

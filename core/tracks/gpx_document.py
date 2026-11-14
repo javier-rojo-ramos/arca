@@ -11,8 +11,8 @@ Ofrece dos lecturas:
 
     read_gpx_path(path) -> TrackPath
         Solo el RECORRIDO, en arrays compactos por segmento (latitud, longitud, altitud y
-        hora de cada punto: 32 bytes por punto). Rápida y ligera: para ver (el mapa y el
-        perfil). Lee en streaming, como el extractor.
+        hora de cada punto: 32 bytes por punto), y los puntos de interés (waypoints).
+        Rápida y ligera: para ver (el mapa y el perfil). Lee en streaming, como el extractor.
 
     read_gpx_document(path) -> GpxDocument
         El archivo ENTERO, para editarlo: los tracks con sus segmentos y sus puntos, los
@@ -56,13 +56,15 @@ Uso:
 Errores: 'GpxError' (el del extractor) si no es un GPX o está dañado; 'FileNotFoundError'
 y 'OSError' si no se puede leer.
 
+1.1.0 'TrackPath.waypoints': la lectura rápida recoge también los puntos de interés, para
+      verlos en el mapa con el track activo (paso 4.3b).
 1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.tracks.gpx_document
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "GpxDocument",
     "GpxTrack",
@@ -136,11 +138,14 @@ class TrackPath:
         segments: Los segmentos con al menos un punto.
         from_route: True si sale de una ruta planificada (<rte>), no de un track grabado.
         skipped_points: Puntos ignorados por no tener una latitud y una longitud válidas.
+        waypoints: Los puntos de interés del archivo (<wpt>) con coordenadas válidas. No
+            son parte del recorrido: no cuentan en 'point_count'.
     """
 
     segments: tuple[PathSegment, ...] = ()
     from_route: bool = False
     skipped_points: int = 0
+    waypoints: "tuple[Waypoint, ...]" = ()
 
     @property
     def point_count(self) -> int:
@@ -350,7 +355,9 @@ class GpxDocument:
                 for point in segment.points:
                     builder.add((point.latitude, point.longitude, point.elevation, point.time))
                 builder.end_segment()
-        return TrackPath(tuple(builder.segments), self.from_route, self.skipped_points)
+        return TrackPath(
+            tuple(builder.segments), self.from_route, self.skipped_points, tuple(self.waypoints)
+        )
 
 
 # -----------------------------------------------------------------------------
@@ -527,6 +534,7 @@ def read_gpx_path(path: str | Path) -> TrackPath:
     """
     track = _PathBuilder()
     route = _PathBuilder()
+    waypoints: list[Waypoint] = []
     depth = 0
     try:
         for event, element in iterparse(str(path), events=("start", "end")):
@@ -548,6 +556,11 @@ def read_gpx_path(path: str | Path) -> TrackPath:
                 route.end_segment()
                 element.clear()
             elif name == "wpt":
+                waypoint = _read_waypoint(element)
+                if waypoint is not None:
+                    # Solo lo que se enseña: sin los demás hijos (se va a soltar el elemento)
+                    waypoint.extra = ()
+                    waypoints.append(waypoint)
                 element.clear()
     except (ParseError, DefusedXmlException) as error:
         raise GpxError(f"El GPX está dañado o no es XML válido ({error}).") from error
@@ -555,7 +568,7 @@ def read_gpx_path(path: str | Path) -> TrackPath:
     # El grabado si tiene puntos; si no, la ruta planificada (como el extractor)
     from_route = track.point_count == 0 and route.point_count > 0
     chosen = route if from_route else track
-    return TrackPath(tuple(chosen.segments), from_route, chosen.skipped)
+    return TrackPath(tuple(chosen.segments), from_route, chosen.skipped, tuple(waypoints))
 
 
 def read_gpx_document(path: str | Path) -> GpxDocument:
@@ -732,6 +745,12 @@ if __name__ == "__main__":
         # El índice de un punto, contando los segmentos seguidos
         assert way.locate(0) == (0, 0) and way.locate(3) == (0, 3) and way.locate(4) == (1, 0)
         assert way.locate(7) == (2, 1)
+        # Los puntos de interés válidos, con lo que se enseña de ellos
+        assert [(w.name, w.latitude, w.longitude) for w in way.waypoints] == [
+            ("Fuente", 43.0, -3.0), ("Cumbre", 43.02, -3.01)]  # fmt: skip
+        assert (way.waypoints[0].description, way.waypoints[0].symbol) == (
+            "Fuente del camino", "Drinking Water")  # fmt: skip
+        assert way.waypoints[0].elevation == 95.5 and way.waypoints[0].extra == ()
         for bad_index in (8, -1):
             try:
                 way.locate(bad_index)
@@ -785,6 +804,7 @@ if __name__ == "__main__":
         # El recorrido del documento es el mismo que el de la lectura rápida
         from_doc = doc.path()
         assert doc.point_count == 8 and from_doc.skipped_points == 2
+        assert [w.name for w in from_doc.waypoints] == ["Fuente", "Cumbre"]
         assert [len(segment) for segment in from_doc.segments] == [4, 2, 2]
         for a, b in zip(from_doc.segments, way.segments, strict=True):
             assert list(a.latitudes) == list(b.latitudes) and list(a.longitudes) == list(b.longitudes)
@@ -815,6 +835,7 @@ if __name__ == "__main__":
         empty.write_text('<gpx version="1.1" creator="x"><trk><trkseg/></trk></gpx>', encoding="utf-8")
         way = read_gpx_path(empty)
         assert way.segments == () and way.point_count == 0 and not way.has_elevation
+        assert way.waypoints == ()
         doc = read_gpx_document(empty)
         assert doc.point_count == 0 and len(doc.tracks) == 1 and not doc.from_route
         assert doc.path().segments == ()

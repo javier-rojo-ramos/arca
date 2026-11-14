@@ -25,7 +25,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.map.map_types
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "HitKind",
     "MapBounds",
@@ -34,6 +34,7 @@ __all__ = [
     "MapMode",
     "MapTrack",
     "MapViewport",
+    "MapWaypoint",
     "SelectionMode",
     "bounds_of",
     "is_valid_position",
@@ -63,6 +64,30 @@ def is_valid_position(latitude: object, longitude: object) -> bool:
     if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0):
         return False
     return not (latitude == 0 and longitude == 0)
+
+
+@dataclass(frozen=True, slots=True)
+class MapWaypoint:
+    """Un punto de interés de un track (un <wpt> de su GPX): solo para verlo.
+
+    Attributes:
+        latitude: Latitud, en grados.
+        longitude: Longitud, en grados.
+        name: Nombre (puede estar vacío).
+        description: Descripción (puede estar vacía).
+    """
+
+    latitude: float
+    longitude: float
+    name: str = ""
+    description: str = ""
+
+    def __post_init__(self) -> None:
+        if not is_valid_position(self.latitude, self.longitude):
+            raise ValueError(
+                f"Coordenadas no válidas en un punto de interés: "
+                f"{self.latitude!r}, {self.longitude!r}"
+            )
 
 
 @dataclass(frozen=True, slots=True)

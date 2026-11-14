@@ -62,13 +62,16 @@ const arca = (() => {
   let dropEnabled = false;       // se pueden soltar tarjetas y arrastrar las fotos sueltas
   let ghost = null;              // señal del punto donde caería una tarjeta arrastrada
   let preview = null;            // marcadores provisionales (propuesta de la correlación)
+  let waypoints = null;          // puntos de interés del track activo
 
   const MARKER_SIZE = 44;        // lado del recuadro de una foto o de un grupo, en px
   const SMALL_MARKER_SIZE = 18;  // una foto suelta sin miniatura: no hay nada que enseñar
   const CLUSTER_RADIUS = 60;     // fotos a menos de estos px se agrupan
   const FIT_PADDING = 40;        // margen al encuadrar, en px
   const FIT_MAX_ZOOM = 16;       // al encuadrar un solo punto no se acerca más que esto
-  const HOVER_PX = 12;           // distancia a la línea del track activo para señalarlo, en px
+  // Sensibilidad del punto del track activo: a cuántos px de su línea, como mucho, lo
+  // "engancha" el ratón (pedido por el autor el 14/11/2026: 24; antes, 12)
+  const HOVER_PX = 24;
   const DIMMED_OPACITY = 0.45;   // con un track activo, opacidad de los demás
   const MERC_WORLD = 40075016.686;  // metros de Mercator del mundo entero (zoom 0 = 256 px)
 
@@ -89,6 +92,7 @@ const arca = (() => {
     map.setView([config.view[0], config.view[1]], config.view[2]);
     group = L.layerGroup().addTo(map);
     preview = L.layerGroup().addTo(map);
+    waypoints = L.layerGroup().addTo(map);
 
     map.on("moveend", () => {
       render();
@@ -302,7 +306,7 @@ const arca = (() => {
     const halo = L.polyline(segments, { interactive: false }).addTo(map);
     // 'bubblingMouseEvents: false': un clic en la línea no cuenta además como clic en el mapa
     const line = L.polyline(segments, { bubblingMouseEvents: false }).addTo(map);
-    if (data.name) line.bindTooltip(data.name, { sticky: true });
+    if (data.name) line.bindTooltip(textBlock([data.name]), { sticky: true });
     line.on("click", () => bridge.on_track_click(data.id));
     const track = {
       id: data.id, halo, line, points,
@@ -463,6 +467,41 @@ const arca = (() => {
     return [latlng.lat, latlng.lng];
   }
 
+  // Un bloque de texto para un texto emergente: una línea por elemento (los vacíos, no),
+  // la primera en negrita si hay más. Como TEXTO, nunca como HTML: los nombres vienen de
+  // los archivos del usuario (un GPX bajado de internet puede traer cualquier cosa)
+  function textBlock(lines) {
+    const block = document.createElement("div");
+    const shown = lines.filter((line) => line);
+    shown.forEach((line, i) => {
+      const row = document.createElement("div");
+      row.textContent = line;
+      if (i === 0 && shown.length > 1) row.style.fontWeight = "bold";
+      block.appendChild(row);
+    });
+    return block;
+  }
+
+  // Puntos de interés del track activo. list: [[lat, lon, nombre, descripción], ...];
+  // vacía = quitarlos. Solo se miran: un rombo pequeño con su nombre al pasar el ratón
+  function setWaypoints(list) {
+    waypoints.clearLayers();
+    for (const item of list) {
+      const marker = L.marker([item[0], item[1]], {
+        // El rombo es el <i> de dentro: el elemento de fuera lo coloca Leaflet con un
+        // 'transform', y girarlo a él lo movería de sitio
+        icon: L.divIcon({ className: "arca-waypoint", html: "<i></i>", iconSize: [12, 12] }),
+        keyboard: false,
+        // Un clic en él no cuenta como clic en el mapa (no quita la selección)
+        bubblingMouseEvents: false,
+      });
+      if (item[2] || item[3]) {
+        marker.bindTooltip(textBlock([item[2], item[3]]), { direction: "top", offset: [0, -8] });
+      }
+      waypoints.addLayer(marker);
+    }
+  }
+
   // list: [[id, lat, lon], ...]; vacía = quitarlos
   function setPreviewMarkers(list) {
     preview.clearLayers();
@@ -511,6 +550,7 @@ const arca = (() => {
     rebuild();
     setTracks([]);
     activeTrack = null;
+    setWaypoints([]);
     setPreviewMarkers([]);
     setDropCursor(null, null);
   }
@@ -522,7 +562,7 @@ const arca = (() => {
 
   return {
     init, setLayers, setBaseLayer, setMarkers, updateMarkers, removeMarkers, setSelected,
-    setTracks, setTrackGeometry, setActiveTrack, setTrackCursor,
+    setTracks, setTrackGeometry, setActiveTrack, setTrackCursor, setWaypoints,
     setDropEnabled, setDropCursor, dropPoint, setPreviewMarkers,
     fitBounds, setView, refreshSize, clear,
   };

@@ -24,6 +24,7 @@ eventos en sus hijos ('_WebView'); si el arrastre trae tarjetas de la cuadrícul
 ('application/x-arca-media-ids') y está permitido, se acepta sin pasarlo a Chromium, se
 pinta en la página dónde caería y, al soltar, la página traduce el píxel a coordenadas.
 
+1.4.0 'set_waypoints': los puntos de interés del track activo (paso 4.3b).
 1.3.0 Al verse y al cambiar de tamaño, la página vuelve a medir su espacio ('refreshSize'):
       al pasar del mapa de un módulo al de otro, se quedaba pintado solo en parte hasta
       moverlo (lo vio el autor el 13/11/2026).
@@ -37,7 +38,7 @@ pinta en la página dónde caería y, al soltar, la página traduce el píxel a 
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
@@ -69,6 +70,7 @@ from ui_helpers.map.map_types import (
     MapMode,
     MapTrack,
     MapViewport,
+    MapWaypoint,
     is_valid_position,
 )
 from ui_helpers.map.web_bridge import MapBridge
@@ -404,6 +406,12 @@ class WebMapBackend(MapBackend):
 
     def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
         self._call("setTrackCursor", track_id, point_index)
+
+    def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:
+        self._call(
+            "setWaypoints",
+            [[round(w.latitude, 6), round(w.longitude, 6), w.name, w.description] for w in waypoints],
+        )
 
     def fit_bounds(self, bounds: MapBounds, *, animate: bool = True) -> None:
         self._call("fitBounds", bounds.south, bounds.west, bounds.north, bounds.east, animate)
