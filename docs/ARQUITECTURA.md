@@ -250,6 +250,7 @@ core/
     geodesy.py                         haversine_m y EARTH_RADIUS_M: el ÚNICO sitio donde se calculan distancias sobre la Tierra
     simplify.py                        Contorno de un track: simplify_track (distancia radial + Douglas-Peucker, tope de puntos), polilínea codificada (encode/decode_polyline) y encode_overview / decode_overview
     gpx_document.py                    Lector completo del GPX (sin Qt): read_gpx_path (el recorrido en arrays compactos, TrackPath) y read_gpx_document (GpxDocument: tracks, segmentos, puntos, waypoints y lo que no se edita, tal cual)
+    profile.py                         Perfil de elevación (sin Qt): build_profile (de un TrackPath: distancia acumulada, altitud tal cual y suavizada, pendiente y hora de cada punto; los totales, los del catálogo), range_stats (un tramo), index_at_distance (el cursor) y drawing_runs (lo que se dibuja, por trozos y reducido por columna de píxeles)
     activities.py                      Actividades de un track (sin Qt): ACTIVITIES (clave en inglés, texto en español), normalize_activity (el traductor de lo que traen los GPX), activity_label
 tools/exiftool/                      ExifTool (no se versiona; ver tools/exiftool/LEEME.txt)
 scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc (genera resources/recursos_rc.py)

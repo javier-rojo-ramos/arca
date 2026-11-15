@@ -327,10 +327,10 @@ Si en la fase 0 el manejador en Python resultara lento, la alternativa **dentro 
 ### 4.2 Cómo se calcula el perfil (`core/tracks/profile.py`, sin Qt)
 
 - **Distancia**: acumulada en 2D con haversine entre puntos consecutivos **del mismo segmento**, igual que `gpx_reader` (entre segmentos no se suma; el perfil marca el salto). La función de haversine pasa a `core/tracks/geodesy.py` y `gpx_reader` la importa de allí: una sola implementación.
-- **Desnivel acumulado**: el mismo método del umbral (`ELEVATION_THRESHOLD_M` = 8 m, calibrado con Wikiloc). Así el perfil dice **los mismos números** que el catálogo y el inspector. No se cambia el cálculo (obligaría a subir `TRACK_EXTRACTOR_VERSION` y a recalibrar).
-- **Suavizado, solo para dibujar**: mediana móvil sobre una ventana de distancia (propuesta: 30 m) para quitar los picos del GPS; los números (mínima, máxima, desnivel) salen de los datos sin suavizar.
+- **Desnivel acumulado**: el mismo método del umbral (`ELEVATION_THRESHOLD_M` = 8 m, calibrado con Wikiloc; repetido en `profile.py`, y la autoprueba comprueba que da lo mismo). Así el perfil dice **los mismos números** que el catálogo y el inspector. No se cambia el cálculo (obligaría a subir `TRACK_EXTRACTOR_VERSION` y a recalibrar).
+- **Suavizado, solo para dibujar**: mediana móvil sobre una ventana de distancia (30 m) para quitar los picos del GPS; los números (mínima, máxima, desnivel) salen de los datos sin suavizar.
 - **Reducción para pintar**: mínimo y máximo por columna de píxel (como mucho dos puntos por píxel de ancho); 50 000 puntos se dibujan como ~2 000.
-- Resultado: `ElevationProfileData` (distancias, altitudes, índice del punto original de cada muestra, saltos de segmento, mínimos, máximos, desnivel, tramo estimado). Opcional más adelante: pendiente por tramo (color) y eje de tiempo en vez de distancia.
+- Resultado: `ElevationProfileData` (distancias, altitudes, índice del punto original de cada muestra, saltos de segmento, mínimos, máximos, desnivel, tramo estimado). Con la **pendiente** (%) de cada punto, medida sobre la altitud suavizada en una ventana de 100 m (elegida con los GPX del autor el 15/11/2026: con 50 m tiembla, con 200 m se pierden los repechos), para pintarla por colores. Opcional más adelante: eje de tiempo en vez de distancia.
 
 ### 4.3 Con qué se dibuja
 
@@ -647,10 +647,10 @@ Acordado con el autor el 14/11/2026, con su lista de funciones de edición y de 
 
 | Paso | Objetivo | Archivos | Depende de | Aceptación |
 |---|---|---|---|---|
-| **5.1** Cálculo | `build_profile(path) -> ElevationProfileData` (§4.2) y las estadísticas de un tramo (distancia, subida, bajada, tiempo, velocidad media) | Nuevo: `core/tracks/profile.py` | 4.1 | Autoprueba: distancia y desnivel **iguales** a los de `read_gpx` con los mismos archivos; saltos de segmento; reducción por píxel |
-| **5.2** Widget | `ElevationProfile` (§4.3): área, ejes, cursor (distancia, altitud, hora) y selección de un tramo arrastrando | Nuevo: `ui_helpers/widgets/elevation_profile.py`; colores en `theme_colors.py` | 5.1 | Autoprueba con ventana (el autor): un perfil real, a su gusto |
-| **5.3** Banda bajo el mapa | El perfil del track activo en una banda ocultable (botón y atajo) y de alto ajustable y recordado, como la tira de fotos (D11); cursor sincronizado en los dos sentidos; el tramo elegido, resaltado en el mapa, con sus estadísticas | `map_page.py`, `map_controller.py`, `arca_map.js` | 5.2, 4.3 | Pasar por el perfil mueve el punto en el mapa y al revés, sin retraso; Catálogo e Imagen, sin perfil |
-| **5.4** Extras (si se quieren) | Eje por tiempo además de por distancia; pendiente por colores | `profile.py`, `elevation_profile.py` | 5.3 | — |
+| ~~**5.1** Cálculo~~ (hecho el 15/11/2026; con la pendiente de cada punto, que pide el 5.2) | `build_profile(path) -> ElevationProfileData` (§4.2) y las estadísticas de un tramo (distancia, subida, bajada, tiempo, velocidad media) | Nuevo: `core/tracks/profile.py` | 4.1 | Autoprueba: distancia y desnivel **iguales** a los de `read_gpx` con los mismos archivos; saltos de segmento; reducción por píxel |
+| **5.2** Widget | `ElevationProfile` (§4.3): área, ejes, cursor (distancia, altitud, hora) y selección de un tramo arrastrando; pendiente por colores, de verde a rojo (adelantada del 5.4, a petición del autor); el aspecto, en parámetros (colores, grosores...) para poder personalizarlo | Nuevo: `ui_helpers/widgets/elevation_profile.py`; colores en `theme_colors.py` | 5.1 | Autoprueba con ventana (el autor): un perfil real, a su gusto |
+| **5.3** Banda bajo el mapa | El perfil del track activo en una banda ocultable (botón y atajo) y de alto ajustable y recordado, como la tira de fotos (D11: conviven; en Tracks la tira empieza oculta y luego recuerda su estado); cursor sincronizado en los dos sentidos (el mismo círculo ámbar en el mapa y en el perfil); el tramo elegido, resaltado en el mapa, con sus estadísticas | `map_page.py`, `map_controller.py`, `arca_map.js` | 5.2, 4.3 | Pasar por el perfil mueve el punto en el mapa y al revés, sin retraso; Catálogo e Imagen, sin perfil |
+| **5.4** Extras (si se quieren) | Eje por tiempo además de por distancia | `profile.py`, `elevation_profile.py` | 5.3 | — |
 
 ### Fase 6 — Edición
 
@@ -700,7 +700,7 @@ Hasta la fase 3, el sugerido al principio (base → Catálogo → Imagen). Desde
 - **D7. Altitud al recolocar una foto.** Dejarla, vaciarla o rellenarla con el modelo de elevaciones. Recomendación: dejarla (como Lightroom) y ofrecer el relleno más adelante. Afecta a 3.3.
 - **D8. Hora de los puntos insertados en un GPX.** Interpolada por distancia (recomendada: algunos servicios rechazan tracks con puntos sin hora) o sin hora. Afecta a 7.2.
 - **D9. Textos y aspecto**: icono y atajo de la vista «Mapa», nombres de las capas, textos de la ventana de correlación, de la barra de edición y de los avisos; marcador con miniatura o punto. Cada paso los propone antes de escribirlos.
-- **D11. La banda del perfil y la tira de fotos** (para 5.3). En Tracks, ¿conviven las dos bajo el mapa o el perfil ocupa el sitio de la tira? Recomendación: conviven, cada una con su botón, y en Tracks la tira empieza oculta.
+- ~~**D11. La banda del perfil y la tira de fotos**~~ (decidido por el autor el 15/11/2026): conviven bajo el mapa, cada una con su botón; en Tracks la tira empieza oculta y luego recuerda su estado.
 - **D12. Horas al invertir un track** (para 6.5). Recomendación: quitarlas, con aviso (conservarlas dejaría un track que retrocede en el tiempo).
 - **D13. Servicio de enrutado** (para 7.2). Sin elegir: al llegar al paso, comparar BRouter, OpenRouteService y GraphHopper (perfiles de senderismo, si piden clave, condiciones de uso) y que decida el autor.
 - **D10. Identificación ante los servidores de teselas**: `User-Agent` con el nombre y la versión de la aplicación; OSM recomienda añadir una forma de contacto. Recomendación: sin datos personales, salvo que el autor quiera ponerlos.

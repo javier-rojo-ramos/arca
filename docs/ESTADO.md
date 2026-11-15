@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 14/11/2026.
+**Actualizado**: 15/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes: añadir y sincronizar carpetas, metadatos con ExifTool, miniaturas, cuadrícula y vista individual, clasificación (valoración, marca, color y selección rápida) guardada también en los archivos, palabras clave, colecciones (también inteligentes, con grupos de reglas), barra de filtros («Texto», «Atributos», «Metadatos» y ajustes personalizados) e inspector, que edita las palabras clave en todos los módulos y, en las fotos y vídeos de Imagen, el título, el pie, el creador, el copyright, la ubicación y el GPS (también guardados en los archivos). El módulo Imagen navega por carpetas, fechas y palabras clave. Vídeo, audio, GPX y ebooks se catalogan y se clasifican en bibliotecas, pero los módulos Vídeo y Audio aún son provisionales. Lo siguiente, en [PENDIENTE.md](PENDIENTE.md).
 
@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Tracks, paso 5.1: el cálculo del perfil de elevación** (15/11/2026) | Nada que ver en la aplicación (aún nadie lo usa): que arranca igual. La autoprueba, `python -m core.tracks.profile`. Con los 6 GPX del catálogo, el perfil da exactamente la distancia, el desnivel y las altitudes del inspector (lo comprobó el asistente en solo lectura). El aspecto llega con la ventana de prueba del 5.2 |
 | **Tracks, paso 4.6b (3 y 4): la actividad se edita en el inspector y se filtra por ella** (14/11/2026) | Con un track seleccionado, la fila «Actividad» de «TRACK» es un **desplegable**: «Sin actividad» y las 19 de la lista (la última, «Otra actividad»). Elegir una la guarda al momento; al seleccionar otro track y volver, sigue. Con varios tracks, se pone a todos; si tenían actividades distintas **o unos tenían y otros no**, el desplegable dice «Varios» y, al elegir, pregunta antes («Edición múltiple»; con «Cancelar», vuelve a «Varios»). La rueda del ratón sobre el desplegable desplaza el inspector, no cambia la actividad; elegir no le quita el teclado a los archivos. En la carpeta de los GPX aparece (o cambia) el `.arca.json`, con `"activity": "hiking"` en la entrada de cada track editado; **los GPX no cambian** (fecha y tamaño iguales). Tras sincronizar la carpeta o reiniciar, la actividad sigue. **Filtros**: en la barra de filtros de Tracks, la columna «Actividad» de «Metadatos» lista las actividades en español con su número; en una colección inteligente, «Actividad es / no es» con la lista. Al abrir el catálogo, los GPX se releen solos otra vez (versión 5 del lector) |
 | **Tracks, paso 4.6a: la lista de actividades y su traductor** (14/11/2026) | Con los GPX del catálogo no hay nada que ver (todos tienen la actividad vacía): que la aplicación arranca igual. Con un GPX que traiga `<type>hiking</type>` (o «Hike», «MTB»...), la fila «Actividad» de la sección «Track» dice «Senderismo» (o «Ciclismo de montaña»...) y, al pasar el ratón, «En el archivo: hiking». La autoprueba: `python -m core.tracks.activities`. Editarla llega con el 4.6b |
 | **Tracks, paso 4.5: el recorrido en la tarjeta** (14/11/2026) | En la cuadrícula de Tracks (y en el Catálogo, y en la tira del mapa), la tarjeta de cada track dibuja **la forma de su recorrido** en lugar del símbolo igual para todos: con el norte arriba, sin estirar, con un punto relleno en la salida y un anillo en la llegada. Cada track se reconoce por su forma; en la tira (tarjetas pequeñas) se sigue entendiendo. Las marcas de siempre encima (color, rechazada, no disponible, selección rápida). Mirar si la línea gris sobre el fondo gris se ve lo bastante (se puede aclarar o pasar al azul de los tracks del mapa) y el grosor. Con muchos archivos, la cuadrícula del Catálogo carga igual de rápido que antes |
@@ -93,6 +94,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 15/11/2026: Tracks, paso 5.1: el cálculo del perfil de elevación (`core/tracks/profile.py`): distancia, altitud suavizada para dibujar, pendiente y estadísticas de un tramo, con los mismos números que el catálogo.
 - 14/11/2026: Tracks, paso 4.6b (3 y 4): la actividad de un track se edita en el inspector (desplegable) y se filtra por ella; lo que traiga un GPX fuera de la lista es «Otra actividad». Con ello, el 4.6, completo.
 - 14/11/2026: Tracks, paso 4.6b (1 y 2): el mecanismo de edición de metadatos admite campos sin XMP y de tablas de detalles; la actividad de un track, editable por dentro (aún sin desplegable).
 - 14/11/2026: Tracks, paso 4.6a: lista de actividades (clave en inglés, texto en español) y su traductor; el inspector muestra la actividad en español.
@@ -102,4 +104,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 14/11/2026: Tracks, paso 4.3: el track activo, con su recorrido completo (leído del GPX en segundo plano), los demás atenuados y encuadre al elegirlo fuera del mapa.
 - 14/11/2026: el punto ámbar del track activo sigue la línea de forma continua (antes saltaba entre vértices y a ratos volvía el cursor de mano).
 - 14/11/2026: Tracks, paso 4.2: el módulo Tracks, con su barra (biblioteca, carpetas, fechas), el mapa como vista inicial y el orden por distancia, desnivel y duración.
-- 14/11/2026: plan del módulo Tracks, revisado (lo básico, perfil de elevación, edición, creación); paso 4.1: lector completo del GPX (`core/tracks/gpx_document.py`).

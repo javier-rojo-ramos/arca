@@ -96,6 +96,7 @@ python -m ui_helpers.map.map_view --ventana                    (una ventana: el 
 python -m core.tracks.geodesy                                  (distancias sobre la Tierra)
 python -m core.tracks.simplify                                 (contorno de un track: simplificación, tope de puntos, polilínea)
 python -m core.tracks.gpx_document                             (lector completo del GPX: recorrido y documento, GPX 1.0 y 1.1, extensiones, waypoints, rutas, errores; el mismo recorrido que el extractor)
+python -m core.tracks.profile                                  (perfil de elevación: los totales, idénticos a los del extractor con GPX inventados; suavizado, pendiente, tramos, cursor y trozos que dibujar; 50 000 puntos en menos de un segundo)
 python -m core.tracks.activities                               (lista de actividades: claves, variantes, textos en español, lo que no se reconoce; sin Qt)
 
 # core.userdata
