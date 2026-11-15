@@ -34,6 +34,8 @@ Uso:
     profile.clear("Selecciona un track para ver su perfil")
     profile.set_style(replace(profile.profile_style(), slope_mode=SlopeMode.LINE))
 
+1.1.1 Ventana de prueba: los textos de los modos de la pendiente, los de la aplicación
+      ('profile_style.SLOPE_MODE_LABELS').
 1.1.0 'message()': el aviso que se ve (para quien lo contiene y sus pruebas; paso 5.3a).
 1.0.1 Ventana de prueba: el modo de la pendiente elegido en el desplegable llegaba como
       texto y el perfil salía sin colores (lo arregla también 'ProfileStyle' 1.0.1).
@@ -46,7 +48,7 @@ con un track inventado):
     python -m ui_helpers.widgets.elevation_profile --ventana [archivo.gpx]
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __all__ = ["ElevationProfile"]
 
 # Librerías de terceros (Qt)
@@ -527,7 +529,7 @@ def _window(gpx: str | None) -> None:
 
     from core.tracks.gpx_document import read_gpx_path
     from core.tracks.profile import build_profile
-    from ui_helpers.helpers.profile_style import SlopeMode
+    from ui_helpers.helpers.profile_style import SLOPE_MODE_LABELS, SLOPE_MODE_TITLE, SlopeMode
     from ui_helpers.helpers.ui_theme import apply_theme
 
     app = QApplication(sys.argv[:1])
@@ -544,8 +546,7 @@ def _window(gpx: str | None) -> None:
     layout.addWidget(profile, 1)
 
     modes = QComboBox(window)
-    for text, mode in (("En el área", SlopeMode.AREA), ("En la línea", SlopeMode.LINE),
-                       ("Sin colores", SlopeMode.OFF)):  # fmt: skip
+    for mode, text in SLOPE_MODE_LABELS.items():  # los textos de la aplicación
         modes.addItem(text, mode)
     # (el desplegable devuelve el modo como texto: 'SlopeMode(...)' lo vuelve a convertir)
     modes.currentIndexChanged.connect(
@@ -553,7 +554,7 @@ def _window(gpx: str | None) -> None:
             replace(profile.profile_style(), slope_mode=SlopeMode(modes.currentData()))
         )
     )
-    bar.addWidget(QLabel("Pendiente:", window))
+    bar.addWidget(QLabel(f"{SLOPE_MODE_TITLE}:", window))
     bar.addWidget(modes)
     # El mapa simulado: mueve el cursor del perfil desde fuera, como hará el mapa
     slider = QSlider(Qt.Orientation.Horizontal, window)

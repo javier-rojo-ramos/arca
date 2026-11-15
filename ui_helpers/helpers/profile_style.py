@@ -28,6 +28,8 @@ Uso:
     style = replace(style, colors=replace(style.colors, background="#101010"))
     profile.set_style(style)
 
+1.1.0 'SLOPE_MODE_TITLE' y 'SLOPE_MODE_LABELS': los textos de los modos, en un solo
+      sitio (menú del perfil, Opciones > Tracks, ventana de prueba).
 1.0.1 'slope_mode' admite el texto del modo ('"line"') y lo convierte en 'SlopeMode': desde
       el desplegable de la ventana de prueba llegaba como texto y el perfil salía sin
       colores en los tres modos (lo vio el autor).
@@ -37,8 +39,16 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.helpers.profile_style
 """
 
-__version__ = "1.0.1"
-__all__ = ["GRID_PATTERNS", "ProfileStyle", "SlopeMode", "slope_band", "slope_bands"]
+__version__ = "1.1.0"
+__all__ = [
+    "GRID_PATTERNS",
+    "SLOPE_MODE_LABELS",
+    "SLOPE_MODE_TITLE",
+    "ProfileStyle",
+    "SlopeMode",
+    "slope_band",
+    "slope_bands",
+]
 
 # Librerías estándar
 import math
@@ -54,11 +64,21 @@ GRID_PATTERNS = ("solid", "dash", "dot", "none")
 
 
 class SlopeMode(StrEnum):
-    """Cómo se muestra la pendiente (el valor es el que se guardaría en 'settings.json')."""
+    """Cómo se muestra la pendiente (el valor es el que se guarda en 'settings.json')."""
 
     OFF = "off"  # sin colores: el área y la línea en sus colores de siempre
     AREA = "area"  # el área bajo la curva, coloreada; la línea encima, en su color
     LINE = "line"  # solo la línea, coloreada (más gruesa); el área, en su color
+
+
+# Textos de los modos, en el orden en que se ofrecen (el menú del perfil, Opciones >
+# Tracks y la ventana de prueba del perfil dicen lo mismo)
+SLOPE_MODE_TITLE = "Colores de la pendiente"
+SLOPE_MODE_LABELS: dict[SlopeMode, str] = {
+    SlopeMode.AREA: "En el área",
+    SlopeMode.LINE: "En la línea",
+    SlopeMode.OFF: "Sin colores",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +208,7 @@ if __name__ == "__main__":
 
     style = ProfileStyle(DARK_PROFILE)
     assert style.slope_mode is SlopeMode.AREA and SlopeMode("line") is SlopeMode.LINE
+    assert set(SLOPE_MODE_LABELS) == set(SlopeMode)  # un texto por modo
     # El modo como texto (de un desplegable de Qt o de settings.json) pasa a ser el miembro
     assert replace(style, slope_mode="line").slope_mode is SlopeMode.LINE  # type: ignore[arg-type]
     assert replace(style, slope_mode="off").slope_mode is SlopeMode.OFF  # type: ignore[arg-type]

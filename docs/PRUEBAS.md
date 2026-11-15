@@ -114,7 +114,7 @@ python -m controllers.filter_controller                        (barra <-> filtro
 python -m controllers.filter_preset_controller                 (ajustes del módulo, el que coincide, elegir, restaurar, guardar y reemplazar, con host y configuración de mentira y las preguntas cambiadas; sin ventana)
 python -m controllers.folder_actions                           (solo el texto del aviso)
 python -m controllers.undo_history                             (el historial de deshacer: orden, tope, vaciar, Ctrl+Z en la ventana; sin ventana)
-python -m controllers.track_profile_controller                 (la banda del perfil: ninguno, varios, uno, el que llega, el mismo otra vez, el que falla, de la memoria, el botón, no disponible, el alto y lo guardado; con la página de verdad y un lector de mentira; sin ventana)
+python -m controllers.track_profile_controller                 (la banda del perfil: ninguno, varios, uno, el que llega, el mismo otra vez, el que falla y por qué, de la memoria, el botón, no disponible, el alto y lo guardado; la sincronización con un mapa de mentira: punto ámbar en los dos sentidos, no con el contorno, el tramo, Esc; con la página de verdad y un lector de mentira; sin ventana)
 python -m controllers.track_detail_controller                  (recorrido completo del track activo: lectura, memoria, respuestas tardías, catálogo cerrado; con un gestor de mentira; sin ventana)
 python -m controllers.metadata_filter_controller               (columnas de partida, qué se recuenta, respuestas tardías, alto guardado, con host, modelo y BD de mentira; sin ventana)
 
@@ -124,6 +124,7 @@ python -m ui_helpers.dialogs.map_layer_dialog                  (una ventana: «A
 python -m ui_helpers.dialogs.smart_collection_dialog           (crear y editar, añadir y quitar reglas y grupos, recuento y recuentos tardíos, errores en rojo, lo elegido; sin ventana. Con --ventana, la ventana con un contador simulado y un aviso de ejemplo)
 python -m ui_helpers.helpers.gpu_composition                   (ventanas que NO se muestran en pantalla: con la plataforma real, la preparada nace con la GPU y no se rehace)
 python -m ui_helpers.helpers.card_glyphs                       (dibuja marcadores e indicadores en una imagen; sin ventana)
+python -m ui_helpers.helpers.track_appearance                  (colores de los tracks y pendiente del perfil guardados: validación y lo que se guarda)
 python -m ui_helpers.helpers.profile_style                     (estilo del perfil: franjas de la pendiente por inclinación, con y sin histéresis; estilos que no se pueden dibujar)
 python -m ui_helpers.helpers.profile_format                    (marcas redondas de los ejes, números en español, textos de los totales, del tramo y del cursor)
 python -m ui_helpers.helpers.track_outline                     (el recorrido de un track en su tarjeta: encaje con su proporción y dibujo sobre una imagen; sin ventana)
@@ -149,6 +150,7 @@ python -m ui_helpers.models.original_image_loader              (el original ente
 python -m ui_helpers.widgets.attribute_filter_row              (clics en marcas, estrellas, colores, selección rápida y tipos; operador; dibujo; sin ventana)
 python -m ui_helpers.widgets.filter_bar                        (pestañas, «Ninguno», candado y paneles; sin ventana)
 python -m ui_helpers.widgets.filter_preset_button              (texto del botón, menú, ✓, qué se puede pulsar; sin ventana)
+python -m ui_helpers.dialogs.tracks_settings_page              (página «Tracks»: cargar, guardar solo lo cambiado, restaurar los colores, valores raros; no abre ninguna ventana)
 python -m ui_helpers.dialogs.section_layout_page               (página «Paneles» de Opciones: casillas, orden, restaurar, aceptar y cancelar, con una configuración de mentira; sin ventana)
 python -m ui_helpers.widgets.keyword_checklist
 python -m ui_helpers.widgets.section_stack                     (secciones colocadas por el modelo: orden, visible y disponible, plegar, cambio de modo, restaurar; el menú y el clic derecho en la cabecera; arrastrar las cabeceras con eventos de ratón; sin ventana)

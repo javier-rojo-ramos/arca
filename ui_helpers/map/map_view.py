@@ -28,6 +28,10 @@ Mover una foto: el mapa avisa con 'markers_moved' y la deja donde se soltó; qui
 guarda el cambio y lo confirma con 'update_markers' (o, si no se puede, la devuelve a
 su sitio con 'update_markers' y sus coordenadas de antes).
 
+1.5.0 'set_track_colors': los colores de los tracks que elige el usuario (Opciones >
+      Tracks), recordados y repetidos al arrancar la página.
+1.4.0 'track(id)' (con su geometría de ahora), 'set_track_range' y 'clear_track_range': el
+      tramo elegido en el perfil, resaltado en el mapa (paso 5.3b).
 1.3.0 'set_waypoints': los puntos de interés del track activo (paso 4.3b).
 1.2.3 La autoprueba ejecuta la función de la página que busca el punto de un track más
       cercano al ratón ('arcaNearestOnPath' de 'resources/map/arca_map.js'), sin el mapa.
@@ -47,7 +51,7 @@ Con el mapa de verdad (abre una ventana y se queda abierta):
     python -m ui_helpers.map.map_view --ventana
 """
 
-__version__ = "1.3.0"
+__version__ = "1.5.0"
 __all__ = ["MapView"]
 
 # Librerías estándar
@@ -132,6 +136,7 @@ class MapView(QWidget):
         self._selected: tuple[int, ...] = ()
         self._tracks: dict[int, MapTrack] = {}
         self._active_track: int | None = None
+        self._track_colors: tuple[str, str] | None = None  # (los demás, el activo); None, los del tema
         self._drop_enabled = False
         self._preview: tuple[MapMarker, ...] = ()
         self._waypoints: tuple[MapWaypoint, ...] = ()
@@ -257,6 +262,11 @@ class MapView(QWidget):
         """Los tracks que hay."""
         return tuple(self._tracks.values())
 
+    def track(self, track_id: int) -> MapTrack | None:
+        """Un track, con la geometría que tiene ahora (su contorno o su recorrido completo:
+        'MapTrack.detailed'), o None si no está."""
+        return self._tracks.get(track_id)
+
     def set_active_track(self, track_id: int | None) -> bool:
         """Elige el track resaltado, el único que avisa con 'track_hovered' (None =
         ninguno). False (y no cambia nada) si ese track no está en el mapa."""
@@ -278,6 +288,28 @@ class MapView(QWidget):
         elevación); None = quitar la señal. No se recuerda: es cosa del momento."""
         if self._ready and track_id in self._tracks:
             self._backend.set_track_cursor(track_id, point_index)
+
+    def set_track_range(self, track_id: int, first: int, last: int) -> None:
+        """Resalta el tramo de un track entre dos de sus puntos (da igual el orden; p. ej.
+        el elegido en el perfil de elevación). Como el punto señalado, no se recuerda: si
+        ese track se vuelve a pintar, se quita."""
+        if self._ready and track_id in self._tracks:
+            self._backend.set_track_range(track_id, min(first, last), max(first, last))
+
+    def clear_track_range(self) -> None:
+        """Quita el tramo resaltado, si lo hay."""
+        if self._ready:
+            self._backend.set_track_range(None, 0, 0)
+
+    def set_track_colors(self, track: str, active: str) -> None:
+        """Colores ("#rrggbb") de los tracks y del track activo (los elige el usuario en
+        Opciones > Tracks); los ya pintados cambian al momento. Se recuerdan."""
+        colors = (track, active)
+        if colors == self._track_colors:
+            return
+        self._track_colors = colors
+        if self._ready:
+            self._backend.set_track_colors(track, active)
 
     def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:
         """Los puntos de interés que se ven (los del track activo); vacío = quitarlos. Solo
@@ -433,6 +465,8 @@ class MapView(QWidget):
             self._backend.set_markers(list(self._markers.values()))
         if self._selected:
             self._backend.set_selected_ids(self._selected)
+        if self._track_colors is not None:  # antes que los tracks: se pintan ya con ellos
+            self._backend.set_track_colors(*self._track_colors)
         if self._tracks:
             self._backend.set_tracks(list(self._tracks.values()))
         if self._active_track is not None:
@@ -511,6 +545,12 @@ def _run_logic_selftest() -> None:
 
         def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
             self.calls.append(("cursor", track_id, point_index))
+
+        def set_track_range(self, track_id: int | None, first: int, last: int) -> None:
+            self.calls.append(("range", track_id, first, last))
+
+        def set_track_colors(self, track: str, active: str) -> None:
+            self.calls.append(("colors", track, active))
 
         def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:
             self.calls.append(("waypoints", [w.name for w in waypoints]))
@@ -640,9 +680,17 @@ def _run_logic_selftest() -> None:
     view.set_tracks([outline, other])
     assert view.set_active_track(50) is True and view.set_active_track(99) is False
     view.set_track_cursor(50, 1)  # sin mapa listo, se ignora
+    view.set_track_colors("#112233", "#445566")  # los colores, en cambio, se recuerdan
     assert backend.take() == []
     backend.ready.emit()
-    assert backend.take()[-2:] == [("tracks", [(50, False), (51, False)]), ("active", 50)]
+    assert backend.take()[-3:] == [
+        ("colors", "#112233", "#445566"),  # antes que los tracks
+        ("tracks", [(50, False), (51, False)]),
+        ("active", 50),
+    ]
+    view.set_track_colors("#112233", "#445566")  # los mismos: no se molesta a la página
+    view.set_track_colors("#2f6fd6", "#e5383b")
+    assert backend.take() == [("colors", "#2f6fd6", "#e5383b")]
 
     # 11. El detalle sustituye al contorno; el punto señalado no se recuerda
     detail = MapTrack(50, "Ordesa", (((42.6, 0.0), (42.65, 0.05), (42.7, 0.1)), ((42.8, 0.3),)), True)
@@ -653,6 +701,14 @@ def _run_logic_selftest() -> None:
     assert backend.take() == [("geometry", 50, True, 4), ("cursor", 50, 2), ("cursor", 50, None)]
     assert [t.detailed for t in view.tracks()] == [True, False]
     assert view.set_active_track(50) is True and backend.take() == []  # ya lo era
+    track = view.track(50)
+    assert track is not None and track.detailed and track.point_count == 4
+    assert view.track(99) is None
+    # El tramo resaltado (el elegido en el perfil): en orden; de un track que no está, nada
+    view.set_track_range(50, 3, 1)
+    view.set_track_range(99, 0, 1)
+    view.clear_track_range()
+    assert backend.take() == [("range", 50, 1, 3), ("range", None, 0, 0)]
 
     # 12. Encuadres: un track, y todo (las fotos y los tracks juntos)
     assert view.fit_track(50) is True and view.fit_track(99) is False

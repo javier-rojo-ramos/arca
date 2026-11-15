@@ -5,6 +5,8 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.19 Se añaden 'map_track_colors' (colores de los tracks en el mapa) y
+      'profile_slope_mode' (cómo se ve la pendiente en el perfil); Opciones > Tracks.
 1.18 Se añade 'map_profile' (la banda del perfil de elevación: si se ve y su alto).
 1.17 Se añade 'section_layout' (orden, visibilidad y plegado de las secciones de las barras).
 1.16 Se añade 'map_filmstrip' (la tira de fotos del mapa: si se ve y su alto).
@@ -26,7 +28,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.18"
+__version__ = "1.19"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -55,7 +57,9 @@ from config.app_constants import (
     SETTING_MAP_FILMSTRIP,
     SETTING_MAP_LAYER,
     SETTING_MAP_PROFILE,
+    SETTING_MAP_TRACK_COLORS,
     SETTING_MAP_USER_LAYERS,
+    SETTING_PROFILE_SLOPE_MODE,
     SETTING_SECTION_LAYOUT,
     SETTING_SHOW_SUBFOLDER_ITEMS,
     SETTING_SIDEBAR_STATE,
@@ -116,6 +120,10 @@ class ConfigManager:
         SETTING_MAP_FILMSTRIP: {"visible": True, "height": 140},
         # La banda del perfil de elevación (Tracks): si se ve y su alto
         SETTING_MAP_PROFILE: {"visible": True, "height": 160},
+        # Colores de los tracks en el mapa (Opciones > Tracks; vacío = los del tema)
+        SETTING_MAP_TRACK_COLORS: {},
+        # Cómo se ve la pendiente en el perfil (botón derecho u Opciones > Tracks)
+        SETTING_PROFILE_SLOPE_MODE: "area",
         # Orden, visibilidad y plegado de las secciones de las barras laterales, por modo
         # (None = la colocación de partida; ver 'ui_helpers/layout/')
         SETTING_SECTION_LAYOUT: None,

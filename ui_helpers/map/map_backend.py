@@ -16,12 +16,14 @@ Reglas del contrato:
 
 Este módulo solo declara: no tiene lógica que probar (sin autoprueba).
 
+1.4.0 'set_track_colors': los colores de los tracks, los que elige el usuario.
+1.3.0 'set_track_range': el tramo elegido en el perfil, resaltado (docs/MAPA.md, paso 5.3b).
 1.1.0 'set_thumbnail_provider': de dónde salen las miniaturas de los marcadores.
 1.0.0 Primera versión (docs/MAPA.md, paso 1.2): ver, seleccionar, soltar y mover. Lo de
       la edición de tracks se añadirá con la fase 7.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.4.0"
 __all__ = ["MapBackend"]
 
 # Librerías estándar
@@ -121,6 +123,16 @@ class MapBackend(QWidget):
 
     def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
         """Señala un punto de un track (None = quitar la señal)."""
+        raise NotImplementedError
+
+    def set_track_range(self, track_id: int | None, first: int, last: int) -> None:
+        """Resalta el tramo de un track entre sus puntos 'first' y 'last' (None = quitar el
+        que haya). Si ese track se vuelve a pintar (otra geometría), se quita solo."""
+        raise NotImplementedError
+
+    def set_track_colors(self, track: str, active: str) -> None:
+        """Colores ("#rrggbb") de los tracks y del track activo; los que ya están
+        pintados cambian al momento."""
         raise NotImplementedError
 
     def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:

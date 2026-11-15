@@ -26,6 +26,8 @@ Qué hace (decidido por el autor el 13/11/2026):
     - Capa: un desplegable en la barra inferior, a la derecha (solo con el mapa a la
       vista); la elegida se recuerda para toda la aplicación (settings.json, 'map_layer').
     - Capas: las de la aplicación y, detrás, las propias (Opciones > Mapa).
+    - Colores de los tracks: los elegidos en Opciones > Tracks (o los del tema), al crear
+      el mapa y al aceptar las opciones ('track_appearance.track_colors').
     - Caché de teselas: al crear el mapa (y al cambiar su tamaño máximo en Opciones), si
       pasa del tope se borran las descargadas hace más tiempo, en segundo plano.
     - Tras un cambio hecho desde el inspector (p. ej. el GPS de una foto), lo que se
@@ -38,8 +40,9 @@ Qué hace (decidido por el autor el 13/11/2026):
       se guardan (settings.json, 'map_filmstrip'). Doble clic en una tarjeta: la vista
       individual (Esc vuelve al mapa). La tarjeta actual se mantiene a la vista.
     - Perfil de elevación entre el mapa y la tira, en los módulos que lo tienen
-      ('MapOptions.show_profile': Tracks): lo lleva 'TrackProfileController'; aquí solo se
-      le dice cuándo se puede ver y qué tracks hay seleccionados.
+      ('MapOptions.show_profile': Tracks): lo lleva 'TrackProfileController' (también su
+      sincronización con el mapa: punto ámbar y tramo); aquí solo se le da el mapa al
+      crearse y se le dice cuándo se puede ver y qué tracks hay seleccionados.
 
 Ubicar fotos (paso 3.2; decidido por el autor el 13/11/2026; solo en los módulos cuyo
 'map_options().allow_geotag' lo permite, hoy Imagen: el Catálogo solo mira):
@@ -68,6 +71,10 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador.refresh()       # tras un cambio del inspector
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.7.0 Los colores de los tracks elegidos en Opciones > Tracks, al crear el mapa y al
+      cambiarlos ('apply_settings'); los cambios de opciones, también a la banda del perfil.
+1.6.1 Paso 5.3b: el mapa, recién creado, a la banda del perfil ('attach_map'), que lo
+      sincroniza con el perfil.
 1.6.0 Paso 5.3a: la banda del perfil de elevación ('TrackProfileController', creado aquí);
       la tira de fotos, recordada por módulo ('visible_by_module' en 'map_filmstrip').
 1.5.0 Pasos 3.3 y 3.4: «Quitar la ubicación» con el botón derecho sobre una foto o un
@@ -87,7 +94,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -111,6 +118,7 @@ from config.app_constants import (
     SETTING_MAP_CACHE_MB,
     SETTING_MAP_FILMSTRIP,
     SETTING_MAP_LAYER,
+    SETTING_MAP_TRACK_COLORS,
     SETTING_MAP_USER_LAYERS,
     AppIcons,
 )
@@ -126,6 +134,7 @@ from core.catalog.map_queries import LOCATABLE_MEDIA_TYPES, MapItems, fetch_map_
 from core.maps.tile_layers import all_layers, user_layers_from_settings
 from core.maps.tile_store import DEFAULT_MAX_BYTES, TileStorageError, TileStore
 from core.thumbnails.sizes import ThumbnailSize
+from ui_helpers.helpers.track_appearance import track_colors
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.map.map_types import HitKind, MapHit, MapMarker, MapTrack, SelectionMode
 from ui_helpers.map.map_view import MapView
@@ -345,11 +354,15 @@ class MapController(QObject):
             self._load()
 
     def apply_settings(self, changed: set[str]) -> None:
-        """Se han cambiado opciones (ventana de opciones): capas propias y tope de la caché."""
+        """Se han cambiado opciones (ventana de opciones): capas propias, tope de la caché,
+        colores de los tracks y, en la banda del perfil, cómo se ve la pendiente."""
         if SETTING_MAP_USER_LAYERS in changed and self._page.has_map():
             self._apply_layers(self._page.map_view())
         if SETTING_MAP_CACHE_MB in changed:
             self._prune_cache()
+        if SETTING_MAP_TRACK_COLORS in changed and self._page.has_map():
+            self._apply_track_colors(self._page.map_view())
+        self._profile.apply_settings(changed)
 
     def detach(self) -> None:
         """Se cierra el catálogo: se olvida todo y se vacía el mapa."""
@@ -479,6 +492,14 @@ class MapController(QObject):
         view.markers_moved.connect(lambda ids, lat, lon: self._place(ids, lat, lon, confirm=False))
         view.context_menu_requested.connect(self._on_context_menu)
         view.load_failed.connect(lambda _reason: self._page.set_notice(_LOAD_FAILED))
+        # El perfil y el mapa, sincronizados (punto ámbar y tramo; paso 5.3b)
+        self._profile.attach_map(view)
+        self._apply_track_colors(view)
+
+    def _apply_track_colors(self, view: MapView) -> None:
+        """Los colores de los tracks elegidos en Opciones > Tracks (o los del tema)."""
+        colors = track_colors(self._config)
+        view.set_track_colors(colors.track, colors.active)
 
     def _apply_layers(self, view: MapView) -> None:
         """Las capas de la aplicación y las propias, en el mapa y en el desplegable. Si la

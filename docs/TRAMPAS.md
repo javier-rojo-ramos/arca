@@ -33,6 +33,8 @@
 - **Un `QVBoxLayout` reparte el alto que le sobra entre sus hijos** (14/11/2026): `SectionStack` mide justo lo que sus secciones porque su política vertical es `Maximum` y la barra pone un `addStretch` debajo. Si en una prueba se le da más alto a mano (`resize(200, 400)`), las secciones se separan y dejan de estar pegadas arriba: darle `sizeHint().height()`.
 
 - **`QJSEngine` sin `QApplication` cierra el proceso sin avisar** (14/11/2026): ni excepción ni mensaje, solo el código de salida 127. Crear antes la aplicación (`QApplication.instance() or QApplication([])`). Sirve para probar funciones sueltas de `arca_map.js` sin la vista web (no hay Node en el equipo): la autoprueba de `map_view` saca la función del archivo y la ejecuta.
+- **Los índices de los puntos de un track en el mapa dependen de lo que pinta** (15/11/2026): con el contorno (`overview`, unos 100 puntos) son unos y con el recorrido completo, otros (los del perfil y del GPX). Antes de usar un índice de `track_hovered` o de pasar uno a `set_track_cursor` o `set_track_range`, comprobar `MapView.track(id).detailed` (y que tenga los mismos puntos). Al recargar el mapa, los tracks vuelven a su contorno un instante. Lo hace `TrackProfileController._synced_track`.
+- **Para probar `arca_map.js` con `QJSEngine`**: no hay `globalThis` y un `const` de una evaluación no se ve en la siguiente; evaluar la página y la prueba juntas, en una sola llamada, con un Leaflet de mentira (un `Proxy` que devuelve funciones vacías vale para casi todo).
 
 - **En el mapa, lo que se ve en la ventana de prueba no es lo de la aplicación** (14/11/2026): la ventana de `map_view --ventana` pinta tracks con todos sus puntos; la aplicación, su contorno simplificado (pocos vértices, lejos unos de otros con el zoom cerca). Lo que dependa de la densidad de puntos (el punto bajo el ratón) hay que pensarlo sobre los TRAMOS, no sobre los vértices.
 
@@ -128,6 +130,7 @@
 
 ## Repositorio, pruebas y herramientas
 
+- **Las páginas de Opciones en su propio archivo** («Paneles», `section_layout_page.py`; «Tracks», `tracks_settings_page.py`) importan `SettingsPage` de `settings_dialog.py`, que las importa al final: importarlas ANTES que `settings_dialog` da un error de importación circular. En la aplicación siempre va primero la ventana; en un guion, importar antes `settings_dialog` (sus autopruebas funcionan porque se ejecutan como `__main__`).
 - Las autopruebas que usan `default_registry()` dependen de lo que haya instalado (ExifTool...): deben pasar un registro explícito. Falló la del procesador en un equipo con ExifTool.
 - **Tras cambiar el .ui hay que ejecutar `build_ui.py`**: si no, `ui/main_window.py` sigue con la versión anterior (p. ej. `list_view_grid` como `QListView` normal y las tarjetas se arrastran a tamaño real; o sin `widget_organize_bar`: la barra inferior no aparece y el registro avisa).
 - Un icono nuevo tiene que estar en el `.qrc` (y recompilado con `build_ui.py`) y en `AppIcons`; si no, la barra usa los iconos estándar.

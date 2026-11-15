@@ -56,6 +56,7 @@ const arca = (() => {
   const tracks = new Map();      // id -> {id, halo, line, points, merc, starts}
   let activeTrack = null;        // id del track activo (el único que avisa del ratón)
   let trackCursor = null;        // punto señalado en un track
+  let trackRange = null;         // tramo resaltado de un track (el elegido en el perfil)
   let lastHover = -1;            // último índice avisado con 'on_track_hover'
   let hoverFrame = 0;
   let lastMouse = null;
@@ -270,6 +271,7 @@ const arca = (() => {
     for (const track of tracks.values()) removeTrack(track);
     tracks.clear();
     hideTrackCursor();
+    hideTrackRange();
     for (const data of list) addTrack(data);
     if (activeTrack !== null && !tracks.has(activeTrack)) activeTrack = null;
     restyleTracks();
@@ -280,6 +282,7 @@ const arca = (() => {
     const old = tracks.get(data.id);
     if (old) removeTrack(old);
     if (trackCursor && trackCursor.trackId === data.id) hideTrackCursor();
+    if (trackRange && trackRange.trackId === data.id) hideTrackRange();
     // Sus puntos se numeran de otra forma: el último índice avisado ya no vale
     if (data.id === activeTrack) lastHover = -1;
     addTrack(data);
@@ -354,6 +357,56 @@ const arca = (() => {
       active.halo.bringToFront();
       active.line.bringToFront();
     }
+    raiseOverlays();
+  }
+
+  // Colores de los tracks elegidos por el usuario (Opciones > Tracks): los demás y el
+  // activo. También la variable CSS del activo (el borde de los puntos de interés)
+  function setTrackColors(track, active) {
+    colors["track"] = track;
+    colors["track-active"] = active;
+    document.documentElement.style.setProperty("--arca-track", track);
+    document.documentElement.style.setProperty("--arca-track-active", active);
+    restyleTracks();
+  }
+
+  // Resalta un tramo de un track: sus puntos first..last (los índices de su geometría de
+  // ahora; con el recorrido completo, los del perfil), encima de su línea, cortado en los
+  // saltos de segmento. id null = quitarlo. Como el punto señalado, no se recuerda: si
+  // el track se vuelve a pintar, se quita (sus índices cambian) y Python lo vuelve a poner
+  function setTrackRange(id, first, last) {
+    hideTrackRange();
+    const track = id === null ? null : tracks.get(id);
+    if (!track || first < 0 || last >= track.points.length || first >= last) return;
+    const parts = [];
+    let part = [];
+    for (let i = first; i <= last; i++) {
+      if (track.starts[i] && part.length) {   // empieza otro segmento: no se une
+        parts.push(part);
+        part = [];
+      }
+      part.push(track.points[i]);
+    }
+    if (part.length) parts.push(part);
+    trackRange = L.polyline(parts, {
+      color: colors["accent"], weight: 6, opacity: 0.9, interactive: false,
+      lineCap: "round", lineJoin: "round",
+    }).addTo(map);
+    trackRange.trackId = id;
+    raiseOverlays();
+  }
+
+  function hideTrackRange() {
+    if (trackRange) {
+      map.removeLayer(trackRange);
+      trackRange = null;
+    }
+  }
+
+  // Lo que va encima de los tracks, en este orden: el tramo y, encima, el punto señalado
+  function raiseOverlays() {
+    if (trackRange) trackRange.bringToFront();
+    if (trackCursor && map.hasLayer(trackCursor)) trackCursor.bringToFront();
   }
 
   // index null = quitar la señal
@@ -562,7 +615,8 @@ const arca = (() => {
 
   return {
     init, setLayers, setBaseLayer, setMarkers, updateMarkers, removeMarkers, setSelected,
-    setTracks, setTrackGeometry, setActiveTrack, setTrackCursor, setWaypoints,
+    setTracks, setTrackGeometry, setActiveTrack, setTrackCursor, setTrackRange, setWaypoints,
+    setTrackColors,
     setDropEnabled, setDropCursor, dropPoint, setPreviewMarkers,
     fitBounds, setView, refreshSize, clear,
   };

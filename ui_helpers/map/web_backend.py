@@ -24,6 +24,8 @@ eventos en sus hijos ('_WebView'); si el arrastre trae tarjetas de la cuadrícul
 ('application/x-arca-media-ids') y está permitido, se acepta sin pasarlo a Chromium, se
 pinta en la página dónde caería y, al soltar, la página traduce el píxel a coordenadas.
 
+1.6.0 'set_track_colors': los colores de los tracks que elige el usuario (Opciones > Tracks).
+1.5.0 'set_track_range': el tramo elegido en el perfil, en ámbar encima del track (paso 5.3b).
 1.4.0 'set_waypoints': los puntos de interés del track activo (paso 4.3b).
 1.3.0 Al verse y al cambiar de tamaño, la página vuelve a medir su espacio ('refreshSize'):
       al pasar del mapa de un módulo al de otro, se quedaba pintado solo en parte hasta
@@ -38,7 +40,7 @@ pinta en la página dónde caería y, al soltar, la página traduce el píxel a 
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.6.0"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
@@ -406,6 +408,12 @@ class WebMapBackend(MapBackend):
 
     def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
         self._call("setTrackCursor", track_id, point_index)
+
+    def set_track_range(self, track_id: int | None, first: int, last: int) -> None:
+        self._call("setTrackRange", track_id, first, last)
+
+    def set_track_colors(self, track: str, active: str) -> None:
+        self._call("setTrackColors", css_color(track), css_color(active))
 
     def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:
         self._call(

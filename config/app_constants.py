@@ -26,6 +26,8 @@ __all__ = [
     "SETTING_MAP_FILMSTRIP",
     "SETTING_MAP_LAYER",
     "SETTING_MAP_PROFILE",
+    "SETTING_MAP_TRACK_COLORS",
+    "SETTING_PROFILE_SLOPE_MODE",
     "SETTING_MAP_USER_LAYERS",
     "SETTING_MAIN_SPLITTER_STATE",
     "SETTING_SHOW_SUBFOLDER_ITEMS",
@@ -184,6 +186,14 @@ SETTING_MAP_FILMSTRIP = "map_filmstrip"
 # Banda del perfil de elevación bajo el mapa de Tracks (botón de la barra inferior o F7):
 # {"visible": bool, "height": px lógicos}
 SETTING_MAP_PROFILE = "map_profile"
+
+# Colores de los tracks en el mapa (Opciones > Tracks): {"active": "#rrggbb", el track
+# elegido; "track": "#rrggbb", los demás}. Lo que falte (o no valga), el del tema
+SETTING_MAP_TRACK_COLORS = "map_track_colors"
+
+# Cómo se ve la pendiente en el perfil de elevación (botón derecho sobre el perfil u
+# Opciones > Tracks): "area", "line" u "off" ('profile_style.SlopeMode')
+SETTING_PROFILE_SLOPE_MODE = "profile_slope_mode"
 
 # Orden, visibilidad y plegado de las secciones de las dos barras laterales, por modo:
 # {"version": 1, "modes": {"image": {"left": [{"id", "visible", "expanded"}...], "right": [...]}}}
