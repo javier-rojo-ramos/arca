@@ -114,6 +114,7 @@ python -m controllers.filter_controller                        (barra <-> filtro
 python -m controllers.filter_preset_controller                 (ajustes del módulo, el que coincide, elegir, restaurar, guardar y reemplazar, con host y configuración de mentira y las preguntas cambiadas; sin ventana)
 python -m controllers.folder_actions                           (solo el texto del aviso)
 python -m controllers.undo_history                             (el historial de deshacer: orden, tope, vaciar, Ctrl+Z en la ventana; sin ventana)
+python -m controllers.track_profile_controller                 (la banda del perfil: ninguno, varios, uno, el que llega, el mismo otra vez, el que falla, de la memoria, el botón, no disponible, el alto y lo guardado; con la página de verdad y un lector de mentira; sin ventana)
 python -m controllers.track_detail_controller                  (recorrido completo del track activo: lectura, memoria, respuestas tardías, catálogo cerrado; con un gestor de mentira; sin ventana)
 python -m controllers.metadata_filter_controller               (columnas de partida, qué se recuenta, respuestas tardías, alto guardado, con host, modelo y BD de mentira; sin ventana)
 

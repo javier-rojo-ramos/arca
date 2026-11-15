@@ -33,9 +33,13 @@ Qué hace (decidido por el autor el 13/11/2026):
     - Miniaturas de los marcadores: las de 160 px de la caché del catálogo.
     - Tira de fotos debajo del mapa ('MapFilmstrip'): el modelo y la selección de la
       cuadrícula; se muestra u oculta con su botón (barra inferior, a la derecha del todo,
-      solo con el mapa) o con F6, como Lightroom; si se ve y su alto se guardan
-      (settings.json, 'map_filmstrip'). Doble clic en una tarjeta: la vista individual
-      (Esc vuelve al mapa). La tarjeta actual se mantiene a la vista.
+      solo con el mapa) o con F6, como Lightroom; si se ve (POR MÓDULO desde el 15/11/2026:
+      en Tracks empieza oculta, 'MapOptions.filmstrip_starts_visible') y su alto (común)
+      se guardan (settings.json, 'map_filmstrip'). Doble clic en una tarjeta: la vista
+      individual (Esc vuelve al mapa). La tarjeta actual se mantiene a la vista.
+    - Perfil de elevación entre el mapa y la tira, en los módulos que lo tienen
+      ('MapOptions.show_profile': Tracks): lo lleva 'TrackProfileController'; aquí solo se
+      le dice cuándo se puede ver y qué tracks hay seleccionados.
 
 Ubicar fotos (paso 3.2; decidido por el autor el 13/11/2026; solo en los módulos cuyo
 'map_options().allow_geotag' lo permite, hoy Imagen: el Catálogo solo mira):
@@ -64,6 +68,8 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador.refresh()       # tras un cambio del inspector
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.6.0 Paso 5.3a: la banda del perfil de elevación ('TrackProfileController', creado aquí);
+      la tira de fotos, recordada por módulo ('visible_by_module' en 'map_filmstrip').
 1.5.0 Pasos 3.3 y 3.4: «Quitar la ubicación» con el botón derecho sobre una foto o un
       grupo; cada cambio (ubicar, mover, quitar) se apunta en el historial de deshacer
       ('set_undo_history'; Ctrl+Z). Se guarda con 'geotagging.set_media_position', que
@@ -81,7 +87,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -112,6 +118,7 @@ from controllers.app_modules.center_views import CenterView, MapOptions
 from controllers.app_modules.module_host import ModuleHost
 from controllers.center_view_controller import CenterViewController
 from controllers.track_detail_controller import TrackDetailController
+from controllers.track_profile_controller import TrackProfileController
 from controllers.undo_history import UndoHistory, UndoStep
 from core.catalog.geotagging import PositionChange, restore_media_positions, set_media_position
 from core.catalog.grid_source import GridSource
@@ -267,6 +274,9 @@ class MapController(QObject):
         layer_bar.addWidget(self._layer_box)
         self._layer_box.currentIndexChanged.connect(self._on_layer_chosen)
 
+        # La banda del perfil del track activo (en Tracks; su botón, delante del de la tira)
+        self._profile = TrackProfileController(page, layer_bar, config, self._track_detail, self)
+
         # Botón de la tira (barra inferior, a la derecha del todo; solo con el mapa) y F6
         self._filmstrip_button = QToolButton()
         self._filmstrip_button.setObjectName("btn_map_filmstrip")  # estilo en ui_theme.py
@@ -312,6 +322,7 @@ class MapController(QObject):
         self._dirty = True
         self._fitted_source = _NO_SOURCE
         self._track_detail.attach(db)
+        self._profile.reset()
         if self._shown():
             self._load()
 
@@ -352,6 +363,7 @@ class MapController(QObject):
         self._track_names = {}
         self._detailed_track = None
         self._track_detail.detach()
+        self._profile.reset()
         if self._page.has_map():
             self._page.map_view().clear()
         self._page.set_notice("")
@@ -366,10 +378,14 @@ class MapController(QObject):
     def _on_view_changed(self, _view: object = None) -> None:
         """Otra vista u otro módulo: con el mapa a la vista, se pone al día."""
         shown = self._shown()
+        options = self._map_options()
         self._layer_box.setVisible(shown)
         self._filmstrip_button.setVisible(shown)
+        # La banda del perfil, solo con el mapa a la vista en un módulo que la tiene
+        self._profile.set_available(shown and options.show_profile)
         if not shown:
             return
+        self._apply_module_filmstrip(options)  # cada módulo, la suya
         view = self._page.map_view()  # la primera vez, lo crea
         # Ubicar fotos, solo donde el módulo lo permite (Imagen; el Catálogo solo mira)
         view.set_drop_enabled(self._geotag_allowed())
@@ -493,15 +509,38 @@ class MapController(QObject):
     # Tira de fotos
     # -------------------------------------------------------------------------
 
-    def _restore_filmstrip(self) -> None:
-        """Si se ve y su alto, como se dejaron (settings.json)."""
+    def _filmstrip_setting(self) -> dict:
+        """Lo guardado de la tira (una copia; vacío si no hay nada o no se entiende)."""
         saved = self._config.get(SETTING_MAP_FILMSTRIP)
-        saved = saved if isinstance(saved, dict) else {}
-        visible = saved.get("visible", True)
-        height = saved.get("height")
+        return dict(saved) if isinstance(saved, dict) else {}
+
+    def _module_key(self) -> str:
+        """La clave del módulo activo ('catalog', 'image', 'tracks'...; "" si ninguno)."""
+        return getattr(getattr(self._host, "active_module", None), "key", "") or ""
+
+    def _restore_filmstrip(self) -> None:
+        """Su alto, como se dejó (settings.json); si se ve, lo decide cada módulo."""
+        height = self._filmstrip_setting().get("height")
         if isinstance(height, int) and not isinstance(height, bool):
             self._page.set_filmstrip_height(height)
-        self._page.set_filmstrip_visible(visible if isinstance(visible, bool) else True)
+        self._apply_module_filmstrip(self._map_options())
+
+    def _module_filmstrip_visible(self, options: MapOptions) -> bool:
+        """Si la tira se ve en el módulo activo: la que guardó al mostrarla u ocultarla;
+        si no la tiene, la de partida (la de antes, común, salvo en los módulos donde
+        empieza oculta, como Tracks)."""
+        saved = self._filmstrip_setting()
+        by_module = saved.get("visible_by_module")
+        if isinstance(by_module, dict) and isinstance(by_module.get(self._module_key()), bool):
+            return by_module[self._module_key()]
+        if not options.filmstrip_starts_visible:
+            return False
+        common = saved.get("visible", True)
+        return common if isinstance(common, bool) else True
+
+    def _apply_module_filmstrip(self, options: MapOptions) -> None:
+        """La tira, como la tiene el módulo activo."""
+        self._page.set_filmstrip_visible(self._module_filmstrip_visible(options))
         self._update_filmstrip_button()
 
     def _toggle_filmstrip(self) -> None:
@@ -523,10 +562,15 @@ class MapController(QObject):
         self._filmstrip_button.setToolTip(_FILMSTRIP_HIDE if visible else _FILMSTRIP_SHOW)
 
     def _save_filmstrip(self) -> None:
-        self._config.set(
-            SETTING_MAP_FILMSTRIP,
-            {"visible": self._page.filmstrip_visible(), "height": self._page.filmstrip_height()},
-        )
+        """Guarda el alto (común) y si se ve en el módulo activo. Lo demás que hubiera (la
+        de partida de antes, la de otros módulos) se conserva."""
+        saved = self._filmstrip_setting()
+        by_module = saved.get("visible_by_module")
+        by_module = dict(by_module) if isinstance(by_module, dict) else {}
+        if self._module_key():
+            by_module[self._module_key()] = self._page.filmstrip_visible()
+        saved.update({"height": self._page.filmstrip_height(), "visible_by_module": by_module})
+        self._config.set(SETTING_MAP_FILMSTRIP, saved)
 
     def _on_current_changed(self, current: QModelIndex, _previous: QModelIndex) -> None:
         """La tarjeta actual (elegida en el mapa, con las flechas...), a la vista en la tira."""
@@ -571,7 +615,10 @@ class MapController(QObject):
         ids = self._selected_ids()
         view = self._page.map_view()
         view.set_selected_ids(ids)
-        active = next((i for i in ids if i in self._track_ids), None)
+        tracks = [i for i in ids if i in self._track_ids]
+        # El perfil, antes que el mapa: si el track está en la memoria, llega al momento
+        self._profile.show_tracks(tracks)
+        active = tracks[0] if tracks else None
         changed = active != view.active_track()
         view.set_active_track(active)
         picked, self._map_pick = self._map_pick, frozenset()
@@ -619,11 +666,14 @@ class MapController(QObject):
     # Ubicar fotos: soltarlas en el mapa o mover las ya ubicadas (paso 3.2)
     # -------------------------------------------------------------------------
 
+    def _map_options(self) -> MapOptions:
+        """Lo que permite el mapa del módulo activo (ubicar fotos, el perfil...)."""
+        module = getattr(self._host, "active_module", None)
+        return module.map_options() if hasattr(module, "map_options") else MapOptions()
+
     def _geotag_allowed(self) -> bool:
         """True si el módulo activo deja ubicar fotos en su mapa ('MapOptions')."""
-        module = getattr(self._host, "active_module", None)
-        options = module.map_options() if hasattr(module, "map_options") else MapOptions()
-        return options.allow_geotag
+        return self._map_options().allow_geotag
 
     def _on_media_dropped(self, drag: MediaDrag, latitude: float, longitude: float) -> None:
         """Tarjetas soltadas en el mapa: a ese punto (si son de este catálogo)."""

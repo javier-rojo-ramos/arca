@@ -28,13 +28,16 @@ Uso:
     style = replace(style, colors=replace(style.colors, background="#101010"))
     profile.set_style(style)
 
+1.0.1 'slope_mode' admite el texto del modo ('"line"') y lo convierte en 'SlopeMode': desde
+      el desplegable de la ventana de prueba llegaba como texto y el perfil salía sin
+      colores en los tres modos (lo vio el autor).
 1.0.0 Primera versión (15/11/2026; docs/MAPA.md, paso 5.2).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.helpers.profile_style
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["GRID_PATTERNS", "ProfileStyle", "SlopeMode", "slope_band", "slope_bands"]
 
 # Librerías estándar
@@ -102,7 +105,14 @@ class ProfileStyle:
     show_segment_breaks: bool = True
 
     def __post_init__(self) -> None:
-        """Comprueba que el estilo se puede dibujar (un error aquí es de programación)."""
+        """Comprueba que el estilo se puede dibujar (un error aquí es de programación).
+
+        El modo de la pendiente se convierte en 'SlopeMode' aunque llegue como texto
+        ('"line"'): así llega de un desplegable de Qt (un 'StrEnum' guardado con 'addItem'
+        vuelve como 'str') y así llegará de 'settings.json'. Sin la conversión, el dibujo
+        (que compara con 'is') no reconocería ningún modo y lo pintaría sin colores.
+        """
+        object.__setattr__(self, "slope_mode", SlopeMode(self.slope_mode))  # ValueError si no existe
         thresholds = self.slope_thresholds_pct
         if list(thresholds) != sorted(thresholds) or len(set(thresholds)) != len(thresholds):
             raise ValueError(f"Los umbrales de la pendiente, de menor a mayor: {thresholds}")
@@ -178,6 +188,9 @@ if __name__ == "__main__":
 
     style = ProfileStyle(DARK_PROFILE)
     assert style.slope_mode is SlopeMode.AREA and SlopeMode("line") is SlopeMode.LINE
+    # El modo como texto (de un desplegable de Qt o de settings.json) pasa a ser el miembro
+    assert replace(style, slope_mode="line").slope_mode is SlopeMode.LINE  # type: ignore[arg-type]
+    assert replace(style, slope_mode="off").slope_mode is SlopeMode.OFF  # type: ignore[arg-type]
     limits = style.slope_thresholds_pct
 
     # Franjas por inclinación: subir y bajar igual; el umbral, a la franja de arriba
@@ -221,6 +234,7 @@ if __name__ == "__main__":
         {"grid_pattern": "wavy"},
         {"slope_area_opacity": 1.5},
         {"slope_hysteresis_pct": -1.0},
+        {"slope_mode": "zigzag"},
     ):
         try:
             replace(style, **wrong)

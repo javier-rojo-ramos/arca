@@ -8,8 +8,9 @@ segundo plano y, cuando llega, se lo cambia al mapa por el contorno
 
 Qué hace (docs/MAPA.md, paso 4.3):
     - 'show(view, id, nombre)': el track activo es ese. Si su recorrido está en la memoria
-      (los últimos 'CACHE_SIZE' leídos), se pone ya; si no, se pide ('load_track_path':
-      busca la ruta en el catálogo y lee el GPX, todo en el hilo de la base de datos).
+      (los últimos 'CACHE_SIZE' leídos), se pone ya; si no, se pide ('load_track_detail':
+      busca la ruta en el catálogo, lee el GPX y calcula el perfil, todo en el hilo de la
+      base de datos).
     - Las respuestas tardías se descartan: si entre tanto se eligió otro track, se cerró el
       catálogo o se abrió otro, el recorrido se guarda en la memoria (si es del mismo
       catálogo) pero no se pinta.
@@ -18,6 +19,12 @@ Qué hace (docs/MAPA.md, paso 4.3):
     - Con el recorrido van los PUNTOS DE INTERÉS del GPX (waypoints; paso 4.3b): se ven
       los del track activo y solo esos ('MapView.set_waypoints'); al elegir otro track, o
       ninguno, los anteriores se quitan al momento.
+    - Con el recorrido se calcula también su PERFIL DE ELEVACIÓN (paso 5.3a), en el mismo
+      trabajo en segundo plano: lo que se guarda y se entrega es un 'TrackDetail'
+      (recorrido y perfil). Quien no es el mapa (la banda del perfil) lo pide con
+      'request(id)' y lo recibe con 'detail_ready(id, detalle)' (al momento si está en la
+      memoria) o 'detail_failed(id)'. Un recorrido que llega se avisa siempre, sea del
+      track activo o no: cada uno mira si es el suyo.
 
 La usa 'MapController', que decide cuál es el track activo. No toca la selección ni el
 encuadre.
@@ -26,8 +33,12 @@ Uso:
     detail = TrackDetailController(parent)
     detail.attach(db)                       # al abrir un catálogo
     detail.show(view, track_id, "Ordesa")   # al pasar a ser el activo
+    detail.request(track_id)                # el detalle, para otro (-> detail_ready)
     detail.detach()                         # al cerrarlo (olvida la memoria)
 
+1.2.0 El perfil de elevación, con el recorrido ('TrackDetail', 'load_track_detail'); para
+      la banda del perfil, 'request' y las señales 'detail_ready' y 'detail_failed'
+      (paso 5.3a).
 1.1.0 Los puntos de interés del track activo, con su recorrido (paso 4.3b).
 1.0.0 Primera versión (14/11/2026).
 
@@ -35,10 +46,12 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.track_detail_controller
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "CACHE_SIZE",
+    "TrackDetail",
     "TrackDetailController",
+    "load_track_detail",
     "load_track_path",
     "path_segments",
     "path_waypoints",
@@ -48,6 +61,7 @@ __all__ = [
 import sqlite3
 from collections import OrderedDict
 from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import partial
 from typing import Any, Protocol
 
@@ -55,12 +69,13 @@ from typing import Any, Protocol
 from loguru import logger
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QObject
+from qtpy.QtCore import QObject, Signal
 
 # Módulos del proyecto
 from core.catalog.media_queries import AVAILABLE, fetch_media_file
 from core.metadata.track.gpx_reader import GpxError
 from core.tracks.gpx_document import TrackPath, read_gpx_path
+from core.tracks.profile import ElevationProfileData, build_profile
 from ui_helpers.map.map_types import MapTrack, MapWaypoint, is_valid_position
 
 # Recorridos completos que se guardan en memoria (los últimos leídos): volver a un track
@@ -93,6 +108,27 @@ def load_track_path(conn: sqlite3.Connection, track_id: int) -> TrackPath | None
         return None
 
 
+@dataclass(frozen=True, slots=True)
+class TrackDetail:
+    """El detalle de un track: su recorrido completo y su perfil de elevación."""
+
+    path: TrackPath
+    profile: ElevationProfileData
+
+
+def load_track_detail(conn: sqlite3.Connection, track_id: int) -> TrackDetail | None:
+    """Lee el recorrido de un track y calcula su perfil (para 'execute_async': las dos
+    cosas, fuera del hilo de la interfaz).
+
+    Returns:
+        El detalle, o None si no se puede leer (ver 'load_track_path') o no tiene puntos.
+    """
+    path = load_track_path(conn, track_id)
+    if path is None or path.point_count == 0:
+        return None
+    return TrackDetail(path, build_profile(path))
+
+
 def path_segments(path: TrackPath) -> tuple[tuple[tuple[float, float], ...], ...]:
     """Los segmentos de un recorrido como los quiere 'MapTrack': tuplas de (latitud,
     longitud)."""
@@ -112,19 +148,31 @@ def path_waypoints(path: TrackPath) -> tuple[MapWaypoint, ...]:
 
 
 class TrackDetailController(QObject):
-    """Pone en el mapa el recorrido completo del track activo (ver el docstring del archivo)."""
+    """Pone en el mapa el recorrido completo del track activo (ver el docstring del archivo).
+
+    Signals:
+        detail_ready(int, TrackDetail): ha llegado (o estaba en la memoria, si se pidió
+            con 'request') el detalle de un track.
+        detail_failed(int): no se ha podido leer el de ese track.
+    """
+
+    detail_ready = Signal(int, object)
+    detail_failed = Signal(int)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._db: Any = None
         # Sube con cada 'attach' y 'detach': lo leído de un catálogo anterior se descarta
         self._generation = 0
-        # El track cuyo recorrido se quiere ver ahora (None = ninguno)
+        # El track cuyo recorrido se quiere ver ahora en el mapa (None = ninguno), con su
+        # nombre y el mapa donde se pone
         self._wanted: int | None = None
+        self._wanted_name = ""
+        self._view: _TrackView | None = None
         # Los que se están leyendo (para no pedirlos dos veces)
         self._loading: set[int] = set()
-        # id -> recorrido, del más antiguo al más reciente
-        self._cache: OrderedDict[int, TrackPath] = OrderedDict()
+        # id -> detalle, del más antiguo al más reciente
+        self._cache: OrderedDict[int, TrackDetail] = OrderedDict()
 
     # -------------------------------------------------------------------------
     # API pública
@@ -140,6 +188,7 @@ class TrackDetailController(QObject):
         self._db = None
         self._generation += 1
         self._wanted = None
+        self._view = None
         self._loading.clear()
         self._cache.clear()
 
@@ -148,24 +197,31 @@ class TrackDetailController(QObject):
         en cuanto se tenga."""
         changed = track_id != self._wanted
         self._wanted = track_id
-        path = self._cache.get(track_id) if track_id is not None and self._db is not None else None
-        if path is None and changed:
+        self._wanted_name = name
+        self._view = view
+        detail = self._cached(track_id)
+        if detail is None and changed:
             # Otro track (o ninguno) y aún sin su recorrido: fuera los puntos de interés
             # del anterior; los suyos llegarán con su recorrido
             view.set_waypoints(())
         if track_id is None or self._db is None:
             return
-        if path is not None:
-            self._cache.move_to_end(track_id)  # el más reciente
-            self._apply(view, track_id, name, path)
-        elif track_id not in self._loading:
-            self._loading.add(track_id)
-            self._db.execute_async(
-                load_track_path,
-                track_id,
-                on_result=partial(self._on_loaded, self._generation, view, track_id, name),
-                on_error=partial(self._on_error, self._generation, track_id),
-            )
+        if detail is not None:
+            self._apply(view, track_id, name, detail.path)
+        else:
+            self._load(track_id)
+
+    def request(self, track_id: int) -> None:
+        """Pide el detalle de un track para quien no es el mapa (la banda del perfil): llega
+        con 'detail_ready' (ya, si está en la memoria) o falla con 'detail_failed'. Sin
+        catálogo, nada."""
+        if self._db is None:
+            return
+        detail = self._cached(track_id)
+        if detail is not None:
+            self.detail_ready.emit(track_id, detail)
+        else:
+            self._load(track_id)
 
     def forget(self, track_id: int) -> None:
         """Olvida el recorrido guardado de un track (p. ej. si su archivo ha cambiado)."""
@@ -175,26 +231,49 @@ class TrackDetailController(QObject):
     # Interno
     # -------------------------------------------------------------------------
 
-    def _on_loaded(
-        self, generation: int, view: _TrackView, track_id: int, name: str, path: TrackPath | None
-    ) -> None:
-        """Ha llegado un recorrido (o None si no se pudo leer)."""
+    def _cached(self, track_id: int | None) -> TrackDetail | None:
+        """El detalle de la memoria (pasa a ser el más reciente), o None."""
+        if track_id is None or self._db is None:
+            return None
+        detail = self._cache.get(track_id)
+        if detail is not None:
+            self._cache.move_to_end(track_id)
+        return detail
+
+    def _load(self, track_id: int) -> None:
+        """Lo pide en segundo plano (si no se está pidiendo ya)."""
+        if track_id in self._loading:
+            return
+        self._loading.add(track_id)
+        self._db.execute_async(
+            load_track_detail,
+            track_id,
+            on_result=partial(self._on_loaded, self._generation, track_id),
+            on_error=partial(self._on_error, self._generation, track_id),
+        )
+
+    def _on_loaded(self, generation: int, track_id: int, detail: TrackDetail | None) -> None:
+        """Ha llegado un detalle (o None si no se pudo leer)."""
         if generation != self._generation or self._db is None:
             return  # de un catálogo que ya no está abierto
         self._loading.discard(track_id)
-        if path is None or path.point_count == 0:
-            return  # se queda con su contorno
-        self._cache[track_id] = path
+        if detail is None:
+            self.detail_failed.emit(track_id)  # en el mapa se queda con su contorno
+            return
+        self._cache[track_id] = detail
         self._cache.move_to_end(track_id)
         while len(self._cache) > CACHE_SIZE:
             self._cache.popitem(last=False)  # fuera el más antiguo
-        if track_id == self._wanted:  # si entre tanto se eligió otro, no se pinta
-            self._apply(view, track_id, name, path)
+        # Al mapa, solo si sigue siendo el activo (si entre tanto se eligió otro, no)
+        if track_id == self._wanted and self._view is not None:
+            self._apply(self._view, track_id, self._wanted_name, detail.path)
+        self.detail_ready.emit(track_id, detail)
 
     def _on_error(self, generation: int, track_id: int, error: Exception) -> None:
         if generation == self._generation:
             self._loading.discard(track_id)
             logger.error(f"Mapa: no se ha podido leer el recorrido del track {track_id}: {error}")
+            self.detail_failed.emit(track_id)
 
     @staticmethod
     def _apply(view: _TrackView, track_id: int, name: str, path: TrackPath) -> None:
@@ -306,6 +385,12 @@ if __name__ == "__main__":
             assert load_track_path(conn, missing) is None, missing
         assert [(w.name, w.latitude) for w in path_waypoints(loaded)] == [
             ("W0", 41.0), ("W1", 41.001), ("W2", 41.002)]  # fmt: skip
+        # Con el perfil (los mismos puntos), o None si no se puede
+        full = load_track_detail(conn, 1)
+        assert full is not None and full.profile.point_count == full.path.point_count == 4
+        assert full.profile.totals.elevation_max_m == 102
+        for missing in (8, 9, 10, 999):
+            assert load_track_detail(conn, missing) is None, missing
 
         db = _FakeDb(conn)
         view = _FakeView()
@@ -390,6 +475,32 @@ if __name__ == "__main__":
         assert db.requests == requests + 1  # la memoria era del catálogo anterior
         db.deliver()
         assert view.take() == [(2, "x", True, 2, 5)]
+
+        # --- Para la banda del perfil: 'request' y las señales (sin tocar el mapa)
+        ready: list[tuple[int, int]] = []
+        failed: list[int] = []
+        detail.detail_ready.connect(lambda tid, got: ready.append((tid, got.profile.point_count)))
+        detail.detail_failed.connect(failed.append)
+        requests = db.requests
+        detail.request(2)  # en la memoria: al momento, sin pedir nada
+        assert ready == [(2, 5)] and db.requests == requests and view.take() == []
+        detail.request(3)  # no está: se pide
+        detail.request(3)  # ya se está leyendo: no se pide otra vez
+        assert db.requests == requests + 1 and ready == [(2, 5)]
+        db.deliver()
+        assert ready[-1] == (3, 6) and view.take() == []  # avisa; al mapa no (el activo es el 2)
+        detail.request(8)  # ausente
+        db.deliver()
+        assert failed == [8]
+        # Lo que pide el mapa también se avisa (la banda del perfil puede estar esperándolo)
+        detail.show(view, 4, "Cuatro")
+        db.deliver()
+        assert ready[-1] == (4, 7) and view.take() == [(4, "Cuatro", True, 2, 7)]
+        # Sin catálogo, 'request' no hace nada
+        detail.detach()
+        count = len(ready)
+        detail.request(2)
+        assert len(ready) == count
         conn.close()
 
     print("Autoprueba finalizada correctamente.")

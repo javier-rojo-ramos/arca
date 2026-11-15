@@ -34,6 +34,9 @@ Uso:
     profile.clear("Selecciona un track para ver su perfil")
     profile.set_style(replace(profile.profile_style(), slope_mode=SlopeMode.LINE))
 
+1.1.0 'message()': el aviso que se ve (para quien lo contiene y sus pruebas; paso 5.3a).
+1.0.1 Ventana de prueba: el modo de la pendiente elegido en el desplegable llegaba como
+      texto y el perfil salía sin colores (lo arregla también 'ProfileStyle' 1.0.1).
 1.0.0 Primera versión (15/11/2026; docs/MAPA.md, paso 5.2).
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
@@ -43,7 +46,7 @@ con un track inventado):
     python -m ui_helpers.widgets.elevation_profile --ventana [archivo.gpx]
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["ElevationProfile"]
 
 # Librerías de terceros (Qt)
@@ -143,6 +146,10 @@ class ElevationProfile(QWidget):
     def profile(self) -> ElevationProfileData | None:
         """El perfil que se ve (None, ninguno)."""
         return self._data
+
+    def message(self) -> str:
+        """El aviso del centro ("" si no hay: se ve un perfil con altitud)."""
+        return self._message
 
     def set_style(self, style: ProfileStyle) -> None:
         """Cambia el aspecto (colores, grosores, cómo se ve la pendiente...)."""
@@ -540,8 +547,11 @@ def _window(gpx: str | None) -> None:
     for text, mode in (("En el área", SlopeMode.AREA), ("En la línea", SlopeMode.LINE),
                        ("Sin colores", SlopeMode.OFF)):  # fmt: skip
         modes.addItem(text, mode)
+    # (el desplegable devuelve el modo como texto: 'SlopeMode(...)' lo vuelve a convertir)
     modes.currentIndexChanged.connect(
-        lambda _i: profile.set_style(replace(profile.profile_style(), slope_mode=modes.currentData()))
+        lambda _i: profile.set_style(
+            replace(profile.profile_style(), slope_mode=SlopeMode(modes.currentData()))
+        )
     )
     bar.addWidget(QLabel("Pendiente:", window))
     bar.addWidget(modes)

@@ -16,7 +16,9 @@ Qué hace este módulo (la barra no sabe nada de la base de datos), como 'ImageM
 
 Lo propio de los tracks:
     - Vistas: cuadrícula y mapa (sin vista individual: un track no tiene una imagen que
-      ampliar). Su mapa solo mira, como el del Catálogo (no se ubican fotos en él).
+      ampliar). Su mapa solo mira, como el del Catálogo (no se ubican fotos en él); debajo,
+      la banda del perfil de elevación del track activo, y la tira de fotos empieza oculta
+      ('map_options').
     - Orden: por fecha, distancia, desnivel y duración, además de los del archivo
       ('grid_orders.TRACK_SORT_FIELDS'); de partida, los más recientes primero.
     - Filtros: el tipo «track» en «Atributos»; en «Metadatos», fecha, actividad y programa
@@ -24,10 +26,12 @@ Lo propio de los tracks:
 
 Los textos de la barra están aquí ('_TEXTS').
 
+1.1.0 'map_options': el perfil de elevación bajo el mapa y la tira de fotos oculta al
+      principio (docs/MAPA.md, paso 5.3a).
 1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.2): sustituye al módulo provisional.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["TracksModule"]
 
 # Librerías estándar
@@ -45,7 +49,7 @@ from qtpy.QtWidgets import QToolButton, QWidget
 # Módulos del proyecto
 from config.app_constants import SETTING_SHOW_SUBFOLDER_ITEMS, AppIcons
 from controllers.app_modules.base import AppModule, ModuleContext
-from controllers.app_modules.center_views import CenterView
+from controllers.app_modules.center_views import CenterView, MapOptions
 from core.catalog.folder_tree import fetch_folder_tree
 from core.catalog.grid_orders import TRACK_SORT_FIELDS, GridOrder
 from core.catalog.grid_source import GridSource, library_source, quick_source
@@ -135,6 +139,11 @@ class TracksModule(AppModule):
     def default_view(self) -> CenterView:
         """Empieza en el mapa."""
         return CenterView.MAP
+
+    def map_options(self) -> MapOptions:
+        """Su mapa solo mira; debajo, el perfil del track activo; la tira de fotos empieza
+        oculta (docs/MAPA.md, paso 5.3a; D11)."""
+        return MapOptions(show_profile=True, filmstrip_starts_visible=False)
 
     def filter_media_types(self) -> tuple[str, ...]:
         """Solo hay tracks."""

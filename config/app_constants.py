@@ -25,6 +25,7 @@ __all__ = [
     "SETTING_MAP_CACHE_MB",
     "SETTING_MAP_FILMSTRIP",
     "SETTING_MAP_LAYER",
+    "SETTING_MAP_PROFILE",
     "SETTING_MAP_USER_LAYERS",
     "SETTING_MAIN_SPLITTER_STATE",
     "SETTING_SHOW_SUBFOLDER_ITEMS",
@@ -88,6 +89,9 @@ class AppIcons:
     VIEW_MAP = ":/img/view_map.svg"
     FILMSTRIP_SHOW = ":/img/filmstrip_show.svg"
     FILMSTRIP_HIDE = ":/img/filmstrip_hide.svg"
+    # Propios (el marco de los de la tira con la línea de un perfil): la banda del perfil
+    PROFILE_SHOW = ":/img/profile_show.svg"
+    PROFILE_HIDE = ":/img/profile_hide.svg"
     LOCK_CLOSED = ":/img/lock_closed.svg"
     LOCK_OPEN = ":/img/lock_open.svg"
 
@@ -170,9 +174,16 @@ SETTING_MAP_USER_LAYERS = "map_user_layers"
 # decidido por el autor el 13/11/2026)
 SETTING_MAP_CACHE_MB = "map_cache_mb"
 
-# Tira de fotos debajo del mapa: {"visible": bool, "height": px lógicos}. Una para toda
-# la aplicación (se muestra u oculta con su botón de la barra inferior o con F6)
+# Tira de fotos debajo del mapa (se muestra u oculta con su botón de la barra inferior o
+# con F6): {"height": px lógicos, común; "visible_by_module": {módulo: bool}, si se ve en
+# cada módulo; "visible": bool, la de partida de los módulos que no tienen la suya (de
+# antes del 15/11/2026, cuando era una para todos; los que empiezan con la tira oculta,
+# como Tracks, no la usan)}
 SETTING_MAP_FILMSTRIP = "map_filmstrip"
+
+# Banda del perfil de elevación bajo el mapa de Tracks (botón de la barra inferior o F7):
+# {"visible": bool, "height": px lógicos}
+SETTING_MAP_PROFILE = "map_profile"
 
 # Orden, visibilidad y plegado de las secciones de las dos barras laterales, por modo:
 # {"version": 1, "modes": {"image": {"left": [{"id", "visible", "expanded"}...], "right": [...]}}}

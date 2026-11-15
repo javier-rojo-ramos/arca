@@ -12,6 +12,9 @@ recuerda por módulo y por catálogo ('ModuleViewState'); la pone en pantalla el
 
 Decidido por el autor el 08/11/2026 (ver docs/DECISIONES.md, «Vistas del centro»).
 
+1.3.0 'MapOptions.show_profile' (la banda del perfil, en Tracks) y
+      'MapOptions.filmstrip_starts_visible' (la tira, recordada por módulo; en Tracks empieza
+      oculta). Docs/MAPA.md, paso 5.3a.
 1.2.0 'MapOptions': qué permite el mapa de cada módulo (de momento, ubicar fotos).
 1.1.0 El mapa: icono y atajo «Mapa (M)» (decidido por el autor el 13/11/2026).
 1.0.0 Primera versión (paso A.1, subpaso 3).
@@ -20,7 +23,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m controllers.app_modules.center_views
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["CenterView", "MapOptions"]
 
 # Librerías estándar
@@ -66,9 +69,16 @@ class MapOptions:
     Attributes:
         allow_geotag: Ubicar fotos soltándolas en el mapa y mover las ya ubicadas (Imagen,
             sí; el Catálogo, que mezcla tipos de archivo, solo mira).
+        show_profile: La banda del perfil de elevación del track activo bajo el mapa
+            (Tracks).
+        filmstrip_starts_visible: Si la tira de fotos se ve mientras el usuario no la
+            muestre u oculte en este módulo (después, cada módulo recuerda la suya). En
+            Tracks empieza oculta: el perfil es lo que interesa ahí.
     """
 
     allow_geotag: bool = False
+    show_profile: bool = False
+    filmstrip_starts_visible: bool = True
 
 
 # Textos de la interfaz (decididos por el autor el 08/11/2026: «Cuadrícula (G)» y
@@ -99,8 +109,9 @@ if __name__ == "__main__":
     for bad in ("otra", None, 3, ["grid"]):
         assert CenterView.from_key(bad) is None, bad
 
-    # El mapa, por defecto, solo para mirar
+    # El mapa, por defecto, solo para mirar, sin perfil y con la tira a la vista
     assert MapOptions() == MapOptions(allow_geotag=False) and MapOptions(True).allow_geotag
+    assert not MapOptions().show_profile and MapOptions().filmstrip_starts_visible
 
     # Los iconos que se nombran existen en AppIcons
     from config.app_constants import AppIcons
