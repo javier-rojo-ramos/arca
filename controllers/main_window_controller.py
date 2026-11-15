@@ -52,6 +52,7 @@ from controllers.folder_actions import FolderActions
 from controllers.inspector_controller import InspectorController
 from controllers.map_controller import MapController
 from controllers.metadata_filter_controller import MetadataFilterController
+from controllers.sidebar_visibility import SidebarVisibility
 from controllers.undo_history import UndoHistory
 from core.catalog.availability import AvailabilityCheck, check_availability
 from core.catalog.catalog_builder import CatalogBuilder, CatalogError
@@ -866,6 +867,17 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self._conectar_vistas()
         self._conectar_filtros()
         self._configurar_inspector()
+        # Mostrar u ocultar las barras laterales (menú «Ver», F7, F8 y Tab): después de crear
+        # las barras de los módulos y el inspector (pone «Ocultar barra» en sus menús)
+        self.sidebar_visibility = SidebarVisibility(
+            left=self.widget_sidebar_catalog,
+            right=self.widget_sidebar_metadata,
+            left_action=self.action_show_left_sidebar,
+            right_action=self.action_show_right_sidebar,
+            config=self.config,
+            focus_view=self.center_views.focus_view,
+            parent=self,
+        )
 
     def _conectar_vistas(self) -> None:
         """Vistas del centro (cuadrícula, individual...): botones de vista, página de la pila,

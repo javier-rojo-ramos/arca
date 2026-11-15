@@ -15,7 +15,8 @@ modelo ('SectionLayoutModel') para el modo y la barra a los que está unida:
 Además pone el MENÚ de las secciones (clic derecho en la cabecera de cualquiera y, con
 'watch_empty_area', en el hueco vacío de la barra): una casilla por sección para mostrarla
 u ocultarla y «Restaurar por defecto» (el orden, las ocultas y las plegadas de ESTA barra
-en ESTE modo). El menú solo escribe en el modelo.
+en ESTE modo). El menú solo escribe en el modelo. Con 'offer_hide', además, una primera
+opción para ocultar la barra entera, que solo avisa ('hide_requested').
 
 Y permite REORDENAR arrastrando las cabeceras (por el título) dentro de la barra: mientras
 se arrastra, una raya del color de acento dice dónde quedará la sección; al soltar, se
@@ -41,6 +42,8 @@ Sin modelo (antes de 'bind', o en una prueba suelta de una barra) las secciones 
 el orden en el que se dieron de alta, todas a la vista. Una sección que el modelo no conoce
 para ese modo (falta registrarla) se queda al final, visible: se ve que falta, sin fallar.
 
+1.3.0 'offer_hide': una primera opción en el menú para ocultar la barra entera (la pone
+      'controllers/sidebar_visibility.py', «Ocultar barra»; al elegirla, 'hide_requested').
 1.2.0 Reordenar arrastrando las cabeceras, con una raya que dice dónde caerá (fase 3).
 1.1.0 Menú de las secciones: casillas para mostrar u ocultar y «Restaurar por defecto»
       ('build_menu', 'show_menu', 'watch_empty_area'; fase 2).
@@ -50,7 +53,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.section_stack
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["RESTORE_TEXT", "SECTION_SPACING", "SectionStack"]
 
 # Librerías de terceros (Qt)
@@ -91,9 +94,12 @@ class SectionStack(QWidget):
         shown_sections_changed(): ha cambiado QUÉ secciones tiene el usuario a la vista (al
             ocultar o mostrar una, o al cambiar de modo). No se emite al reordenar ni al
             plegar. Para la barra que tenga que rellenar una sección que vuelve a verse.
+        hide_requested(): se ha elegido en el menú la opción de ocultar la barra (solo si
+            se ofrece: 'offer_hide'). La pila no oculta nada.
     """
 
     shown_sections_changed = Signal()
+    hide_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -116,6 +122,8 @@ class SectionStack(QWidget):
         self._model: SectionLayoutModel | None = None
         self._mode = ""
         self._sidebar: Sidebar | None = None
+        # Texto de la primera opción del menú, la de ocultar la barra (None = no se ofrece)
+        self._hide_text: str | None = None
 
         # Arrastre de una cabecera: el 'id' de la sección que se arrastra (None = ninguna)
         self._drag_id: str | None = None
@@ -202,24 +210,41 @@ class SectionStack(QWidget):
     # Menú de las secciones
     # -------------------------------------------------------------------------
 
+    def offer_hide(self, text: str) -> None:
+        """Pone en el menú, la primera, una opción para ocultar la barra entera ('text'): al
+        elegirla, 'hide_requested'."""
+        self._hide_text = text
+
+    def hide_offered(self) -> bool:
+        """True si el menú ofrece ocultar la barra ('offer_hide')."""
+        return self._hide_text is not None
+
     def build_menu(self) -> QMenu | None:
         """El menú de las secciones de esta barra en el modo actual: una casilla por
-        sección (marcada = a la vista), en su orden, y «Restaurar por defecto».
+        sección (marcada = a la vista), en su orden, y «Restaurar por defecto». Delante, si
+        se ofrece ('offer_hide'), la opción de ocultar la barra.
 
         Están todas las del modo, también las que ahora no tienen nada que mostrar (p. ej.
         «Metadatos» sin una foto seleccionada): la casilla dice si el usuario la quiere ver.
 
         Returns:
             El menú (hijo de la pila; quien lo pide lo muestra y lo descarta), o None si no
-            hay modelo o ninguna sección que ofrecer.
+            hay nada que ofrecer (ni ocultar la barra ni secciones con modelo).
         """
         model, mode, sidebar = self._model, self._mode, self._sidebar
-        if model is None or sidebar is None:
-            return None
-        entries = [entry for entry in model.entries(mode, sidebar) if entry.id in self._sections]
-        if not entries:
+        entries = []
+        if model is not None and sidebar is not None:
+            entries = [e for e in model.entries(mode, sidebar) if e.id in self._sections]
+        if not entries and self._hide_text is None:
             return None
         menu = QMenu(self)
+        if self._hide_text is not None:
+            hide = menu.addAction(self._hide_text)
+            hide.triggered.connect(self.hide_requested)
+            if entries:
+                menu.addSeparator()
+        if not entries:
+            return menu
         for entry in entries:
             action = menu.addAction(model.title(mode, entry.id))
             action.setCheckable(True)
@@ -575,6 +600,26 @@ if __name__ == "__main__":
     assert _menu_items(menu) == [("One", False), ("Two", False), ("Three", False)]
     menu.deleteLater()
     model.reset()
+
+    # --- «Ocultar la barra» ('offer_hide'): la primera, separada de las casillas, y solo
+    # avisa; sin modelo, es lo único del menú
+    assert not stack.hide_offered()
+    stack.offer_hide("Ocultar barra")
+    assert stack.hide_offered()
+    hide_asked: list[int] = []
+    stack.hide_requested.connect(lambda: hide_asked.append(1))
+    menu = stack.build_menu()
+    assert menu.actions()[0].text() == "Ocultar barra" and menu.actions()[1].isSeparator()
+    assert _menu_items(menu) == [("One", True), ("Two", True), ("Three", True)]
+    was_hidden = stack.isHidden()
+    menu.actions()[0].trigger()
+    assert hide_asked == [1] and stack.isHidden() == was_hidden  # la pila no oculta nada
+    menu.deleteLater()
+    bare = _build("one")
+    bare.offer_hide("Ocultar barra")
+    menu = bare.build_menu()
+    assert [a.text() for a in menu.actions()] == ["Ocultar barra"]
+    menu.deleteLater()
 
     # --- Clic derecho en la cabecera (también sobre el botón del título): avisa con el
     # punto de la pantalla; en el contenido, no. (Con una sección suelta: en la pila

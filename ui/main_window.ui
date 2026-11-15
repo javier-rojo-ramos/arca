@@ -651,6 +651,13 @@
     <addaction name="separator"/>
     <addaction name="action_exit"/>
    </widget>
+   <widget class="QMenu" name="menu_view">
+    <property name="title">
+     <string>Ver</string>
+    </property>
+    <addaction name="action_show_left_sidebar"/>
+    <addaction name="action_show_right_sidebar"/>
+   </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
      <string>Ayuda</string>
@@ -658,6 +665,7 @@
     <addaction name="action_about"/>
    </widget>
    <addaction name="menu_file"/>
+   <addaction name="menu_view"/>
    <addaction name="menu_help"/>
   </widget>
   <widget class="QStatusBar" name="statusbar">
@@ -714,6 +722,34 @@
   <action name="action_add_folder">
    <property name="text">
     <string>Añadir carpeta al catálogo</string>
+   </property>
+  </action>
+  <action name="action_show_left_sidebar">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Mostrar barra izquierda</string>
+   </property>
+   <property name="shortcut">
+    <string>F7</string>
+   </property>
+  </action>
+  <action name="action_show_right_sidebar">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Mostrar barra derecha</string>
+   </property>
+   <property name="shortcut">
+    <string>F8</string>
    </property>
   </action>
   <action name="action_open_catalog">

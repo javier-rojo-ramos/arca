@@ -43,7 +43,7 @@ Qué hace (decidido por el autor el 13/11/2026):
     - Miniaturas de los marcadores: las de 160 px de la caché del catálogo.
     - Tira de fotos debajo del mapa ('MapFilmstrip'): el modelo y la selección de la
       cuadrícula; se muestra u oculta con su botón (barra inferior, a la derecha del todo,
-      solo con el mapa) o con F6, como Lightroom; si se ve (POR MÓDULO desde el 15/11/2026:
+      solo con el mapa) o con F9 (hasta el 15/11/2026, F6, como Lightroom); si se ve (POR MÓDULO desde el 15/11/2026:
       en Tracks empieza oculta, 'MapOptions.filmstrip_starts_visible') y su alto (común)
       se guardan (settings.json, 'map_filmstrip'). Doble clic en una tarjeta: la vista
       individual (Esc vuelve al mapa). La tarjeta actual se mantiene a la vista.
@@ -79,6 +79,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador.refresh()       # tras un cambio del inspector
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.9.3 La tira, con F9 (antes F6: F7 y F8 son ahora las barras laterales).
 1.9.2 El icono del botón de la tira, de 'BAR_ICON_SIZE' (el común: 18 px; antes, 16).
 1.9.1 Con la tira a la vista, el icono de su botón en el color de acento (el autor).
 1.9.0 La chincheta de las tarjetas: en la cuadrícula de los módulos con mapa y, al
@@ -107,7 +108,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.9.2"
+__version__ = "1.9.3"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -168,8 +169,8 @@ _UNLOCATED_ONE = "1 foto sin ubicación"
 _UNLOCATED_MANY = "{count} fotos sin ubicación"
 _LOAD_FAILED = "No se ha podido cargar el mapa"
 # Textos del botón de la tira (con su atajo, como Lightroom)
-_FILMSTRIP_SHOW = "Mostrar la tira de fotos (F6)"
-_FILMSTRIP_HIDE = "Ocultar la tira de fotos (F6)"
+_FILMSTRIP_SHOW = "Mostrar la tira de fotos (F9)"
+_FILMSTRIP_HIDE = "Ocultar la tira de fotos (F9)"
 # Medidas del botón de la tira: las de los botones de vista (ui_helpers/widgets/view_buttons.py)
 _BUTTON_SIZE = 22
 _ICON_SIZE = BAR_ICON_SIZE
@@ -303,7 +304,7 @@ class MapController(QObject):
         # La banda del perfil del track activo (en Tracks; su botón, delante del de la tira)
         self._profile = TrackProfileController(page, layer_bar, config, self._track_detail, self)
 
-        # Botón de la tira (barra inferior, a la derecha del todo; solo con el mapa) y F6
+        # Botón de la tira (barra inferior, a la derecha del todo; solo con el mapa) y F9
         self._filmstrip_button = QToolButton()
         self._filmstrip_button.setObjectName("btn_map_filmstrip")  # estilo en ui_theme.py
         self._filmstrip_button.setAutoRaise(True)
@@ -313,7 +314,7 @@ class MapController(QObject):
         self._filmstrip_button.hide()
         self._filmstrip_button.clicked.connect(self._toggle_filmstrip)
         layer_bar.addWidget(self._filmstrip_button)
-        self._filmstrip_shortcut = QShortcut(QKeySequence(Qt.Key.Key_F6), page)
+        self._filmstrip_shortcut = QShortcut(QKeySequence(Qt.Key.Key_F9), page)
         self._filmstrip_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self._filmstrip_shortcut.activated.connect(self._toggle_filmstrip)
         self._filmstrip_save_timer = QTimer(self)
@@ -636,7 +637,7 @@ class MapController(QObject):
         self._update_filmstrip_button()
 
     def _toggle_filmstrip(self) -> None:
-        """El botón o F6: muestra u oculta la tira (solo con el mapa a la vista)."""
+        """El botón o F9: muestra u oculta la tira (solo con el mapa a la vista)."""
         if not self._shown():
             return
         visible = not self._page.filmstrip_visible()

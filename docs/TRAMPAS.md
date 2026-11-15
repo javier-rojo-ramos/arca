@@ -5,6 +5,7 @@
 
 ## Qt e interfaz
 
+- **Un atajo con Tab se la quita a los campos de texto**: Qt prueba los atajos antes de dar la tecla al widget, y `QLineEdit` no reclama Tab (su `ShortcutOverride` solo acepta las teclas de edición y las imprimibles). Por eso `SidebarVisibility` filtra la aplicación y acepta el `ShortcutOverride` de Tab cuando el teclado está en un campo de texto: así Tab sigue pasando al campo siguiente (15/11/2026).
 - Elegir una fila por código con las señales del modelo de SELECCIÓN bloqueadas (para no emitir dos veces) deja la vista sin repintar: hay que llamar a `view.viewport().update()` después (si no, la fila se marca solo al pasar el ratón; pasó en la barra de Imagen, 05/11/2026).
 - **Nunca bloquear las señales de un modelo de Qt** (`blockSignals` / `blocked_signals` sobre un `QStandardItemModel`) mientras se borran o añaden filas: la vista no se entera, sigue con índices a filas borradas y el programa se cierra sin aviso (pasó en el árbol con casillas, K4b, 03/11/2026). Para que los avisos no se tomen por clics del usuario, un indicador (`_building`). Bloquear la VISTA o su modelo de selección sí es seguro.
 - Con un `QCompleter` sobre una caja de texto, las teclas se atienden en `keyPressEvent` de una **subclase**, no con un filtro de eventos: el completer las reenvía con `widget.event()`, que se salta los filtros. Y al abrirse su lista la caja recibe `focusOut` con `PopupFocusReason`: no es «salir de la caja».

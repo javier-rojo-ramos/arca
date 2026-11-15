@@ -113,6 +113,7 @@ python -m controllers.center_view_controller                   (página, botones
 python -m controllers.filter_controller                        (barra <-> filtro con un host de mentira, Ctrl+L, Ctrl+F, fila de Texto, vista individual; sin ventana)
 python -m controllers.filter_preset_controller                 (ajustes del módulo, el que coincide, elegir, restaurar, guardar y reemplazar, con host y configuración de mentira y las preguntas cambiadas; sin ventana)
 python -m controllers.folder_actions                           (solo el texto del aviso)
+python -m controllers.sidebar_visibility                       (barras laterales: lo guardado, el menú y F7/F8, Tab también en un campo de texto, el teclado al ocultar, «Ocultar barra»; sin ventana)
 python -m controllers.undo_history                             (el historial de deshacer: orden, tope, vaciar, Ctrl+Z en la ventana; sin ventana)
 python -m controllers.track_profile_controller                 (la banda del perfil: ninguno, varios, uno, el que llega, el mismo otra vez, el que falla y por qué, de la memoria, el botón, no disponible, el alto y lo guardado; la sincronización con un mapa de mentira: punto ámbar en los dos sentidos, no con el contorno, el tramo, Esc; con la página de verdad y un lector de mentira; sin ventana)
 python -m controllers.track_detail_controller                  (recorrido completo del track activo: lectura, memoria, respuestas tardías, catálogo cerrado; con un gestor de mentira; sin ventana)

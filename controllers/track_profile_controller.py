@@ -1,4 +1,4 @@
-"""La banda del perfil de elevación bajo el mapa (módulo Tracks): qué perfil se ve, su botón y F7.
+"""La banda del perfil de elevación bajo el mapa (módulo Tracks): qué perfil se ve, su botón y F10.
 
 Qué hace (docs/MAPA.md, pasos 5.3a y 5.3b; decidido con el autor el 15/11/2026):
     - Muestra el perfil del track activo: el ÚNICO track seleccionado. Sin ninguno, o con
@@ -12,7 +12,7 @@ Qué hace (docs/MAPA.md, pasos 5.3a y 5.3b; decidido con el autor el 15/11/2026)
       toca: el tramo elegido en el perfil se conserva.
     - Solo en los módulos cuyo mapa lo ofrece ('MapOptions.show_profile': Tracks) y con el
       mapa a la vista; ahí se ven la banda (si el usuario no la ha ocultado) y su botón.
-    - El botón (barra inferior, a la izquierda del de la tira) y F7 la muestran u ocultan;
+    - El botón (barra inferior, a la izquierda del de la tira) y F10 la muestran u ocultan;
       si se ve y su alto se guardan en settings.json ('map_profile').
     - Botón derecho sobre el perfil: cómo se ve la pendiente («En el área», «En la línea»
       o «Sin colores»); se guarda en settings.json ('profile_slope_mode'), lo mismo que
@@ -39,6 +39,7 @@ Uso (lo crea 'MapController', que le dice cuándo se puede ver y qué hay selecc
     profile.reset()                  # al abrir o cerrar un catálogo
     profile.apply_settings(claves)   # tras la ventana de opciones
 
+1.2.3 Con F10 (antes F7: F7 y F8 son ahora las barras laterales).
 1.2.2 El icono del botón, de 'BAR_ICON_SIZE' (el común: 18 px; antes, 16).
 1.2.1 Con la banda a la vista, el icono del botón en el color de acento (el autor, 15/11/2026).
 1.2.0 Botón derecho sobre el perfil: cómo se ve la pendiente, guardado en settings.json
@@ -52,7 +53,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.track_profile_controller
 """
 
-__version__ = "1.2.2"
+__version__ = "1.2.3"
 __all__ = ["TrackProfileController"]
 
 # Librerías estándar
@@ -79,8 +80,8 @@ from ui_helpers.widgets.map_page import MapPage
 from ui_helpers.widgets.single_media_view import UNAVAILABLE_TEXTS
 
 # Textos (los del botón y «Leyendo el recorrido…», aprobados por el autor el 15/11/2026)
-_PROFILE_SHOW = "Mostrar el perfil de elevación (F7)"
-_PROFILE_HIDE = "Ocultar el perfil de elevación (F7)"
+_PROFILE_SHOW = "Mostrar el perfil de elevación (F10)"
+_PROFILE_HIDE = "Ocultar el perfil de elevación (F10)"
 _NO_TRACK = "Selecciona un track para ver su perfil"
 _SEVERAL_TRACKS = "Selecciona un solo track para ver su perfil"
 _LOADING = "Leyendo el recorrido…"
@@ -127,7 +128,7 @@ class TrackProfileController(QObject):
         self._track_detail = track_detail
         # Mapa a la vista en un módulo con perfil
         self._available = False
-        # Lo que eligió el usuario (botón o F7): se aplica cuando la banda está disponible
+        # Lo que eligió el usuario (botón o F10): se aplica cuando la banda está disponible
         self._wanted_visible = True
         # El track cuyo perfil se ve o se espera (None = ninguno) y el detalle que se ve
         self._track: int | None = None
@@ -145,7 +146,7 @@ class TrackProfileController(QObject):
         self._button.hide()
         self._button.clicked.connect(self.toggle)
         button_bar.addWidget(self._button)
-        self._shortcut = QShortcut(QKeySequence(Qt.Key.Key_F7), page)
+        self._shortcut = QShortcut(QKeySequence(Qt.Key.Key_F10), page)
         self._shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self._shortcut.activated.connect(self.toggle)
         self._save_timer = QTimer(self)
@@ -221,7 +222,7 @@ class TrackProfileController(QObject):
             self._apply_slope_mode(slope_mode(self._config))
 
     def toggle(self) -> None:
-        """El botón o F7: muestra u oculta la banda (solo donde se puede ver)."""
+        """El botón o F10: muestra u oculta la banda (solo donde se puede ver)."""
         if not self._available:
             return
         self._wanted_visible = not self._wanted_visible
@@ -506,7 +507,7 @@ if __name__ == "__main__":
     controller.show_tracks([9])
     assert profile.profile() is source.cache[9].profile
 
-    # --- El botón (o F7): oculta y muestra, y se guarda; a la vista, el icono en el acento
+    # --- El botón (o F10): oculta y muestra, y se guarda; a la vista, el icono en el acento
     def icon_in_accent() -> bool:
         image = controller._button.icon().pixmap(32, 32).toImage()
         accent = QColor(COLORS.accent).rgb()

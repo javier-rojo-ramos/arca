@@ -5,6 +5,7 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.20 Se añade 'sidebars_visible' (si se ven las dos barras laterales).
 1.19 Se añaden 'map_track_colors' (colores de los tracks en el mapa) y
       'profile_slope_mode' (cómo se ve la pendiente en el perfil); Opciones > Tracks.
 1.18 Se añade 'map_profile' (la banda del perfil de elevación: si se ve y su alto).
@@ -28,7 +29,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.19"
+__version__ = "1.20"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -63,6 +64,7 @@ from config.app_constants import (
     SETTING_SECTION_LAYOUT,
     SETTING_SHOW_SUBFOLDER_ITEMS,
     SETTING_SIDEBAR_STATE,
+    SETTING_SIDEBARS_VISIBLE,
     SETTING_WRITE_USER_DATA_TO_FILES,
     THUMBNAIL_SIZE_DEFAULT,
 )
@@ -127,6 +129,8 @@ class ConfigManager:
         # Orden, visibilidad y plegado de las secciones de las barras laterales, por modo
         # (None = la colocación de partida; ver 'ui_helpers/layout/')
         SETTING_SECTION_LAYOUT: None,
+        # Si se ven las dos barras laterales (menú «Ver», F7, F8 y Tab)
+        SETTING_SIDEBARS_VISIBLE: {"left": True, "right": True},
         # Aquí se añaden nuevas variables
     }
 

@@ -24,7 +24,7 @@
 |---|---|---|
 | ~~D1~~ | Geoetiquetar desde el mapa escribe en los archivos: **decidido el 13/11/2026** | Sí, con la regla de la edición del GPS en el inspector; confirmación al soltar muchas fotos a la vez |
 | D2 | Editar un GPX existente: ¿se sobrescribe o siempre se exporta a otro archivo? | Siempre a un archivo nuevo («Exportar a GPX…»); el original no se toca (principio del proyecto) |
-| ~~D3~~ | Modo Imagen: tira de fotos debajo del mapa: **decidido el 13/11/2026** | Al ancho del centro; ocultable con un botón en el extremo derecho de la barra inferior (solo con el mapa) y con F6; alto ajustable y recordado (100 px como mínimo); tarjetas compactas, sin banda; también en el mapa del Catálogo (confirmado por el autor) |
+| ~~D3~~ | Modo Imagen: tira de fotos debajo del mapa: **decidido el 13/11/2026** | Al ancho del centro; ocultable con un botón en el extremo derecho de la barra inferior (solo con el mapa) y con F9 (F6 hasta el 15/11/2026); alto ajustable y recordado (100 px como mínimo); tarjetas compactas, sin banda; también en el mapa del Catálogo (confirmado por el autor) |
 | D4 | «Fotos de una ruta»: ¿basta con una colección hecha a mano, o se calcula (por hora y cercanía)? | Las dos: la colección ya funciona; en Tracks, calculado |
 | ~~D5~~ | Capas de partida: **decidido el 13/11/2026** (§3.1) | Callejero de OpenStreetMap, tres del IGN y OpenTopoMap, sin claves |
 | ~~D6~~ | Deshacer en el mapa: **decidido el 13/11/2026** | Ctrl+Z, lo hecho en el mapa, mientras la aplicación esté abierta (si se hace un deshacer global, el mapa será el primero en usarlo) |

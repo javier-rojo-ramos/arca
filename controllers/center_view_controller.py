@@ -58,6 +58,8 @@ Uso (en el controlador principal, que solo lo crea):
         map_page=pagina_del_mapa, parent=window,
     )
 
+1.7.0 'focus_view': el teclado, a la vista del centro (la usa 'SidebarVisibility' al
+      ocultar la barra que lo tenía; antes, solo por dentro al elegir en una barra).
 1.6.0 'watch_map_widget': otras piezas de la vista de mapa que cogen el teclado (la tira
       de fotos), con la G y el Intro; Intro en el mapa abre la vista individual.
 1.5.0 El mapa: M lo abre desde la cuadrícula y la vista individual; G, desde el mapa, a la
@@ -73,7 +75,7 @@ Uso (en el controlador principal, que solo lo crea):
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -378,6 +380,11 @@ class CenterViewController(QObject):
         """El usuario ha elegido otra cosa en una barra: el teclado, a la vista del centro
         (los atajos, a las fotos) y, al recargar, la primera foto seleccionada."""
         self._select_first = True
+        self.focus_view()
+
+    def focus_view(self) -> None:
+        """El teclado, a la vista del centro que se ve (la individual, el mapa o la
+        cuadrícula): ahí van los atajos de las fotos."""
         if self._shown == CenterView.SINGLE:
             self._single.setFocus()
         elif self._shown == CenterView.MAP and self._map_page is not None:

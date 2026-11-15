@@ -32,6 +32,7 @@ __all__ = [
     "SETTING_MAIN_SPLITTER_STATE",
     "SETTING_SHOW_SUBFOLDER_ITEMS",
     "SETTING_SIDEBAR_STATE",
+    "SETTING_SIDEBARS_VISIBLE",
     "SETTING_WRITE_USER_DATA_TO_FILES",
     "SIDEBAR_CATALOG_DEFAULT_WIDTH",
     "SIDEBAR_METADATA_DEFAULT_WIDTH",
@@ -128,6 +129,9 @@ SETTING_SHOW_SUBFOLDER_ITEMS = "show_subfolder_items"
 # (ver controllers/app_modules/module_host.py; el formato anterior, sin "modules", se
 # sigue leyendo como el estado del módulo Catálogo)
 SETTING_SIDEBAR_STATE = "sidebar_state"
+# Si se ven las dos barras laterales (menú «Ver», F7, F8 y Tab; para toda la aplicación):
+# {"left": bool, "right": bool} (ver controllers/sidebar_visibility.py)
+SETTING_SIDEBARS_VISIBLE = "sidebars_visible"
 # Vista elegida en la sección «Metadatos» del inspector ("default", "location", "exif"...;
 # ver ui_helpers/inspector/metadata_fields.py)
 SETTING_INSPECTOR_METADATA_PRESET = "inspector_metadata_preset"
@@ -177,13 +181,13 @@ SETTING_MAP_USER_LAYERS = "map_user_layers"
 SETTING_MAP_CACHE_MB = "map_cache_mb"
 
 # Tira de fotos debajo del mapa (se muestra u oculta con su botón de la barra inferior o
-# con F6): {"height": px lógicos, común; "visible_by_module": {módulo: bool}, si se ve en
+# con F9): {"height": px lógicos, común; "visible_by_module": {módulo: bool}, si se ve en
 # cada módulo; "visible": bool, la de partida de los módulos que no tienen la suya (de
 # antes del 15/11/2026, cuando era una para todos; los que empiezan con la tira oculta,
 # como Tracks, no la usan)}
 SETTING_MAP_FILMSTRIP = "map_filmstrip"
 
-# Banda del perfil de elevación bajo el mapa de Tracks (botón de la barra inferior o F7):
+# Banda del perfil de elevación bajo el mapa de Tracks (botón de la barra inferior o F10):
 # {"visible": bool, "height": px lógicos}
 SETTING_MAP_PROFILE = "map_profile"
 
