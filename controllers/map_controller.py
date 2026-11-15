@@ -79,6 +79,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador.refresh()       # tras un cambio del inspector
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.9.2 El icono del botón de la tira, de 'BAR_ICON_SIZE' (el común: 18 px; antes, 16).
 1.9.1 Con la tira a la vista, el icono de su botón en el color de acento (el autor).
 1.9.0 La chincheta de las tarjetas: en la cuadrícula de los módulos con mapa y, al
       pulsarla (cuadrícula o tira), ese archivo seleccionado, en el mapa y encuadrado.
@@ -106,7 +107,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.9.1"
+__version__ = "1.9.2"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -148,7 +149,7 @@ from core.maps.tile_store import DEFAULT_MAX_BYTES, TileStorageError, TileStore
 from core.thumbnails.sizes import ThumbnailSize
 from ui_helpers.helpers.track_appearance import track_colors
 from ui_helpers.helpers.ui_icons import tinted_icon
-from ui_helpers.helpers.ui_theme import COLORS
+from ui_helpers.helpers.ui_theme import BAR_ICON_SIZE, COLORS
 from ui_helpers.map.map_types import HitKind, MapHit, MapMarker, MapTrack, SelectionMode
 from ui_helpers.map.map_view import MapView
 from ui_helpers.models.media_grid_model import MediaGridModel
@@ -171,7 +172,7 @@ _FILMSTRIP_SHOW = "Mostrar la tira de fotos (F6)"
 _FILMSTRIP_HIDE = "Ocultar la tira de fotos (F6)"
 # Medidas del botón de la tira: las de los botones de vista (ui_helpers/widgets/view_buttons.py)
 _BUTTON_SIZE = 22
-_ICON_SIZE = 16
+_ICON_SIZE = BAR_ICON_SIZE
 # A partir de cuántas fotos soltadas de golpe se pide confirmación (D1; el autor, 13/11/2026)
 _CONFIRM_FROM = 50
 # Decimales de las coordenadas que se guardan: 6, unos 10 cm (de sobra para un clic)

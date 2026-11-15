@@ -122,6 +122,7 @@
 
 ## Módulos, configuración y arranque
 
+- **El tamaño de los iconos de la toolbar de módulos no se cambia en el .ui**: `_configurar_toolbar` pone a todos sus botones `TOOLBAR_ICON_SIZE` (`ui_theme.py`) al arrancar, y pisa el `iconSize` del diseñador (15/11/2026).
 - `ConfigManager.set` compara el valor antiguo con el nuevo: para cambiar un diccionario (p. ej. `sidebar_state`) hay que pasar una COPIA nueva, no modificar el que devuelve `get`.
 - Al abrir un catálogo, `mosaico_model.attach` va ANTES de restaurar las barras laterales: `attach` llama a `detach`, que vuelve a mostrar todo y borraría lo restaurado.
 - Los módulos se crean en `_configurar_modulos`, DESPUÉS de la cuadrícula (el Catálogo necesita `grid_actions`). Hasta entonces `module_host` es None: los métodos que lo usan lo comprueban.

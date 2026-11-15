@@ -28,6 +28,8 @@ Uso (en el .ui es un widget promocionado, 'widget_filter_bar', dentro de 'frame_
     bar.set_available({"text"})
     bar.set_state(frozenset({"text"}), locked=False)
 
+1.2.2 El icono del candado, de 'BAR_ICON_SIZE' (el común de los botones de las barras:
+      18 px; antes, 16).
 1.2.1 La fila de las pestañas, de 34 px (antes, 30): 2 más arriba y 2 más abajo, con todo
       centrado (pedido por el autor el 12/11/2026).
 1.2.0 El desplegable de los ajustes personalizados, antes del candado ('preset_button').
@@ -41,7 +43,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.filter_bar
 """
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 __all__ = ["LOCK_TOOLTIPS", "TAB_TEXTS", "TITLE_TEXT", "FilterBar"]
 
 # Librerías estándar
@@ -67,6 +69,7 @@ from core.catalog.grid_filter import (
     FILTER_TEXT,
 )
 from ui_helpers.helpers.ui_icons import tinted_icon
+from ui_helpers.helpers.ui_theme import BAR_ICON_SIZE
 from ui_helpers.widgets.filter_preset_button import FilterPresetButton
 
 # Textos de la interfaz
@@ -86,7 +89,7 @@ LOCK_TOOLTIPS: tuple[str, str] = (
 # Medidas (px lógicos)
 HEADER_HEIGHT = 34  # fila de las pestañas (y de las filas de los paneles: «Texto», «Atributos»)
 LOCK_BUTTON_SIZE = 24
-LOCK_ICON_SIZE = 16
+LOCK_ICON_SIZE = BAR_ICON_SIZE
 _TAB_SPACING = 14  # entre las palabras del centro
 _SIDE_MARGIN = 10  # a izquierda y derecha de la fila
 _PRESET_LOCK_SPACING = 8  # entre el desplegable de ajustes y el candado

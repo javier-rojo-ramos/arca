@@ -39,6 +39,7 @@ Uso (lo crea 'MapController', que le dice cuándo se puede ver y qué hay selecc
     profile.reset()                  # al abrir o cerrar un catálogo
     profile.apply_settings(claves)   # tras la ventana de opciones
 
+1.2.2 El icono del botón, de 'BAR_ICON_SIZE' (el común: 18 px; antes, 16).
 1.2.1 Con la banda a la vista, el icono del botón en el color de acento (el autor, 15/11/2026).
 1.2.0 Botón derecho sobre el perfil: cómo se ve la pendiente, guardado en settings.json
       ('profile_slope_mode', también en Opciones > Tracks: 'apply_settings').
@@ -51,7 +52,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.track_profile_controller
 """
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 __all__ = ["TrackProfileController"]
 
 # Librerías estándar
@@ -72,7 +73,7 @@ from ui_helpers.helpers import card_glyphs
 from ui_helpers.helpers.profile_style import SLOPE_MODE_LABELS, SLOPE_MODE_TITLE, SlopeMode
 from ui_helpers.helpers.track_appearance import slope_mode
 from ui_helpers.helpers.ui_icons import tinted_icon
-from ui_helpers.helpers.ui_theme import COLORS
+from ui_helpers.helpers.ui_theme import BAR_ICON_SIZE, COLORS
 from ui_helpers.map.map_view import MapView
 from ui_helpers.widgets.map_page import MapPage
 from ui_helpers.widgets.single_media_view import UNAVAILABLE_TEXTS
@@ -96,7 +97,7 @@ _UNREADABLE = "No se ha podido leer el recorrido de este track"  # cualquier otr
 
 # Medidas del botón: las del de la tira (y las de los botones de vista)
 _BUTTON_SIZE = 22
-_ICON_SIZE = 16
+_ICON_SIZE = BAR_ICON_SIZE
 # Espera tras arrastrar el separador antes de guardar el alto
 _SAVE_DELAY_MS = 600
 

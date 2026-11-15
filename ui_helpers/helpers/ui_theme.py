@@ -18,6 +18,10 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.23.0 'TOOLBAR_ICON_SIZE': el lado del icono de los botones de la toolbar lateral (los
+       módulos y el de ajustes; 24 px, el que tenían en el .ui).
+1.22.0 'BAR_ICON_SIZE': el lado del icono de los botones pequeños de las barras (18 px;
+       antes, 16 en cada sitio).
 1.21.0 Botón de la banda del perfil del mapa ('#btn_map_profile', como el de la tira).
 1.20.0 'PROFILE_COLORS': colores de partida del perfil de elevación (de 'theme_colors.py').
 1.19.0 Barra de un módulo de biblioteca ('#scroll_library_sidebar', como las demás barras).
@@ -64,7 +68,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.21.0"
+__version__ = "1.23.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -77,6 +81,8 @@ __all__ = [
     "SIDEBAR_ICON_OPEN_COLOR",
     "TOOLBAR_ICON_ACCENT_COLOR",
     "TOOLBAR_MARGIN",
+    "TOOLBAR_ICON_SIZE",
+    "BAR_ICON_SIZE",
     "STYLESHEET",
     "apply_theme",
     "apply_tooltip_style",
@@ -129,10 +135,19 @@ TOOLBAR_ICON_ACCENT_COLOR: str | None = None
 # Aire (px) alrededor de los botones de la toolbar lateral: el mismo en los cuatro lados
 # (izquierda y derecha, por encima del primer botón y por debajo del de ajustes)
 TOOLBAR_MARGIN = 4
+# Lado del icono de los botones de la toolbar lateral (los módulos y el de ajustes). Lo
+# aplica 'MainWindowController._configurar_toolbar' y manda sobre el del .ui (24, solo
+# para el diseñador). Los SVG dejan margen dentro: a 24 px el dibujo ocupa unos 18-20
+TOOLBAR_ICON_SIZE = 26
 # Esquinas de los botones de la toolbar lateral (cajas redondeadas)
 TOOLBAR_BUTTON_RADIUS = 6
 # Esquinas de los botones de vista de la barra inferior (más pequeños: menos redondeados)
 VIEW_BUTTON_RADIUS = 4
+# Lado del icono de los botones pequeños de las barras: los de vista, el de la tira y el
+# del perfil (barra inferior) y el candado de la barra de filtros. Los SVG dejan margen
+# dentro: a 18 px el dibujo ocupa unos 13,5 (con 16, unos 12, y se veía pequeño; con 20,
+# casi toca el borde de los botones de 22). Decidido por el autor el 15/11/2026
+BAR_ICON_SIZE = 18
 
 # Fondo de la cuadrícula de miniaturas, algo más hundido que las tarjetas (paso T3); también
 # es el fondo de la barra inferior ('frame_main_bottom'), para que formen un solo bloque.
@@ -149,7 +164,9 @@ TOOLTIP_FG = COLORS.text  # Texto
 # Hoja de estilos global: primero los componentes generales ('theme_qss.py') y después las
 # piezas propias de la aplicación. Cada regla se acota con un selector para que solo
 # afecte a lo que debe.
-STYLESHEET = general_stylesheet(COLORS) + f"""
+STYLESHEET = (
+    general_stylesheet(COLORS)
+    + f"""
 /* Zona central: la franja de arriba (barra de filtros y sus paneles) con el fondo de la
    barra inferior y de la cuadrícula, separada de esta por una raya de 1 px; sin el marco
    claro de 'StyledPanel' */
@@ -535,6 +552,7 @@ QPushButton#btn_job_cancel {{
     min-height: 0px;
 }}
 """
+)
 
 
 def apply_tooltip_style() -> None:

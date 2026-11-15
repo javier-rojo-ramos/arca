@@ -18,6 +18,8 @@ Uso (en el .ui es un widget promocionado, 'widget_view_buttons'):
     buttons.set_views([("grid", "Cuadrícula (G)", AppIcons.VIEW_GRID), ...], "grid")
     buttons.view_requested.connect(...)
 
+1.2.0 El icono, de 'BAR_ICON_SIZE' (ui_theme.py, el común de los botones de las barras:
+      18 px; antes, 16).
 1.1.0 Botones de 22 px con icono de 16 (antes, 26 y 18): la barra inferior pasa a medir
       lo mismo que la franja de «Atributos».
 1.0.0 Primera versión (paso A.1, subpaso 3).
@@ -26,7 +28,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.view_buttons
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["ViewButtons"]
 
 # Librerías estándar
@@ -38,13 +40,14 @@ from qtpy.QtWidgets import QButtonGroup, QHBoxLayout, QToolButton, QWidget
 
 # Módulos del proyecto
 from ui_helpers.helpers.ui_icons import tinted_icon
+from ui_helpers.helpers.ui_theme import BAR_ICON_SIZE
 
 # Medidas (px lógicos). La barra inferior mide 30 px bajo su raya, como la franja de
 # «Atributos» de la barra de filtros: los botones, del alto de los desplegables («Orden» al
-# lado, «≥» en «Atributos»), quedan a 4 px de las rayas; el icono, el del candado de la
-# barra de filtros (pedido por el autor el 11/11/2026; antes, 26 y 18)
+# lado, «≥» en «Atributos»), quedan a 4 px de las rayas (pedido por el autor el
+# 11/11/2026; antes, 26). El icono, el común de los botones de las barras
 BUTTON_SIZE = 22  # lado de cada botón
-ICON_SIZE = 16  # lado del icono
+ICON_SIZE = BAR_ICON_SIZE  # lado del icono
 _SPACING = 4  # entre botones (como en la toolbar)
 
 # Una vista para los botones: (clave, texto emergente, ruta del icono o "" sin icono)

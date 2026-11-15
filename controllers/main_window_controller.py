@@ -102,7 +102,7 @@ from ui_helpers.helpers.ui_file_manager import (
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.helpers.ui_status import message_bar
-from ui_helpers.helpers.ui_theme import TOOLBAR_MARGIN
+from ui_helpers.helpers.ui_theme import TOOLBAR_ICON_SIZE, TOOLBAR_MARGIN
 from ui_helpers.inspector.inspector_panel import InspectorPanel
 from ui_helpers.layout.section_layout_model import SectionLayoutModel
 from ui_helpers.layout.section_registry import SECTION_REGISTRY
@@ -1029,7 +1029,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         en los cuatro lados (sin línea separadora: la zona se nota por el fondo).
 
         Se toman TODOS los botones de la franja (los de cada módulo y el de ajustes), así
-        que un botón nuevo en el .ui se centra solo. Qué hace cada botón de módulo (icono,
+        que un botón nuevo en el .ui se centra solo. Sus iconos, de 'TOOLBAR_ICON_SIZE'
+        (ui_theme.py; manda sobre el tamaño del .ui). Qué hace cada botón de módulo (icono,
         barra lateral...) lo deciden los módulos: ver '_configurar_modulos'.
         """
         all_buttons = self.frame_toolbar.findChildren(QToolButton)
@@ -1039,6 +1040,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.layout_toolbar.setContentsMargins(0, TOOLBAR_MARGIN, 0, TOOLBAR_MARGIN)
         for button in all_buttons:
             self.layout_toolbar.setAlignment(button, Qt.AlignmentFlag.AlignHCenter)
+            button.setIconSize(QSize(TOOLBAR_ICON_SIZE, TOOLBAR_ICON_SIZE))
 
     def _refresh_sidebar_counts(self, _row_count: int = 0) -> None:
         """Actualiza en segundo plano la barra lateral del módulo activo (contadores, árboles).

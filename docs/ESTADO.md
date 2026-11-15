@@ -11,6 +11,8 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Tamaño de los iconos de la toolbar de módulos, en una constante** (15/11/2026) | Nada que ver: los botones de la izquierda (los módulos y el de ajustes) siguen con iconos de 24 px. Para cambiarlos, `TOOLBAR_ICON_SIZE` en `ui_theme.py` |
+| **Iconos de los botones de las barras, de 18 px** (15/11/2026) | Más grandes (antes, 16 px) en los mismos botones: los tres de vista y los de la tira y el perfil (barra inferior) y el candado de la barra de filtros. Los botones, las barras, los textos, los desplegables y las estrellas, igual que antes. Mirar si convence o se prefiere 20 px (la variante B: `BAR_ICON_SIZE` en `ui_theme.py`) |
 | **Los botones de la tira y del perfil, en el acento mientras se ven** (15/11/2026) | En la vista de mapa, abajo a la derecha: con la tira de fotos a la vista, el icono de su botón sale en **ámbar**; al ocultarla (botón o F6), vuelve a su color. Igual con el botón del perfil de elevación en Tracks (botón o F7). Al cambiar de módulo, cada botón según cómo esté lo suyo en ese módulo (la tira se recuerda por módulo) |
 | **Ctrl + clic en una tarjeta solo selecciona; el orden de los totales del perfil** (15/11/2026) | (1) En la cuadrícula y en la tira, Ctrl + clic sobre una estrella, la marca, el círculo de la selección rápida o la chincheta **solo** añade o quita la tarjeta de la selección: no valora, no marca, no cambia la selección rápida ni lleva al mapa. Sin Ctrl, todo como siempre. (2) En el perfil de elevación (Tracks), la línea de arriba dice «Distancia · ↑ · ↓ · Mín. · Máx.» (antes, la máxima delante de la mínima); la del tramo, igual que antes |
 | **La chincheta de las tarjetas lleva al mapa; «Encuadrar» ya no se queda en blanco** (15/11/2026) | (1) En la **cuadrícula** del Catálogo, Imagen y Tracks, las tarjetas de lo que tiene ubicación llevan la chincheta abajo a la derecha de la imagen (en los vídeos, la duración a su izquierda); en Vídeo y Audio, no. (2) Al pulsarla: queda seleccionado **solo ese archivo**, se pasa al mapa y se encuadra como con «Encuadrar» (una foto, con el zoom de siempre; un track, entero). La primera vez que se abre el mapa con eso elegido, aparece ya encuadrado (sin el encuadre de todo antes). (3) En la **tira** del mapa, pulsar la chincheta selecciona ese archivo y lo encuadra; el resto de la tarjeta, como siempre (seleccionar, arrastrar al mapa). (4) Las estrellas, la marca y el círculo siguen igual; doble clic en la chincheta no abre la vista individual. (5) Tras pulsar «Encuadrar», «+» o «−», el botón ya no se queda casi blanco hasta mover el mapa: vuelve a su color (con el ratón encima, el de siempre). Mirar si la chincheta molesta en las tarjetas pequeñas (deslizador al mínimo) |
@@ -102,6 +104,8 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 15/11/2026: el tamaño de los iconos de la toolbar de módulos (y del botón de ajustes), en una constante (`TOOLBAR_ICON_SIZE`, 24 px como hasta ahora).
+- 15/11/2026: los iconos de los botones de las barras, de 18 px (antes, 16), con una sola constante (`BAR_ICON_SIZE`).
 - 15/11/2026: los botones de la tira y del perfil, con el icono en el acento mientras se ve lo que muestran.
 - 15/11/2026: Ctrl + clic en una zona de la tarjeta solo selecciona; en los totales del perfil, la altitud mínima antes que la máxima.
 - 15/11/2026: la chincheta también en la cuadrícula (módulos con mapa); al pulsarla, ese archivo seleccionado, en el mapa y encuadrado. Los botones del mapa ya no se quedan casi blancos tras pulsarlos.
@@ -110,5 +114,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 15/11/2026: perfil: los textos de un GPX que no se puede leer y de uno sin recorrido, los del autor. La fase 5 se deja aquí (la 5.4, el eje por tiempo, en espera).
 - 15/11/2026: Tracks, paso 5.3b: el perfil y el mapa, sincronizados (el punto ámbar en los dos sentidos, el tramo del perfil resaltado en el mapa, Esc); si un track no se puede leer, el perfil dice por qué. Con él, el 5.3, completo.
 - 15/11/2026: Tracks, paso 5.3a: la banda del perfil de elevación entre el mapa y la tira (botón y F7, alto recordado, textos sin track); la tira de fotos, recordada por módulo (en Tracks empieza oculta).
-- 15/11/2026: perfil de elevación: el modo de la pendiente elegido como texto (desde un desplegable) se ignoraba y el perfil salía sin colores; `ProfileStyle` lo convierte.
-- 15/11/2026: Tracks, paso 5.2: el widget del perfil de elevación (`ElevationProfile`), con cursor, tramo, pendiente por colores en el área o en la línea y el aspecto en un estilo personalizable; ventana de prueba.
