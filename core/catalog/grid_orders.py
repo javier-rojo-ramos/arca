@@ -29,8 +29,10 @@ una subconsulta por la clave primaria, sin JOIN (como en las colecciones intelig
 Las claves son las de las colecciones inteligentes ('smart_fields.py') cuando existen.
 
 No todos los campos valen para todos los módulos: 'COMMON_SORT_FIELDS' son los de cualquier
-archivo (los que ofrecen el Catálogo e Imagen) y 'TRACK_SORT_FIELDS', los del módulo Tracks.
+archivo (los que ofrecen el Catálogo e Imagen), 'TRACK_SORT_FIELDS', los del módulo Tracks,
+y 'VIDEO_AUDIO_SORT_FIELDS', los de Vídeo y Audio.
 
+1.2.0 'VIDEO_AUDIO_SORT_FIELDS': los de los módulos Vídeo y Audio (los comunes y «Duración»).
 1.1.0 Campos de los tracks: «Distancia», «Desnivel positivo» (de 'track_details') y
       «Duración»; 'SortColumn.table'; 'COMMON_SORT_FIELDS' y 'TRACK_SORT_FIELDS' (docs/MAPA.md,
       paso 4.2).
@@ -43,13 +45,14 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.grid_orders
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "CAPTURE_TIME_ORDER",
     "COMMON_SORT_FIELDS",
     "NAME_ORDER",
     "SORT_FIELDS",
     "TRACK_SORT_FIELDS",
+    "VIDEO_AUDIO_SORT_FIELDS",
     "GridOrder",
     "SortColumn",
     "SortField",
@@ -135,6 +138,13 @@ COMMON_SORT_FIELDS: tuple[str, ...] = (
 TRACK_SORT_FIELDS: tuple[str, ...] = (
     "captured_at", "track_distance", "track_gain", "duration",
     "file_name", "file_size", "file_modified_at", "added_at",
+)  # fmt: skip
+
+# Los de Vídeo y Audio: los de cualquier archivo y la duración, detrás del nombre (por
+# ahora iguales; con su navegación propia, cada uno tendrá los suyos: artista, álbum...)
+VIDEO_AUDIO_SORT_FIELDS: tuple[str, ...] = (
+    "captured_at", "file_name", "duration", "file_extension", "file_size",
+    "file_modified_at", "added_at",
 )  # fmt: skip
 
 
@@ -296,7 +306,7 @@ if __name__ == "__main__":
     assert names(GridOrder("added_at")) == ["A.dng", "b.jpg", "c.mp4"]
 
     # Las listas por módulo solo nombran campos que existen, sin repetir
-    for keys in (COMMON_SORT_FIELDS, TRACK_SORT_FIELDS):
+    for keys in (COMMON_SORT_FIELDS, TRACK_SORT_FIELDS, VIDEO_AUDIO_SORT_FIELDS):
         assert set(keys) <= set(SORT_FIELDS) and len(set(keys)) == len(keys), keys
     assert not {"track_distance", "track_gain", "duration"} & set(COMMON_SORT_FIELDS)
 

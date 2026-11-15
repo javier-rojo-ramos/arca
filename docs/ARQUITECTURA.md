@@ -71,7 +71,9 @@ controllers/
     image_module.py                    ImageModule: barra ImageSidebar (Biblioteca - Imagen con su selección rápida, carpetas con imágenes, fechas y árbol de palabras clave con recuentos), estado; vistas: cuadrícula, individual y mapa (en el que se ubican fotos)
     library_module.py                  LibraryModule: base de los módulos de una biblioteca con la barra LibrarySidebar (contadores, carpetas y fechas en segundo plano con fetch_library_sidebar_data, vuelta a «Todos», estado, menú de las carpetas); la subclase pone library y texts
     tracks_module.py                   TracksModule (hereda de LibraryModule): barra LibrarySidebar (Biblioteca - Tracks con su selección rápida, carpetas con tracks y fechas), estado; vistas: cuadrícula y mapa (el inicial; solo mira); orden por fecha, distancia, desnivel y duración
-    placeholder_module.py              PlaceholderModule: botón sin módulo todavía (página «próximamente»)
+    video_module.py                    VideoModule (hereda de LibraryModule): biblioteca Vídeos (películas y series); cuadrícula e individual; orden con «Duración»
+    audio_module.py                    AudioModule (hereda de LibraryModule): biblioteca Música; solo cuadrícula; orden con «Duración»
+    placeholder_module.py              PlaceholderModule: botón sin módulo todavía (página «próximamente»); sin uso desde el 15/11/2026 (Vídeo y Audio ya tienen el suyo)
 ui/main_window.ui, main_window.py    Interfaz de Qt Designer (main_window.py se GENERA con build_ui.py; no editar a mano).
                                      Widgets promocionados: widget_catalog_sidebar (CatalogSidebar), list_view_grid (MediaGridView),
                                      widget_single_view (SingleMediaView), widget_filter_bar (FilterBar, en frame_main_top) y, en

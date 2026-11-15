@@ -30,6 +30,7 @@ De dónde saca el modelo: de 'context["section_layout"]' (lo pone el controlador
 que se muestra al abrir es 'context["active_mode"]' (el activo). Sin modelo en el contexto
 (la prueba suelta de la ventana), crea uno propio con la configuración recibida.
 
+1.1.2 Autoprueba: Vídeo ya tiene barra (la de Tracks).
 1.1.1 Los botones de subir y bajar, cuadrados (pedido por el autor).
 1.1.0 «Subir» y «Bajar», con flechas en lugar de texto ('AppIcons.ARROW_UP' / 'ARROW_DOWN')
       y separados (pedido por el autor).
@@ -40,7 +41,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
 La página se ve en la prueba de la ventana de opciones ('settings_dialog', abre una ventana).
 """
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 __all__ = ["SectionLayoutPage"]
 
 # Librerías estándar
@@ -381,7 +382,10 @@ if __name__ == "__main__":
     assert not page.button_reset_mode.isEnabled() and page.button_reset_all.isEnabled()
     page.lists[Sidebar.LEFT].item(0).setCheckState(Qt.CheckState.Unchecked)
     page.combo_mode.setCurrentIndex(page.combo_mode.findData("video"))
-    assert not page.lists[Sidebar.LEFT].isEnabled() and page.lists[Sidebar.RIGHT].isEnabled()
+    # Vídeo, con la barra de Tracks (15/11/2026; antes era provisional, sin barra, y su lista
+    # salía apagada)
+    assert _rows(page, Sidebar.LEFT) == [("library", True), ("folders", True), ("dates", True)]
+    assert page.lists[Sidebar.LEFT].isEnabled() and page.lists[Sidebar.RIGHT].isEnabled()
     page.combo_mode.setCurrentIndex(page.combo_mode.findData("image"))
     assert _rows(page, Sidebar.LEFT) == expected
 

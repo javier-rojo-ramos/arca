@@ -40,6 +40,8 @@ Uso:
     SECTION_REGISTRY.defaults("image", Sidebar.LEFT)  # sus secciones, en el orden de partida
     SECTION_REGISTRY.get("folders").title_for("image")
 
+1.4.0 Las secciones de la barra de Vídeo y Audio: «Biblioteca - Vídeos» / «Biblioteca -
+      Música», «Carpetas» y «Fechas» (las de Tracks).
 1.3.0 Sección «Track» del inspector (entre «Selección» y «Palabras clave»).
 1.2.0 Las secciones de la barra del módulo Tracks: «Biblioteca - Tracks», «Carpetas» y
       «Fechas» (las mismas 'library', 'folders' y 'dates' de Imagen).
@@ -51,7 +53,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_registry
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "LEFT",
     "RIGHT",
@@ -220,19 +222,25 @@ def _build_default_registry() -> SectionRegistry:
     # guardaba lo plegado de cada barra
     catalog = frozenset({"catalog"})
     image = frozenset({"image"})
-    tracks = frozenset({"tracks"})
+    # Los módulos de una biblioteca con la barra 'LibrarySidebar' (biblioteca, carpetas y fechas)
+    libraries = frozenset({"video", "audio", "tracks"})
     registry.register(SectionSpec("catalog", "Catálogo", LEFT, 100, modes=catalog))
     registry.register(
         SectionSpec(
-            "library", "Biblioteca", LEFT, 100, modes=image | tracks,
-            mode_titles={"image": "Biblioteca - Imagen", "tracks": "Biblioteca - Tracks"},
+            "library", "Biblioteca", LEFT, 100, modes=image | libraries,
+            mode_titles={
+                "image": "Biblioteca - Imagen",
+                "video": "Biblioteca - Vídeos",
+                "audio": "Biblioteca - Música",
+                "tracks": "Biblioteca - Tracks",
+            },
         )
     )  # fmt: skip
     registry.register(
-        SectionSpec("folders", "Carpetas", LEFT, 200, modes=catalog | image | tracks)
+        SectionSpec("folders", "Carpetas", LEFT, 200, modes=catalog | image | libraries)
     )
     registry.register(SectionSpec("collections", "Colecciones", LEFT, 300, modes=catalog))
-    registry.register(SectionSpec("dates", "Fechas", LEFT, 300, modes=image | tracks))
+    registry.register(SectionSpec("dates", "Fechas", LEFT, 300, modes=image | libraries))
     registry.register(SectionSpec("keywords", "Lista de palabras clave", LEFT, 400, modes=image))
 
     # --- Barra derecha (el inspector): las mismas en todos los modos. Los 'id' son las
@@ -263,7 +271,10 @@ if __name__ == "__main__":
     assert reg.mode_keys() == ("catalog", "image", "video", "audio", "tracks"), reg.mode_keys()
     assert _ids(reg, "catalog", Sidebar.LEFT) == ["catalog", "folders", "collections"]
     assert _ids(reg, "image", Sidebar.LEFT) == ["library", "folders", "dates", "keywords"]
-    assert _ids(reg, "video", Sidebar.LEFT) == []  # módulo provisional: sin barra propia
+    for library_mode in ("video", "audio"):  # la barra de Tracks
+        assert _ids(reg, library_mode, Sidebar.LEFT) == ["library", "folders", "dates"]
+    assert reg.get("library").title_for("video") == "Biblioteca - Vídeos"
+    assert reg.get("library").title_for("audio") == "Biblioteca - Música"
     assert _ids(reg, "tracks", Sidebar.LEFT) == ["library", "folders", "dates"]
     assert reg.get("library").title_for("tracks") == "Biblioteca - Tracks"
     inspector = ["selection", "track", "keyword_editor", "keyword_list", "metadata"]
