@@ -10,7 +10,9 @@ Qué hace (decidido por el autor el 13/11/2026):
       oculto, lo apunta y lo pide al volver a él.
     - Encuadre: al elegir otra cosa a la izquierda, el mapa encuadra todo lo que hay; al
       cambiar el filtro o la selección, no se mueve; al volver al mapa con lo mismo
-      elegido, sigue donde estaba.
+      elegido, sigue donde estaba. Cada módulo recuerda su encuadre con lo que tenía
+      elegido (15/11/2026): al arrancar o al volver de otro módulo con lo mismo, el mapa
+      vuelve a él; se guarda por catálogo, al cerrar ('map_framing.py').
     - Botón «Encuadrar» (encima del zoom; 15/11/2026): lo seleccionado que sale en el
       mapa (fotos y tracks juntos); si no hay nada seleccionado, o nada de ello tiene
       ubicación, todo lo que muestra; y si no muestra nada, el encuadre de partida.
@@ -69,16 +71,20 @@ Ubicar fotos (paso 3.2; decidido por el autor el 13/11/2026; solo en los módulo
       guarda las coordenadas que tenían ('geotagging.set_media_position') y deja un paso
       que las vuelve a poner por la misma cola ('restore_media_positions').
 
-Lo que TODAVÍA NO hace: guardar el encuadre al cerrar.
-
 Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador = MapController(module_host, page=..., grid=..., model=..., center_views=...,
                                 layer_bar=layout_bottom_right, config=config, parent=window)
     controlador.attach(db)      # al abrir un catálogo
     controlador.detach()        # al cerrarlo
     controlador.refresh()       # tras un cambio del inspector
+    controlador.restore_state(entrada)   # al abrir un catálogo (antes de 'attach')
+    extra = controlador.save_state()     # al cerrarlo, con lo de los módulos
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.10.0 Cada módulo vuelve a su encuadre del mapa (al arrancar, al volver de otro módulo)
+       si tiene elegido lo mismo ('map_framing.MapFraming'); se guarda por catálogo
+       ('save_state' / 'restore_state'). Si se encuadra al pintar, el track elegido no
+       se encuadra además.
 1.9.3 La tira, con F9 (antes F6: F7 y F8 son ahora las barras laterales).
 1.9.2 El icono del botón de la tira, de 'BAR_ICON_SIZE' (el común: 18 px; antes, 16).
 1.9.1 Con la tira a la vista, el icono de su botón en el color de acento (el autor).
@@ -108,7 +114,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.9.3"
+__version__ = "1.10.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -139,6 +145,7 @@ from config.app_constants import (
 from controllers.app_modules.center_views import CenterView, MapOptions
 from controllers.app_modules.module_host import ModuleHost
 from controllers.center_view_controller import CenterViewController
+from controllers.map_framing import FRAMING_STATE_KEY, MapFraming
 from controllers.track_detail_controller import TrackDetailController
 from controllers.track_profile_controller import TrackProfileController
 from controllers.undo_history import UndoHistory, UndoStep
@@ -151,7 +158,14 @@ from core.thumbnails.sizes import ThumbnailSize
 from ui_helpers.helpers.track_appearance import track_colors
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_theme import BAR_ICON_SIZE, COLORS
-from ui_helpers.map.map_types import HitKind, MapHit, MapMarker, MapTrack, SelectionMode
+from ui_helpers.map.map_types import (
+    HitKind,
+    MapHit,
+    MapMarker,
+    MapTrack,
+    MapViewport,
+    SelectionMode,
+)
 from ui_helpers.map.map_view import MapView
 from ui_helpers.models.media_grid_model import MediaGridModel
 from ui_helpers.models.media_mime import MediaDrag
@@ -290,6 +304,12 @@ class MapController(QObject):
         # Lo pulsado con la chincheta de una tarjeta, por encuadrar en cuanto el mapa esté
         # a la vista y al día
         self._pending_fit: tuple[int, ...] = ()
+        # El encuadre de cada módulo, con lo que tenía elegido: al volver a pintarlo (también
+        # al arrancar) con lo mismo, el mapa vuelve a él ('map_framing.py')
+        self._framing = MapFraming()
+        # De qué módulo y origen es lo pintado (None = nada): solo entonces se apunta el
+        # encuadre del mapa quieto
+        self._painted: tuple[str, GridSource] | None = None
 
         # Desplegable de la capa (barra inferior, a la derecha; solo con el mapa a la vista)
         self._layer_box = QComboBox()
@@ -387,6 +407,17 @@ class MapController(QObject):
             self._apply_track_colors(self._page.map_view())
         self._profile.apply_settings(changed)
 
+    def save_state(self) -> dict:
+        """El encuadre de cada módulo, para la entrada del catálogo en settings.json (lo
+        guarda el controlador principal con lo de los módulos, al cerrar el catálogo)."""
+        return {FRAMING_STATE_KEY: self._framing.to_state()}
+
+    def restore_state(self, entry: object) -> None:
+        """Recupera el encuadre de cada módulo de la entrada del catálogo (al abrirlo, antes
+        de 'attach')."""
+        saved = entry.get(FRAMING_STATE_KEY) if isinstance(entry, dict) else None
+        self._framing = MapFraming.from_state(saved)
+
     def detach(self) -> None:
         """Se cierra el catálogo: se olvida todo y se vacía el mapa."""
         self._db = None
@@ -399,6 +430,8 @@ class MapController(QObject):
         self._track_names = {}
         self._detailed_track = None
         self._pending_fit = ()
+        self._painted = None
+        self._framing.clear()  # ya guardado ('save_state', antes de cerrar)
         self._track_detail.detach()
         self._profile.reset()
         if self._page.has_map():
@@ -480,17 +513,30 @@ class MapController(QObject):
         self._model.set_located(
             [p.media_id for p in items.points] + [t.track_id for t in items.tracks if t.segments]
         )
-        self._push_selection()
-        self._page.set_notice(notice_text(self._model.rowCount(), items))
-        # Encuadre: lo pulsado con la chincheta de una tarjeta (sin animación: el mapa
-        # acaba de aparecer); si no, solo al elegir otra cosa a la izquierda (no con el
-        # filtro ni al volver)
+        # Encuadre, antes de la selección (si se encuadra aquí, el track elegido no se
+        # encuadra además):
+        #   - lo pulsado con la chincheta de una tarjeta (sin animación: el mapa acaba de
+        #     aparecer);
+        #   - otro origen: el encuadre que recordaba el módulo con ese mismo origen (al
+        #     arrancar, al volver de otro módulo) o, si no, todo;
+        #   - el mismo origen (otro filtro, al volver al mapa): no se mueve
+        module = self._module_key()
+        framed = False
         pending, self._pending_fit = self._pending_fit, ()
         if pending and view.fit_ids(pending, animate=False):
-            self._fitted_source = source
+            framed = True
         elif source != self._fitted_source:
+            remembered = self._framing.view_for(module, source)
+            if remembered is not None:
+                view.center_on(*remembered)
+            else:
+                view.fit_content(animate=False)
+            framed = True
+        if framed:
             self._fitted_source = source
-            view.fit_content(animate=False)
+        self._painted = (module, source)
+        self._push_selection(fit=not framed)
+        self._page.set_notice(notice_text(self._model.rowCount(), items))
 
     def _on_error(self, generation: int, error: Exception) -> None:
         if generation == self._generation:
@@ -526,9 +572,22 @@ class MapController(QObject):
         # mapa solo conoce el activo)
         view.fit_requested.connect(lambda: view.fit_preferred(self._selected_ids()))
         view.load_failed.connect(lambda _reason: self._page.set_notice(_LOAD_FAILED))
+        view.viewport_changed.connect(self._on_viewport)
         # El perfil y el mapa, sincronizados (punto ámbar y tramo; paso 5.3b)
         self._profile.attach_map(view)
         self._apply_track_colors(view)
+
+    def _on_viewport(self, viewport: MapViewport) -> None:
+        """El mapa se ha quedado quieto: su encuadre, para el módulo que se ve (solo si lo
+        pintado es de ese módulo y de lo que muestra ahora la cuadrícula)."""
+        if self._painted is None or not self._shown():
+            return
+        module, source = self._painted
+        if module != self._module_key() or source != self._model.source:
+            return  # se está cambiando de módulo o de origen: lo de antes no vale
+        self._framing.remember(
+            module, source, viewport.latitude, viewport.longitude, viewport.zoom
+        )
 
     def _apply_track_colors(self, view: MapView) -> None:
         """Los colores de los tracks elegidos en Opciones > Tracks (o los del tema)."""
@@ -701,8 +760,11 @@ class MapController(QObject):
         rows = [row for span in spans for row in range(span.top(), span.bottom() + 1)]
         return self._model.media_ids(rows)
 
-    def _push_selection(self) -> None:
-        """La selección de la cuadrícula, al mapa (y el track seleccionado, resaltado)."""
+    def _push_selection(self, fit: bool = True) -> None:
+        """La selección de la cuadrícula, al mapa (y el track seleccionado, resaltado).
+
+        Con 'fit' False, el track elegido no se encuadra (el mapa ya se ha encuadrado al
+        pintar: '_on_items')."""
         if not self._page.has_map() or not self._shown():
             return
         ids = self._selected_ids()
@@ -721,7 +783,7 @@ class MapController(QObject):
             return
         # Elegido fuera del mapa (la tira, la cuadrícula): se encuadra. Pulsado en el
         # mapa, ya se está viendo: no se mueve
-        if changed and active not in picked:
+        if fit and changed and active not in picked:
             view.fit_track(active)
         # Su recorrido completo, en lugar del contorno (llega en segundo plano)
         if active != self._detailed_track:

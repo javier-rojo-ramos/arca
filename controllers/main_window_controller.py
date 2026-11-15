@@ -1236,6 +1236,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             self.module_host.restore_state(self.catalog_dir)
             if self.inspector is not None:
                 self.inspector.restore_state(self.module_host.saved_entry(self.catalog_dir))
+            if self.map_controller is not None:  # el encuadre del mapa de cada módulo
+                self.map_controller.restore_state(self.module_host.saved_entry(self.catalog_dir))
             self.module_host.attach(self.db, self.catalog_dir)
         if self.inspector is not None:
             self.inspector.attach(self.db)
@@ -1369,10 +1371,14 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # (getattr: Qt puede cerrar la ventana antes de terminar 'iniciar')
         module_host = getattr(self, "module_host", None)
         if module_host is not None and self.catalog_dir is not None:
-            # Con lo del inspector (lo desplegado de su árbol de palabras clave)
+            # Con lo del inspector (lo desplegado de su árbol de palabras clave) y el
+            # encuadre del mapa de cada módulo
             inspector = getattr(self, "inspector", None)
-            extra = inspector.save_state() if inspector is not None else None
-            module_host.save_state(self.catalog_dir, extra=extra)
+            extra = dict(inspector.save_state()) if inspector is not None else {}
+            map_controller = getattr(self, "map_controller", None)
+            if map_controller is not None:
+                extra.update(map_controller.save_state())
+            module_host.save_state(self.catalog_dir, extra=extra or None)
 
         self.mosaico_model.detach()  # vacía la cuadrícula y deja de pedir datos a la base
         if module_host is not None:

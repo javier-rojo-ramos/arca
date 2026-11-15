@@ -118,6 +118,7 @@ python -m controllers.sidebar_visibility                       (barras laterales
 python -m controllers.undo_history                             (el historial de deshacer: orden, tope, vaciar, Ctrl+Z en la ventana; sin ventana)
 python -m controllers.track_profile_controller                 (la banda del perfil: ninguno, varios, uno, el que llega, el mismo otra vez, el que falla y por qué, de la memoria, el botón, no disponible, el alto y lo guardado; la sincronización con un mapa de mentira: punto ámbar en los dos sentidos, no con el contorno, el tramo, Esc; con la página de verdad y un lector de mentira; sin ventana)
 python -m controllers.track_detail_controller                  (recorrido completo del track activo: lectura, memoria, respuestas tardías, catálogo cerrado; con un gestor de mentira; sin ventana)
+python -m controllers.map_framing                              (el encuadre del mapa de cada módulo: recordar, otro origen, JSON; sin Qt)
 python -m controllers.metadata_filter_controller               (columnas de partida, qué se recuenta, respuestas tardías, alto guardado, con host, modelo y BD de mentira; sin ventana)
 
 # ui_helpers

@@ -7,8 +7,9 @@ tocar este widget ni el .ui.
 
 Solo muestra y avisa: no sabe qué es una vista ni qué hace. Cada botón lleva una clave
 (texto) y, al pulsarlo, emite 'view_requested(clave)'; lo marcado es siempre lo que le
-confirman con otro 'set_views'. Con una sola vista (o ninguna) se oculta: un botón suelto
-no sirve de nada.
+confirman con otro 'set_views'. Sin vistas se oculta; con una sola, se ve su botón marcado
+(así se sabe en qué vista se está, también en un módulo que solo tiene la cuadrícula:
+pedido por el autor el 15/11/2026; antes, con una sola se ocultaba).
 
 Iconos: SVG monocromos teñidos con 'tinted_icon' (el del botón marcado, en el color de
 acento, como los de la toolbar). Sin icono, la inicial del texto emergente. No cogen el
@@ -18,6 +19,7 @@ Uso (en el .ui es un widget promocionado, 'widget_view_buttons'):
     buttons.set_views([("grid", "Cuadrícula (G)", AppIcons.VIEW_GRID), ...], "grid")
     buttons.view_requested.connect(...)
 
+1.3.0 Con una sola vista, su botón se ve (marcado): antes se ocultaba.
 1.2.0 El icono, de 'BAR_ICON_SIZE' (ui_theme.py, el común de los botones de las barras:
       18 px; antes, 16).
 1.1.0 Botones de 22 px con icono de 16 (antes, 26 y 18): la barra inferior pasa a medir
@@ -28,7 +30,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.view_buttons
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["ViewButtons"]
 
 # Librerías estándar
@@ -106,7 +108,7 @@ class ViewButtons(QWidget):
                 self._group.setExclusive(False)  # para poder dejarlos todos sin marcar
                 checked.setChecked(False)
                 self._group.setExclusive(True)
-        self.setVisible(len(specs) > 1)
+        self.setVisible(bool(specs))
 
     # -------------------------------------------------------------------------
     # Interno
@@ -177,9 +179,11 @@ if __name__ == "__main__":
     # Las mismas vistas: no se rehacen los botones
     assert buttons._buttons["grid"] is first
 
-    # Otro módulo con otras vistas: se rehacen; una sola vista, oculto
+    # Otro módulo con otras vistas: se rehacen; con una sola vista, su botón se ve, marcado
     buttons.set_views([("grid", "Cuadrícula (G)", "")], "grid")
-    assert buttons.keys() == ["grid"] and buttons.isHidden()
+    assert buttons.keys() == ["grid"] and not buttons.isHidden() and buttons.current == "grid"
+    buttons.set_views((), None)  # sin vistas: oculto
+    assert buttons.isHidden()
     # Una vista marcada que no está entre los botones: ninguno marcado
     buttons.set_views(views, "map")
     assert buttons.current is None

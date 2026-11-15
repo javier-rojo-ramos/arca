@@ -58,6 +58,7 @@ Uso (en el controlador principal, que solo lo crea):
         map_page=pagina_del_mapa, parent=window,
     )
 
+1.7.2 Autoprueba: con una sola vista, su botón se ve ('ViewButtons' 1.3.0).
 1.7.1 Autoprueba: lo elegido al recargar sigue seleccionado con la tira del mapa conectada
       (la vaciaba: arreglado en 'MapFilmstrip.reset').
 1.7.0 'focus_view': el teclado, a la vista del centro (la usa 'SidebarVisibility' al
@@ -77,7 +78,7 @@ Uso (en el controlador principal, que solo lo crea):
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.7.1"
+__version__ = "1.7.2"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -625,7 +626,9 @@ if __name__ == "__main__":
     host.views = (CenterView.GRID,)
     host.view_changed.emit(CenterView.GRID)
     press(grid, _KEY.Key_Return)
-    assert host.view is CenterView.GRID and buttons.isHidden()
+    # (su único botón, el de la cuadrícula, se ve marcado: desde el 15/11/2026)
+    assert host.view is CenterView.GRID and not buttons.isHidden()
+    assert buttons.keys() == ["grid"] and buttons.current == "grid"
 
     # En la cuadrícula, una recarga con el mismo origen conserva TODA la selección que siga
     # en la lista, con la misma actual (otro orden)
