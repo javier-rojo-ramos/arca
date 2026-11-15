@@ -39,6 +39,7 @@ Uso (lo crea 'MapController', que le dice cuándo se puede ver y qué hay selecc
     profile.reset()                  # al abrir o cerrar un catálogo
     profile.apply_settings(claves)   # tras la ventana de opciones
 
+1.2.1 Con la banda a la vista, el icono del botón en el color de acento (el autor, 15/11/2026).
 1.2.0 Botón derecho sobre el perfil: cómo se ve la pendiente, guardado en settings.json
       ('profile_slope_mode', también en Opciones > Tracks: 'apply_settings').
 1.1.1 Textos de un GPX que no se puede leer o sin recorrido, los del autor.
@@ -50,7 +51,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.track_profile_controller
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["TrackProfileController"]
 
 # Librerías estándar
@@ -71,6 +72,7 @@ from ui_helpers.helpers import card_glyphs
 from ui_helpers.helpers.profile_style import SLOPE_MODE_LABELS, SLOPE_MODE_TITLE, SlopeMode
 from ui_helpers.helpers.track_appearance import slope_mode
 from ui_helpers.helpers.ui_icons import tinted_icon
+from ui_helpers.helpers.ui_theme import COLORS
 from ui_helpers.map.map_view import MapView
 from ui_helpers.widgets.map_page import MapPage
 from ui_helpers.widgets.single_media_view import UNAVAILABLE_TEXTS
@@ -338,9 +340,10 @@ class TrackProfileController(QObject):
             profile.set_style(replace(profile.profile_style(), slope_mode=mode))
 
     def _update_button(self) -> None:
-        self._button.setIcon(
-            tinted_icon(AppIcons.PROFILE_HIDE if self._wanted_visible else AppIcons.PROFILE_SHOW)
-        )
+        # Con la banda a la vista, el icono en el acento (como la tira); oculta, el de siempre
+        visible = self._wanted_visible
+        icon = AppIcons.PROFILE_HIDE if visible else AppIcons.PROFILE_SHOW
+        self._button.setIcon(tinted_icon(icon, COLORS.accent if visible else None))
         self._button.setToolTip(_PROFILE_HIDE if self._wanted_visible else _PROFILE_SHOW)
 
     def _restore(self) -> None:
@@ -370,8 +373,10 @@ if __name__ == "__main__":
     from array import array
 
     from qtpy.QtCore import Signal
+    from qtpy.QtGui import QColor
     from qtpy.QtWidgets import QApplication, QHBoxLayout, QWidget
 
+    import resources.recursos_rc  # noqa: F401 - los iconos (:/img/...), para mirar su color
     from controllers.track_detail_controller import path_segments
     from core.tracks.gpx_document import PathSegment, TrackPath
     from core.tracks.profile import build_profile
@@ -500,12 +505,24 @@ if __name__ == "__main__":
     controller.show_tracks([9])
     assert profile.profile() is source.cache[9].profile
 
-    # --- El botón (o F7): oculta y muestra, y se guarda
+    # --- El botón (o F7): oculta y muestra, y se guarda; a la vista, el icono en el acento
+    def icon_in_accent() -> bool:
+        image = controller._button.icon().pixmap(32, 32).toImage()
+        accent = QColor(COLORS.accent).rgb()
+        return any(
+            image.pixelColor(x, y).alpha() > 200 and image.pixelColor(x, y).rgb() == accent
+            for x in range(image.width())
+            for y in range(image.height())
+        )
+
+    assert icon_in_accent()
     controller.toggle()
     assert not page.profile_visible() and controller._button.toolTip() == _PROFILE_SHOW
     assert config.data[SETTING_MAP_PROFILE]["visible"] is False
+    assert not icon_in_accent()
     controller.toggle()
     assert page.profile_visible() and config.data[SETTING_MAP_PROFILE]["visible"] is True
+    assert icon_in_accent()
 
     # --- Otro módulo (o el mapa oculto): banda y botón fuera; el botón no hace nada
     controller.set_available(False)

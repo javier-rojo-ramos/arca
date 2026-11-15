@@ -79,6 +79,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador.refresh()       # tras un cambio del inspector
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.9.1 Con la tira a la vista, el icono de su botón en el color de acento (el autor).
 1.9.0 La chincheta de las tarjetas: en la cuadrícula de los módulos con mapa y, al
       pulsarla (cuadrícula o tira), ese archivo seleccionado, en el mapa y encuadrado.
 1.8.0 El botón «Encuadrar» del mapa: lo seleccionado en la cuadrícula ('fit_preferred').
@@ -105,7 +106,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.9.0"
+__version__ = "1.9.1"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -147,6 +148,7 @@ from core.maps.tile_store import DEFAULT_MAX_BYTES, TileStorageError, TileStore
 from core.thumbnails.sizes import ThumbnailSize
 from ui_helpers.helpers.track_appearance import track_colors
 from ui_helpers.helpers.ui_icons import tinted_icon
+from ui_helpers.helpers.ui_theme import COLORS
 from ui_helpers.map.map_types import HitKind, MapHit, MapMarker, MapTrack, SelectionMode
 from ui_helpers.map.map_view import MapView
 from ui_helpers.models.media_grid_model import MediaGridModel
@@ -645,9 +647,9 @@ class MapController(QObject):
 
     def _update_filmstrip_button(self) -> None:
         visible = self._page.filmstrip_visible()
-        self._filmstrip_button.setIcon(
-            tinted_icon(AppIcons.FILMSTRIP_HIDE if visible else AppIcons.FILMSTRIP_SHOW)
-        )
+        # A la vista, el icono en el acento (como el del perfil); oculta, el de siempre
+        icon = AppIcons.FILMSTRIP_HIDE if visible else AppIcons.FILMSTRIP_SHOW
+        self._filmstrip_button.setIcon(tinted_icon(icon, COLORS.accent if visible else None))
         self._filmstrip_button.setToolTip(_FILMSTRIP_HIDE if visible else _FILMSTRIP_SHOW)
 
     def _save_filmstrip(self) -> None:
