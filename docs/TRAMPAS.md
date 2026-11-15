@@ -94,6 +94,7 @@
 
 ## Cuadrícula y miniaturas
 
+- **Dos vistas con el mismo modelo de selección: la segunda lo vacía al recargarse el modelo**: Qt conecta el `modelReset` de cada vista a `QAbstractItemView.reset`, que reinicia su modelo de selección SIN avisar. Si otra vista lo comparte (la tira del mapa usa el de la cuadrícula) y se conectó después de quien elige la selección al recargar (`CenterViewController`), la borra justo después. `MapFilmstrip.reset` la repone; una vista nueva que comparta la selección tiene que hacer lo mismo (15/11/2026).
 - En el delegado, el rectángulo de lo que se dibuja (miniatura o marcador) sale SIEMPRE de `_content_rect`, tanto en `paint` como en `_zone_at`: si uno de los dos usara otro cálculo, el círculo de la selección rápida se pulsaría en un sitio distinto del que se ve.
 - Con el orden por hora de captura, los elementos con `content_created_at` NULL (metadatos aún sin leer, o sin EXIF) van al final de la cuadrícula hasta que se lean.
 - Al añadir una carpeta la cuadrícula se recarga entera (la selección se recupera después: `CenterViewController._on_rows_reset`).

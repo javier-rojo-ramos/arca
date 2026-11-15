@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Arreglo: al abrir, al cambiar de módulo o al elegir en una barra, no quedaba nada seleccionado** (15/11/2026) | (1) Al abrir la aplicación, queda seleccionado el archivo que lo estaba al cerrarla en ese módulo (o, si ya no está, el primero), con el inspector mostrándolo («SELECCIÓN», no «VISTA ACTUAL»). (2) Al cambiar de módulo, el archivo que tenía ese módulo. (3) Al elegir otra carpeta, colección, fecha o palabra en una barra, el primero. (4) Al cambiar el orden o el filtro, lo seleccionado que siga en la lista. En la cuadrícula, en el mapa y en la vista individual. La tira del mapa, igual que antes |
 | **Mostrar u ocultar las barras laterales; la tira, con F9, y el perfil, con F10** (15/11/2026) | (1) Menú nuevo **«Ver»**, entre «Archivo» y «Ayuda», con «Mostrar barra izquierda» (F7) y «Mostrar barra derecha» (F8), con su marca: al desmarcar, la barra se va y el centro (cuadrícula, mapa o vista individual) se queda con su sitio; al volver, con el ancho de antes. Los atajos, también con el menú cerrado. (2) **Tab** oculta las dos; otra vez Tab, vuelven las que se veían (si solo se veía una, solo esa). Escribiendo en un campo de texto (filtro, palabras clave, inspector), Tab pasa al campo siguiente, como siempre. (3) Clic derecho en la cabecera de una sección (o en el hueco vacío de la barra): la primera opción es **«Ocultar barra»**, en las dos barras y en todos los módulos. (4) Al reiniciar, como se dejaron (también con las dos ocultas), igual en todos los módulos. (5) Si se oculta la barra derecha escribiendo en el inspector, el teclado vuelve a las fotos (las estrellas con el teclado, etc. funcionan). (6) **La tira del mapa, ahora con F9** (antes F6) y **el perfil, con F10** (antes F7); sus textos de ayuda dicen las teclas nuevas |
 | **Tamaño de los iconos de la toolbar de módulos, en una constante** (15/11/2026) | Nada que ver: los botones de la izquierda (los módulos y el de ajustes) siguen con iconos de 24 px. Para cambiarlos, `TOOLBAR_ICON_SIZE` en `ui_theme.py` |
 | **Iconos de los botones de las barras, de 18 px** (15/11/2026) | Más grandes (antes, 16 px) en los mismos botones: los tres de vista y los de la tira y el perfil (barra inferior) y el candado de la barra de filtros. Los botones, las barras, los textos, los desplegables y las estrellas, igual que antes. Mirar si convence o se prefiere 20 px (la variante B: `BAR_ICON_SIZE` en `ui_theme.py`) |
@@ -105,6 +106,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 15/11/2026: arreglo: la tira del mapa vaciaba la selección al recargarse la cuadrícula (al abrir, al cambiar de módulo, al elegir en una barra...): desde el 13/11/2026.
 - 15/11/2026: mostrar u ocultar las barras laterales (menú «Ver», F7, F8, Tab y «Ocultar barra» en el menú de las secciones); la tira pasa a F9 y el perfil a F10.
 - 15/11/2026: el tamaño de los iconos de la toolbar de módulos (y del botón de ajustes), en una constante (`TOOLBAR_ICON_SIZE`, 24 px como hasta ahora).
 - 15/11/2026: los iconos de los botones de las barras, de 18 px (antes, 16), con una sola constante (`BAR_ICON_SIZE`).
@@ -114,4 +116,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 15/11/2026: mapa: botón «Encuadrar» encima del zoom: lo seleccionado; si no, todo; si no hay nada, la vista de partida (España).
 - 15/11/2026: Opciones > Tracks (colores de los tracks en el mapa y la pendiente del perfil) y menú del botón derecho sobre el perfil (la pendiente). Con ello, la fase 5 se cierra aquí.
 - 15/11/2026: perfil: los textos de un GPX que no se puede leer y de uno sin recorrido, los del autor. La fase 5 se deja aquí (la 5.4, el eje por tiempo, en espera).
-- 15/11/2026: Tracks, paso 5.3b: el perfil y el mapa, sincronizados (el punto ámbar en los dos sentidos, el tramo del perfil resaltado en el mapa, Esc); si un track no se puede leer, el perfil dice por qué. Con él, el 5.3, completo.

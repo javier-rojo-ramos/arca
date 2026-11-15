@@ -21,6 +21,10 @@ Uso:
     tira = MapFilmstrip(parent)
     tira.attach(modelo_de_la_cuadricula, cuadricula.selectionModel())
 
+1.2.0 Al recargarse la lista, la tira ya no deja vacía la selección que comparte con la
+      cuadrícula ('reset'): desde que existe la tira (13/11/2026), al abrir el catálogo,
+      cambiar de módulo, elegir en una barra o cambiar el filtro no quedaba nada
+      seleccionado (lo vio el autor el 15/11/2026).
 1.1.1 La barra de desplazamiento, siempre: sin ella, la tira podía entrar en un bucle
       de tamaños y montar unas tarjetas sobre otras.
 1.1.0 Tarjetas compactas (sin banda ni círculo de la selección rápida) y alto mínimo de
@@ -28,7 +32,7 @@ Uso:
 1.0.0 Primera versión (docs/MAPA.md, paso 3.1).
 """
 
-__version__ = "1.1.1"
+__version__ = "1.2.0"
 __all__ = ["MIN_HEIGHT", "MapFilmstrip"]
 
 # Librerías de terceros (Qt)
@@ -92,6 +96,31 @@ class MapFilmstrip(MediaGridView):
         if own is not None and own is not selection_model:
             own.deleteLater()  # el que creó 'setModel' ya no sirve
         self._fit_cards()
+
+    def reset(self) -> None:  # nombre de Qt
+        """Al recargarse el modelo, como cualquier vista, pero SIN vaciar la selección.
+
+        Qt llama a 'reset' de cada vista al recargarse el modelo ('modelReset'), y
+        'QAbstractItemView.reset' reinicia su modelo de selección, sin avisar. La tira usa
+        el de la cuadrícula, y se conecta al modelo después de 'CenterViewController', que
+        es quien elige qué queda seleccionado tras recargar: sin esto, la tira lo borraba
+        justo después. La cuadrícula ya reinicia la selección antes (se conectó la
+        primera), así que aquí basta con dejarla como estaba. Se repone sin avisar: lo que
+        se eligió ya se avisó, y el reinicio tampoco avisó.
+        """
+        selection_model = self.selectionModel()
+        if selection_model is None:
+            super().reset()
+            return
+        selection = selection_model.selection()
+        current = selection_model.currentIndex()
+        super().reset()
+        blocked = selection_model.blockSignals(True)
+        try:
+            selection_model.select(selection, QItemSelectionModel.SelectionFlag.Select)
+            selection_model.setCurrentIndex(current, QItemSelectionModel.SelectionFlag.NoUpdate)
+        finally:
+            selection_model.blockSignals(blocked)
 
     def card_size(self) -> QSize:
         """Tamaño de cada tarjeta (el alto, el de la tira)."""

@@ -58,6 +58,8 @@ Uso (en el controlador principal, que solo lo crea):
         map_page=pagina_del_mapa, parent=window,
     )
 
+1.7.1 Autoprueba: lo elegido al recargar sigue seleccionado con la tira del mapa conectada
+      (la vaciaba: arreglado en 'MapFilmstrip.reset').
 1.7.0 'focus_view': el teclado, a la vista del centro (la usa 'SidebarVisibility' al
       ocultar la barra que lo tenía; antes, solo por dentro al elegir en una barra).
 1.6.0 'watch_map_widget': otras piezas de la vista de mapa que cogen el teclado (la tira
@@ -75,7 +77,7 @@ Uso (en el controlador principal, que solo lo crea):
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.7.1"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -672,6 +674,20 @@ if __name__ == "__main__":
     host.source_chosen.emit()
     model.fill([])  # lo elegido no tiene nada: nada que seleccionar
     assert selected_rows() == []
+
+    # Con la tira del mapa, que comparte la selección y se conecta al modelo DESPUÉS (como
+    # en la aplicación): lo elegido al recargar sigue seleccionado. Antes de 'MapFilmstrip
+    # .reset' (15/11/2026), la tira lo vaciaba sin avisar y no quedaba nada seleccionado
+    from ui_helpers.widgets.map_filmstrip import MapFilmstrip
+
+    filmstrip = MapFilmstrip(window)
+    filmstrip.attach(model, grid.selectionModel())
+    host.current_media = 20
+    model.fill([10, 20, 30])  # otro origen: el que recuerda el módulo
+    assert selected_ids() == [20] and grid.currentIndex().row() == 1
+    host.source_chosen.emit()
+    model.fill([5, 6])  # elegido en una barra: el primero
+    assert selected_ids() == [5] and host.current_media == 5
 
     # El mapa (13/11/2026): M lo abre, G vuelve a la cuadrícula; desde el mapa, la vista
     # individual vuelve al mapa con Esc y con M, y a la cuadrícula con G
