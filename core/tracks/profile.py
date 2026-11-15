@@ -54,13 +54,15 @@ Uso:
     tramo = range_stats(data, 120, 800)
     tramo.duration_s, tramo.average_speed_kmh
 
+1.1.0 La ventana de la pendiente, de 100 a 200 m ('SLOPE_WINDOW_M'), al verla dibujada
+      (paso 5.2).
 1.0.0 Primera versión (15/11/2026; docs/MAPA.md, paso 5.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.tracks.profile
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "SLOPE_WINDOW_M",
     "SMOOTHING_WINDOW_M",
@@ -92,7 +94,10 @@ SMOOTHING_WINDOW_M = 30.0
 # Ventana de la pendiente (metros): se mide lo que sube la altitud suavizada a lo largo de
 # esta distancia. Más corta, la pendiente sigue mejor los repechos pero tiembla con el
 # ruido del GPS (±5 m de altitud en 100 m ya son ±5 %); más larga, se ve más estable.
-SLOPE_WINDOW_M = 100.0
+# Elegida dibujando los GPX del autor (15/11/2026): con 100 m, los colores del perfil
+# cambiaban casi en cada punto (un «código de barras»); con 200 m (y la histéresis del
+# estilo del perfil) se ven las rampas de verdad. Con 300 m se pierden las cortas.
+SLOPE_WINDOW_M = 200.0
 
 _NAN = math.nan
 

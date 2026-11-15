@@ -18,6 +18,7 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.20.0 'PROFILE_COLORS': colores de partida del perfil de elevación (de 'theme_colors.py').
 1.19.0 Barra de un módulo de biblioteca ('#scroll_library_sidebar', como las demás barras).
 1.18.0 Raya que dice dónde cae una sección al arrastrar su cabecera
        ('#frame_section_drop_indicator').
@@ -62,11 +63,12 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.19.0"
+__version__ = "1.20.0"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
     "MARK_COLORS",
+    "PROFILE_COLORS",
     "ACCENT_COLOR",
     "GRID_BG",
     "GRID_LINE",
@@ -90,8 +92,10 @@ from ui_helpers.helpers.theme_colors import (
     DARK,
     DARK_CARDS,
     DARK_MARKS,
+    DARK_PROFILE,
     CardColors,
     MarkColors,
+    ProfileColors,
     ThemeColors,
 )
 from ui_helpers.helpers.theme_qss import general_stylesheet
@@ -104,6 +108,8 @@ COLORS: ThemeColors = DARK
 CARD_COLORS: CardColors = DARK_CARDS
 # Colores de las marcas de clasificación ('card_marks.py' y las etiquetas de color)
 MARK_COLORS: MarkColors = DARK_MARKS
+# Colores de partida del perfil de elevación ('ElevationProfile'; su estilo los lleva)
+PROFILE_COLORS: ProfileColors = DARK_PROFILE
 
 # Color de acento de la aplicación (hover de iconos, elementos activos...). Es el del
 # tema; se mantiene el nombre porque lo importan varios módulos.

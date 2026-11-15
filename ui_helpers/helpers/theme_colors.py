@@ -28,6 +28,10 @@ Las marcas de clasificación (estrellas, marca, rechazo y los colores de las eti
 tienen el suyo ('MarkColors'): son las mismas en la tarjeta, la barra inferior y la fila
 «Atributos» de la barra de filtros.
 
+El perfil de elevación de Tracks tiene el suyo ('ProfileColors'), que se puede cambiar
+entero con el estilo del perfil ('profile_style.py'): fondo, rejilla, línea, cursor y los
+colores de la pendiente.
+
 Formato: "#rrggbb"; los translúcidos, "#aarrggbb" (el de Qt: primero la opacidad, de 00
 a ff), p. ej. "#a5000000" = negro con opacidad 165.
 
@@ -35,6 +39,7 @@ Este módulo NO depende de Qt: solo define valores. 'ui_theme.py' los convierte 
 paleta de Qt (QPalette) y en la hoja de estilos (QSS), y da a los demás el juego activo
 ('COLORS', 'CARD_COLORS', 'MARK_COLORS').
 
+1.8.0 Colores del perfil de elevación ('ProfileColors', 'DARK_PROFILE').
 1.7.0 Colores de los tracks en el mapa: 'map_track', 'map_track_active' y 'map_track_halo'.
 1.6.0 Todos los colores de la interfaz, aquí (antes sueltos en el código): 'missing',
       'offline' y 'shadow' en 'ThemeColors'; lo que va encima de la imagen en 'CardColors';
@@ -53,8 +58,18 @@ Prueba rápida (contraste del texto sobre cada fondo):
     python -m ui_helpers.helpers.theme_colors
 """
 
-__version__ = "1.7.0"
-__all__ = ["DARK", "DARK_CARDS", "DARK_MARKS", "CardColors", "MarkColors", "ThemeColors", "contrast_ratio"]
+__version__ = "1.8.0"
+__all__ = [
+    "DARK",
+    "DARK_CARDS",
+    "DARK_MARKS",
+    "DARK_PROFILE",
+    "CardColors",
+    "MarkColors",
+    "ProfileColors",
+    "ThemeColors",
+    "contrast_ratio",
+]
 
 # Librerías estándar
 from dataclasses import dataclass
@@ -295,6 +310,77 @@ DARK_MARKS = MarkColors(
 )
 
 
+@dataclass(frozen=True, slots=True)
+class ProfileColors:
+    """Colores del perfil de elevación ('ElevationProfile', bajo el mapa de Tracks).
+
+    Son los de partida: el perfil los recibe dentro de su estilo ('profile_style.py'), que
+    se puede cambiar entero para personalizarlo.
+
+    Attributes:
+        background: Fondo (el de la tira de fotos, que va debajo: forman un bloque).
+        grid: Rejilla de la gráfica.
+        axis: Ejes (la raya de abajo y la de la izquierda).
+        axis_text: Números de los ejes.
+        header_text: Línea de los totales (o del tramo elegido), arriba.
+        message_text: Aviso en el centro cuando no hay perfil que dibujar.
+        area: Relleno bajo la curva, sin la pendiente en él (sin colores o con la
+            pendiente en la línea).
+        line: Línea de la curva, sin la pendiente en ella (sin colores o con la pendiente
+            en el área).
+        cursor: Línea vertical y círculo del cursor: el acento, como el punto del mapa.
+        cursor_outline: Borde oscuro de la línea y del círculo del cursor (se leen sobre
+            cualquier color de la pendiente).
+        label_background: Fondo de la etiqueta del cursor (translúcido).
+        label_text: Texto de la etiqueta del cursor.
+        selection: Banda del tramo elegido (translúcida, sobre la curva).
+        selection_edge: Bordes del tramo elegido.
+        segment_break: Raya discontinua donde empieza otro segmento (pausa del GPS).
+        slope: Colores de la pendiente, de la más suave a la más empinada (uno más que
+            umbrales tiene el estilo: con los de partida, < 5, 5-10, 10-15, 15-20 y
+            >= 20 %).
+    """
+
+    background: str
+    grid: str
+    axis: str
+    axis_text: str
+    header_text: str
+    message_text: str
+    area: str
+    line: str
+    cursor: str
+    cursor_outline: str
+    label_background: str
+    label_text: str
+    selection: str
+    selection_edge: str
+    segment_break: str
+    slope: tuple[str, ...]
+
+
+# Perfil del tema oscuro (propuesta del 15/11/2026, a ajustar por el autor en la ventana
+# de prueba: python -m ui_helpers.widgets.elevation_profile --ventana)
+DARK_PROFILE = ProfileColors(
+    background="#161616",  # el de la cuadrícula y la tira de fotos
+    grid="#2c2c2c",
+    axis="#3a3a3a",
+    axis_text="#8c8c8c",
+    header_text="#d8d8d8",
+    message_text="#8c8c8c",
+    area="#383838",
+    line="#d8d8d8",
+    cursor="#eca531",  # el acento
+    cursor_outline="#1a1a1a",
+    label_background="#e6262626",  # gris oscuro, opacidad 230
+    label_text="#d8d8d8",
+    selection="#33eca531",  # el acento, opacidad 51
+    selection_edge="#eca531",
+    segment_break="#5e5e5e",
+    slope=("#3a9d4f", "#8fc23f", "#e2c43a", "#e5792c", "#d63c3c"),  # de verde a rojo
+)
+
+
 def _luminance(color: str) -> float:
     """Luminancia relativa de un color "#rrggbb" (fórmula de las WCAG)."""
     channels = []
@@ -376,4 +462,19 @@ if __name__ == "__main__":
     # La cuadrícula, más hundida que la toolbar y los paneles que la rodean
     assert _luminance(cards.grid_bg) < _luminance(theme.bg_base) < _luminance(theme.bg_panel)
     print("Tarjetas: texto legible en la banda y estados de más oscuro a más claro")
+    # Perfil de elevación: formato de cada color; los textos se leen sobre el fondo; el
+    # cursor, sobre su borde; los colores de la pendiente, distintos y legibles
+    profile = DARK_PROFILE
+    for name in type(profile).__dataclass_fields__:
+        for value in getattr(profile, name) if name == "slope" else (getattr(profile, name),):
+            size = 9 if name in ("label_background", "selection") else 7
+            assert len(value) == size and value.startswith("#"), (name, value)
+            int(value[1:], 16)
+    for name in ("axis_text", "header_text", "message_text"):
+        assert contrast_ratio(getattr(profile, name), profile.background) >= 4.5, name
+    assert contrast_ratio(profile.cursor, profile.cursor_outline) >= 4.5, "cursor"
+    assert len(set(profile.slope)) == len(profile.slope) == 5, profile.slope
+    for color in (*profile.slope, profile.line):
+        assert contrast_ratio(color, profile.background) >= 3, color
+    print("Perfil: textos, cursor y colores de la pendiente legibles sobre el fondo")
     print("Autoprueba finalizada correctamente.")
