@@ -7,12 +7,13 @@ señal de Qt, que recoge 'WebMapBackend'.
 
 Las listas viajan como texto JSON: es lo que QWebChannel pasa sin sorpresas.
 
+1.3.0 'on_fit': el botón «Encuadrar» del mapa.
 1.2.0 Paso 1.5: fotos arrastradas a otro sitio y botón derecho ('MapHit').
 1.1.0 Tracks (paso 1.4): clic en un track y punto bajo el ratón.
 1.0.0 Primera versión (docs/MAPA.md, paso 1.3): arranque, encuadre, selección y doble clic.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["MapBridge"]
 
 # Librerías estándar
@@ -50,6 +51,7 @@ class MapBridge(QObject):
         markers_moved(list, float, float): fotos (sus id) arrastradas a (latitud, longitud).
         context_menu_requested(MapHit, int, int): botón derecho; qué hay debajo y el
             píxel de la página.
+        fit_requested(): se ha pulsado el botón «Encuadrar».
     """
 
     loaded = Signal()
@@ -61,6 +63,7 @@ class MapBridge(QObject):
     track_hovered = Signal(int, int)
     markers_moved = Signal(list, float, float)
     context_menu_requested = Signal(object, int, int)
+    fit_requested = Signal()
 
     @Slot()
     def on_loaded(self) -> None:
@@ -96,6 +99,10 @@ class MapBridge(QObject):
             return
         mode = SelectionMode.TOGGLE if toggle else SelectionMode.REPLACE
         self.selection_requested.emit(media_ids, mode)
+
+    @Slot()
+    def on_fit(self) -> None:
+        self.fit_requested.emit()
 
     @Slot(int)
     def on_activate(self, media_id: int) -> None:

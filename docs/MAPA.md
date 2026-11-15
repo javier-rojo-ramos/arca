@@ -184,6 +184,7 @@ class MapBounds:
 | `track_hovered(int, int)` | El ratón pasa cerca del track activo: `(track_id, índice de punto)`; `-1` al salir | `ElevationProfile.set_cursor` |
 | `edit_requested(TrackEditIntent)` | En modo edición: mover, insertar, borrar, cortar, añadir al final | `TrackEditController` |
 | `context_menu_requested(MapHit, QPoint)` | Botón derecho (qué hay debajo y dónde) | El controlador abre un `QMenu` nativo |
+| `fit_requested()` | Botón «Encuadrar» (encima del zoom; 15/11/2026) | `MapController` → `fit_preferred(lo seleccionado en la cuadrícula)` |
 | `layer_changed(str)` | El usuario cambia de capa | Guardarla en `settings.json` |
 
 ### 2.4 Métodos
@@ -207,6 +208,10 @@ class MapView(QWidget):
     def fit_bounds(self, bounds: MapBounds, *, animate: bool = True) -> None: ...
     def fit_content(self) -> None: ...        # todo lo que hay
     def fit_selection(self) -> None: ...
+    def fit_track(self, track_id: int) -> bool: ...
+    def fit_ids(self, media_ids: Sequence[int]) -> bool: ...   # fotos y tracks de esos id
+    def show_default_view(self) -> None: ...  # el encuadre de partida (DEFAULT_VIEW: España)
+    def fit_preferred(self, media_ids: Sequence[int] = ()) -> None: ...  # el botón «Encuadrar»: esos id; si no, todo; si no, el de partida
     def center_on(self, latitude: float, longitude: float, zoom: int | None = None) -> None: ...
     def viewport(self) -> MapViewport | None: ...
 
@@ -233,7 +238,7 @@ Reglas de la API:
 - **Todo va por `media_items.id`**; nada de filas, rutas ni objetos de la tecnología.
 - Las llamadas anteriores a `ready` se guardan y se aplican al llegar (la página carga de forma asíncrona).
 - `MapView` es instanciable más de una vez (comparten perfil y manejador del esquema), pensando en la sección «Ubicación» del inspector (PENDIENTE A.5); cada instancia cuesta memoria: se decidirá entonces.
-- Los controles sobre el mapa (zoom, escala, atribución) los dibuja la página con variables CSS que `WebMapBackend` genera desde `COLORS` (`ui_theme.py`). El selector de capas y los botones de modo son **widgets nativos** en la barra inferior o en `MapPage`, no en la página.
+- Los controles sobre el mapa (zoom, «Encuadrar», escala, atribución) los dibuja la página con variables CSS que `WebMapBackend` genera desde `COLORS` (`ui_theme.py`). El selector de capas y los botones de modo son **widgets nativos** en la barra inferior o en `MapPage`, no en la página.
 - El menú contextual de Chromium se desactiva; el propio es un `QMenu` nativo.
 - La vista **no coge el teclado** (como las barras, [DECISIONES.md](DECISIONES.md) del 12/11/2026): los atajos de clasificación siguen yendo a la tira de fotos. Excepción: en modo edición, `Supr`, `Esc`, `Ctrl+Z` y `Ctrl+Y` los atiende `TrackEditController` con atajos del `MapPage`.
 

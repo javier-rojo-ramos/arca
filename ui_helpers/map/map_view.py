@@ -17,6 +17,7 @@ Uso:
     view.set_markers([MapMarker(id, lat, lon), ...])
     view.set_selected_ids([...])
     view.fit_content()
+    view.fit_requested.connect(lambda: view.fit_preferred(ids_elegidos))  # botón «Encuadrar»
     view.selection_requested.connect(...)      # (ids, SelectionMode)
     view.set_tracks([MapTrack(id, nombre, segmentos), ...])
     view.set_active_track(id)                  # el que avisa con 'track_hovered'
@@ -28,6 +29,9 @@ Mover una foto: el mapa avisa con 'markers_moved' y la deja donde se soltó; qui
 guarda el cambio y lo confirma con 'update_markers' (o, si no se puede, la devuelve a
 su sitio con 'update_markers' y sus coordenadas de antes).
 
+1.6.0 El botón «Encuadrar» (encima del zoom): la señal 'fit_requested' y los encuadres
+      'fit_ids' (unos id: fotos y tracks), 'show_default_view' (el de partida) y
+      'fit_preferred' (lo que hace el botón: lo elegido, si no todo, si no el de partida).
 1.5.0 'set_track_colors': los colores de los tracks que elige el usuario (Opciones >
       Tracks), recordados y repetidos al arrancar la página.
 1.4.0 'track(id)' (con su geometría de ahora), 'set_track_range' y 'clear_track_range': el
@@ -51,7 +55,7 @@ Con el mapa de verdad (abre una ventana y se queda abierta):
     python -m ui_helpers.map.map_view --ventana
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = ["MapView"]
 
 # Librerías estándar
@@ -69,6 +73,7 @@ from qtpy.QtWidgets import QVBoxLayout, QWidget
 from core.maps.tile_layers import DEFAULT_LAYER_KEY, TILE_LAYERS, TileLayer
 from ui_helpers.map.map_backend import MapBackend
 from ui_helpers.map.map_types import (
+    DEFAULT_VIEW,
     MapBounds,
     MapMarker,
     MapTrack,
@@ -98,6 +103,9 @@ class MapView(QWidget):
             mapa no cambia sus datos: ver el docstring del archivo.
         context_menu_requested(MapHit, QPoint): botón derecho; qué hay debajo y el punto
             de la pantalla donde abrir el menú.
+        fit_requested(): se ha pulsado el botón «Encuadrar» (arriba a la izquierda,
+            encima del zoom). El mapa no se mueve solo: quien lo usa sabe qué está
+            elegido y llama a 'fit_preferred'.
         layer_changed(str): se ve otra capa (su clave).
     """
 
@@ -111,6 +119,7 @@ class MapView(QWidget):
     media_dropped = Signal(object, float, float)
     markers_moved = Signal(list, float, float)
     context_menu_requested = Signal(object, object)
+    fit_requested = Signal()
     layer_changed = Signal(str)
 
     def __init__(
@@ -163,6 +172,7 @@ class MapView(QWidget):
         backend.media_dropped.connect(self.media_dropped)
         backend.markers_moved.connect(self.markers_moved)
         backend.context_menu_requested.connect(self.context_menu_requested)
+        backend.fit_requested.connect(self.fit_requested)
 
     # -------------------------------------------------------------------------
     # Marcadores y selección
@@ -348,6 +358,25 @@ class MapView(QWidget):
         """Encuadra un track. False si no está en el mapa o no tiene puntos."""
         track = self._tracks.get(track_id)
         return self._fit((), (track,), animate) if track is not None else False
+
+    def fit_ids(self, media_ids: Sequence[int], *, animate: bool = True) -> bool:
+        """Encuadra las fotos y los tracks de esos id, juntos (los que no están en el mapa
+        se ignoran). False si ninguno está o no tienen puntos."""
+        ids = set(media_ids)
+        markers = (marker for media_id, marker in self._markers.items() if media_id in ids)
+        tracks = (track for track_id, track in self._tracks.items() if track_id in ids)
+        return self._fit(markers, tracks, animate)
+
+    def show_default_view(self) -> None:
+        """Vuelve al encuadre de partida ('DEFAULT_VIEW': la península ibérica)."""
+        self.center_on(*DEFAULT_VIEW)
+
+    def fit_preferred(self, media_ids: Sequence[int] = ()) -> None:
+        """Lo que hace el botón «Encuadrar» (decidido por el autor el 15/11/2026): lo elegido
+        ('media_ids') que esté en el mapa; si nada de ello está, todo lo que hay; y si no hay
+        nada, el encuadre de partida. Animado: es un gesto del usuario."""
+        if not self.fit_ids(media_ids) and not self.fit_content():
+            self.show_default_view()
 
     def _fit(self, markers: object, tracks: object, animate: bool) -> bool:
         bounds = bounds_of((marker.latitude, marker.longitude) for marker in markers)
@@ -717,6 +746,21 @@ def _run_logic_selftest() -> None:
     assert backend.take() == [("fit", MapBounds(41.0, -1.0, 42.8, 0.3), True)]
     assert MapView.fit_track(view, 51, animate=False) is True
     backend.take()
+    # Unos id (fotos y tracks juntos; los que no están, fuera) y el botón «Encuadrar»
+    assert view.fit_ids([3, 50, 777]) is True  # foto 3 (41, 0) + track 50
+    assert backend.take() == [("fit", MapBounds(41.0, 0.0, 42.8, 0.3), True)]
+    assert view.fit_ids([777]) is False and view.fit_ids([]) is False
+    assert backend.take() == []
+    view.fit_preferred([1])  # lo elegido
+    assert backend.take() == [("fit", MapBounds(42.0, -1.0, 42.0, -1.0), True)]
+    view.fit_preferred([777])  # nada de lo elegido está en el mapa: todo
+    view.fit_preferred()  # sin nada elegido: todo
+    everything = ("fit", MapBounds(41.0, -1.0, 42.8, 0.3), True)
+    assert backend.take() == [everything, everything]
+    fit_signals: list[str] = []
+    view.fit_requested.connect(lambda: fit_signals.append("fit"))
+    backend.fit_requested.emit()  # el aviso del botón se reenvía; el mapa no se mueve solo
+    assert fit_signals == ["fit"] and backend.take() == []
 
     # 13. Avisos de los tracks, reenviados; el mapa no activa un track por su cuenta
     seen.clear()
@@ -734,6 +778,8 @@ def _run_logic_selftest() -> None:
     assert view.active_track() is None
     view.clear()
     assert backend.take() == [("clear",)] and view.tracks() == ()
+    view.fit_preferred([1, 51])  # nada en el mapa: el encuadre de partida
+    assert backend.take() == [("view", *DEFAULT_VIEW)]
 
     # 15. Soltar y mover: apagado al empezar; lo pedido antes de estar listo llega al arrancar
     from qtpy.QtCore import QPoint
@@ -1030,6 +1076,10 @@ def _run_window() -> None:
     view.media_dropped.connect(on_media_dropped)
     view.markers_moved.connect(on_markers_moved)
     view.context_menu_requested.connect(on_context_menu)
+    # El botón «Encuadrar», como en la aplicación: lo seleccionado y el track activo
+    view.fit_requested.connect(
+        lambda: view.fit_preferred([*view.selected_ids(), view.active_track() or 0])
+    )
     view.marker_activated.connect(lambda media_id: print(f"marker_activated: {media_id}", flush=True))
     view.layer_changed.connect(lambda key: print(f"layer_changed: {key}", flush=True))
     view.viewport_changed.connect(

@@ -86,6 +86,9 @@ const arca = (() => {
     }
     map = L.map("map", { preferCanvas: true, zoomControl: false });
     map.attributionControl.setPrefix(false);
+    // Arriba del todo, el botón «Encuadrar» (antes que el zoom: en las esquinas de arriba,
+    // Leaflet apila los controles en el orden en que se añaden)
+    fitControl(config.texts.fit).addTo(map);
     L.control.zoom({
       zoomInTitle: config.texts.zoom_in,
       zoomOutTitle: config.texts.zoom_out,
@@ -111,6 +114,34 @@ const arca = (() => {
       if (!hoverFrame) hoverFrame = requestAnimationFrame(hover);
     });
     bridge.on_ready();
+  }
+
+  // Botón «Encuadrar», en su propio bloque (separado del zoom). Solo avisa: qué se encuadra
+  // (la selección, todo o la vista de partida) lo decide Python
+  function fitControl(title) {
+    const control = L.control({ position: "topleft" });
+    control.onAdd = () => {
+      const bar = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+      const button = L.DomUtil.create("a", "arca-fit", bar);
+      button.href = "#";
+      button.title = title;
+      button.setAttribute("role", "button");
+      button.setAttribute("aria-label", title);
+      // Las cuatro esquinas de un recuadro, con el color del texto (el del tema)
+      button.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"' +
+        ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg>';
+      // Ni el clic ni el doble clic ni el botón derecho llegan al mapa (el doble clic lo
+      // acercaría; el clic dejaría la selección vacía)
+      L.DomEvent.disableClickPropagation(bar);
+      L.DomEvent.on(button, "click", (e) => {
+        L.DomEvent.preventDefault(e);
+        bridge.on_fit();
+      });
+      return bar;
+    };
+    return control;
   }
 
   function reportViewport() {

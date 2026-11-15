@@ -36,6 +36,12 @@ html, body, #map {
 .leaflet-bar a:last-child {
   border-bottom: none;
 }
+/* El botón «Encuadrar»: su icono (SVG), centrado en el mismo hueco que el + y el − */
+.leaflet-bar a.arca-fit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .leaflet-bar a.leaflet-disabled {
   background: var(--arca-panel);
   color: var(--arca-text-disabled);

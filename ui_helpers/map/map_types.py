@@ -19,14 +19,17 @@ TODO va por 'media_items.id': nada de filas, rutas ni objetos de la tecnología.
 Los tipos de la EDICIÓN de tracks (intenciones y parches) se añadirán con la fase 7 de
 docs/MAPA.md, cuando se diseñe su detalle.
 
+1.2.0 'DEFAULT_VIEW' (antes en 'web_backend.py'): el encuadre de partida, que también
+      usa 'MapView' al volver a él (botón «Encuadrar» sin nada que encuadrar).
 1.0.0 Primera versión (docs/MAPA.md, paso 1.2).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.map.map_types
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
+    "DEFAULT_VIEW",
     "HitKind",
     "MapBounds",
     "MapHit",
@@ -48,6 +51,11 @@ from enum import Enum
 
 # Un punto del mapa: (latitud, longitud), en grados
 Position = tuple[float, float]
+
+# Encuadre de partida (latitud, longitud y zoom): la península ibérica. Con él empieza el
+# mapa mientras nadie pida otro, y a él vuelve el botón «Encuadrar» si no hay nada que
+# encuadrar
+DEFAULT_VIEW: tuple[float, float, int] = (40.2, -3.7, 6)
 
 
 def is_valid_position(latitude: object, longitude: object) -> bool:

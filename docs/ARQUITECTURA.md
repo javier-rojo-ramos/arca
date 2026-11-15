@@ -165,11 +165,11 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   widgets/media_grid_view.py         MediaGridView: QListView de la cuadrícula con imagen de arrastre pequeña y semitransparente (o sin imagen: set_drag_image); «No hay archivos» si está vacía
   models/media_mime.py               MIME propio del arrastre (application/x-arca-media-ids: {catalog, ids})
   map/                               ── Componente de mapa (diseño y plan en docs/MAPA.md; componente base; lo usa la vista «Mapa»: controllers/map_controller.py) ──
-    map_types.py                       Datos que entran y salen del mapa: MapMarker, MapTrack, MapBounds (bounds_of), MapViewport, MapHit, MapMode, SelectionMode; is_valid_position; sin Qt
+    map_types.py                       Datos que entran y salen del mapa: MapMarker, MapTrack, MapBounds (bounds_of), MapViewport, MapHit, MapMode, SelectionMode; is_valid_position; DEFAULT_VIEW (encuadre de partida); sin Qt
     map_view.py                      ► MapView: el mapa (fachada; lo único que conocen los módulos): marcadores, selección, tracks (activo, punto señalado, tramo resaltado; track(id)), soltar tarjetas y mover fotos (set_drop_enabled), vista previa, botón derecho, capas, encuadre, estado; guarda lo pedido y se lo pasa al fondo cuando está listo
     map_backend.py                     MapBackend (con set_track_range: el tramo resaltado): contrato del fondo del mapa (lo que MapView pide a la tecnología que pinta: señales y métodos); solo declara
     web_backend.py                     WebMapBackend: el fondo con QtWebEngine + Leaflet (al verse y al cambiar de tamaño, la página vuelve a medir su espacio; página de resources/map/, colores del tema como variables CSS, sin foco; recoge los arrastres de tarjetas con un filtro en los widgets internos de la vista); css_color, marker_payload, track_payload
-    web_bridge.py                      MapBridge: lo que la página puede decirle a Python (QWebChannel): cargada, lista, encuadre, selección, doble clic, clic en un track y punto bajo el ratón, fotos arrastradas y botón derecho
+    web_bridge.py                      MapBridge: lo que la página puede decirle a Python (QWebChannel): cargada, lista, encuadre, selección, doble clic, clic en un track y punto bajo el ratón, fotos arrastradas, botón derecho y botón «Encuadrar»
     map_scheme.py                      Esquema arca-map:// (MapSchemeHandler: recursos de la página, teselas con caché y descarga, miniaturas); register_map_scheme (antes de QApplication), shared_handler
   helpers/ui_file_manager.py         "Mostrar en el Explorador/Finder" multiplataforma (reveal_in_file_manager) y papelera del sistema (move_to_trash, con QFile.moveToTrash)
 core/

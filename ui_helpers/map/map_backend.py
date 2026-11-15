@@ -16,6 +16,7 @@ Reglas del contrato:
 
 Este módulo solo declara: no tiene lógica que probar (sin autoprueba).
 
+1.5.0 'fit_requested': se ha pulsado el botón «Encuadrar» del mapa.
 1.4.0 'set_track_colors': los colores de los tracks, los que elige el usuario.
 1.3.0 'set_track_range': el tramo elegido en el perfil, resaltado (docs/MAPA.md, paso 5.3b).
 1.1.0 'set_thumbnail_provider': de dónde salen las miniaturas de los marcadores.
@@ -23,7 +24,7 @@ Este módulo solo declara: no tiene lógica que probar (sin autoprueba).
       la edición de tracks se añadirá con la fase 7.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["MapBackend"]
 
 # Librerías estándar
@@ -66,6 +67,8 @@ class MapBackend(QWidget):
             activo; índice -1 al salir.
         context_menu_requested(MapHit, QPoint): botón derecho; el punto, en coordenadas
             globales de pantalla.
+        fit_requested(): se ha pulsado el botón «Encuadrar» (el fondo no encuadra nada
+            solo: lo decide quien usa el mapa).
     """
 
     ready = Signal()
@@ -78,6 +81,7 @@ class MapBackend(QWidget):
     track_clicked = Signal(int)
     track_hovered = Signal(int, int)
     context_menu_requested = Signal(object, object)
+    fit_requested = Signal()
 
     # --- Marcadores ---
 

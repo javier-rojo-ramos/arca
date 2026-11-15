@@ -24,6 +24,8 @@ eventos en sus hijos ('_WebView'); si el arrastre trae tarjetas de la cuadrícul
 ('application/x-arca-media-ids') y está permitido, se acepta sin pasarlo a Chromium, se
 pinta en la página dónde caería y, al soltar, la página traduce el píxel a coordenadas.
 
+1.7.0 El botón «Encuadrar» (encima del zoom): su texto y su aviso ('fit_requested');
+      'DEFAULT_VIEW' pasa a 'map_types.py' (se sigue pudiendo importar de aquí).
 1.6.0 'set_track_colors': los colores de los tracks que elige el usuario (Opciones > Tracks).
 1.5.0 'set_track_range': el tramo elegido en el perfil, en ámbar encima del track (paso 5.3b).
 1.4.0 'set_waypoints': los puntos de interés del track activo (paso 4.3b).
@@ -40,7 +42,7 @@ pinta en la página dónde caería y, al soltar, la página traduce el píxel a 
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
@@ -66,6 +68,7 @@ from ui_helpers.helpers.ui_theme import CARD_COLORS, COLORS
 from ui_helpers.map.map_backend import MapBackend
 from ui_helpers.map.map_scheme import SCHEME, START_URL, shared_handler
 from ui_helpers.map.map_types import (
+    DEFAULT_VIEW,
     MapBounds,
     MapHit,
     MapMarker,
@@ -78,9 +81,6 @@ from ui_helpers.map.map_types import (
 from ui_helpers.map.web_bridge import MapBridge
 from ui_helpers.models.media_mime import MediaDrag, decode_media_ids
 
-# Encuadre con el que empieza el mapa mientras nadie pida otro: la península ibérica
-DEFAULT_VIEW: tuple[float, float, int] = (40.2, -3.7, 6)
-
 # Espera tras verse o cambiar de tamaño antes de que la página vuelva a medir su espacio
 _REFRESH_SIZE_MS = 60
 
@@ -92,8 +92,12 @@ _DRAG_EVENTS = (
     QEvent.Type.Drop,
 )
 
-# Textos de los botones de zoom (al pasar el ratón)
-_TEXTS = {"zoom_in": "Acercar", "zoom_out": "Alejar"}
+# Textos de los botones del mapa (al pasar el ratón): el zoom y «Encuadrar»
+_TEXTS = {
+    "zoom_in": "Acercar",
+    "zoom_out": "Alejar",
+    "fit": "Encuadrar la selección (o todo)",
+}
 
 
 def css_color(color: str) -> str:
@@ -267,6 +271,7 @@ class WebMapBackend(MapBackend):
         self._bridge.track_hovered.connect(self.track_hovered)
         self._bridge.markers_moved.connect(self.markers_moved)
         self._bridge.context_menu_requested.connect(self._on_context_menu)
+        self._bridge.fit_requested.connect(self.fit_requested)
         self._page.loadFinished.connect(self._on_load_finished)
         self._page.renderProcessTerminated.connect(self._on_render_terminated)
 

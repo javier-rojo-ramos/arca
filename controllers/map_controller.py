@@ -11,6 +11,9 @@ Qué hace (decidido por el autor el 13/11/2026):
     - Encuadre: al elegir otra cosa a la izquierda, el mapa encuadra todo lo que hay; al
       cambiar el filtro o la selección, no se mueve; al volver al mapa con lo mismo
       elegido, sigue donde estaba.
+    - Botón «Encuadrar» (encima del zoom; 15/11/2026): lo seleccionado que sale en el
+      mapa (fotos y tracks juntos); si no hay nada seleccionado, o nada de ello tiene
+      ubicación, todo lo que muestra; y si no muestra nada, el encuadre de partida.
     - Selección: la MISMA que la cuadrícula (su 'selectionModel'), en los dos sentidos.
       Clic en una foto o en un grupo: solo eso; Ctrl+clic: se añade o se quita; clic en
       el mapa vacío: nada seleccionado. Clic en un track: solo ese track. El track
@@ -71,6 +74,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador.refresh()       # tras un cambio del inspector
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.8.0 El botón «Encuadrar» del mapa: lo seleccionado en la cuadrícula ('fit_preferred').
 1.7.0 Los colores de los tracks elegidos en Opciones > Tracks, al crear el mapa y al
       cambiarlos ('apply_settings'); los cambios de opciones, también a la banda del perfil.
 1.6.1 Paso 5.3b: el mapa, recién creado, a la banda del perfil ('attach_map'), que lo
@@ -94,7 +98,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -491,6 +495,9 @@ class MapController(QObject):
         view.media_dropped.connect(self._on_media_dropped)
         view.markers_moved.connect(lambda ids, lat, lon: self._place(ids, lat, lon, confirm=False))
         view.context_menu_requested.connect(self._on_context_menu)
+        # Botón «Encuadrar»: lo seleccionado en la cuadrícula (también varios tracks: el
+        # mapa solo conoce el activo)
+        view.fit_requested.connect(lambda: view.fit_preferred(self._selected_ids()))
         view.load_failed.connect(lambda _reason: self._page.set_notice(_LOAD_FAILED))
         # El perfil y el mapa, sincronizados (punto ámbar y tramo; paso 5.3b)
         self._profile.attach_map(view)
