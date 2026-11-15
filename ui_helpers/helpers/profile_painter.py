@@ -20,7 +20,7 @@ tres piezas:
         Se pinta encima en cada movimiento: es poco.
 
     ┌──────────────────────────────────────────────────────────────┐
-    │   Distancia 18,4 km  ·  ↑ 556 m  ·  ↓ 566 m  ·  Máx. ...     │  <- línea de arriba
+    │   Distancia 18,4 km  ·  ↑ 556 m  ·  ↓ 566 m  ·  Mín. ...     │  <- línea de arriba
     │ 1.800 m ┤· · · · · · · · · · · · ·│· · · · · · · · · · · ·   │
     │ 1.600 m ┤· · · · · · ▁▂▃▅▆▇▇▇▆▅▃●│1.639 m · · · · · · · ·   │  <- cursor y etiqueta
     │ 1.400 m ┤· ·▁▂▃▅▆▇██████████████████▇▆▅▃▂▁ · · · · · · · ·   │

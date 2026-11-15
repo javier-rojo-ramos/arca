@@ -64,8 +64,11 @@ Interacción con el ratón:
                                 selecciona ese archivo y lo enseña en el mapa
 Si la tarjeta pulsada forma parte de una selección de VARIAS, el cambio se aplica a todas
 las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
-seleccionada, solo cambia ella. La chincheta no cambia nada: solo avisa.
+seleccionada, solo cambia ella. La chincheta no cambia nada: solo avisa. Con Ctrl, Alt o
+Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
 
+2.18.1 Ctrl (o Alt, o Meta) + clic en una zona activa solo selecciona: 'editorEvent' ya
+       no lo atiende (antes, Ctrl + clic en una estrella valoraba).
 2.18.0 La chincheta también en la tarjeta normal ('location_pin': en los módulos con
        mapa) y se pulsa: avisa con 'location_clicked' (verlo en el mapa). En la
        compacta, también se pulsa (es su única zona activa).
@@ -100,7 +103,7 @@ seleccionada, solo cambia ella. La chincheta no cambia nada: solo avisa.
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.18.0"
+__version__ = "2.18.1"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -147,6 +150,14 @@ _THUMBNAIL_ERROR = 2
 # 'core' para seguir sin saber nada de la base de datos
 _PHOTO, _VIDEO, _AUDIO, _EBOOK, _TRACK = "photo", "video", "audio", "ebook", "track"
 _MOVIES_LIBRARY = "video"
+
+# Teclas con las que un clic solo selecciona (no cambia estrellas, marca, círculo ni
+# lleva al mapa): las mismas que 'MediaGridView' deja a Qt
+_SELECTION_MODIFIERS = (
+    Qt.KeyboardModifier.ControlModifier
+    | Qt.KeyboardModifier.AltModifier
+    | Qt.KeyboardModifier.MetaModifier
+)
 
 
 class ThumbnailsDelegate(QStyledItemDelegate):
@@ -712,10 +723,17 @@ class ThumbnailsDelegate(QStyledItemDelegate):
             model.setData(index, value, role)
 
     def editorEvent(self, event, model, option, index) -> bool:
-        """Clics que llegan por la vía normal de Qt (vista que no es 'MediaGridView')."""
+        """Clics que llegan por la vía normal de Qt (vista que no es 'MediaGridView').
+
+        Con Ctrl, Alt o Meta no se atienden: 'MediaGridView' deja esos clics a Qt para que
+        seleccionen (Ctrl + clic añade o quita de la selección), y Qt, antes de
+        seleccionar, los pasa por aquí. Sin este filtro, Ctrl + clic en una estrella
+        valoraba en lugar de seleccionar (el autor prefiere que solo seleccione, 15/11/2026).
+        """
         if (
             event.type() == QEvent.Type.MouseButtonPress
             and event.button() == Qt.MouseButton.LeftButton
+            and not event.modifiers() & _SELECTION_MODIFIERS
         ):
             pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
             if self.handle_click(

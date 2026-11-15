@@ -12,18 +12,19 @@ Ejes (marcas «redondas»: múltiplos de 1, 2, 2,5 o 5 por una potencia de 10):
     altitude_tick_label(1700)        -> '1.700 m'
 
 Textos:
-    totals_text(totales)   'Distancia 18,4 km · ↑ 556 m · ↓ 566 m · Máx. 1.774 m · Mín. 1.295 m'
+    totals_text(totales)   'Distancia 18,4 km · ↑ 556 m · ↓ 566 m · Mín. 1.295 m · Máx. 1.774 m'
     range_text(tramo)      'Tramo 3,2 km · ↑ 210 m · ↓ 12 m · 1:05:20 · 2,9 km/h · Pendiente media +6,1 %'
     cursor_lines(perfil, i) ['1.639 m', '13,3 km', '+12 %', '14:23']  (la etiqueta del cursor;
                            lo que el punto no tenga, no sale; la hora, la local del equipo)
 
+1.1.0 En los totales, la altitud mínima antes que la máxima (el autor, 15/11/2026).
 1.0.0 Primera versión (15/11/2026; docs/MAPA.md, paso 5.2).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.helpers.profile_format
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "altitude_tick_label",
     "cursor_lines",
@@ -138,11 +139,12 @@ def _elevation_parts(stats: RangeStats) -> list[str]:
 
 
 def totals_text(stats: RangeStats) -> str:
-    """La línea de arriba con los datos del track entero."""
+    """La línea de arriba con los datos del track entero: distancia, subida, bajada y
+    altitud mínima y máxima (en ese orden, decidido por el autor el 15/11/2026)."""
     parts = [f"Distancia {format_distance(stats.distance_m)}", *_elevation_parts(stats)]
     if stats.elevation_max_m is not None and stats.elevation_min_m is not None:
-        parts.append(f"Máx. {_number(stats.elevation_max_m, 0)} m")
         parts.append(f"Mín. {_number(stats.elevation_min_m, 0)} m")
+        parts.append(f"Máx. {_number(stats.elevation_max_m, 0)} m")
     return _SEPARATOR.join(parts)
 
 
@@ -215,7 +217,7 @@ if __name__ == "__main__":
     times = array("d", [datetime(2024, 5, 1, 8, k, tzinfo=UTC).timestamp() for k in range(21)])
     data = build_profile(TrackPath((PathSegment(lats, array("d", [0.0] * 21), eles, times),)))
     totals = totals_text(data.totals)
-    assert totals == "Distancia 222 m  ·  ↑ 27 m  ·  ↓ 0 m  ·  Máx. 1.030 m  ·  Mín. 1.000 m", totals
+    assert totals == "Distancia 222 m  ·  ↑ 27 m  ·  ↓ 0 m  ·  Mín. 1.000 m  ·  Máx. 1.030 m", totals
     section = range_text(range_stats(data, 0, 20))
     assert section.startswith("Tramo 222 m  ·  ↑ 27 m  ·  ↓ 0 m  ·  20:00  ·  0,7 km/h"), section
     # (13,5 % de pendiente real; la media usa la altitud suavizada de los extremos, donde
