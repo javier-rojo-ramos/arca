@@ -14,6 +14,11 @@ Qué hace (decidido por el autor el 13/11/2026):
     - Botón «Encuadrar» (encima del zoom; 15/11/2026): lo seleccionado que sale en el
       mapa (fotos y tracks juntos); si no hay nada seleccionado, o nada de ello tiene
       ubicación, todo lo que muestra; y si no muestra nada, el encuadre de partida.
+    - Chincheta de las tarjetas (15/11/2026): en la cuadrícula, solo en los módulos con
+      mapa (en la tira, siempre). Al pulsarla, en la cuadrícula o en la tira, queda
+      seleccionado solo ese archivo, se pasa al mapa (si no se está viendo) y se
+      encuadra como con «Encuadrar». Si lo que se pinta hay que pedirlo, el encuadre
+      espera a que llegue y sustituye al de todo.
     - Selección: la MISMA que la cuadrícula (su 'selectionModel'), en los dos sentidos.
       Clic en una foto o en un grupo: solo eso; Ctrl+clic: se añade o se quita; clic en
       el mapa vacío: nada seleccionado. Clic en un track: solo ese track. El track
@@ -74,6 +79,8 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     controlador.refresh()       # tras un cambio del inspector
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.9.0 La chincheta de las tarjetas: en la cuadrícula de los módulos con mapa y, al
+      pulsarla (cuadrícula o tira), ese archivo seleccionado, en el mapa y encuadrado.
 1.8.0 El botón «Encuadrar» del mapa: lo seleccionado en la cuadrícula ('fit_preferred').
 1.7.0 Los colores de los tracks elegidos en Opciones > Tracks, al crear el mapa y al
       cambiarlos ('apply_settings'); los cambios de opciones, también a la banda del perfil.
@@ -98,7 +105,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -276,6 +283,9 @@ class MapController(QObject):
         # Lo último que se eligió pulsando EN el mapa: si el track activo sale de ahí, el
         # mapa no se mueve (ya se está viendo)
         self._map_pick: frozenset[int] = frozenset()
+        # Lo pulsado con la chincheta de una tarjeta, por encuadrar en cuanto el mapa esté
+        # a la vista y al día
+        self._pending_fit: tuple[int, ...] = ()
 
         # Desplegable de la capa (barra inferior, a la derecha; solo con el mapa a la vista)
         self._layer_box = QComboBox()
@@ -310,6 +320,11 @@ class MapController(QObject):
         # La tira: lo mismo que la cuadrícula, con su selección
         page.filmstrip.attach(model, grid.selectionModel())
         page.filmstrip.doubleClicked.connect(lambda index: center_views.open_single(index.row()))
+        # La chincheta de las tarjetas (cuadrícula y tira): ese archivo, en el mapa
+        for delegate in (grid.itemDelegate(), page.filmstrip.itemDelegate()):
+            location_clicked = getattr(delegate, "location_clicked", None)
+            if location_clicked is not None:
+                location_clicked.connect(self._on_location_clicked)
         page.filmstrip_resized.connect(lambda _height: self._filmstrip_save_timer.start())
         grid.selectionModel().currentChanged.connect(self._on_current_changed)
         self._restore_filmstrip()
@@ -379,6 +394,7 @@ class MapController(QObject):
         self._track_ids = set()
         self._track_names = {}
         self._detailed_track = None
+        self._pending_fit = ()
         self._track_detail.detach()
         self._profile.reset()
         if self._page.has_map():
@@ -398,6 +414,7 @@ class MapController(QObject):
         options = self._map_options()
         self._layer_box.setVisible(shown)
         self._filmstrip_button.setVisible(shown)
+        self._update_grid_pins()
         # La banda del perfil, solo con el mapa a la vista en un módulo que la tiene
         self._profile.set_available(shown and options.show_profile)
         if not shown:
@@ -407,9 +424,10 @@ class MapController(QObject):
         # Ubicar fotos, solo donde el módulo lo permite (Imagen; el Catálogo solo mira)
         view.set_drop_enabled(self._geotag_allowed())
         if self._dirty:
-            self._load()
+            self._load()  # lo pulsado con la chincheta se encuadra al llegar
         else:
             self._push_selection()  # pudo cambiar con el mapa oculto
+            self._fit_pending()
 
     def _on_model_reset(self) -> None:
         """La cuadrícula se ha recargado (otro origen, otro filtro, otro orden...)."""
@@ -460,8 +478,13 @@ class MapController(QObject):
         )
         self._push_selection()
         self._page.set_notice(notice_text(self._model.rowCount(), items))
-        # Encuadre: solo al elegir otra cosa a la izquierda (no con el filtro ni al volver)
-        if source != self._fitted_source:
+        # Encuadre: lo pulsado con la chincheta de una tarjeta (sin animación: el mapa
+        # acaba de aparecer); si no, solo al elegir otra cosa a la izquierda (no con el
+        # filtro ni al volver)
+        pending, self._pending_fit = self._pending_fit, ()
+        if pending and view.fit_ids(pending, animate=False):
+            self._fitted_source = source
+        elif source != self._fitted_source:
             self._fitted_source = source
             view.fit_content(animate=False)
 
@@ -532,6 +555,44 @@ class MapController(QObject):
             max_bytes=megabytes * 1024 * 1024 if valid else DEFAULT_MAX_BYTES,
         )
         threading.Thread(target=_prune_quietly, args=(store,), daemon=True).start()
+
+    # -------------------------------------------------------------------------
+    # La chincheta de las tarjetas
+    # -------------------------------------------------------------------------
+
+    def _update_grid_pins(self) -> None:
+        """La chincheta en las tarjetas de la cuadrícula, solo si el módulo tiene mapa."""
+        delegate = self._grid.itemDelegate()
+        wanted = CenterView.MAP in self._host.active_views()
+        if getattr(delegate, "location_pin", wanted) != wanted:
+            delegate.location_pin = wanted
+            self._grid.viewport().update()
+
+    def _on_location_clicked(self, index: QModelIndex) -> None:
+        """Chincheta de una tarjeta (cuadrícula o tira): queda seleccionado solo ese archivo,
+        se pasa al mapa (si no se está viendo) y se encuadra como con el botón «Encuadrar»
+        (decidido por el autor el 15/11/2026)."""
+        if self._db is None or not index.isValid():
+            return
+        if CenterView.MAP not in self._host.active_views():
+            return
+        media_ids = self._model.media_ids([index.row()])
+        if not media_ids:
+            return
+        self._grid.selectionModel().setCurrentIndex(
+            index, QItemSelectionModel.SelectionFlag.ClearAndSelect
+        )
+        self._pending_fit = tuple(media_ids)
+        if self._shown():
+            self._fit_pending()  # la tira: ya se ve el mapa
+        else:
+            self._host.set_view(CenterView.MAP)  # al verse, '_on_view_changed'
+
+    def _fit_pending(self) -> None:
+        """Encuadra lo pulsado con la chincheta, como el botón «Encuadrar» (animado)."""
+        pending, self._pending_fit = self._pending_fit, ()
+        if pending and self._page.has_map():
+            self._page.map_view().fit_preferred(pending)
 
     # -------------------------------------------------------------------------
     # Tira de fotos

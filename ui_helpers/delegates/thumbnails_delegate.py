@@ -39,6 +39,9 @@ Contenido de una tarjeta, de arriba abajo:
       Una foto cuya miniatura aún se está leyendo NO lleva marcador (solo el hueco gris).
     - En los vídeos y el audio, la DURACIÓN ("0:42", "1:32:05") en la esquina inferior
       derecha de la imagen o del marcador.
+    - Si el archivo tiene ubicación y el módulo tiene mapa ('location_pin', lo pone
+      'MapController'), una CHINCHETA en la esquina inferior derecha de la imagen (la
+      duración se aparta a su izquierda). Se pulsa: 'location_clicked' (15/11/2026).
 
 Tarjeta COMPACTA ('compact = True'; la tira de fotos del mapa, decidido por el autor el
 13/11/2026, como la de Lightroom): solo la imagen, sin la banda inferior (el nombre, las
@@ -46,8 +49,8 @@ estrellas, la marca y la selección rápida de lo seleccionado ya están en la b
 inferior y en el inspector). Se conservan, porque no ocupan sitio: el fondo teñido con
 la etiqueta, el velo de las rechazadas y de lo no disponible con su indicador y la
 duración. Lleva además, abajo a la derecha de la imagen, una CHINCHETA si el archivo
-tiene ubicación (lo que importa al ubicar fotos en el mapa; el autor, 13/11/2026). No
-tiene zonas que se pulsen. El nombre, en un texto emergente.
+tiene ubicación (lo que importa al ubicar fotos en el mapa; el autor, 13/11/2026), que
+es su única zona que se pulsa. El nombre, en un texto emergente.
 
 El delegado solo lee del modelo los roles de 'ui_helpers/models/media_roles.py' y solo le
 escribe con 'model.setData(...)': no sabe de bases de datos ni de la caché.
@@ -57,10 +60,15 @@ Interacción con el ratón:
     clic en el recuadro      -> marcada <-> sin marca (una rechazada pasa a marcada)
     Mayús + clic en recuadro -> rechazada <-> sin marca
     clic en el círculo       -> entra o sale de la selección rápida
+    clic en la chincheta     -> avisa con 'location_clicked(QModelIndex)': quien la usa
+                                selecciona ese archivo y lo enseña en el mapa
 Si la tarjeta pulsada forma parte de una selección de VARIAS, el cambio se aplica a todas
 las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
-seleccionada, solo cambia ella.
+seleccionada, solo cambia ella. La chincheta no cambia nada: solo avisa.
 
+2.18.0 La chincheta también en la tarjeta normal ('location_pin': en los módulos con
+       mapa) y se pulsa: avisa con 'location_clicked' (verlo en el mapa). En la
+       compacta, también se pulsa (es su única zona activa).
 2.17.0 La tarjeta de un track dibuja su recorrido ('ROLE_TRACK_OUTLINE',
        'track_outline.draw_track_outline') en lugar del símbolo común; sin contorno,
        el símbolo de siempre.
@@ -92,7 +100,7 @@ seleccionada, solo cambia ella.
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.17.0"
+__version__ = "2.18.0"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -100,7 +108,7 @@ import os
 from typing import ClassVar
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt
+from qtpy.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, Signal
 from qtpy.QtGui import QColor, QFont, QPainter, QPen, QPixmap
 from qtpy.QtWidgets import QStyle, QStyledItemDelegate, QToolTip
 
@@ -142,7 +150,14 @@ _MOVIES_LIBRARY = "video"
 
 
 class ThumbnailsDelegate(QStyledItemDelegate):
-    """Delegado para dibujar celdas personalizadas en QListView."""
+    """Delegado para dibujar celdas personalizadas en QListView.
+
+    Signals:
+        location_clicked(QModelIndex): clic en la chincheta de una tarjeta (verla en el
+            mapa). El índice solo vale mientras se atiende el aviso.
+    """
+
+    location_clicked = Signal(object)
 
     STAR_W = 12  # Ancho individual de cada estrella
     ROW_H = 14  # Alto del área de estrellas
@@ -195,6 +210,9 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         self.item_size = QSize(176, 208)
         # Tarjeta compacta: solo la imagen, sin banda (ver el docstring del archivo)
         self.compact = False
+        # Chincheta en la tarjeta normal: solo en los módulos con mapa (la pone al día
+        # 'MapController'); la compacta (la tira del mapa) la lleva siempre
+        self.location_pin = False
         self._name_font = QFont("Arial", 8)
         self._star_font = QFont("Arial", 9)
         self._duration_font = QFont("Arial", 7)
@@ -474,10 +492,10 @@ class ThumbnailsDelegate(QStyledItemDelegate):
             painter.drawRect(target)
             self._draw_availability_badge(painter, target, availability)
 
-        # Chincheta de lo que tiene ubicación (tarjeta compacta: la tira del mapa), abajo
-        # a la derecha de la imagen, como el círculo de la selección rápida arriba
+        # Chincheta de lo que tiene ubicación, abajo a la derecha de la imagen, como el
+        # círculo de la selección rápida arriba
         pin_width = 0
-        if self.compact and index.data(ROLE_HAS_LOCATION):
+        if self._shows_pin(index):
             card_glyphs.draw_location_pin(painter, self._pin_rect(target))
             pin_width = self.QUICK_SIZE + self.QUICK_MARGIN
 
@@ -598,21 +616,30 @@ class ThumbnailsDelegate(QStyledItemDelegate):
     # 'editorEvent' se mantiene por si el delegado se usa en una vista normal.
 
     def is_active_zone(self, cell_rect: QRect, index, pos: QPoint) -> bool:
-        """True si 'pos' cae en una zona que se pulsa (estrella, marca o círculo)."""
+        """True si 'pos' cae en una zona que se pulsa (estrella, marca, círculo o chincheta)."""
         return self._zone_at(cell_rect, index, pos) is not None
 
+    def _shows_pin(self, index) -> bool:
+        """True si la tarjeta lleva la chincheta: tiene ubicación y es la compacta (la tira
+        del mapa) o la normal de un módulo con mapa."""
+        return (self.compact or self.location_pin) and bool(index.data(ROLE_HAS_LOCATION))
+
     def _zone_at(self, cell_rect: QRect, index, pos: QPoint) -> str | None:
-        """Zona activa bajo 'pos': "quick", "flag", "stars" o None (siempre None en la
-        tarjeta compacta: no tiene ninguna)."""
-        if self.compact:
-            return None
-        flag_rect, stars_rect = self._get_interactive_rects(cell_rect)
-        # Círculo de la selección rápida (se calcula igual que al pintarlo)
+        """Zona activa bajo 'pos': "pin", "quick", "flag", "stars" o None (la tarjeta
+        compacta solo tiene la chincheta)."""
+        # Las zonas de la imagen se calculan igual que al pintarlas
         image_rect = self._content_rect(
             self._image_slot(cell_rect), index, index.data(Qt.ItemDataRole.DecorationRole)
         )
         pad = self.QUICK_HIT_PAD
-        if self._quick_rect(image_rect).adjusted(-pad, -pad, pad, pad).contains(QPointF(pos)):
+        point = QPointF(pos)
+        pin_rect = self._pin_rect(image_rect).adjusted(-pad, -pad, pad, pad)
+        if self._shows_pin(index) and pin_rect.contains(point):
+            return "pin"
+        if self.compact:
+            return None
+        flag_rect, stars_rect = self._get_interactive_rects(cell_rect)
+        if self._quick_rect(image_rect).adjusted(-pad, -pad, pad, pad).contains(point):
             return "quick"
         pad = self.FLAG_HIT_PAD
         if flag_rect.adjusted(-pad, -pad, pad, pad).contains(pos):
@@ -638,7 +665,9 @@ class ThumbnailsDelegate(QStyledItemDelegate):
             True si el clic cayó en una zona activa (y se ha aplicado).
         """
         zone = self._zone_at(cell_rect, index, pos)
-        if zone == "quick":
+        if zone == "pin":
+            self.location_clicked.emit(index)  # no cambia nada: quien escucha decide
+        elif zone == "quick":
             selected = bool(index.data(ROLE_QUICK_SELECTION))
             self._apply(model, view, index, not selected, ROLE_QUICK_SELECTION)
         elif zone == "flag":

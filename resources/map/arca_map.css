@@ -24,7 +24,10 @@ html, body, #map {
   border-radius: 4px;
   box-shadow: none;
 }
+/* También con el foco (el botón recién pulsado): si no, se queda el gris casi blanco de
+   Leaflet hasta que se pulsa en el mapa */
 .leaflet-bar a,
+.leaflet-bar a:focus,
 .leaflet-bar a:hover {
   background: var(--arca-panel);
   color: var(--arca-text);
