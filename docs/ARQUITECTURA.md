@@ -69,7 +69,8 @@ controllers/
     center_views.py                    CenterView: vistas del centro (cuadrícula, individual, lista, mapa) con su texto emergente e icono; MapOptions (qué permite el mapa de un módulo: ubicar fotos); sin Qt
     catalog_module.py                  CatalogModule: barra CatalogSidebar (contadores, árboles, colecciones, opción de subcarpetas, estado)
     image_module.py                    ImageModule: barra ImageSidebar (Biblioteca - Imagen con su selección rápida, carpetas con imágenes, fechas y árbol de palabras clave con recuentos), estado; vistas: cuadrícula, individual y mapa (en el que se ubican fotos)
-    tracks_module.py                   TracksModule: barra LibrarySidebar (Biblioteca - Tracks con su selección rápida, carpetas con tracks y fechas), estado; vistas: cuadrícula y mapa (el inicial; solo mira); orden por fecha, distancia, desnivel y duración
+    library_module.py                  LibraryModule: base de los módulos de una biblioteca con la barra LibrarySidebar (contadores, carpetas y fechas en segundo plano con fetch_library_sidebar_data, vuelta a «Todos», estado, menú de las carpetas); la subclase pone library y texts
+    tracks_module.py                   TracksModule (hereda de LibraryModule): barra LibrarySidebar (Biblioteca - Tracks con su selección rápida, carpetas con tracks y fechas), estado; vistas: cuadrícula y mapa (el inicial; solo mira); orden por fecha, distancia, desnivel y duración
     placeholder_module.py              PlaceholderModule: botón sin módulo todavía (página «próximamente»)
 ui/main_window.ui, main_window.py    Interfaz de Qt Designer (main_window.py se GENERA con build_ui.py; no editar a mano).
                                      Widgets promocionados: widget_catalog_sidebar (CatalogSidebar), list_view_grid (MediaGridView),
