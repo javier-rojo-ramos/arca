@@ -243,7 +243,8 @@ core/
     editable_fields.py               ► metadatos descriptivos editables: columna, bit de pendiente, etiquetas XMP y antiguas, clave del .arca.json
     folder_file.py                     Archivo de carpeta '.arca.json' (lectura, escritura atómica, copia .bak)
     xmp_writer.py                      Escritura en XMP con ExifTool (solo los campos pendientes; comprueba releyendo); el GPS, también en el EXIF
-    sync.py                            write_pending_user_data (trabajo) y la lectura al importar (apply_file_user_data, apply_folder_files)
+    writers.py                         UserDataWriter (la interfaz de un escritor), WriteItem, FolderFileWriter (.arca.json) y XmpFileWriter (ExifTool); split_items (un archivo entre el escritor de su formato y el .arca.json) y default_writers. AQUÍ se añade un escritor nuevo
+    sync.py                            write_pending_user_data (trabajo: qué hay pendiente, lo reparte entre los escritores de writers.py y anota el resultado) y la lectura al importar (apply_file_user_data, apply_folder_files)
   thumbnails/                        ── Generar y guardar las miniaturas ── (ver core/thumbnails/LEEME.md)
     sizes.py                           ThumbnailSize: 160 / 480 / 1200 / 2560 px (lado largo) y calidad JPEG
     cache.py                           ThumbnailCache: ruta derivada del id, escritura atómica, resolve(); ThumbnailStorageError

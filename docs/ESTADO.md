@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Escritores con una interfaz común (`GEN 14`)** (16/11/2026; refactorización: no debe notarse nada) | Con «Escribir los cambios en los archivos» activado: cambiar la **valoración**, el **color**, una **palabra clave** y el **título** en (1) un JPG, (2) un RAW (sale o cambia su `.xmp`) y (3) un vídeo o una canción (su `.arca.json`). A los pocos segundos, en el registro (`%LOCALAPPDATA%\arca\logs`): «Datos del usuario escritos», con «Escritos: N» y sin fallidos. Lightroom («Leer metadatos del archivo») ve lo del JPG y lo del RAW como siempre. El **GPS** editado en el inspector o soltando en el mapa, igual. Con un archivo abierto en otro programa: el aviso de la barra de estado y se reintenta, como antes |
 | **Guion de autopruebas (`GEN 11`)** (16/11/2026) | Desde la raíz, `.venv\Scripts\python.exe scripts/run_selftests.py`: lista 126 autopruebas con «ok» o «FALLO» y un resumen al final, en unos 20 segundos y **sin abrir ninguna ventana** (si se abre alguna, decirlo: hay que añadirla a `WINDOWED`). Hoy falla una, `core.thumbnails.cache`, que ya fallaba antes (ver «Comprobaciones sueltas»). Con `--list`, enseña cuáles ejecutaría y las tres con ventana que se salta |
 | **Mapa: cada módulo vuelve a su encuadre, también al reiniciar** (15/11/2026) | (1) En Tracks, elegir un track, encuadrarlo (o acercar a mano), cerrar y volver a abrir: el mapa sale **igual que al cerrar** (mismo centro y zoom), con el track seleccionado, sin encuadrar antes todo. (2) Sin reiniciar: Tracks → Imagen → Tracks (o Catálogo): cada módulo vuelve a su encuadre. (3) Al elegir otra carpeta o fecha en la barra, se encuadra todo, como siempre; si se vuelve a la de antes, también todo (solo se recuerda el último encuadre de cada módulo). (4) Con otro catálogo, el encuadre es el de ese catálogo. (5) «Encuadrar», la chincheta y elegir un track en la tira o la cuadrícula, igual que antes |
 | **Con una sola vista, su botón se ve** (15/11/2026) | En Audio (que solo tiene la cuadrícula), abajo a la izquierda, el botón de la cuadrícula, marcado (con el icono en el acento), y la raya de al lado. En los demás módulos, como siempre |
@@ -113,6 +114,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 16/11/2026: `GEN 14`: los escritores, con una interfaz común (`core/userdata/writers.py`); un archivo puede repartirse entre el escritor de su formato y el `.arca.json`. Sin cambio en lo que se escribe. `GEN 12`, verificado.
 - 16/11/2026: `GEN 12`: una ficha por módulo (`config/app_modules.py`, `MODULES`); la leen los módulos, el registro de secciones y el inspector. Sin cambio a la vista. `GEN 13`, verificado.
 - 16/11/2026: `GEN 13`: una sola barra de biblioteca. Imagen usa `LibrarySidebar` y `LibraryModule`, con la «Lista de palabras clave» como sección de más; fuera `image_sidebar.py`. Sin cambio a la vista.
 - 16/11/2026: `GEN 11`: `scripts/run_selftests.py` lanza de una vez las 126 autopruebas sin ventana (unos 20 s). Al estrenarlo: una ya fallaba, `core.thumbnails.cache` (anotada, sin tocar).
@@ -122,4 +124,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 16/11/2026: nuevo `MOD_IMAGEN.md`, escrito a posteriori desde el código: cómo funciona hoy el módulo Imagen, dónde está cada cosa y lo que falta. Sin cambios de código.
 - 16/11/2026: `MOD_TRACKS.md`, secciones 1 a 9 contrastadas con el código: corregido lo que había cambiado al implementar (API de `MapView`, tipos, opciones por módulo, teselas, perfil, ubicar fotos) y marcado lo pendiente. Sin cambios de código.
 - 16/11/2026: `MOD_TRACKS.md`, con la plantilla de dos partes (arquitectura y planificación), el estado de cada fase y la tabla de lo que hay hecho; sin renumerar sus secciones. Sin cambios de código.
-- 16/11/2026: módulo Vídeo definido (`MOD_VIDEO.md`, fases `VID 1` a `VID 10`): fichas por obra, una tarjeta por obra, descarga de la web. Sin cambios de código.

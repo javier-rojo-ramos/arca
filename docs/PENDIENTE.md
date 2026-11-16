@@ -20,7 +20,7 @@
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
-- **Preparar el crecimiento** (16/11/2026): hechos `GEN 11` (el guion de autopruebas), `GEN 13` (una sola barra de biblioteca) y `GEN 12` (una ficha por módulo); lo siguiente, `GEN 14` (escritores), antes de `MUS 6`; `GEN 15` (trabajos fuera del controlador), antes de `VID 7`. `MUS 1` a `MUS 3` y `VID 1` a `VID 4` no dependen de nada de esto.
+- **Preparar el crecimiento** (16/11/2026): hechos `GEN 11` (el guion de autopruebas), `GEN 13` (una sola barra de biblioteca) , `GEN 12` (una ficha por módulo) y `GEN 14` (los escritores); lo siguiente, `GEN 15` (trabajos fuera del controlador), antes de `VID 7`. `MUS 1` a `MUS 3` y `VID 1` a `VID 4` no dependen de nada de esto.
 
 ---
 
@@ -84,13 +84,9 @@ De [MOD_TRACKS.md](MOD_TRACKS.md) §10, «Después (sin fecha)»:
 
 Pedir a ExifTool solo las etiquetas necesarias, `-stay_open` o varios procesos; un grupo de hilos propio para los trabajos (hoy comparten los 4 del gestor de BD: metadatos o escritura, miniaturas y añadir carpeta pueden ocupar 3 a la vez); más índices (p. ej. por valoración).
 
-### Preparar el crecimiento (`GEN 14` a `GEN 19`)
+### Preparar el crecimiento (`GEN 15` a `GEN 19`)
 
-Acordado con el autor el 16/11/2026, tras analizar el código ([DECISIONES.md](DECISIONES.md)): lo que conviene refactorizar o hacer común **antes** de los módulos nuevos, para que no lo pague cada uno por separado. Son refactorizaciones: no cambian lo que hace la aplicación, y cada una va en su paso, sin mezclarla con una funcionalidad. El orden, en «En curso». Hecho: `GEN 11`, el guion que lanza todas las autopruebas (`scripts/run_selftests.py`, 16/11/2026): se ejecuta antes y después de cada una de estas; y `GEN 13`, una sola barra de biblioteca (16/11/2026): Imagen usa `LibrarySidebar` y `LibraryModule`, y una sección nueva de un módulo es un `ExtraSection` ([COMO_AMPLIAR.md](COMO_AMPLIAR.md)); y `GEN 12`, una ficha por módulo (16/11/2026): `config/app_modules.py` (`MODULES`), de donde leen los módulos, el registro de secciones y el inspector.
-
-### Fase GEN 14 — Escritores con una interfaz común
-
-`core/userdata/sync.py` conoce sus dos destinos por nombre (`_write_xmp_items`, `_write_folder_items`) y cada campo editable lleva dentro su etiqueta XMP (`xmp_tag`, `legacy_tags`). Una interfaz de escritor (qué formatos, qué campos, escribir, comprobar) con su registro, como los extractores; la tabla campo → etiqueta, en cada escritor. Primero se pasan a ella los dos de hoy (XMP y `.arca.json`) sin cambiar lo que hacen, con la autoprueba de `sync` como comprobación. Antes de `MUS 6` y `EBK 7`.
+Acordado con el autor el 16/11/2026, tras analizar el código ([DECISIONES.md](DECISIONES.md)): lo que conviene refactorizar o hacer común **antes** de los módulos nuevos, para que no lo pague cada uno por separado. Son refactorizaciones: no cambian lo que hace la aplicación, y cada una va en su paso, sin mezclarla con una funcionalidad. El orden, en «En curso». Hecho: `GEN 11`, el guion que lanza todas las autopruebas (`scripts/run_selftests.py`, 16/11/2026): se ejecuta antes y después de cada una de estas; y `GEN 13`, una sola barra de biblioteca (16/11/2026): Imagen usa `LibrarySidebar` y `LibraryModule`, y una sección nueva de un módulo es un `ExtraSection` ([COMO_AMPLIAR.md](COMO_AMPLIAR.md)); y `GEN 12`, una ficha por módulo (16/11/2026): `config/app_modules.py` (`MODULES`), de donde leen los módulos, el registro de secciones y el inspector; y `GEN 14`, los escritores con una interfaz común (16/11/2026): `core/userdata/writers.py`; un escritor nuevo se registra sin tocar `sync.py`, y lo que no sabe guardar va al `.arca.json`. Queda para `MUS 6` la lectura de un formato repartido.
 
 ### Fase GEN 15 — Los trabajos, fuera del controlador principal
 
@@ -214,7 +210,7 @@ La vista de lista es de todos los módulos (`GEN 18`). Aquí, lo de Música:
 En el propio archivo, sin generar copias (regla del 16/11/2026). Sin interfaz: se prueba con copias.
 
 - **MUS 6.1** Escritor de MP3 (ID3): solo lo editado, la versión de ID3 conservada, comprobando las etiquetas y que el audio no cambia.
-- **MUS 6.2** En la cola de escritura: los campos de audio en `editable_fields.py` y el escritor en `sync.py`; lo que no sabe guardar, al `.arca.json`. La marca de pendiente sigue siendo un bit por campo (caben 63; se revisa con Vídeo).
+- **MUS 6.2** En la cola de escritura: los campos de audio en `editable_fields.py` y el escritor, registrado en `writers.py` (`GEN 14`, hecho); la lectura de un formato repartido entre el archivo y el `.arca.json`; lo que no sabe guardar, al `.arca.json`. La marca de pendiente sigue siendo un bit por campo (caben 63; se revisa con Vídeo).
 - **MUS 6.3** FLAC.
 - **MUS 6.4** M4A y Ogg/Opus.
 

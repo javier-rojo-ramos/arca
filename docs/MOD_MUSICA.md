@@ -212,7 +212,7 @@ Estilo Mp3tag. Es una vista más del centro, pensada para servir a otros módulo
 
 ### Fase MUS 6 — Escribir en los archivos
 
-Sin interfaz: se prueba con copias antes de que nada lo use. Antes, `GEN 14` (los escritores, con una interfaz común).
+Sin interfaz: se prueba con copias antes de que nada lo use. El escritor es una clase de `core/userdata/writers.py` (`GEN 14`, hecho el 16/11/2026): se registra sin tocar `sync.py`, y lo que no sabe guardar va solo al `.arca.json`.
 
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|

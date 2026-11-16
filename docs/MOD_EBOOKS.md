@@ -192,7 +192,7 @@ Cada paso deja la aplicación funcionando. Hasta `EBK 6` no se escribe en ningú
 
 ### Fase EBK 7 — Escribir en los archivos
 
-Sin interfaz: se prueba con copias. Antes, `GEN 14` (los escritores, con una interfaz común).
+Sin interfaz: se prueba con copias. El escritor es una clase de `core/userdata/writers.py` (`GEN 14`, hecho el 16/11/2026): se registra sin tocar `sync.py`, y lo que no sabe guardar va solo al `.arca.json`.
 
 - **EBK 7.1** Escritor de EPUB (el OPF dentro del ZIP), con las comprobaciones de §7.
 - **EBK 7.2** En la cola de escritura: los campos en `editable_fields.py` y el escritor en `sync.py`; lo que no sabe guardar, y los libros con DRM, al `.arca.json`.

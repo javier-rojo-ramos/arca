@@ -114,7 +114,7 @@ python -m core.tracks.activities                               (lista de activid
 python -m core.userdata.editable_fields                        (las etiquetas que se escriben son las mismas que se leen)
 python -m core.userdata.folder_file
 python -m core.userdata.policy
-python -m core.userdata.sync                                   (ExifTool; ida y vuelta completa)
+python -m core.userdata.sync                                   (ExifTool; ida y vuelta completa; los escritores de 'writers.py' y un archivo repartido entre dos destinos)
 python -m core.userdata.xmp_writer                             (ExifTool)
 
 # controllers

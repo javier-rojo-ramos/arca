@@ -1,7 +1,9 @@
 """Sincronización de los datos del usuario entre el catálogo y su destino fuera de él.
 
-Este módulo NO depende de Qt. Une la base de datos con los dos almacenes externos
-('xmp_writer.py' y 'folder_file.py') según la política de cada formato ('policy.py').
+Este módulo NO depende de Qt. Une la base de datos con los almacenes externos según la
+política de cada formato ('policy.py'). CÓMO se escribe en cada uno lo saben los
+escritores ('writers.py': el archivo de carpeta y XMP; ahí se añade uno nuevo); aquí se
+decide QUÉ hay pendiente y se anota el resultado en el catálogo.
 
 Dos sentidos:
 
@@ -47,6 +49,14 @@ Dos sentidos:
          archivo, el procesador con 'folder_file_edits'. En los formatos con XMP, los
          escribe el procesador como cualquier metadato extraído (salvo lo pendiente).
 
+1.10.0 Un archivo, dos destinos ('writers.split_items'): lo que el escritor de un formato
+       no sabe guardar va al '.arca.json'; cada parte quita sus marcas por separado y el
+       error de un archivo se anota una vez (docs/PENDIENTE.md, GEN 14, paso 2). Hoy no
+       se parte ningún formato.
+1.9.0 Los dos caminos de escritura ('_write_folder_items' y '_write_xmp_items') pasan a
+      'writers.py', como escritores con una interfaz común ('UserDataWriter');
+      'write_pending_user_data' reparte los elementos entre ellos y admite 'writers'
+      (docs/PENDIENTE.md, GEN 14). Lo que se escribe no cambia.
 1.8.0 Campos editables de una tabla de detalles (la actividad de un track): se leen, se
       escriben en el '.arca.json' y se aplican desde él como los demás ('read_sql',
       '_apply_detail_edit').
@@ -69,7 +79,7 @@ Prueba rápida (desde la raíz del proyecto; la parte de XMP necesita ExifTool):
     python -m core.userdata.sync
 """
 
-__version__ = "1.8.0"
+__version__ = "1.10.0"
 __all__ = [
     "SCAN_STAGE_USERDATA",
     "FolderFileCache",
@@ -86,8 +96,8 @@ __all__ = [
 import os
 import sqlite3
 import threading
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -98,14 +108,13 @@ from loguru import logger
 from core.catalog.keywords import media_keyword_paths, same_keywords, set_media_keywords
 from core.catalog.media_queries import USER_FIELD_BITS
 from core.jobs.progress import JobProgress
-from core.metadata.exiftool_runner import ExifToolError, ExifToolRunner, find_sidecars
+from core.metadata.exiftool_runner import ExifToolError, ExifToolRunner
 from core.metadata.keyword_tags import FileKeywords
 from core.userdata.editable_fields import (
     EDITABLE_COLUMNS,
     applies_sql,
     default_title,
     field_for,
-    file_title,
     pending_columns,
     read_sql,
     unless_pending_sql,
@@ -117,17 +126,15 @@ from core.userdata.folder_file import (
     edited_values_from_entry,
     find_entry_key,
     keywords_from_entry,
-    merge_entry,
     read_folder_file,
     user_values_from_entry,
-    write_folder_file,
 )
 from core.userdata.policy import (
     UserDataDestination,
     destination_for,
-    sidecar_path_for_writing,
 )
-from core.userdata.xmp_writer import XmpUserDataWriter, XmpWriteRequest
+from core.userdata.writers import USER_COLUMNS as _USER_COLUMNS
+from core.userdata.writers import UserDataWriter, WriteItem, default_writers, split_items
 
 # Nombre de la fase para la columna 'stage' de la tabla 'scan_errors'
 SCAN_STAGE_USERDATA = "userdata"
@@ -135,15 +142,8 @@ SCAN_STAGE_USERDATA = "userdata"
 # Elementos por lote (y por transacción corta)
 DEFAULT_BATCH_SIZE = 200
 
-# Columnas de los datos del usuario que se sincronizan (mismo orden en todo el módulo)
-_USER_COLUMNS: tuple[str, ...] = ("rating", "flag", "color_label")
-
 # Caché de archivos de carpeta durante un escaneo: carpeta -> contenido (None = ilegible)
 FolderFileCache = dict[Path, FolderData | None]
-
-# Valor de un metadato que la entrada del archivo de carpeta no trae (no editado): distinto
-# de None (vaciado a propósito), para decidir si hay que escribir la entrada
-_NOT_EDITED = object()
 
 
 # =============================================================================
@@ -215,50 +215,6 @@ class UserDataWriteResult:
         return "\n".join(lines)
 
 
-@dataclass(slots=True)
-class _Item:
-    """Un elemento pendiente, con lo necesario para escribirlo y actualizar la BD."""
-
-    media_id: int
-    location_id: int
-    relative_path: str
-    path: Path
-    destination: UserDataDestination
-    values: dict[str, Any]  # los tres valores de la BD
-    pending: int  # bits de 'user_data_pending' (qué campos hay que escribir)
-    file_size: int
-    file_mtime_ns: int
-    thumbnail_mtime_ns: int | None
-    sidecar_mtime_ns: int | None
-    keywords_pending: bool = False  # 'keywords_pending' (hay que escribir las palabras)
-    keywords: tuple[tuple[str, ...], ...] = ()  # las palabras del catálogo (rutas)
-    metadata_pending: int = 0  # bits de 'metadata_edit_pending' (metadatos editados)
-    metadata: dict[str, Any] = field(default_factory=dict)  # sus valores en la BD
-    # Resultado
-    ok: bool = False
-    written: bool = False
-    deferred: bool = False  # no se intentó (falta ExifTool): no es un fallo del archivo
-    message: str = ""
-    db_updates: dict[str, Any] = field(default_factory=dict)  # columnas a actualizar tras escribir
-    rescan: bool = False  # el archivo cambió fuera de la aplicación: releer sus metadatos
-
-    @property
-    def wanted(self) -> dict[str, Any]:
-        """Solo los campos pendientes, con su valor de la BD (lo que hay que escribir)."""
-        wanted: dict[str, Any] = {
-            column: self.values[column]
-            for column in _USER_COLUMNS
-            if self.pending & USER_FIELD_BITS[column]
-        }
-        if self.keywords_pending:
-            wanted[KEYWORDS_KEY] = self.keywords
-        # Metadatos editados: el título igual al nombre del archivo es «sin título»
-        for column in pending_columns(self.metadata_pending):
-            value = self.metadata[column]
-            wanted[column] = file_title(value, self.path.name) if column == "title" else value
-        return wanted
-
-
 # Elementos con algo pendiente de escribir fuera del catálogo (presentes en disco)
 _PENDING_SQL = (
     "(user_data_pending <> 0 OR keywords_pending <> 0 OR metadata_edit_pending <> 0) "
@@ -282,6 +238,7 @@ def write_pending_user_data(
     cancel_event: threading.Event | None = None,
     runner_factory: Callable[[], ExifToolRunner] | None = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
+    writers: Mapping[UserDataDestination, UserDataWriter] | None = None,
 ) -> UserDataWriteResult:
     """Escribe en su destino los datos del usuario pendientes y quita la marca.
 
@@ -292,6 +249,8 @@ def write_pending_user_data(
         runner_factory: Crea el lector de ExifTool (por defecto, 'ExifToolRunner()').
             Solo se llama si hay algún XMP que escribir.
         batch_size: Elementos por lote.
+        writers: El escritor de cada destino (por defecto, 'writers.default_writers': el
+            archivo de carpeta y XMP). Para pruebas o para un escritor de más.
 
     Returns:
         Un 'UserDataWriteResult' con los recuentos.
@@ -308,10 +267,12 @@ def write_pending_user_data(
         row[0]: Path(row[1]) for row in conn.execute("SELECT id, absolute_path FROM storage_locations")
     }
     online: dict[int, bool] = {}
-    writer_holder: dict[str, XmpUserDataWriter | None] = {}  # se crea al primer XMP
+    if writers is None:
+        writers = default_writers(runner_factory)
+    # Cada escritor, una vez y en su orden (el de XMP atiende dos destinos)
+    ordered_writers = list(dict.fromkeys(writers.values()))
     counts = {"written": 0, "already_ok": 0, "failed": 0, "offline": 0, "rescan": 0}
     messages: list[str] = []
-    exiftool_missing = False
     cancelled = False
     done = 0
     last_id = 0
@@ -338,7 +299,7 @@ def write_pending_user_data(
         last_id = rows[-1][0]
 
         # Elementos del lote cuya unidad está conectada (los demás siguen pendientes)
-        items: list[_Item] = []
+        items: list[WriteItem] = []
         for row in rows:
             location_id = row[1]
             root = locations.get(location_id)
@@ -351,7 +312,7 @@ def write_pending_user_data(
                 counts["offline"] += 1
                 continue
             items.append(
-                _Item(
+                WriteItem(
                     media_id=row[0],
                     location_id=location_id,
                     relative_path=row[2],
@@ -371,43 +332,35 @@ def write_pending_user_data(
                 )
             )
 
-        # Escritura (sin transacción abierta: se espera al disco y a ExifTool)
-        folder_items = [i for i in items if i.destination is UserDataDestination.FOLDER_FILE]
-        xmp_items = [i for i in items if i.destination is not UserDataDestination.FOLDER_FILE]
-        _write_folder_items(folder_items)
-        if xmp_items:
-            writer = _get_writer(writer_holder, runner_factory)
-            if writer is None:
-                exiftool_missing = True
-                for item in xmp_items:
-                    item.deferred = True
-            else:
-                try:
-                    _write_xmp_items(writer, xmp_items, cancel_event)
-                except ExifToolError as error:
-                    # Fallo general de ExifTool: el resto del lote queda pendiente
-                    exiftool_missing = True
-                    logger.error(f"ExifTool no puede escribir: {error}")
-                    for item in xmp_items:
-                        if not item.ok:
-                            item.deferred = True
+        # Lo que el escritor de un formato no sabe guardar va al archivo de carpeta: un
+        # archivo puede quedar en dos partes (lo normal: una sola, el propio elemento)
+        parts = split_items(items, writers)
+
+        # Escritura (sin transacción abierta: se espera al disco y a ExifTool). Cada
+        # escritor recibe las partes de sus destinos y apunta en ellas cómo ha ido
+        for writer in ordered_writers:
+            group = [part for part in parts if writers[part.destination] is writer]
+            if group:
+                writer.write(group, cancel_event)
 
         # Resultado en la base de datos (transacción corta)
         try:
-            _save_results(conn, items)
+            _save_results(conn, parts)
             conn.commit()
         except Exception:
             conn.rollback()
             raise
 
-        for item in items:
-            counts["rescan"] += int(item.rescan)
-            if item.ok:
-                counts["written" if item.written else "already_ok"] += 1
-            elif not item.deferred:
+        # Recuento por ARCHIVO (sus partes juntas)
+        for group in _by_media(parts):
+            counts["rescan"] += int(any(part.rescan for part in group))
+            failed = [part for part in group if not part.ok and not part.deferred]
+            if failed:
                 counts["failed"] += 1
                 if len(messages) < 20:
-                    messages.append(f"{item.relative_path}: {item.message}")
+                    messages.append(f"{group[0].relative_path}: {_failure_text(failed)}")
+            elif all(part.ok for part in group):
+                counts["written" if any(part.written for part in group) else "already_ok"] += 1
         done += len(rows)
         _notify(progress, min(done, total), total)
 
@@ -418,7 +371,8 @@ def write_pending_user_data(
         failed=counts["failed"],
         skipped_offline=counts["offline"],
         cancelled=cancelled,
-        exiftool_missing=exiftool_missing,
+        # La herramienta de algún escritor no está (hoy, solo ExifTool la necesita)
+        exiftool_missing=any(writer.unavailable for writer in ordered_writers),
         rescan_requested=counts["rescan"],
         failed_messages=tuple(messages),
     )
@@ -428,189 +382,29 @@ def write_pending_user_data(
     return result
 
 
-def _get_writer(
-    holder: dict[str, XmpUserDataWriter | None],
-    runner_factory: Callable[[], ExifToolRunner] | None,
-) -> XmpUserDataWriter | None:
-    """Crea (una vez por trabajo) el escritor de XMP. None si ExifTool no está disponible."""
-    if "writer" not in holder:
-        try:
-            runner = runner_factory() if runner_factory else ExifToolRunner()
-            runner.version()  # comprueba que se puede ejecutar de verdad
-            holder["writer"] = XmpUserDataWriter(runner)
-        except ExifToolError as error:
-            logger.warning(f"ExifTool no disponible: no se escriben XMP ({error})")
-            holder["writer"] = None
-    return holder["writer"]
+def _by_media(parts: Iterable[WriteItem]) -> list[list[WriteItem]]:
+    """Las partes de cada archivo juntas, en el orden en que aparecen."""
+    groups: dict[int, list[WriteItem]] = {}
+    for part in parts:
+        groups.setdefault(part.media_id, []).append(part)
+    return list(groups.values())
 
 
-def _write_folder_items(items: list[_Item]) -> None:
-    """Escribe en el archivo de carpeta los elementos de destino FOLDER_FILE.
+def _failure_text(failed: Iterable[WriteItem]) -> str:
+    """El motivo de fallo de un archivo (si fallan sus dos partes, los dos, sin repetir)."""
+    return "; ".join(dict.fromkeys(part.message for part in failed))
 
-    Una lectura y, como mucho, una escritura por carpeta. Si el archivo de una carpeta
-    no se puede leer (dañado, sin permisos), NO se reescribe: sus elementos fallan y
-    siguen pendientes (reescribirlo a ciegas podría borrar datos de otros archivos).
+
+def _save_results(conn: sqlite3.Connection, items: Iterable[WriteItem]) -> None:
+    """Guarda en la base de datos el resultado de un lote (sin hacer commit).
+
+    'items' son las PARTES ('split_items'): cada una quita las marcas de sus campos; el
+    error de un archivo se anota (o se borra) una vez, mirando todas sus partes.
     """
-    by_folder: dict[Path, list[_Item]] = {}
-    for item in items:
-        by_folder.setdefault(item.path.parent, []).append(item)
-
-    for folder, group in by_folder.items():
-        try:
-            data = read_folder_file(folder)
-        except FolderFileError as error:
-            for item in group:
-                item.message = str(error)
-            continue
-
-        changed = False
-        for item in group:
-            key = find_entry_key(data.items, item.path.name)
-            old_entry = data.items.get(key) if key else None
-            # Se parte de lo que ya tiene y se cambian solo los campos pendientes
-            wanted = item.wanted
-            old_values: dict[str, Any] = user_values_from_entry(old_entry)
-            if KEYWORDS_KEY in wanted:
-                old_values[KEYWORDS_KEY] = keywords_from_entry(old_entry)
-            # Metadatos editados: sin la clave NO es lo mismo que vaciado (""): la clave
-            # dice que se editó, y entonces manda sobre lo que traiga el archivo
-            old_edits = edited_values_from_entry(old_entry)
-            for column in EDITABLE_COLUMNS:
-                if column in wanted:
-                    old_values[column] = old_edits.get(column, _NOT_EDITED)
-            new_values = {**old_values, **wanted}
-            if _same_values(new_values, old_values):
-                continue  # ya lo tenía: no hace falta escribir por él
-            new_entry = merge_entry(old_entry, new_values)
-            if key is not None and key != item.path.name:
-                del data.items[key]  # la entrada pasa a llevar el nombre exacto del archivo
-            if new_entry is None:
-                data.items.pop(item.path.name, None)
-            else:
-                data.items[item.path.name] = new_entry
-            item.written = True
-            changed = True
-
-        try:
-            if changed:
-                write_folder_file(data)
-        except FolderFileError as error:
-            for item in group:
-                item.written = False
-                item.message = str(error)
-            continue
-        for item in group:
-            item.ok = True
-
-
-def _same_values(first: dict[str, Any], second: dict[str, Any]) -> bool:
-    """True si dos juegos de valores del usuario son iguales (las palabras clave, sin
-    orden pero letra a letra: un cambio solo de mayúsculas también se escribe)."""
-    if first.keys() != second.keys():
-        return False
-    for key, value in first.items():
-        if key == KEYWORDS_KEY:
-            if not same_keywords(value, second[key], exact=True):
-                return False
-        elif value != second[key]:
-            return False
-    return True
-
-
-def _write_xmp_items(
-    writer: XmpUserDataWriter, items: list[_Item], cancel_event: threading.Event | None
-) -> None:
-    """Escribe los elementos de destino XMP (incrustado o sidecar) y prepara la BD.
-
-    Raises:
-        ExifToolError: Si ExifTool no se puede ejecutar (fallo general).
-    """
-    requests: list[XmpWriteRequest] = []
-    targets: list[_Item] = []
-    before: dict[int, os.stat_result | None] = {}  # estado del destino antes de escribir
-    for item in items:
-        try:
-            original = item.path.stat()
-        except FileNotFoundError:
-            item.message = "El archivo no existe (se marcará al reescanear la carpeta)"
-            continue
-        except OSError as error:
-            item.message = f"No se puede acceder al archivo ({error.strerror or error})"
-            continue
-
-        if item.destination is UserDataDestination.XMP_SIDECAR:
-            target = sidecar_path_for_writing(item.path)
-            try:
-                before[item.media_id] = target.stat()
-            except OSError:
-                before[item.media_id] = None  # el sidecar aún no existe
-            # Si el sidecar cambió fuera de la aplicación y aún no se ha leído, habrá
-            # que releer los metadatos del RAW (p. ej. un título puesto en Lightroom)
-            sidecar_before = before[item.media_id]
-            if sidecar_before is not None and sidecar_before.st_mtime_ns != item.sidecar_mtime_ns:
-                item.rescan = True
-        else:
-            target = item.path
-            before[item.media_id] = original
-            # ¿Cambió el archivo fuera de la aplicación desde el último escaneo?
-            if (original.st_size, original.st_mtime_ns) != (item.file_size, item.file_mtime_ns):
-                item.rescan = True
-
-        requests.append(XmpWriteRequest(target, item.wanted))
-        targets.append(item)
-
-    if not requests:
-        return
-    outcomes = writer.write(requests, cancel_event)
-    for item in targets[len(outcomes) :]:
-        item.deferred = True  # cancelado antes de llegar a él: sigue pendiente, sin error
-    for item, outcome in zip(targets, outcomes, strict=False):
-        item.ok = outcome.ok
-        item.written = outcome.written
-        item.message = outcome.message
-        if not (outcome.written or item.rescan):
-            continue  # el destino no ha cambiado: nada que anotar
-
-        # Estado del destino que se anota en la base de datos: el de después de escribir
-        # o, si no se escribió, el que tenía (cambiado fuera de la aplicación)
-        state = before[item.media_id]
-        if outcome.written:
-            try:
-                state = outcome.request.path.stat()
-            except OSError:
-                state = None  # se escribió y comprobó; se corregirá en el próximo escaneo
-        if state is None:
-            continue
-
-        # Se anota SIEMPRE el estado actual: así la próxima pasada no vuelve a ver un
-        # "cambio externo" en el mismo archivo (si la escritura sigue fallando, no se
-        # entra en un bucle de relecturas)
-        if item.destination is UserDataDestination.XMP_SIDECAR:
-            # Misma regla que el escáner: si hay dos sidecars, la fecha más reciente
-            item.db_updates = {
-                "sidecar_mtime_ns": _sidecars_mtime(item.path) or state.st_mtime_ns,
-                "has_xmp_sidecar": 1,
-            }
-        else:
-            item.db_updates = {"file_size": state.st_size, "file_mtime_ns": state.st_mtime_ns}
-
-
-def _sidecars_mtime(path: Path) -> int | None:
-    """Fecha más reciente de los sidecars de un archivo (la misma que anota el escáner)."""
-    mtimes = []
-    for sidecar in find_sidecars(path):
-        try:
-            mtimes.append(sidecar.stat().st_mtime_ns)
-        except OSError:
-            continue
-    return max(mtimes) if mtimes else None
-
-
-def _save_results(conn: sqlite3.Connection, items: Iterable[_Item]) -> None:
-    """Guarda en la base de datos el resultado de un lote (sin hacer commit)."""
     if not conn.in_transaction:
         conn.execute("BEGIN IMMEDIATE;")
 
+    items = list(items)
     for item in items:
         if item.db_updates:
             # Nombres de columna de una lista cerrada (los pone este módulo): sin inyección
@@ -644,7 +438,8 @@ def _save_results(conn: sqlite3.Connection, items: Iterable[_Item]) -> None:
         if item.ok:
             # Se quita el bit de cada campo escrito SOLO si su valor sigue siendo el
             # escrito: si el usuario lo cambió mientras tanto, sigue pendiente
-            for column, value in item.wanted.items():
+            wanted = item.wanted
+            for column, value in wanted.items():
                 if column not in USER_FIELD_BITS:
                     continue  # las palabras clave y los metadatos van aparte (abajo)
                 conn.execute(
@@ -655,6 +450,8 @@ def _save_results(conn: sqlite3.Connection, items: Iterable[_Item]) -> None:
             # Metadatos editados: igual, comparando con el valor de la BD que se leyó (el
             # título escrito puede ser «sin título» y en la BD, el nombre del archivo)
             for column in pending_columns(item.metadata_pending):
+                if column not in wanted:
+                    continue  # ese campo es de la otra parte del archivo
                 conn.execute(
                     "UPDATE media_items SET metadata_edit_pending = metadata_edit_pending & ~? "
                     f"WHERE id = ? AND {read_sql(column)} IS ?",
@@ -662,22 +459,30 @@ def _save_results(conn: sqlite3.Connection, items: Iterable[_Item]) -> None:
                 )
             # Las palabras clave: solo si siguen siendo las escritas (si el usuario las
             # cambió mientras tanto, siguen pendientes)
-            if KEYWORDS_KEY in item.wanted and same_keywords(
-                media_keyword_paths(conn, item.media_id), item.wanted[KEYWORDS_KEY], exact=True
+            if KEYWORDS_KEY in wanted and same_keywords(
+                media_keyword_paths(conn, item.media_id), wanted[KEYWORDS_KEY], exact=True
             ):
                 conn.execute("UPDATE media_items SET keywords_pending = 0 WHERE id = ?", (item.media_id,))
-            conn.execute(
-                "DELETE FROM scan_errors WHERE storage_location_id = ? AND relative_path = ? "
-                "AND stage = ?",
-                (item.location_id, item.relative_path, SCAN_STAGE_USERDATA),
-            )
-        elif not item.deferred:
+
+    # El error de cada archivo, una vez: si falla alguna parte, se anota; si todas han ido
+    # bien, se borra el que hubiera; si solo quedó aplazado (falta la herramienta), ni lo uno
+    # ni lo otro
+    for group in _by_media(items):
+        first = group[0]
+        failed = [part for part in group if not part.ok and not part.deferred]
+        if failed:
             conn.execute(
                 """INSERT INTO scan_errors(storage_location_id, relative_path, stage, message)
                    VALUES (?, ?, ?, ?)
                    ON CONFLICT(storage_location_id, relative_path, stage)
                    DO UPDATE SET message = excluded.message, occurred_at = CURRENT_TIMESTAMP""",
-                (item.location_id, item.relative_path, SCAN_STAGE_USERDATA, item.message),
+                (first.location_id, first.relative_path, SCAN_STAGE_USERDATA, _failure_text(failed)),
+            )
+        elif all(part.ok for part in group):
+            conn.execute(
+                "DELETE FROM scan_errors WHERE storage_location_id = ? AND relative_path = ? "
+                "AND stage = ?",
+                (first.location_id, first.relative_path, SCAN_STAGE_USERDATA),
             )
 
 
@@ -1330,5 +1135,84 @@ if __name__ == "__main__":
         print("Lectura a medias (sidecar sin leer): no se aplica nada y se releerá")
         catalog.close()
         again.close()
+
+    # --- 9. Un archivo, dos destinos: un escritor que solo sabe guardar el título y la
+    #        valoración (como unas etiquetas de audio); lo demás va al '.arca.json'
+    class _PartialWriter(UserDataWriter):
+        """Escritor de mentira: apunta lo que le piden y no toca ningún archivo."""
+
+        name = "parcial"
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.seen: list[dict[str, Any]] = []
+            self.fail = False
+
+        def fields_for(self, item: WriteItem) -> frozenset[str] | None:
+            return frozenset({"title", "rating"})
+
+        def write(self, items: list[WriteItem], cancel_event: threading.Event | None = None) -> None:
+            for item in items:
+                self.seen.append(dict(item.wanted))
+                item.ok, item.written = not self.fail, not self.fail
+                item.message = "no se pudo" if self.fail else ""
+
+    with tempfile.TemporaryDirectory() as tmp:
+        library = Path(tmp) / "Partido"
+        library.mkdir()
+        Image.new("RGB", (40, 30), "red").save(library / "foto.jpg", quality=90)
+        split = new_catalog()
+        add_folder(split, library)
+        process_pending_metadata(split, registry=registry)
+        (photo,) = ids(split).values()
+        partial_writer = _PartialWriter()
+        custom = {**default_writers(), UserDataDestination.XMP_EMBEDDED: partial_writer}
+
+        def marks() -> tuple:
+            return tuple(split.execute(
+                "SELECT user_data_pending, metadata_edit_pending FROM media_items"
+            ).fetchone())  # fmt: skip
+
+        def errors() -> list:
+            return split.execute("SELECT message FROM scan_errors WHERE stage = ?", (SCAN_STAGE_USERDATA,)).fetchall()
+
+        update_user_field(split, [photo], "rating", 4)
+        update_user_field(split, [photo], "color_label", "blue")
+        update_metadata_fields(split, [photo], {"title": "Partido", "city": "Jaca"})
+        split.commit()
+        size_before = (library / "foto.jpg").stat().st_size
+        result = write_pending_user_data(split, writers=custom)
+        # El escritor del formato recibe SOLO lo suyo; el resto está en el '.arca.json'
+        assert partial_writer.seen == [{"rating": 4, "title": "Partido"}], partial_writer.seen
+        entry = read_folder_file(library).items["foto.jpg"]
+        assert entry["color_label"] == "blue" and entry["city"] == "Jaca", entry
+        assert "rating" not in entry and "title" not in entry, entry
+        assert (result.total, result.written, result.failed) == (1, 1, 0) and marks() == (0, 0)
+        assert (library / "foto.jpg").stat().st_size == size_before  # nadie tocó el original
+        print("Un archivo, dos destinos: cada campo a su escritor y todas las marcas quitadas")
+
+        # Si falla una parte, solo sus campos siguen pendientes; el error se anota una vez
+        partial_writer.fail = True
+        update_user_field(split, [photo], "rating", 2)
+        update_user_field(split, [photo], "color_label", "red")
+        split.commit()
+        result = write_pending_user_data(split, writers=custom)
+        assert (result.written, result.failed) == (0, 1) and result.failed_messages
+        assert marks() == (USER_FIELD_BITS["rating"], 0), marks()  # el color sí se guardó
+        assert read_folder_file(library).items["foto.jpg"]["color_label"] == "red"
+        assert errors() == [("no se pudo",)], errors()
+        # Al ir bien, se quita la marca y el error
+        partial_writer.fail = False
+        result = write_pending_user_data(split, writers=custom)
+        assert (result.written, result.failed) == (1, 0) and marks() == (0, 0) and errors() == []
+        # Con los escritores de siempre, una foto NO se parte: todo al XMP, nada al '.arca.json'
+        update_user_field(split, [photo], "color_label", "green")
+        update_metadata_fields(split, [photo], {"city": "Canfranc"})
+        split.commit()
+        write_pending_user_data(split)
+        assert read_folder_file(library).items["foto.jpg"]["color_label"] == "red"  # el de antes
+        assert tags_of(library / "foto.jpg")["XMP-photoshop:City"] == "Canfranc" and marks() == (0, 0)
+        print("Si falla una parte, solo esa sigue pendiente; las fotos siguen yendo enteras al XMP")
+        split.close()
 
     print("Autoprueba finalizada correctamente.")

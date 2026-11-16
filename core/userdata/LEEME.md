@@ -14,7 +14,11 @@ core/userdata/
 │                      campo. Se editan en el inspector («Metadatos» de Imagen)
 ├── folder_file.py     El archivo de carpeta '.arca.json' (leer, escribir de forma atómica, copia .bak)
 ├── xmp_writer.py      Escritura en XMP con ExifTool (incrustado o sidecar), con comprobación
-└── sync.py            Une catálogo y archivos: el trabajo de escritura y la lectura al importar
+├── writers.py       ► AQUÍ se añade un ESCRITOR nuevo: la interfaz ('UserDataWriter') y los dos
+│                      que hay (el del '.arca.json' y el de XMP); 'split_items' reparte un archivo
+│                      entre el escritor de su formato y el '.arca.json'
+└── sync.py            Une catálogo y archivos: el trabajo de escritura (qué hay pendiente, repartirlo
+                       entre los escritores y anotar el resultado) y la lectura al importar
 ```
 
 ## Un destino por formato (`policy.py`)
@@ -97,6 +101,18 @@ Reconstruir / reescanear:
 Cambiar el destino de una extensión que ya tiene datos escritos no los mueve: se leerían
 del destino nuevo (vacío). Si algún día hiciera falta, habría que migrarlos.
 
+## Receta: un escritor nuevo (etiquetas de audio, el OPF de un EPUB...)
+
+Desde el 16/11/2026 (`GEN 14`), el trabajo de escritura (`sync.write_pending_user_data`) no sabe cómo escribe cada formato: reparte los archivos pendientes entre los escritores de `writers.py`. Para uno nuevo, **`sync.py` no se toca**:
+
+1. Una clase que herede de `UserDataWriter` (en su archivo, si es larga). Su `write(items, cancel_event)` recibe los `WriteItem` de un lote; de cada uno escribe **solo** `item.wanted` (los campos pendientes, con su valor) y apunta en él cómo ha ido: `ok`, `written`, `message`, `deferred` (no se intentó: falta la herramienta), `db_updates` (el tamaño y la fecha nuevos del archivo) y `rescan` (había cambiado fuera). No lanza excepciones por un archivo ni por su herramienta; si esta no está, pone `unavailable`.
+2. Su destino en `policy.py` (`UserDataDestination` y las extensiones que lo usan) y su línea en `default_writers` (`writers.py`).
+3. Si no sabe guardar todos los campos (unas etiquetas de audio no tienen dónde poner el color), `fields_for(item)` devuelve los que sí. **Lo demás va solo al `.arca.json`** (`split_items`): el archivo se parte en dos `WriteItem`, y cada parte quita sus marcas de pendiente por separado (si una falla, solo esa sigue pendiente). Hoy ningún formato se parte: XMP sabe guardar todo lo de las fotos.
+4. Las reglas de siempre (ver «Archivos del usuario» en `CLAUDE.md`): solo lo pedido, conservar lo que no se conoce, escribir en un temporal que sustituye al original una vez comprobado, y no tocar el contenido.
+5. **Pendiente, con el primer formato que se parta** (`MUS 6`): la lectura. Al releer un archivo así, qué sale del archivo y qué del `.arca.json` (hoy `apply_folder_files` y `folder_file_edits` valen para los formatos que van enteros al `.arca.json`).
+
+Para probarlo sin tocar originales: `write_pending_user_data(conn, writers={...})` admite los escritores (ver el escritor de mentira del final de la autoprueba de `sync.py`).
+
 ## Receta: un dato del usuario nuevo (notas, colecciones...)
 
 - En el archivo de carpeta: `merge_entry` ya conserva las claves que no conoce; se añade la
@@ -108,7 +124,7 @@ del destino nuevo (vacío). Si algún día hiciera falta, habría que migrarlos.
 
 ## Receta: un metadato descriptivo editable nuevo
 
-**Un campo, varios escritores** (14/11/2026): el campo se declara una vez en `EDITABLE_FIELDS` y cada escritor dice qué campos sabe guardar. Un campo puede **no tener etiqueta XMP** (`xmp_tag` vacío: el escritor de XMP no lo conoce y va al `.arca.json`), estar en una **tabla de detalles** (`table`: se lee con `read_sql`, se protege con `unless_pending_sql` o, en el guardado del procesador, con `upsert_sql`) y ser **solo de algunos tipos de archivo** (`media_types`: en los demás ni se guarda ni queda pendiente, `applies_sql`). El primero así es la actividad de un track (`activity_type`, en `track_details`). Un escritor nuevo (ID3, `.nfo`...) llevará su tabla campo → etiqueta y su destino en `policy.py`.
+**Un campo, varios escritores** (14/11/2026): el campo se declara una vez en `EDITABLE_FIELDS` y cada escritor dice qué campos sabe guardar. Un campo puede **no tener etiqueta XMP** (`xmp_tag` vacío: el escritor de XMP no lo conoce y va al `.arca.json`), estar en una **tabla de detalles** (`table`: se lee con `read_sql`, se protege con `unless_pending_sql` o, en el guardado del procesador, con `upsert_sql`) y ser **solo de algunos tipos de archivo** (`media_types`: en los demás ni se guarda ni queda pendiente, `applies_sql`). El primero así es la actividad de un track (`activity_type`, en `track_details`). Un escritor nuevo (ID3, `.nfo`...) lleva su propia tabla campo → etiqueta (las de XMP se quedan aquí, en `xmp_tag` y `legacy_tags`: decidido el 16/11/2026) y su destino en `policy.py`: receta de arriba.
 
 Una línea en `EDITABLE_FIELDS` (`editable_fields.py`) con el siguiente bit libre, su
 etiqueta XMP, sus etiquetas antiguas (las mismas, y en el mismo orden, que las de lectura en
