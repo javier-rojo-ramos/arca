@@ -18,6 +18,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.23.1 Fuera '#scroll_image_sidebar' y '#widget_image_sidebar_content': la barra de Imagen
+       es ya la común ('#scroll_library_sidebar'; docs/PENDIENTE.md, GEN 13).
 1.23.0 'TOOLBAR_ICON_SIZE': el lado del icono de los botones de la toolbar lateral (los
        módulos y el de ajustes; 24 px, el que tenían en el .ui).
 1.22.0 'BAR_ICON_SIZE': el lado del icono de los botones pequeños de las barras (18 px;
@@ -68,7 +70,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.23.0"
+__version__ = "1.23.1"
 __all__ = [
     "CARD_COLORS",
     "COLORS",
@@ -413,8 +415,6 @@ QListWidget#list_settings_sections::item {{
    'SidebarTreeView' es el árbol de cada sección (ui_helpers/widgets/sidebar_tree_view.py) */
 QScrollArea#scroll_catalog_sidebar,
 QWidget#widget_catalog_sidebar_content,
-QScrollArea#scroll_image_sidebar,
-QWidget#widget_image_sidebar_content,
 QScrollArea#scroll_library_sidebar,
 QWidget#widget_library_sidebar_content,
 QScrollArea#scroll_inspector,

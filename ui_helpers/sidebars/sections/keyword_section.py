@@ -28,10 +28,12 @@ Lo desplegado se lleva en un 'KeywordExpansion' (estado 'SIDEBAR'), independient
 El aspecto del filtro se define en la hoja de estilos global (ui_theme.py) con el nombre de
 objeto 'edit_keyword_filter'.
 
-Uso (lo hace la barra, p. ej. 'ImageSidebar'; ver 'tree_section.py'):
+Uso (lo hace la barra, 'LibrarySidebar'; ver 'tree_section.py'):
     keywords = KeywordSection("image", parent=parent)
     keywords.set_tree(tree)   # 'fetch_keyword_tree(conn, "image")', del módulo
 
+1.2.0 'hides_rows': con el filtro escrito, la barra no da por desaparecida la palabra
+      elegida (antes lo preguntaba 'ImageSidebar.is_filtering'; docs/PENDIENTE.md, GEN 13).
 1.1.0 Las palabras sin nada de la biblioteca, en gris (el «desactivado» de la paleta).
 1.0.1 La sangría de los nombres, 'TEXT_NAME_INDENT' de 'tree_section.py' (la comparte con
       las fechas); antes, '_KEYWORD_NAME_INDENT' aquí. El mismo valor.
@@ -39,7 +41,7 @@ Uso (lo hace la barra, p. ej. 'ImageSidebar'; ver 'tree_section.py'):
       sección (12/11/2026); hace lo mismo que antes.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["KeywordSection"]
 
 # Librerías estándar
@@ -128,6 +130,10 @@ class KeywordSection(TreeSection):
     def is_filtering(self) -> bool:
         """True si hay texto en «Filtrar palabras clave»."""
         return bool(self._filter.text().strip())
+
+    def hides_rows(self) -> bool:
+        """Con el filtro escrito, una palabra puede no verse y seguir existiendo."""
+        return self.is_filtering()
 
     # -------------------------------------------------------------------------
     # 'TreeSection'

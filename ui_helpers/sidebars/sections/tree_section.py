@@ -3,7 +3,7 @@
 Cada sección (carpetas, palabras clave, fechas...) es un widget que la barra pone dentro de
 una 'CollapsibleSection'. Tiene uno o más árboles ('SidebarTreeView') cuyas filas llevan un
 'GridSource' (ROLE_SOURCE) y su número (ROLE_COUNT). La sección solo pinta y recuerda lo
-suyo; lo común lo hace la barra que la contiene (p. ej. 'ImageSidebar'):
+suyo; lo común lo hace la barra que la contiene ('LibrarySidebar'):
 
     - Una sola fila elegida en toda la barra: la barra conecta la selección de 'views()' y
       emite el origen elegido.
@@ -13,16 +13,23 @@ suyo; lo común lo hace la barra que la contiene (p. ej. 'ImageSidebar'):
       junta con las de las demás en un solo diccionario (por eso dos secciones no pueden
       usar la misma clave), y 'restore_state' recibe ese diccionario entero.
 
-Una sección no sabe nada de SQL: los datos se los pone su módulo a través de la barra.
+Una sección no sabe nada de SQL: los datos se los pone su módulo a través de la barra
+('set_tree'; cada sección dice en la suya qué espera recibir).
 
+1.2.0 'set_tree' y 'hides_rows' pasan a ser parte de la base (docs/PENDIENTE.md, GEN 13):
+      así la barra de una biblioteca ('LibrarySidebar') trata igual a cualquier sección,
+      también a las que cada módulo añade.
 1.1.0 'TEXT_NAME_INDENT' (antes, en 'keyword_section.py'): lo usan las palabras clave y
       las fechas.
 1.0.0 Primera versión: sale de 'image_sidebar.py' al dividirla en un archivo por sección
       (12/11/2026).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["TEXT_NAME_INDENT", "TreeSection", "make_item"]
+
+# Librerías estándar
+from typing import Any
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import Signal
@@ -60,6 +67,16 @@ class TreeSection(QWidget):
     """
 
     rebuilt = Signal()
+
+    def set_tree(self, data: Any) -> None:
+        """Pone los datos de la sección (lo que su módulo ha leído en segundo plano). Cada
+        sección dice qué espera; si no han cambiado, no debe rehacer nada."""
+
+    def hides_rows(self) -> bool:
+        """True si ahora mismo oculta filas que existen (p. ej. con un filtro escrito): la
+        fila elegida puede no estar en el árbol sin haber desaparecido del catálogo, y
+        entonces el módulo no debe volver a la primera fila."""
+        return False
 
     def views(self) -> tuple[SidebarTreeView, ...]:
         """Sus árboles (la barra conecta su selección)."""

@@ -1,17 +1,20 @@
-"""Base de los módulos de UNA biblioteca con la barra 'LibrarySidebar' (Tracks; Vídeo y Audio).
+"""Base de los módulos de UNA biblioteca con la barra 'LibrarySidebar' (Imagen, Tracks, Vídeo
+y Audio).
 
 Lo común de esos módulos, que antes estaba en 'TracksModule' (15/11/2026): la barra
 izquierda («Biblioteca - …» con sus dos filas fijas, «Carpetas» y «Fechas»), lo que se lee
 para ella en segundo plano, lo guardado de la barra por catálogo y el menú de las
-carpetas. Lo de cada módulo (su biblioteca y sus textos, sus vistas, su orden y sus
-filtros) lo pone su subclase.
+carpetas. Lo de cada módulo (su biblioteca y sus textos, las secciones de más de su barra,
+sus vistas, su orden y sus filtros) lo pone su subclase.
 
-Qué hace (la barra no sabe nada de la base de datos), como 'ImageModule':
+Qué hace (la barra no sabe nada de la base de datos):
     - Pasa al 'ModuleHost' lo que se elige en la barra ('source_selected').
-    - 'refresh' lee en segundo plano los contadores de la biblioteca, el árbol de carpetas
-      con archivos suyos y los años, meses y días ('timeline.fetch_timeline').
-    - Si la carpeta o la fecha elegida ya no existe (se borró, o ya no tiene nada de la
-      biblioteca), vuelve a la primera fila («Todos los …»).
+    - 'refresh' lee en segundo plano, en una sola visita a la base de datos, los contadores
+      de la biblioteca, el árbol de carpetas con archivos suyos, los años, meses y días
+      ('timeline.fetch_timeline') y lo de cada sección de más ('ExtraSection.fetch').
+    - Si lo elegido (una carpeta, una fecha, una fila de una sección de más) ya no existe
+      (se borró, o ya no tiene nada de la biblioteca), vuelve a la primera fila («Todos los
+      …»); salvo que una sección esté ocultando filas (un filtro escrito: 'hides_rows').
     - Lo desplegado y la fila elegida, guardados por catálogo ('save_state' /
       'restore_state'; el 'ModuleHost' los escribe en settings.json).
 
@@ -20,8 +23,12 @@ Uso (una subclase por módulo):
         key, title, icon = MODE_TRACKS, "Tracks", AppIcons.LIB_TRACKS
         library = Library.TRACKS.value
         texts = LibraryTexts("Biblioteca - Tracks", "Todos los tracks", ...)
+        extra_sections = (ExtraSection("keywords", "Lista de palabras clave", ...),)  # si las tiene
         def views(self): ...          # y el orden, los filtros, el mapa...
 
+1.1.0 Secciones de más en la barra ('extra_sections'), leídas con lo demás; no se vuelve
+      a «Todos» mientras una sección oculte filas. Con ello, Imagen pasa a ser un módulo
+      más de esta base (docs/PENDIENTE.md, GEN 13). Tracks, Vídeo y Audio, igual.
 1.0.0 Primera versión (15/11/2026): sale de 'TracksModule' (sin cambiar lo que hace),
       para servir también a Vídeo y Audio.
 
@@ -29,10 +36,11 @@ Prueba rápida (desde la raíz del proyecto; sin ventana, con un catálogo en me
     python -m controllers.app_modules.library_module
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["LibraryModule", "fetch_library_sidebar_data"]
 
 # Librerías estándar
+from collections.abc import Callable, Sequence
 from functools import partial
 from pathlib import Path
 from typing import Any, ClassVar
@@ -52,7 +60,7 @@ from core.catalog.grid_source import GridSource, library_source, quick_source
 from core.catalog.media_queries import count_grid_items
 from core.catalog.timeline import fetch_timeline
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME, reveal_in_file_manager
-from ui_helpers.sidebars.library_sidebar import LibrarySidebar, LibraryTexts
+from ui_helpers.sidebars.library_sidebar import ExtraSection, LibrarySidebar, LibraryTexts
 
 
 def fetch_library_sidebar_data(conn: Any, library: str) -> tuple[int, int, tuple, tuple]:
@@ -73,16 +81,30 @@ def fetch_library_sidebar_data(conn: Any, library: str) -> tuple[int, int, tuple
     )
 
 
+def _fetch_sidebar_data(
+    conn: Any, library: str, fetchers: Sequence[Callable[[Any, str], Any]]
+) -> tuple[tuple[int, int, tuple, tuple], tuple[Any, ...]]:
+    """Todo lo de la barra en una sola visita al hilo de la base de datos: lo común
+    ('fetch_library_sidebar_data') y, en su orden, lo de cada sección de más."""
+    return (
+        fetch_library_sidebar_data(conn, library),
+        tuple(fetch(conn, library) for fetch in fetchers),
+    )
+
+
 class LibraryModule(AppModule):
     """Módulo de una biblioteca con la barra 'LibrarySidebar' (ver el docstring del archivo).
 
     Cada subclase pone, además de 'key', 'title' e 'icon' (los de 'AppModule'), su
-    biblioteca ('library') y los textos de su barra ('texts').
+    biblioteca ('library'), los textos de su barra ('texts') y, si las tiene, las secciones
+    de más de su barra ('extra_sections').
     """
 
     # Biblioteca del módulo ('Library.X.value') y textos de su barra: los pone la subclase
     library: ClassVar[str] = ""
     texts: ClassVar[LibraryTexts | None] = None
+    # Secciones de la barra además de biblioteca, carpetas y fechas (en su orden de partida)
+    extra_sections: ClassVar[tuple[ExtraSection, ...]] = ()
 
     def __init__(
         self, context: ModuleContext, *, button: QToolButton, parent: QObject | None = None
@@ -91,7 +113,9 @@ class LibraryModule(AppModule):
         if not self.library or self.texts is None:
             raise TypeError(f"{type(self).__name__}: faltan 'library' o 'texts'.")
         super().__init__(context, button=button, parent=parent)
-        self.sidebar = LibrarySidebar(self.library, self.texts)
+        self.sidebar = LibrarySidebar(
+            self.library, self.texts, extra_sections=self.extra_sections
+        )
         # El orden de sus secciones, si se ven y si están plegadas: como las tenga el
         # usuario en este modo
         if context.section_layout is not None:
@@ -141,8 +165,9 @@ class LibraryModule(AppModule):
         if self._db is None:
             return
         self._db.execute_async(
-            fetch_library_sidebar_data,
+            _fetch_sidebar_data,
             self.library,
+            tuple(spec.fetch for spec in self.extra_sections),
             on_result=partial(self._on_sidebar_data, self._generation),
             on_error=lambda error: logger.warning(
                 f"No se pudo leer la barra del módulo {self.title}: {error}"
@@ -182,27 +207,37 @@ class LibraryModule(AppModule):
         if not reveal_in_file_manager(folder):
             self.context.message_box.warning(f"No se pudo abrir {FILE_MANAGER_NAME}:\n{folder}")
 
-    def _on_sidebar_data(self, generation: int, data: tuple[int, int, tuple, tuple]) -> None:
+    def _on_sidebar_data(
+        self, generation: int, data: tuple[tuple[int, int, tuple, tuple], tuple[Any, ...]]
+    ) -> None:
         """Pone los contadores y los árboles (si siguen siendo del catálogo abierto).
 
-        Si la carpeta o la fecha elegida ya no existe (se borró, o ya no tiene nada de la
-        biblioteca), se vuelve a la primera fila («Todos los …»).
+        Si lo elegido (una carpeta, una fecha, una fila de una sección de más) ya no existe
+        (se borró, o ya no tiene nada de la biblioteca), se vuelve a la primera fila («Todos
+        los …»). No, si una sección oculta filas (un filtro escrito): entonces que la fila
+        no esté no quiere decir que haya desaparecido.
         """
         if generation != self._generation or self._db is None:
             return
-        count, quick_count, folders, dates = data
+        (count, quick_count, folders, dates), extra = data
         self.sidebar.set_library_count(count, quick_count)
         self.sidebar.set_folder_tree(folders)
         self.sidebar.set_date_tree(dates)
+        for spec, section_data in zip(self.extra_sections, extra, strict=True):
+            self.sidebar.set_section_data(spec.key, section_data)
         current = self.sidebar.current_source()
-        if current != self.sidebar.all_source and not self.sidebar.has_source(current):
+        if (
+            current != self.sidebar.all_source
+            and not self.sidebar.hides_rows()
+            and not self.sidebar.has_source(current)
+        ):
             self.sidebar.select_source(self.sidebar.all_source)
 
 
 if __name__ == "__main__":
     # Autoprueba SIN ventana (plataforma 'offscreen'), con un catálogo en memoria: lo que
-    # se lee para la barra es solo de la biblioteca del módulo, y la barra vuelve a
-    # «Todos» si lo elegido desaparece. Ejecutar desde la raíz del proyecto:
+    # se lee para la barra es solo de la biblioteca del módulo, la barra vuelve a «Todos»
+    # si lo elegido desaparece, y las secciones de más. Ejecutar desde la raíz del proyecto:
     #     python -m controllers.app_modules.library_module
     import os
     import sqlite3
@@ -277,7 +312,57 @@ if __name__ == "__main__":
     module.refresh()
     assert module.current_source() == library_source("tracks")
 
-    # 3. Sin 'library' o sin 'texts', la subclase está a medias: se avisa al crearla
+    # 3. Una sección de más (como la «Lista de palabras clave» de Imagen): se crea, recibe
+    #    sus datos con lo demás, guarda lo suyo y, mientras oculta filas (su filtro), no se
+    #    vuelve a «Todos»; sin filtro, si lo elegido ya no existe, sí
+    from qtpy.QtWidgets import QLineEdit
+
+    from core.catalog.grid_source import keyword_source
+    from core.catalog.keywords import fetch_keyword_tree
+    from ui_helpers.sidebars.sections.keyword_section import KeywordSection
+
+    add("fotos/a.jpg", "photo", "image", "2024-01-01 10:00:00")
+    word = conn.execute("INSERT INTO keywords(name, name_folded) VALUES ('Ana', 'ana')").lastrowid
+    conn.execute(
+        "INSERT INTO media_keywords(media_id, keyword_id) "
+        "SELECT id, ? FROM media_items WHERE library = 'image'",
+        (word,),
+    )
+
+    class _WithKeywords(LibraryModule):
+        key, title, icon = "image", "Imagen", None
+        library = "image"
+        texts = LibraryTexts("Biblioteca - Imagen", "Todas las imágenes", "Todas", "Rápida")
+        extra_sections = (
+            ExtraSection(
+                "keywords",
+                "Lista de palabras clave",
+                lambda library, parent: KeywordSection(library, None, parent),
+                fetch_keyword_tree,
+            ),
+        )
+
+    images = _WithKeywords(context, button=QToolButton(window))
+    assert images.sidebar._stack.section_ids() == ("library", "folders", "dates", "keywords")
+    assert module.sidebar._stack.section_ids() == ("library", "folders", "dates")  # sin las de más
+    images.attach(_Db(), Path("/tmp"))
+    images.refresh()
+    chosen = keyword_source(word, "image")
+    assert images.sidebar.has_source(chosen)
+    images.sidebar.select_source(chosen, emit=False)
+    assert "expanded_keywords" in images.save_state()
+    keyword_filter = images.sidebar.findChild(QLineEdit, "edit_keyword_filter")
+    keyword_filter.setText("zzz")
+    images.refresh()  # la palabra no se ve (el filtro), pero existe: sigue elegida
+    assert images.sidebar.hides_rows() and not images.sidebar.has_source(chosen)
+    assert images.current_source() == chosen
+    keyword_filter.setText("")
+    conn.execute("DELETE FROM keywords")
+    images.refresh()  # ya no existe: vuelve a la primera fila
+    assert images.current_source() == library_source("image")
+    images.detach()
+
+    # 4. Sin 'library' o sin 'texts', la subclase está a medias: se avisa al crearla
     class _Incomplete(LibraryModule):
         key = "x"
 

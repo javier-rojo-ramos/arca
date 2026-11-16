@@ -1,18 +1,21 @@
 """Módulo Imagen: las fotos y los vídeos del móvil (biblioteca Imagen).
 
-Es el segundo módulo (botón 'btn_image'). Tiene su barra lateral izquierda ('ImageSidebar':
-«Biblioteca - Imagen», «Carpetas», «Fechas» y «Lista de palabras clave») y usa el
-inspector y la cuadrícula comunes.
+Es el segundo módulo (botón 'btn_image'). Es un módulo de biblioteca más ('LibraryModule'):
+su barra es la común ('LibrarySidebar': «Biblioteca - Imagen», «Carpetas» y «Fechas») con
+una sección de más, la «Lista de palabras clave» ('extra_sections'), y usa el inspector y
+la cuadrícula comunes.
 
-Qué hace este módulo (la barra no sabe nada de la base de datos):
-    - Pasa al 'ModuleHost' lo que se elige en la barra ('source_selected').
-    - 'refresh' lee en segundo plano los contadores de la biblioteca, el árbol de carpetas,
-      los años, meses y días ('timeline.fetch_timeline') y el árbol de palabras clave con
-      sus recuentos ('keywords.fetch_keyword_tree').
-    - Lo desplegado y la fila elegida, guardados por catálogo ('save_state' /
-      'restore_state'; el 'ModuleHost' los escribe en settings.json). Lo desplegado del
-      árbol con casillas del inspector ya no es de este módulo: lo guarda el inspector.
+Lo común (pasar al 'ModuleHost' lo elegido en la barra, leer en segundo plano lo que
+muestra, volver a «Todas las imágenes» si lo elegido desaparece, lo guardado por catálogo y
+el menú de las carpetas) está en 'LibraryModule'. Aquí queda lo de Imagen:
+    - Sus textos y su sección de palabras clave (árbol con recuentos:
+      'keywords.fetch_keyword_tree').
+    - Sus vistas (con el mapa, donde se ubican fotos), su orden y sus filtros.
+    - 'show_source': una palabra clave pedida sin biblioteca se limita a Imagen.
 
+1.17.0 Hereda de 'LibraryModule' y usa la barra común, con la «Lista de palabras clave»
+       como sección de más (docs/PENDIENTE.md, GEN 13; antes, 'ImageSidebar'). Nada cambia
+       a la vista ni en lo guardado por catálogo.
 1.16.1 Ordena por los campos comunes ('COMMON_SORT_FIELDS': los mismos seis de antes; los
        de los tracks son de su módulo).
 1.16.0 Une su barra al modelo de colocación de las secciones ('context.section_layout').
@@ -41,94 +44,54 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.16.1"
+__version__ = "1.17.0"
 __all__ = ["ImageModule"]
 
-# Librerías estándar
-from functools import partial
-from pathlib import Path
-from typing import Any
-
-# Librerías de terceros
-from loguru import logger
-
-# Librerías de terceros (Qt)
-from qtpy.QtCore import QObject
-from qtpy.QtWidgets import QToolButton, QWidget
-
 # Módulos del proyecto
-from config.app_constants import SETTING_SHOW_SUBFOLDER_ITEMS, AppIcons
-from controllers.app_modules.base import AppModule, ModuleContext
+from config.app_constants import AppIcons
 from controllers.app_modules.center_views import CenterView, MapOptions
-from core.catalog.folder_tree import fetch_folder_tree
+from controllers.app_modules.library_module import LibraryModule
 from core.catalog.grid_orders import CAPTURE_TIME_ORDER, COMMON_SORT_FIELDS, GridOrder
 from core.catalog.grid_source import GridSource, SourceKind, keyword_source
 from core.catalog.keywords import fetch_keyword_tree
 from core.catalog.libraries import Library
-from core.catalog.media_queries import count_grid_items
 from core.catalog.media_types import MediaType
-from core.catalog.timeline import fetch_timeline
 from ui_helpers.helpers.mode_toolbar import MODE_IMAGE
-from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME, reveal_in_file_manager
-from ui_helpers.sidebars.image_sidebar import ALL_IMAGES, IMAGE_QUICK, LIBRARY, ImageSidebar
+from ui_helpers.sidebars.library_sidebar import ExtraSection, LibraryTexts
+from ui_helpers.sidebars.sections.keyword_section import KeywordSection
+
+# Textos de la barra
+_TEXTS = LibraryTexts(
+    library_title="Biblioteca - Imagen",
+    all_title="Todas las imágenes",
+    all_tooltip="Todas las fotos y los vídeos de la biblioteca Imagen",
+    # Sin menú: «Vaciar selección rápida» vaciaría también lo que no se ve; está en el Catálogo
+    quick_tooltip=(
+        "Selección rápida\n\nLas imágenes marcadas con el círculo de su tarjeta (esquina\n"
+        "superior derecha). Es la misma del Catálogo: aquí solo se ven las de Imagen."
+    ),
+)
+
+# La sección de más de su barra: filtro y árbol de palabras clave, solo para navegar (las
+# palabras se editan en el inspector). Lo desplegado, el estado 'SIDEBAR' de 'KeywordSection'
+_KEYWORDS = ExtraSection(
+    key="keywords",
+    title="Lista de palabras clave",
+    create=lambda library, parent: KeywordSection(library, None, parent),
+    fetch=fetch_keyword_tree,
+)
 
 
-def _fetch_sidebar_data(conn: Any) -> tuple[int, int, tuple, tuple, tuple]:
-    """Lo que necesita la barra: el número de imágenes y el de su selección rápida, el
-    árbol de carpetas (solo con lo de Imagen), los años con sus meses y días, y el árbol de
-    palabras clave.
-
-    Una sola función (una sola visita al hilo de la base de datos) para que todo llegue a
-    la vez (así se sabe si la carpeta, la fecha o la palabra elegida sigue existiendo).
-    """
-    counts = count_grid_items(conn, [ALL_IMAGES, IMAGE_QUICK])
-    return (
-        counts.get(ALL_IMAGES, 0),
-        counts.get(IMAGE_QUICK, 0),
-        fetch_folder_tree(conn, LIBRARY),
-        fetch_timeline(conn, LIBRARY).values,
-        fetch_keyword_tree(conn, LIBRARY),
-    )
-
-
-class ImageModule(AppModule):
+class ImageModule(LibraryModule):
     """Módulo Imagen (ver el docstring del archivo)."""
 
     key = MODE_IMAGE
     title = "Imagen"
     # 'getattr': si el icono no está en 'AppIcons', el botón muestra su inicial
     icon = getattr(AppIcons, "LIB_IMAGE", None)
-
-    def __init__(
-        self, context: ModuleContext, *, button: QToolButton, parent: QObject | None = None
-    ) -> None:
-        """Crea su barra lateral (todavía sin catálogo: ver 'attach')."""
-        super().__init__(context, button=button, parent=parent)
-        self.sidebar = ImageSidebar()
-        # El orden de sus secciones, si se ven y si están plegadas: como las tenga el
-        # usuario en este modo
-        if context.section_layout is not None:
-            self.sidebar.bind_layout(context.section_layout, self.key)
-        self.sidebar.source_selected.connect(self.source_selected)
-        self.sidebar.reveal_folder_requested.connect(self._on_reveal_folder)
-        # Carpetas con o sin sus subcarpetas: la misma opción que el Catálogo
-        self.sidebar.set_include_subfolders(self._show_subfolder_items())
-        # Gestor de la base de datos (None sin catálogo) y generación (descarta
-        # respuestas de un catálogo ya cerrado), como en 'CatalogModule'
-        self._db: Any = None
-        self._generation = 0
-
-    # -------------------------------------------------------------------------
-    # Interfaz
-    # -------------------------------------------------------------------------
-
-    def sidebar_page(self) -> QWidget:
-        """Su barra lateral."""
-        return self.sidebar
-
-    def current_source(self) -> GridSource | None:
-        """Lo elegido en la barra («Todas las imágenes» o una palabra clave)."""
-        return self.sidebar.current_source()
+    library = Library.IMAGE.value
+    texts = _TEXTS
+    extra_sections = (_KEYWORDS,)
 
     def views(self) -> tuple[CenterView, ...]:
         """Cuadrícula, vista individual y mapa (empieza en la cuadrícula)."""
@@ -158,83 +121,10 @@ class ImageModule(AppModule):
         """Lo pide el inspector (flecha «ver sus fotos»): se elige en la barra, que lo
         muestra en la cuadrícula ('source_selected') y lo deja marcado. Una palabra pedida
         sin biblioteca se limita a Imagen (así es la fila de la barra)."""
-        if source.kind == SourceKind.KEYWORD and source.keyword_id is not None and source.library is None:
-            source = keyword_source(source.keyword_id, Library.IMAGE.value)
-        self.sidebar.show_source(source)
-
-    # -------------------------------------------------------------------------
-    # Ciclo de vida del catálogo
-    # -------------------------------------------------------------------------
-
-    def attach(self, db: Any, catalog_dir: Path) -> None:
-        """Empieza a trabajar con un catálogo recién abierto."""
-        self._db = db
-        self._generation += 1
-
-    def detach(self) -> None:
-        """Olvida el catálogo y deja la barra vacía."""
-        self._db = None
-        self._generation += 1
-        self.sidebar.reset()
-
-    def refresh(self) -> None:
-        """Relee en segundo plano el contador y el árbol de palabras clave."""
-        if self._db is None:
-            return
-        self._db.execute_async(
-            _fetch_sidebar_data,
-            on_result=partial(self._on_sidebar_data, self._generation),
-            on_error=lambda error: logger.warning(
-                f"No se pudo leer el árbol de palabras clave: {error}"
-            ),
-        )
-
-    def save_state(self) -> dict:
-        """Lo desplegado y la fila elegida de la barra (ver 'ImageSidebar.save_state')."""
-        return self.sidebar.save_state()
-
-    def restore_state(self, state: object) -> None:
-        """Recupera lo desplegado de la barra y la fila elegida."""
-        self.sidebar.restore_state(state)
-
-    def apply_settings(self, changed: set[str]) -> None:
-        """Si ha cambiado la opción de las subcarpetas, las «Carpetas» se rehacen (y, si hay
-        una elegida, la cuadrícula se recarga)."""
-        if SETTING_SHOW_SUBFOLDER_ITEMS in changed:
-            self.sidebar.set_include_subfolders(self._show_subfolder_items())
-
-    # -------------------------------------------------------------------------
-    # Interno
-    # -------------------------------------------------------------------------
-
-    def _show_subfolder_items(self) -> bool:
-        """Opción «Mostrar los elementos de las subcarpetas» (por defecto, activada)."""
-        value = self.context.config.get(SETTING_SHOW_SUBFOLDER_ITEMS, True)
-        return value if isinstance(value, bool) else True
-
-    def _on_reveal_folder(self, folder: str) -> None:
-        """Menú de una carpeta > «Mostrar en el Explorador» (el Finder en macOS)."""
-        if not Path(folder).is_dir():
-            self.context.message_box.warning(
-                f"La carpeta no existe (¿se ha movido, renombrado o borrado?):\n{folder}"
-            )
-            return
-        if not reveal_in_file_manager(folder):
-            self.context.message_box.warning(f"No se pudo abrir {FILE_MANAGER_NAME}:\n{folder}")
-
-    def _on_sidebar_data(self, generation: int, data: tuple[int, int, tuple, tuple, tuple]) -> None:
-        """Pone el contador y los árboles (si siguen siendo del catálogo abierto).
-
-        Si la carpeta, la fecha o la palabra elegida ya no existe (se borró, o ya no tiene
-        imágenes), se vuelve a «Todas las imágenes».
-        """
-        if generation != self._generation or self._db is None:
-            return
-        count, quick_count, folders, dates, tree = data
-        self.sidebar.set_library_count(count, quick_count)
-        self.sidebar.set_folder_tree(folders)
-        self.sidebar.set_date_tree(dates)
-        self.sidebar.set_keyword_tree(tree)
-        current = self.sidebar.current_source()
-        if current != ALL_IMAGES and not self.sidebar.is_filtering() and not self.sidebar.has_source(current):
-            self.sidebar.select_source(ALL_IMAGES)
+        if (
+            source.kind == SourceKind.KEYWORD
+            and source.keyword_id is not None
+            and source.library is None
+        ):
+            source = keyword_source(source.keyword_id, self.library)
+        super().show_source(source)

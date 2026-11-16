@@ -1,7 +1,7 @@
 """Iconos de las filas de las barras laterales (unidades, carpetas, colecciones).
 
-Los usan la barra del Catálogo ('catalog_sidebar.py') y la del módulo Imagen
-('image_sidebar.py', sección «Carpetas»), para que las dos se vean igual.
+Los usan la barra del Catálogo ('catalog_sidebar.py') y la de los módulos de una
+biblioteca ('library_sidebar.py', sección «Carpetas»), para que se vean igual.
 
 Son los SVG de 'AppIcons', teñidos con 'SIDEBAR_ICON_COLOR'. El color se fija AQUÍ (no se
 deja a la paleta): el árbol pide el icono en estado "On" para las filas que considera

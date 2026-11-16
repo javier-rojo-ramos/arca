@@ -12,7 +12,7 @@ opción del Catálogo «Mostrar los elementos de las subcarpetas».
     - Menú: solo «Mostrar en el Explorador» ('reveal_folder_requested'): sincronizar y
       quitar ausentes están en el Catálogo (la barra de un módulo es para navegar).
 
-Uso (lo hace la barra, p. ej. 'ImageSidebar'; ver 'tree_section.py'):
+Uso (lo hace la barra, 'LibrarySidebar'; ver 'tree_section.py'):
     folders = FolderSection("image", load_sidebar_icons(parent), parent)
     folders.set_tree(locations)            # 'fetch_folder_tree(conn, "image")', del módulo
     folders.set_include_subfolders(False)  # la opción del Catálogo

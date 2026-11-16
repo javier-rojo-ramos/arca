@@ -1,17 +1,23 @@
-"""Barra lateral de un módulo de biblioteca (columna izquierda): biblioteca, carpetas y fechas.
+"""Barra lateral de un módulo de biblioteca (columna izquierda): biblioteca, carpetas, fechas
+y las secciones propias de cada módulo.
 
-Es la barra del módulo Tracks, y está hecha para servir a los demás módulos de una sola
-biblioteca que lleguen (Vídeo, Audio...): se le dice la BIBLIOTECA y sus TEXTOS y monta
-las secciones comunes, una debajo de otra, dentro de un área con desplazamiento:
+Es la barra de TODOS los módulos de una sola biblioteca (Imagen, Tracks, Vídeo, Audio): se
+le dice la BIBLIOTECA, sus TEXTOS y, si las tiene, sus SECCIONES DE MÁS, y monta las
+secciones una debajo de otra, dentro de un área con desplazamiento:
 
     ▼ BIBLIOTECA - TRACKS   «Todos los tracks» y «Selección rápida», con sus contadores
     ▼ CARPETAS              ubicaciones y carpetas con archivos de la biblioteca
                             ('sections/folder_section.py')
     ▼ FECHAS                años ▸ meses ▸ días, y «Sin fecha» ('sections/date_section.py')
+    ▼ ...                   las de más de cada módulo ('ExtraSection'), detrás de las
+                            comunes: en Imagen, la «Lista de palabras clave»
 
-Es el mismo esquema que 'ImageSidebar' (de la que sale; aquella tiene además la «Lista de
-palabras clave» y sigue en su archivo: unirlas es un paso aparte, anotado en
-docs/PENDIENTE.md). Como ella, esta barra es el CONTENEDOR y solo NAVEGA:
+► UNA SECCIÓN NUEVA PARA UN MÓDULO (artistas, géneros, series...): un widget que herede de
+'TreeSection' en 'sections/', dado de alta en 'section_registry.py', y un 'ExtraSection'
+en 'extra_sections' de su módulo ('LibraryModule'). Esta barra no se toca.
+
+Esta barra es el CONTENEDOR y solo NAVEGA (decidido por el autor el 04/11/2026: editar las
+palabras clave se hace en el inspector):
     - «Biblioteca» son dos filas fijas: todo lo de la biblioteca y su «Selección rápida»
       (la misma de todo el catálogo, pero solo con lo de esta biblioteca).
     - Las secciones se dan de alta en una 'SectionStack' con su 'id' del registro
@@ -24,8 +30,9 @@ docs/PENDIENTE.md). Como ella, esta barra es el CONTENEDOR y solo NAVEGA:
 Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula; lo une su módulo,
 p. ej. 'controllers/app_modules/tracks_module.py'):
     - Cada fila lleva un 'GridSource' (ROLE_SOURCE). Al elegirla, emite 'source_selected'.
-    - 'set_library_count', 'set_folder_tree' y 'set_date_tree' reciben lo que el módulo lee
-      en segundo plano. Si un árbol no ha cambiado, no se reconstruye.
+    - 'set_library_count', 'set_folder_tree', 'set_date_tree' y 'set_section_data' (las de
+      más) reciben lo que el módulo lee en segundo plano. Si un árbol no ha cambiado, no
+      se reconstruye (no se pierde lo desplegado).
 
 Uso:
     sidebar = LibrarySidebar("tracks", LibraryTexts("Biblioteca - Tracks", "Todos los tracks", ...))
@@ -36,15 +43,19 @@ Uso:
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
 'scroll_library_sidebar' y 'widget_library_sidebar_content' (y los de cada sección).
 
+1.1.0 Secciones de más ('ExtraSection', 'set_section_data', 'hides_rows'): es también la
+      barra de Imagen, con su «Lista de palabras clave» (docs/PENDIENTE.md, GEN 13; sustituye
+      a 'image_sidebar.py', de la que salió). Tracks, Vídeo y Audio, igual que antes.
 1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.2): para el módulo Tracks.
 """
 
-__version__ = "1.0.0"
-__all__ = ["LibrarySidebar", "LibraryTexts"]
+__version__ = "1.1.0"
+__all__ = ["ExtraSection", "LibrarySidebar", "LibraryTexts"]
 
 # Librerías estándar
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import Qt, Signal
@@ -95,6 +106,25 @@ class LibraryTexts:
     dates_title: str = "Fechas"
 
 
+@dataclass(frozen=True, slots=True)
+class ExtraSection:
+    """Una sección de más en la barra de un módulo (además de biblioteca, carpetas y fechas).
+
+    Attributes:
+        key: Su 'id' en el registro de secciones ('section_registry.py'): «keywords»...
+        title: Título de la sección («Lista de palabras clave»).
+        create: Crea el widget de la sección: recibe la biblioteca y el widget padre.
+        fetch: Lee sus datos: recibe la conexión y la biblioteca, y devuelve lo que espera
+            el 'set_tree' de la sección. La ejecuta el módulo en el hilo de la base de
+            datos, junto con lo demás de la barra (la barra no la llama nunca).
+    """
+
+    key: str
+    title: str
+    create: Callable[[str, QWidget], TreeSection]
+    fetch: Callable[[Any, str], Any]
+
+
 class LibrarySidebar(QWidget):
     """Barra lateral de un módulo de biblioteca (ver el docstring del módulo).
 
@@ -107,17 +137,27 @@ class LibrarySidebar(QWidget):
     source_selected = Signal(object)
     reveal_folder_requested = Signal(str)
 
-    def __init__(self, library: str, texts: LibraryTexts, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        library: str,
+        texts: LibraryTexts,
+        parent: QWidget | None = None,
+        *,
+        extra_sections: Sequence[ExtraSection] = (),
+    ) -> None:
         """Crea la barra vacía (sin contadores ni árboles).
 
         Args:
             library: Biblioteca del módulo ('tracks'...).
             texts: Sus textos.
             parent: Widget padre.
+            extra_sections: Las secciones de más del módulo, en su orden de partida (van
+                detrás de las comunes).
         """
         super().__init__(parent)
         self._library = library
         self._texts = texts
+        self._extra_specs: tuple[ExtraSection, ...] = tuple(extra_sections)
         # Los orígenes de las dos filas fijas
         self.all_source: GridSource = library_source(library)
         self.quick_source: GridSource = quick_source(library)
@@ -153,8 +193,16 @@ class LibrarySidebar(QWidget):
         self._folders = FolderSection(self._library, self._icons, content)
         self._folders.reveal_folder_requested.connect(self.reveal_folder_requested)
         self._dates = DateSection(self._library, content)
+        # Las de más del módulo, por su 'id'
+        self._extra: dict[str, TreeSection] = {
+            spec.key: spec.create(self._library, content) for spec in self._extra_specs
+        }
         # Las secciones con árbol (en 'sections/'): la fila elegida se busca en ellas
-        self._sections: tuple[TreeSection, ...] = (self._folders, self._dates)
+        self._sections: tuple[TreeSection, ...] = (
+            self._folders,
+            self._dates,
+            *self._extra.values(),
+        )
 
         # Las secciones plegables, en su orden de partida: ('id' en el registro de
         # secciones, título, contenido). Van en una pila que las coloca como diga el modelo
@@ -164,6 +212,7 @@ class LibrarySidebar(QWidget):
             ("library", self._texts.library_title, self._build_library(content)),
             ("folders", self._texts.folders_title, self._folders),
             ("dates", self._texts.dates_title, self._dates),
+            *((spec.key, spec.title, self._extra[spec.key]) for spec in self._extra_specs),
         ):
             section = CollapsibleSection(title, content)
             section.set_content(widget)
@@ -222,6 +271,15 @@ class LibrarySidebar(QWidget):
         han cambiado)."""
         self._dates.set_tree(tuple(values))
 
+    def set_section_data(self, key: str, data: Any) -> None:
+        """Pone los datos de una sección de más (lo que devolvió su 'ExtraSection.fetch')."""
+        self._extra[key].set_tree(data)
+
+    def hides_rows(self) -> bool:
+        """True si alguna sección oculta ahora filas que existen (p. ej. el filtro de
+        palabras clave): que la fila elegida no esté no quiere decir que haya desaparecido."""
+        return any(section.hides_rows() for section in self._sections)
+
     def set_include_subfolders(self, include: bool) -> None:
         """Opción del Catálogo «Mostrar los elementos de las subcarpetas»: cambia los
         contadores y lo que muestra cada carpeta. Si hay una elegida, se emite su origen
@@ -276,8 +334,9 @@ class LibrarySidebar(QWidget):
 
     def save_state(self) -> dict:
         """Lo de cada sección (lo desplegado) y la fila elegida (para JSON). Claves:
-        'expanded_folders', 'known_locations', 'expanded_dates' y 'selected'. Lo plegado de
-        las secciones lo lleva el modelo de colocación."""
+        'expanded_folders', 'known_locations', 'expanded_dates', las de las secciones de más
+        ('expanded_keywords' en Imagen) y 'selected'. Lo plegado de las secciones lo lleva
+        el modelo de colocación."""
         state: dict = {}
         for tree_section in self._sections:
             state.update(tree_section.save_state())

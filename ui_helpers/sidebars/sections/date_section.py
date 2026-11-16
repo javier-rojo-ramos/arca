@@ -20,7 +20,7 @@
     - Lo desplegado (años y meses) se guarda por catálogo en 'expanded_dates'. La primera
       vez, todo plegado: solo se ven los años.
 
-Uso (lo hace la barra, p. ej. 'ImageSidebar'; ver 'tree_section.py'):
+Uso (lo hace la barra, 'LibrarySidebar'; ver 'tree_section.py'):
     dates = DateSection("image", parent)
     dates.set_tree(fetch_timeline(conn, "image").values)   # lo lee el módulo
 

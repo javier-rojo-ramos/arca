@@ -29,7 +29,7 @@
 
 ## 1. El módulo (`controllers/app_modules/image_module.py`)
 
-`ImageModule(AppModule)` es pequeño: declara lo que quiere y pasa a `ModuleHost` lo que se elige en su barra. La barra no sabe nada de la base de datos.
+`ImageModule(LibraryModule)` es pequeño (desde el 16/11/2026 es un módulo de biblioteca más, como Tracks, Vídeo y Audio): declara lo que quiere, y lo común (pasar a `ModuleHost` lo elegido en la barra, leer en segundo plano lo que muestra, lo guardado por catálogo) está en `LibraryModule`. La barra no sabe nada de la base de datos.
 
 | Qué declara | Valor |
 |---|---|
@@ -45,9 +45,9 @@
 - `save_state` / `restore_state`: lo desplegado y la fila elegida, por catálogo (los escribe `ModuleHost` en `settings.json`).
 - Cómo encajan los módulos en la ventana: [FLUJOS.md](FLUJOS.md) §11.
 
-## 2. Barra izquierda (`ui_helpers/sidebars/image_sidebar.py`)
+## 2. Barra izquierda (`ui_helpers/sidebars/library_sidebar.py`)
 
-Solo navega: una fila elegida en toda la barra, que produce un `GridSource`. Cada sección con árbol es un archivo de `ui_helpers/sidebars/sections/` (`tree_section.py` es la base); la barra hace de contenedor. Las secciones se pliegan, se ocultan y se reordenan (`ui_helpers/layout/section_registry.py`; [FLUJOS.md](FLUJOS.md) §9).
+Es la barra común (`LibrarySidebar`), con la «Lista de palabras clave» como sección de más (`ExtraSection`, declarada en `image_module.py`). Solo navega: una fila elegida en toda la barra, que produce un `GridSource`. Cada sección con árbol es un archivo de `ui_helpers/sidebars/sections/` (`tree_section.py` es la base); la barra hace de contenedor. Las secciones se pliegan, se ocultan y se reordenan (`ui_helpers/layout/section_registry.py`; [FLUJOS.md](FLUJOS.md) §9).
 
 | Sección | Qué muestra | De dónde sale |
 |---|---|---|
@@ -136,7 +136,6 @@ Lo que falta del módulo, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí
 | `GEN 2` | Más metadatos editables: la fecha (en su ventana), el estado del copyright, el género y la escena |
 | `GEN 4` | Miniaturas, extras: PSD, `rawpy` (también para el 1:1 de los RAW), insignia «editada en Lightroom» |
 | `GEN 7` | Guardar el filtro activo como colección inteligente |
-| `GEN 13` | Una sola barra de biblioteca: la de Imagen pasa a `LibrarySidebar` |
 | `GEN 16` | Perfil de tarjeta, común a todos los módulos |
 | `GEN 8` | Sección «Ubicación» del inspector con el mapa; el rumbo de la foto en el mapa |
 | `VID 4.1` | Fotograma de los vídeos con `ffmpeg`: da miniatura también a los vídeos de Imagen |
@@ -144,7 +143,7 @@ Lo que falta del módulo, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí
 
 ### Mejoras menores que tocan a Imagen
 
-En las listas de [PENDIENTE.md](PENDIENTE.md): mantener el 1:1 y la zona al pasar de foto y más niveles de zoom (vista individual); una vista «Personalizada» y vistas IPTC y DNG en «Metadatos»; fusionar y arrastrar palabras clave, conjuntos de palabras, importar las de Lightroom; pasar la barra de Imagen a `LibrarySidebar` (una sola barra de biblioteca para todos los módulos); un solo componente para el árbol de carpetas del Catálogo y el de Imagen.
+En las listas de [PENDIENTE.md](PENDIENTE.md): mantener el 1:1 y la zona al pasar de foto y más niveles de zoom (vista individual); una vista «Personalizada» y vistas IPTC y DNG en «Metadatos»; fusionar y arrastrar palabras clave, conjuntos de palabras, importar las de Lightroom; un solo componente para el árbol de carpetas del Catálogo y el de Imagen.
 
 ### Por decidir
 
