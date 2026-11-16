@@ -24,7 +24,7 @@ mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 1.6.1 Ordena por los campos comunes ('COMMON_SORT_FIELDS': los mismos seis de antes; los
       de los tracks son de su módulo).
 1.6.0 Une su barra al modelo de colocación de las secciones ('context.section_layout').
-1.5.0 'views': también el mapa (docs/MAPA.md, paso 2.3): lo elegido a la izquierda, en un
+1.5.0 'views': también el mapa (docs/MOD_TRACKS.md, paso 2.3): lo elegido a la izquierda, en un
       mapa; solo para ver y seleccionar.
 1.4.0 'filter_metadata_fields': Tipo de archivo, Fecha de captura y Palabra clave
       (decidido por el autor el 09/11/2026). Paso A.3.

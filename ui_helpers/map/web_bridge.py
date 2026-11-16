@@ -10,7 +10,7 @@ Las listas viajan como texto JSON: es lo que QWebChannel pasa sin sorpresas.
 1.3.0 'on_fit': el botón «Encuadrar» del mapa.
 1.2.0 Paso 1.5: fotos arrastradas a otro sitio y botón derecho ('MapHit').
 1.1.0 Tracks (paso 1.4): clic en un track y punto bajo el ratón.
-1.0.0 Primera versión (docs/MAPA.md, paso 1.3): arranque, encuadre, selección y doble clic.
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 1.3): arranque, encuadre, selección y doble clic.
 """
 
 __version__ = "1.3.0"

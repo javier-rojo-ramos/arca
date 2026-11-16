@@ -31,7 +31,7 @@ Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 1.4.0 "General": opción «Usar aceleración por GPU si está disponible» (al volver a abrir
       la aplicación; SETTING_GPU_RENDERING).
 1.3.0 Sección "Mapa": capas propias (añadir, cambiar, quitar) y caché de teselas (tamaño
-      máximo, lo que ocupa y vaciarla). Docs/MAPA.md, paso 2.4.
+      máximo, lo que ocupa y vaciarla). Docs/MOD_TRACKS.md, paso 2.4.
 1.2.0 "Metadatos": opción «Preguntar antes de cambiar varios archivos con valores
       distintos» (el aviso «Edición múltiple»; SETTING_CONFIRM_MULTI_EDIT); la ayuda de
       «Escribir los cambios en los archivos» cita también las palabras clave y los
@@ -351,7 +351,7 @@ _CACHE_MB_DEFAULT = 2048
 
 
 class MapSettingsPage(SettingsPage):
-    """Sección "Mapa": capas propias y caché de las teselas (docs/MAPA.md, paso 2.4).
+    """Sección "Mapa": capas propias y caché de las teselas (docs/MOD_TRACKS.md, paso 2.4).
 
     Las capas propias se guardan al pulsar «Aceptar» (como el resto de opciones); al
     quitar una, se vacía también su caché (así su clave podría volver a usarse sin mezclar

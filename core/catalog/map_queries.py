@@ -2,7 +2,7 @@
 
 Este módulo NO depende de Qt. Sus funciones reciben la conexión como primer parámetro y no
 hacen commit: se envían tal cual a 'CatalogDatabaseManager.execute_async'. Diseño en
-docs/MAPA.md (§5.1).
+docs/MOD_TRACKS.md (§5.1).
 
 El mapa muestra LO MISMO que la cuadrícula: el mismo origen (lo elegido a la izquierda,
 un 'GridSource') y el mismo filtro de la barra de filtros. Por eso la condición sale de
@@ -22,7 +22,7 @@ salida, y en el mapa se dibuja entero.
 Los tipos de aquí son de 'core/' (sin Qt): el controlador del mapa los convierte en los
 de la interfaz ('ui_helpers/map/map_types.py': 'MapMarker', 'MapTrack').
 
-1.0.0 Primera versión (docs/MAPA.md, paso 2.2).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 2.2).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.map_queries

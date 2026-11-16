@@ -1,6 +1,6 @@
 """La banda del perfil de elevación bajo el mapa (módulo Tracks): qué perfil se ve, su botón y F10.
 
-Qué hace (docs/MAPA.md, pasos 5.3a y 5.3b; decidido con el autor el 15/11/2026):
+Qué hace (docs/MOD_TRACKS.md, pasos 5.3a y 5.3b; decidido con el autor el 15/11/2026):
     - Muestra el perfil del track activo: el ÚNICO track seleccionado. Sin ninguno, o con
       varios, la banda se queda (así el mapa no cambia de tamaño) con un texto en gris;
       mientras se lee el GPX, «Leyendo el recorrido…»; si no se puede leer, dice por qué,
@@ -47,7 +47,7 @@ Uso (lo crea 'MapController', que le dice cuándo se puede ver y qué hay selecc
 1.1.1 Textos de un GPX que no se puede leer o sin recorrido, los del autor.
 1.1.0 Paso 5.3b: sincronizada con el mapa (punto ámbar en los dos sentidos, tramo
       resaltado, Esc); si no se puede leer el GPX, dice por qué ('DetailFailure').
-1.0.0 Primera versión (15/11/2026; docs/MAPA.md, paso 5.3a).
+1.0.0 Primera versión (15/11/2026; docs/MOD_TRACKS.md, paso 5.3a).
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.track_profile_controller

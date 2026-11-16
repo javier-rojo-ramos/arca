@@ -40,7 +40,7 @@ estado guardado). Dónde se da de alta un módulo nuevo: 'registry.py'.
 
 1.8.0 'ModuleContext.section_layout': el modelo de colocación de las secciones de las
       barras (cada módulo une a él su barra, con su clave como modo).
-1.7.0 'map_options': qué permite su mapa (de momento, ubicar fotos; docs/MAPA.md, paso 3.2).
+1.7.0 'map_options': qué permite su mapa (de momento, ubicar fotos; docs/MOD_TRACKS.md, paso 3.2).
 1.6.0 'filter_metadata_fields': las columnas de partida del panel «Metadatos» (paso A.3).
 1.5.0 'filter_media_types': los tipos de la fila «Atributos» (paso A.3).
 1.4.0 'views' y 'default_view': las vistas del centro de cada módulo (paso A.1).

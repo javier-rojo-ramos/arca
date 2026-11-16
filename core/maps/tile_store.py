@@ -3,7 +3,7 @@
 Este módulo NO depende de Qt ni de la red: solo guarda y devuelve archivos. Quien
 descarga las teselas (el componente de mapa, con Qt; más adelante, el modelo de
 elevaciones) le pregunta primero ('read') y le entrega lo descargado ('write').
-Diseño completo en docs/MAPA.md (§3.3).
+Diseño completo en docs/MOD_TRACKS.md (§3.3).
 
 Dónde se guarda: en UNA carpeta para toda la aplicación (no en cada catálogo: las teselas
 no son datos del catálogo y se pueden volver a descargar). La ruta la decide quien crea
@@ -31,7 +31,7 @@ Uso:
 
 1.1.0 'image_mime': el tipo de una tesela, mirando sus bytes (las capas del usuario no
       dicen si sirven PNG o JPEG).
-1.0.0 Primera versión (docs/MAPA.md, paso 1.1).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 1.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.maps.tile_store

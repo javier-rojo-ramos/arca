@@ -2,7 +2,7 @@
 
 Este módulo NO depende de Qt ni de la base de datos. Recibe el recorrido ya leído
 ('TrackPath', de 'core/tracks/gpx_document.read_gpx_path') y calcula lo que necesita el
-widget del perfil (docs/MAPA.md, §4.2 y fase 5): la curva, la pendiente y las estadísticas
+widget del perfil (docs/MOD_TRACKS.md, §4.2 y fase 5): la curva, la pendiente y las estadísticas
 del track entero o de un tramo.
 
 Qué calcula 'build_profile', punto a punto. Cada punto conserva su ÍNDICE en el recorrido
@@ -56,7 +56,7 @@ Uso:
 
 1.1.0 La ventana de la pendiente, de 100 a 200 m ('SLOPE_WINDOW_M'), al verla dibujada
       (paso 5.2).
-1.0.0 Primera versión (15/11/2026; docs/MAPA.md, paso 5.1).
+1.0.0 Primera versión (15/11/2026; docs/MOD_TRACKS.md, paso 5.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.tracks.profile

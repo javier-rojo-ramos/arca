@@ -2,7 +2,7 @@
 
 Este módulo NO depende de Qt. Sus funciones reciben la conexión como primer parámetro y no
 hacen commit: se envían por la cola de cambios del inspector ('request_edit'). Diseño en
-docs/MAPA.md (§5.1 y pasos 3.2 a 3.4).
+docs/MOD_TRACKS.md (§5.1 y pasos 3.2 a 3.4).
 
 Cada cambio pasa por 'media_queries.update_metadata_fields', el mismo camino que la edición
 del GPS en el inspector: las mismas comprobaciones, los bits de pendiente y, después, la
@@ -16,7 +16,7 @@ Solo cambian la latitud y la longitud: la altitud y la dirección no se tocan (D
     cambio = set_media_position(conn, [12], None, None)           # quitar la ubicación
     restore_media_positions(conn, cambio.previous)                 # deshacer
 
-1.0.0 Primera versión (docs/MAPA.md, pasos 3.3 y 3.4).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, pasos 3.3 y 3.4).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.geotagging

@@ -5,11 +5,11 @@
 
 ## Qué es y principios
 
-Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (Windows, macOS, Linux), inspirado en Lightroom, FastStone, Mp3tag y VisualDivX. Pensado para gestionar colecciones de **imágenes** (en curso), **vídeo, audio y ebooks** (previstos). Uso interno de la empresa; se empaquetará con PyInstaller (pendiente: [PENDIENTE.md](PENDIENTE.md), C.9).
+Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (Windows, macOS, Linux), inspirado en Lightroom, FastStone, Mp3tag y VisualDivX. Pensado para gestionar colecciones de **imágenes** (en curso), **vídeo, audio y ebooks** (previstos). Uso interno de la empresa; se empaquetará con PyInstaller (pendiente: [PENDIENTE.md](PENDIENTE.md), `GEN 5`).
 
 Principios:
 
-- **Los archivos originales no se mueven ni se modifican.** Las únicas excepciones: escribir la valoración, la marca, el color, las palabras clave y los metadatos descriptivos editados en la aplicación (título, pie de ilustración, creador, copyright y ubicación) con las reglas de `core/userdata/` (XMP incrustado, sidecar `.xmp` o `.arca.json`; ver su `LEEME.md`), y enviar a la papelera lo que el usuario pide eliminar del disco.
+- **Los archivos originales no se mueven, no se renombran ni se borran; lo que el usuario edita sí se guarda en ellos, sin generar copias** (regla del 16/11/2026; [DECISIONES.md](DECISIONES.md)). Previsto: las etiquetas y carátulas del audio ([MOD_MUSICA.md](MOD_MUSICA.md)) y los GPX editados ([MOD_TRACKS.md](MOD_TRACKS.md)). Hoy se escribe: la valoración, la marca, el color, las palabras clave y los metadatos descriptivos editados en la aplicación (título, pie de ilustración, creador, copyright y ubicación) con las reglas de `core/userdata/` (XMP incrustado, sidecar `.xmp` o `.arca.json`; ver su `LEEME.md`), y se envía a la papelera lo que el usuario pide eliminar del disco.
 - **Un catálogo es una carpeta autónoma**: `catalogo.db` (SQLite en modo WAL) + `cache/<tipo>/` + `media_assets/{backdrops,covers,posters}/` + `export/`.
 - **La referencia de metadatos es Lightroom Classic**: se leen los campos que muestran sus paneles EXIF y Ubicación.
 - La interfaz **nunca** toca la base de datos ni hace trabajo largo en el hilo principal.
@@ -169,7 +169,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   ► metadata_fields.py                 CAMPOS y VISTAS de la sección «Metadatos» (aquí se añaden): InspectorField (etiqueta, columnas por tipo de medio, formato), PRESETS, COMMON_HEAD, display_value; EDITABLE_KEYS (los que se editan) y editor_value
   widgets/media_grid_view.py         MediaGridView: QListView de la cuadrícula con imagen de arrastre pequeña y semitransparente (o sin imagen: set_drag_image); «No hay archivos» si está vacía
   models/media_mime.py               MIME propio del arrastre (application/x-arca-media-ids: {catalog, ids})
-  map/                               ── Componente de mapa (diseño y plan en docs/MAPA.md; componente base; lo usa la vista «Mapa»: controllers/map_controller.py) ──
+  map/                               ── Componente de mapa (diseño y plan en docs/MOD_TRACKS.md; componente base; lo usa la vista «Mapa»: controllers/map_controller.py) ──
     map_types.py                       Datos que entran y salen del mapa: MapMarker, MapTrack, MapBounds (bounds_of), MapViewport, MapHit, MapMode, SelectionMode; is_valid_position; DEFAULT_VIEW (encuadre de partida); sin Qt
     map_view.py                      ► MapView: el mapa (fachada; lo único que conocen los módulos): marcadores, selección, tracks (activo, punto señalado, tramo resaltado; track(id)), soltar tarjetas y mover fotos (set_drop_enabled), vista previa, botón derecho, capas, encuadre, estado; guarda lo pedido y se lo pasa al fondo cuando está listo
     map_backend.py                     MapBackend (con set_track_range: el tramo resaltado): contrato del fondo del mapa (lo que MapView pide a la tecnología que pinta: señales y métodos); solo declara
@@ -255,10 +255,10 @@ core/
     job.py                             generate_pending_thumbnails (trabajo) e invalidate_thumbnails (regenerar a demanda)
     inspect_cli.py                     Diagnóstico: genera miniaturas de archivos reales y las cuenta
     _testing.py                        Utilidades solo para las autopruebas de core/thumbnails (perfiles ICC de prueba)
-  maps/                              ── Mapas (diseño y plan en docs/MAPA.md; los usa ui_helpers/map/) ──
+  maps/                              ── Mapas (diseño y plan en docs/MOD_TRACKS.md; los usa ui_helpers/map/) ──
     tile_layers.py                   ► LISTA de capas del mapa (TileLayer, TILE_LAYERS: aquí se añade una), tile_url, is_valid_tile, user_agent; capas del usuario (user_layer, check_url_template, all_layers, new_user_key, de y a settings.json); sin Qt ni red
     tile_store.py                      TileStore: caché de teselas en disco (una carpeta por capa, escritura atómica, caducidad a los 30 días, tope de tamaño con 'prune', 'clear'); image_mime (tipo de una tesela por sus bytes); sin Qt ni red
-  tracks/                            ── Cálculos sobre recorridos (sin Qt ni base de datos; docs/MAPA.md) ──
+  tracks/                            ── Cálculos sobre recorridos (sin Qt ni base de datos; docs/MOD_TRACKS.md) ──
     geodesy.py                         haversine_m y EARTH_RADIUS_M: el ÚNICO sitio donde se calculan distancias sobre la Tierra
     simplify.py                        Contorno de un track: simplify_track (distancia radial + Douglas-Peucker, tope de puntos), polilínea codificada (encode/decode_polyline) y encode_overview / decode_overview
     gpx_document.py                    Lector completo del GPX (sin Qt): read_gpx_path (el recorrido en arrays compactos, TrackPath) y read_gpx_document (GpxDocument: tracks, segmentos, puntos, waypoints y lo que no se edita, tal cual)

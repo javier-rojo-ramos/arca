@@ -20,7 +20,7 @@ eso, las rutas saldrían estiradas a lo ancho.
 
 'outline_from_overview' no depende de Qt (se puede probar sola); el dibujo, sí.
 
-1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.5).
+1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.5).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.helpers.track_outline

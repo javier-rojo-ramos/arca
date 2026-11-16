@@ -2,7 +2,7 @@
 
 'MapView' (la fachada que conocen los módulos y los controladores) no pinta nada: tiene
 dentro un 'MapBackend', que es el widget que dibuja de verdad. Hoy habrá uno solo,
-'WebMapBackend' (QtWebEngine + Leaflet; docs/MAPA.md, paso 1.3). Si un día esa
+'WebMapBackend' (QtWebEngine + Leaflet; docs/MOD_TRACKS.md, paso 1.3). Si un día esa
 tecnología deja de servir (el plan alternativo es Qt Location), se escribe otro fondo
 con este mismo contrato y nada más cambia.
 
@@ -18,9 +18,9 @@ Este módulo solo declara: no tiene lógica que probar (sin autoprueba).
 
 1.5.0 'fit_requested': se ha pulsado el botón «Encuadrar» del mapa.
 1.4.0 'set_track_colors': los colores de los tracks, los que elige el usuario.
-1.3.0 'set_track_range': el tramo elegido en el perfil, resaltado (docs/MAPA.md, paso 5.3b).
+1.3.0 'set_track_range': el tramo elegido en el perfil, resaltado (docs/MOD_TRACKS.md, paso 5.3b).
 1.1.0 'set_thumbnail_provider': de dónde salen las miniaturas de los marcadores.
-1.0.0 Primera versión (docs/MAPA.md, paso 1.2): ver, seleccionar, soltar y mover. Lo de
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 1.2): ver, seleccionar, soltar y mover. Lo de
       la edición de tracks se añadirá con la fase 7.
 """
 

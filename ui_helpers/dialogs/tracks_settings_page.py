@@ -14,7 +14,7 @@
   'map_track_colors' (solo los colores que no son los del tema) y 'profile_slope_mode'.
   El controlador del mapa los aplica al momento ('MapController.apply_settings').
 
-Pedida por el autor el 15/11/2026, al cerrar la fase 5 de docs/MAPA.md: más adelante
+Pedida por el autor el 15/11/2026, al cerrar la fase 5 de docs/MOD_TRACKS.md: más adelante
 puede crecer con el resto del estilo del perfil ('ProfileStyle').
 
 1.0.0 Primera versión (15/11/2026).

@@ -34,7 +34,7 @@ y 'VIDEO_AUDIO_SORT_FIELDS', los de Vídeo y Audio.
 
 1.2.0 'VIDEO_AUDIO_SORT_FIELDS': los de los módulos Vídeo y Audio (los comunes y «Duración»).
 1.1.0 Campos de los tracks: «Distancia», «Desnivel positivo» (de 'track_details') y
-      «Duración»; 'SortColumn.table'; 'COMMON_SORT_FIELDS' y 'TRACK_SORT_FIELDS' (docs/MAPA.md,
+      «Duración»; 'SortColumn.table'; 'COMMON_SORT_FIELDS' y 'TRACK_SORT_FIELDS' (docs/MOD_TRACKS.md,
       paso 4.2).
 
 1.0.1 Textos como en las colecciones inteligentes: «Extensión» y «Fecha de importación».

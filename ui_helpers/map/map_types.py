@@ -1,7 +1,7 @@
 """Datos que entran y salen del mapa: marcadores, tracks, encuadres y lo que hay bajo el ratón.
 
 Este módulo NO depende de Qt: son dataclasses inmutables y enumeraciones. Diseño completo
-en docs/MAPA.md (§2).
+en docs/MOD_TRACKS.md (§2).
 
 El componente de mapa ('MapView') no recibe un modelo de Qt ni sabe nada del catálogo:
 recibe estos datos, ya preparados, y avisa con ellos. Así los módulos (Catálogo, Imagen,
@@ -17,11 +17,11 @@ TODO va por 'media_items.id': nada de filas, rutas ni objetos de la tecnología.
     SelectionMode cómo cambia la selección un clic
 
 Los tipos de la EDICIÓN de tracks (intenciones y parches) se añadirán con la fase 7 de
-docs/MAPA.md, cuando se diseñe su detalle.
+docs/MOD_TRACKS.md, cuando se diseñe su detalle.
 
 1.2.0 'DEFAULT_VIEW' (antes en 'web_backend.py'): el encuadre de partida, que también
       usa 'MapView' al volver a él (botón «Encuadrar» sin nada que encuadrar).
-1.0.0 Primera versión (docs/MAPA.md, paso 1.2).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 1.2).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.map.map_types
@@ -158,7 +158,7 @@ class MapTrack:
 class MapBounds:
     """Un rectángulo geográfico, en grados ('south' <= 'north' y 'west' <= 'east').
 
-    No se contemplan los rectángulos que cruzan el antimeridiano (docs/MAPA.md, §9).
+    No se contemplan los rectángulos que cruzan el antimeridiano (docs/MOD_TRACKS.md, §9).
     """
 
     south: float

@@ -13,7 +13,7 @@ cerrarse. No guarda nada: quien la abre recoge la capa con 'layer()'.
     (aviso en rojo si algo no vale)
                                    [Aceptar] [Cancelar]
 
-1.0.0 Primera versión (docs/MAPA.md, paso 2.4).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 2.4).
 
 Prueba rápida (desde la raíz del proyecto; abre la ventana):
     python -m ui_helpers.dialogs.map_layer_dialog

@@ -3,13 +3,13 @@
 Este módulo NO depende de Qt ni de la base de datos. Lo usan el lector de GPX
 ('core/metadata/track/gpx_reader.py': distancia de un track) y la simplificación de
 recorridos ('simplify.py'); más adelante, el perfil de elevación y la correlación de
-fotos con un track (docs/MAPA.md). Así todos dicen la misma distancia.
+fotos con un track (docs/MOD_TRACKS.md). Así todos dicen la misma distancia.
 
 La Tierra se toma como una esfera (fórmula del haversine), como Wikiloc, Strava o Garmin:
 en un track, el error frente al elipsoide es de unas décimas por ciento y siempre en el
 mismo sentido. Sin la altitud (distancia en 2D).
 
-1.0.0 Primera versión (docs/MAPA.md, paso 2.1): 'haversine_m', que antes estaba dentro
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 2.1): 'haversine_m', que antes estaba dentro
       de 'gpx_reader.py' (mismo cálculo y mismo radio: las distancias no cambian).
 
 Prueba rápida (desde la raíz del proyecto):

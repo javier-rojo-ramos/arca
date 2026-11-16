@@ -1,6 +1,6 @@
 """MapView: el mapa de la aplicación. Lo ÚNICO del mapa que conocen los módulos.
 
-Un solo componente para el Catálogo, Imagen y Tracks (docs/MAPA.md, §2). Recibe datos
+Un solo componente para el Catálogo, Imagen y Tracks (docs/MOD_TRACKS.md, §2). Recibe datos
 sencillos ('map_types.py': marcadores, rectángulos...), avisa con señales y NUNCA cambia
 datos ni consulta el catálogo: quien lo usa (el futuro 'MapController') decide qué hacer
 con cada aviso. Todo va por 'media_items.id'.
@@ -47,7 +47,7 @@ su sitio con 'update_markers' y sus coordenadas de antes).
       'markers_moved' y 'context_menu_requested'.
 1.1.0 Tracks (paso 1.4): 'set_tracks', 'set_track_geometry', 'set_active_track',
       'set_track_cursor', 'fit_track' y las señales 'track_clicked' y 'track_hovered'.
-1.0.0 Primera versión (docs/MAPA.md, paso 1.3): capas, marcadores, selección y encuadre.
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 1.3): capas, marcadores, selección y encuadre.
 
 Prueba rápida (desde la raíz del proyecto; sin ventana, con un fondo simulado):
     python -m ui_helpers.map.map_view
@@ -924,7 +924,7 @@ def _run_window() -> None:
     class CardList(QListView):
         """Lista que arrastra SIN imagen: sobre el mapa, lo único que se ve es el círculo
         ámbar que dice dónde caen las fotos (lo prefiere el autor). Es como arrastrará la
-        tira de fotos del mapa (docs/MAPA.md, paso 3.1). La imagen por defecto de Qt va
+        tira de fotos del mapa (docs/MOD_TRACKS.md, paso 3.1). La imagen por defecto de Qt va
         centrada en el cursor y tapa justo ese punto."""
 
         def startDrag(self, _actions: Qt.DropAction) -> None:  # nombre de Qt

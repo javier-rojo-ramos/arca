@@ -531,7 +531,7 @@ ALTER TABLE photo_details DROP COLUMN gps_direction;
 """
 
 # Migración 4 (13/11/2026): el contorno de cada track, para pintar muchos a la vez en el mapa
-# sin abrir sus GPX (docs/MAPA.md, §5.3). Los puntos completos NO se guardan en el catálogo:
+# sin abrir sus GPX (docs/MOD_TRACKS.md, §5.3). Los puntos completos NO se guardan en el catálogo:
 # el GPX es la fuente y se lee cuando hace falta el detalle.
 _MIGRATION_004_TRACK_OVERVIEW = """
 -- Lo escribe el extractor de tracks. El recorrido SIMPLIFICADO (como mucho unos 1 000

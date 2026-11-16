@@ -40,7 +40,7 @@ sección no cambia de alto al pasar de un track a otro.
 
 1.2.0 La actividad se edita: un desplegable con la lista (paso 4.6b).
 1.1.0 La actividad, en español ('activity_label'; paso 4.6a).
-1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.4).
+1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.4).
 """
 
 __version__ = "1.2.0"

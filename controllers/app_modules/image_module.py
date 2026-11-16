@@ -17,8 +17,8 @@ Qué hace este módulo (la barra no sabe nada de la base de datos):
        de los tracks son de su módulo).
 1.16.0 Une su barra al modelo de colocación de las secciones ('context.section_layout').
 1.15.0 'map_options': en su mapa se ubican fotos soltándolas y se mueven las ubicadas
-       (docs/MAPA.md, paso 3.2).
-1.14.0 'views': también el mapa, con la tira de fotos (docs/MAPA.md, paso 3.1; ubicar
+       (docs/MOD_TRACKS.md, paso 3.2).
+1.14.0 'views': también el mapa, con la tira de fotos (docs/MOD_TRACKS.md, paso 3.1; ubicar
        fotos soltándolas en él, en el paso 3.2).
 1.13.0 «Fechas» en la barra: '_fetch_sidebar_data' lee también la línea de tiempo
        ('fetch_timeline') y '_on_sidebar_data' se la pasa (paso A.4).

@@ -6,7 +6,7 @@ recorrido entero, para verlo nítido al acercarse: esta pieza lo lee de su archi
 segundo plano y, cuando llega, se lo cambia al mapa por el contorno
 ('MapView.set_track_geometry', con 'MapTrack.detailed = True').
 
-Qué hace (docs/MAPA.md, paso 4.3):
+Qué hace (docs/MOD_TRACKS.md, paso 4.3):
     - 'show(view, id, nombre)': el track activo es ese. Si su recorrido está en la memoria
       (los últimos 'CACHE_SIZE' leídos), se pone ya; si no, se pide ('load_track_detail':
       busca la ruta en el catálogo, lee el GPX y calcula el perfil, todo en el hilo de la

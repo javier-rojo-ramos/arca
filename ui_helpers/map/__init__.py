@@ -1,1 +1,1 @@
-"""Componente de mapa (MapView y su fondo). Diseño en docs/MAPA.md."""
+"""Componente de mapa (MapView y su fondo). Diseño en docs/MOD_TRACKS.md."""

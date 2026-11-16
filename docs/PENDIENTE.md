@@ -10,14 +10,17 @@
 - Lo pendiente se agrupa en **categorías**: GENERAL (lo que comparten los módulos o no es de ninguno) y una por módulo: CATÁLOGO, IMAGEN, MÚSICA (el módulo Audio), VÍDEO y TRACKS.
 - Cada funcionalidad principal es una **fase**, con el código de su categoría y un número: `GEN 1`, `CAT 1`, `IMG 1`, `MUS 1`, `VID 1`, `TRK 6`. Sus **pasos** son `X.1`, `X.2`...: `TRK 6.3` es el paso 3 de la fase 6 de Tracks. Un paso que se parte lleva letra (`6.3a`, `6.3b`).
 - Los números no se reutilizan: una fase terminada sale de aquí y su número queda libre para siempre. El número no fija el orden: el orden se decide al planificar (ver «En curso»).
-- Las fases de TRACKS conservan el número de [MAPA.md](MAPA.md) §10 (allí, las fases 0 a 3 fueron el mapa; la 4 y la 5, lo básico de Tracks y el perfil de elevación, hechas el 14 y el 15/11/2026).
+- Las fases de TRACKS conservan el número de [MOD_TRACKS.md](MOD_TRACKS.md) §10 (allí, las fases 0 a 3 fueron el mapa; la 4 y la 5, lo básico de Tracks y el perfil de elevación, hechas el 14 y el 15/11/2026).
 - Lo pequeño no es una fase: va en la lista **«Mejoras menores»** de su categoría, sin número.
+- Cada módulo tiene su documento `MOD_` ([MOD_TRACKS.md](MOD_TRACKS.md), [MOD_MUSICA.md](MOD_MUSICA.md)), con su arquitectura y el detalle de sus fases; aquí, solo la lista.
+- Cada módulo tiene su documento `MOD_` ([MOD_TRACKS.md](MOD_TRACKS.md), [MOD_MUSICA.md](MOD_MUSICA.md)), con su arquitectura y el detalle de sus fases; aquí, solo la lista.
+- Cada módulo tiene su documento `MOD_` ([MOD_TRACKS.md](MOD_TRACKS.md), [MOD_MUSICA.md](MOD_MUSICA.md)), con su arquitectura y el detalle de sus fases; aquí, solo la lista.
 - [HISTORIAL.md](HISTORIAL.md) y las cabeceras del código citan los bloques de antes (A.1 a A.7, B, C.1 a C.12): la tabla del final dice a qué corresponde cada uno.
 
 ## En curso
 
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
-- **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Falta su navegación propia (`MUS 2`, `VID 1`).
+- **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, por definir (será `MOD_VIDEO.md`).
 
 ---
 
@@ -34,7 +37,7 @@ Acordado con el autor el 13/11/2026: un solo historial de cambios en el que cada
 
 ### Fase GEN 2 — Más metadatos editables
 
-El mecanismo está hecho (título, pie, creador, copyright y ubicación desde el 10/11/2026; GPS, altitud y dirección desde el 11/11/2026; la actividad de un track, el 14/11/2026; receta en [COMO_AMPLIAR.md](COMO_AMPLIAR.md)). La escritura con un NEF real y su sidecar, probada el 14/11/2026; sin probar con un DNG y con un CR3. La edición de las etiquetas de audio y de las fichas de vídeo, en `MUS 5` y `VID 4`.
+El mecanismo está hecho (título, pie, creador, copyright y ubicación desde el 10/11/2026; GPS, altitud y dirección desde el 11/11/2026; la actividad de un track, el 14/11/2026; receta en [COMO_AMPLIAR.md](COMO_AMPLIAR.md)). La escritura con un NEF real y su sidecar, probada el 14/11/2026; sin probar con un DNG y con un CR3. La edición de las etiquetas de audio y de las fichas de vídeo, en `MUS 6`, `MUS 7` y `VID 4`.
 
 - **GEN 2.1** La fecha (ventana propia, por biblioteca).
 - **GEN 2.2** El estado del copyright, el género y la escena.
@@ -47,7 +50,7 @@ El mecanismo está hecho (título, pie, creador, copyright y ubicación desde el
 
 ### Fase GEN 4 — Miniaturas: extras
 
-Las de vídeo y las carátulas de audio, en `VID 2` y `MUS 4`.
+Las de vídeo y las carátulas de audio, en `VID 2` y `MUS 3`.
 
 - **GEN 4.1** PSD.
 - **GEN 4.2** `rawpy`: RAW sin vista previa o con una pequeña; también para el 1:1 de la vista individual, que hoy en un RAW es su mayor vista previa (en un DNG de Lightroom, a veces de solo 1024 px).
@@ -57,7 +60,7 @@ Las de vídeo y las carátulas de audio, en `VID 2` y `MUS 4`.
 
 ### Fase GEN 5 — Empaquetado
 
-Incluir `tools/exiftool` (`--add-data`), `--collect-data puremagic`, `defusedxml` y los datos de `pillow-heif`; comprobar que la ruta a `tools/exiftool` (basada en `__file__`) vale dentro del paquete; probar en macOS y Linux. Pasos, por definir.
+Incluir `tools/exiftool` (`--add-data`), `--collect-data puremagic`, `defusedxml` y los datos de `pillow-heif`; QtWebEngine (el mapa: unos 220 MB más, el proceso `QtWebEngineProcess.exe` y la carpeta `resources` de Qt; [MOD_TRACKS.md](MOD_TRACKS.md) §9); comprobar que la ruta a `tools/exiftool` (basada en `__file__`) vale dentro del paquete; probar en macOS y Linux. Pasos, por definir.
 
 ### Fase GEN 6 — Interfaz sin terminar
 
@@ -71,7 +74,7 @@ En el desplegable de ajustes personalizados de la barra de filtros (los grupos d
 
 ### Fase GEN 8 — Mapa: lo que queda fuera de Tracks
 
-De [MAPA.md](MAPA.md) §10, «Después (sin fecha)»:
+De [MOD_TRACKS.md](MOD_TRACKS.md) §10, «Después (sin fecha)»:
 
 - **GEN 8.1** Sección «Ubicación» del inspector con el mapa.
 - **GEN 8.2** El rumbo de la foto (`gps_direction`), dibujado y editable en el mapa.
@@ -141,34 +144,71 @@ Anotado el 03/11/2026: personas como palabras clave especiales (Lightroom las gu
 
 ## MÚSICA (módulo Audio)
 
-### Fase MUS 1 — Extractor de audio
+Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso (archivos, cómo se acepta) y lo que queda por decidir (M1 a M7), en [MOD_MUSICA.md](MOD_MUSICA.md). El escritor (`MUS 6`) va antes que la edición (`MUS 7`), a propósito.
 
-Las etiquetas de las canciones, con su tabla de detalles. De él dependen las demás fases. Pasos, por definir.
+### Fase MUS 1 — Leer las etiquetas
 
-### Fase MUS 2 — Navegación propia
+- **MUS 1.1** Base de audio: mutagen (la instala el autor), la tabla campo ↔ etiqueta y la lectura, en `core/audio/`.
+- **MUS 1.2** La tabla `audio_details` (migración 5).
+- **MUS 1.3** El extractor (`core/metadata/audio/`, `AUDIO_FIELDS_VERSION`): las canciones se leen solas al abrir el catálogo.
+- **MUS 1.4** Recuento de las canciones con varios géneros o artistas (decide si las listas van en tablas).
 
-La base está (15/11/2026: `AudioModule` con su biblioteca, carpetas y fechas). Falta:
+### Fase MUS 2 — Verlas
 
-- **MUS 2.1** Secciones de la barra: álbumes y géneros.
-- **MUS 2.2** Campos de orden (duración, artista, álbum, pista...) y de colecciones inteligentes (el grupo «Audio» existe vacío).
-- **MUS 2.3** Listas que se recorren con las flechas (álbumes; pregunta del autor el 12/11/2026): hoy los árboles de las barras no cogen el teclado (`SidebarTreeView`, `NoFocus`) y los atajos solo actúan con la cuadrícula o la vista individual enfocadas. Si la lista está en el centro (vista de lista o de carátulas), ya tiene el teclado; los atajos se le enganchan con `GridActions.watch`. Si está en la barra izquierda: ese árbol, y solo ese, aceptaría el teclado (una opción de `SidebarTreeView`); `CenterViewController._on_source_chosen` no debe llevarse el teclado al centro cuando se elige desde él (cada flecha sacaría de la lista); decidir qué hace un atajo («3») con la lista activa y, si se quiere, la búsqueda al teclear (las letras dejarían de ser atajos mientras la lista tenga el teclado). Vale también para las películas (`VID 1`).
+- **MUS 2.1** Sección «Audio» del inspector, de solo lectura.
+- **MUS 2.2** Orden propio: artista, álbum, pista, año y duración.
+- **MUS 2.3** Campos del grupo «Audio» en filtros y colecciones inteligentes.
 
-### Fase MUS 3 — Vista de lista
+### Fase MUS 3 — Carátulas como miniatura
 
-Una vista más del centro, estilo Mp3tag. Pasos, por definir.
+- **MUS 3.1** La carátula incrustada, origen de la miniatura (cuadrada, sin ampliar).
+- **MUS 3.2** `folder.jpg` o `cover.jpg` de reserva, si se decide.
 
-### Fase MUS 4 — Carátulas
+### Fase MUS 4 — Navegar
 
-Las incrustadas de MP3, M4A/AAC y FLAC con ExifTool (`-b -Picture -CoverArt`), sin ampliar por encima del original; después, la portada descargada (`media_assets/covers`).
+- **MUS 4.1** Sección «Artistas» (artista del álbum ▸ álbum).
+- **MUS 4.2** Secciones «Géneros» y «Años».
+- **MUS 4.3** Listas que se recorren con las flechas (álbumes; vale también para las películas, `VID 1.3`): el detalle, en [MOD_MUSICA.md](MOD_MUSICA.md).
 
-### Fase MUS 5 — Edición de las etiquetas
+### Fase MUS 5 — Vista de lista
 
-Principios en [DECISIONES.md](DECISIONES.md) (14/11/2026): el mecanismo ya admite campos sin XMP y de tablas de detalles. Falta:
+Estilo Mp3tag; una vista más del centro, que sirve a otros módulos.
 
-- **MUS 5.1** El escritor (ID3: comprobar si ExifTool lo escribe o hace falta otra biblioteca), que declara qué campos sabe guardar, y su destino en `policy.py`.
-- **MUS 5.2** La marca de pendiente, hoy un bit por campo (caben 63, van 14): decidir si pasa a una tabla (el resto del código la usa por `bits_for`, `pending_columns` y `unless_pending_sql`).
-- **MUS 5.3** Las listas (géneros), en tablas propias como las palabras clave.
-- **MUS 5.4** Opcional: escribir también la valoración en las etiquetas nativas (p. ej. `POPM` en MP3), como copia para otros programas.
+- **MUS 5.1** La lista, con la selección compartida con la cuadrícula.
+- **MUS 5.2** Columnas a elegir y orden por columna.
+- **MUS 5.3** Opcional: vista de álbumes con su carátula.
+
+### Fase MUS 6 — Escribir en los archivos
+
+En el propio archivo, sin generar copias (regla del 16/11/2026). Sin interfaz: se prueba con copias.
+
+- **MUS 6.1** Escritor de MP3 (ID3): solo lo editado, la versión de ID3 conservada, comprobando las etiquetas y que el audio no cambia.
+- **MUS 6.2** En la cola de escritura: los campos de audio en `editable_fields.py` y el escritor en `sync.py`; lo que no sabe guardar, al `.arca.json`. La marca de pendiente sigue siendo un bit por campo (caben 63; se revisa con Vídeo).
+- **MUS 6.3** FLAC.
+- **MUS 6.4** M4A y Ogg/Opus.
+
+### Fase MUS 7 — Editar
+
+- **MUS 7.1** Edición en la sección «Audio» del inspector.
+- **MUS 7.2** Con varias canciones («Varios», «Edición múltiple»).
+- **MUS 7.3** Opcional: editar en la vista de lista.
+
+### Fase MUS 8 — Herramientas por lotes
+
+- **MUS 8.1** Numerar pistas, mayúsculas y minúsculas, buscar y reemplazar.
+- **MUS 8.2** Nombre de archivo → etiqueta.
+- **MUS 8.3** Etiqueta → nombre de archivo (renombra originales: con su decisión, M6).
+
+### Fase MUS 9 — Carátulas: cambiarlas y guardarlas
+
+- **MUS 9.1** La carátula en grande en el inspector.
+- **MUS 9.2** Escribirla en el archivo, por la misma cola.
+- **MUS 9.3** Cambiarla: arrastrar, «Elegir…», pegar o `folder.jpg`; para una canción, la selección o el álbum.
+- **MUS 9.4** Extraerla o quitarla.
+
+### Fase MUS 10 — Internet
+
+Etiquetas y carátulas de MusicBrainz y Cover Art Archive, como una edición más.
 
 ---
 
@@ -180,7 +220,7 @@ La base está (15/11/2026: `VideoModule` con su biblioteca, carpetas y fechas). 
 
 - **VID 1.1** Secciones de la barra: directores y actores.
 - **VID 1.2** Campos de orden (duración...) y de colecciones inteligentes (el grupo «Vídeo» existe vacío).
-- **VID 1.3** Listas que se recorren con las flechas (películas): lo de `MUS 2.3`.
+- **VID 1.3** Listas que se recorren con las flechas (películas): lo de `MUS 4.3`.
 
 ### Fase VID 2 — Miniaturas de vídeo
 
@@ -192,7 +232,7 @@ Descarga de fichas (p. ej. TMDb) y de la portada (`media_assets/posters`). Lo de
 
 ### Fase VID 4 — Edición de los metadatos
 
-Como `MUS 5`: el escritor de vídeo (etiquetas del contenedor, `.nfo` o solo `.arca.json`: por decidir) y las listas (reparto), en tablas propias.
+Como `MUS 6` y `MUS 7`: el escritor de vídeo (etiquetas del contenedor, `.nfo` o solo `.arca.json`: por decidir) y las listas (reparto), en tablas propias.
 
 ### Mejoras menores (VÍDEO)
 
@@ -202,7 +242,7 @@ Como `MUS 5`: el escritor de vídeo (etiquetas del contenedor, `.nfo` o solo `.a
 
 ## TRACKS
 
-Plan revisado con el autor el 14/11/2026: lo básico, el perfil de elevación, la edición y la creación, de lo más útil a lo menos necesario. El detalle de cada paso (archivos, de qué depende, cómo se acepta) está en [MAPA.md](MAPA.md) §10; las decisiones, en §11.
+Plan revisado con el autor el 14/11/2026: lo básico, el perfil de elevación, la edición y la creación, de lo más útil a lo menos necesario. El detalle de cada paso (archivos, de qué depende, cómo se acepta) está en [MOD_TRACKS.md](MOD_TRACKS.md) §10; las decisiones, en §11.
 
 ### Fase TRK 5 — Perfil de elevación (queda un paso)
 
@@ -212,7 +252,7 @@ Plan revisado con el autor el 14/11/2026: lo básico, el perfil de elevación, l
 
 Imprescindibles (6.1 a 6.5) y útiles (6.6 a 6.8).
 
-- **TRK 6.1** Exportar sin pérdidas. Incluye que la actividad editada vaya al `<type>` del GPX exportado.
+- **TRK 6.1** Guardar sin pérdidas, sobre el propio GPX (D2, decidida el 16/11/2026). Incluye que la actividad editada vaya al `<type>` del GPX exportado.
 - **TRK 6.2** El modelo de edición, con deshacer y rehacer.
 - **TRK 6.3** Editar en el mapa: mover, borrar e insertar con el punto medio fantasma.
 - **TRK 6.4** Tramos: seleccionar, estadísticas, borrar, recortar el principio o el final.
@@ -236,11 +276,10 @@ Para después; no depende de la edición y se puede adelantar. Pasos, por defini
 
 ### Por decidir (TRACKS)
 
-Detalle y recomendación en [MAPA.md](MAPA.md) §11; ninguna bloquea hasta su paso.
+Detalle y recomendación en [MOD_TRACKS.md](MOD_TRACKS.md) §11; ninguna bloquea hasta su paso. **D2, decidida** (el autor, 16/11/2026): un GPX editado se guarda sobre el propio archivo, sin generar copias; cómo se hace con seguridad, en `TRK 6.1`. **D2, decidida** (el autor, 16/11/2026): un GPX editado se guarda sobre el propio archivo, sin generar copias; cómo se hace con seguridad, en `TRK 6.1`. **D2, decidida** (el autor, 16/11/2026): un GPX editado se guarda sobre el propio archivo, sin generar copias; cómo se hace con seguridad, en `TRK 6.1`.
 
 | Decisión | Para | Qué |
 |---|---|---|
-| **D2** | `TRK 6.1` | Guardar un GPX editado siempre en un archivo nuevo (recomendado) o sobrescribirlo |
 | **D8** | `TRK 6.2` | Hora de los puntos insertados (recomendado: interpolada) |
 | **D12** | `TRK 6.5` | Las horas al invertir un track (recomendado: quitarlas con aviso) |
 | **D13** | `TRK 7.2` | El servicio de enrutado (a comparar al llegar) |
@@ -252,7 +291,7 @@ Detalle y recomendación en [MAPA.md](MAPA.md) §11; ninguna bloquea hasta su pa
 - **Sección «Track» del inspector**: sin selección no sale (el inspector solo da a las secciones los id seleccionados); si se quiere el total de lo que se ve («Todos los tracks: 93,7 km»), hace falta pasarles el origen. Tiempo en movimiento (sin las paradas): `core/tracks/profile.py` aún no lo calcula.
 - **Waypoints**: el símbolo de cada uno (`<sym>`, que ya se lee) con un dibujo propio.
 - **Perfil**: el resto de su estilo (`ProfileStyle`), si se quiere, en Opciones > Tracks.
-- **Sin fecha** ([MAPA.md](MAPA.md) §10): MDT05 del IGN; otros formatos de track.
+- **Sin fecha** ([MOD_TRACKS.md](MOD_TRACKS.md) §10): MDT05 del IGN; otros formatos de track.
 
 ---
 
@@ -264,14 +303,14 @@ Para leer [HISTORIAL.md](HISTORIAL.md), [DECISIONES.md](DECISIONES.md) y las cab
 |---|---|
 | A.3 (lo que queda: guardar el filtro como colección inteligente) | `GEN 7` |
 | A.4 (módulo Imagen completo) | `IMG 1` |
-| A.5 (vista de lista; vista de mapa) | `MUS 3`; `GEN 8` y las fases de TRACKS |
-| A.6 (módulos Vídeo, Audio y Tracks) | `MUS 1` a `MUS 5`, `VID 1` a `VID 4`, fases de TRACKS |
+| A.5 (vista de lista; vista de mapa) | `MUS 5`; `GEN 8` y las fases de TRACKS |
+| A.6 (módulos Vídeo, Audio y Tracks) | `MUS 1` a `MUS 10`, `VID 1` a `VID 4`, fases de TRACKS |
 | A.7 («Abrir en su módulo») | Mejoras menores (GENERAL) |
-| B (mejoras anotadas) | Las «Mejoras menores» de cada categoría; el deshacer, `GEN 1`; el reconocimiento facial, `IMG 3`; la edición para Audio y Vídeo, `MUS 5` y `VID 4` |
+| B (mejoras anotadas) | Las «Mejoras menores» de cada categoría; el deshacer, `GEN 1`; el reconocimiento facial, `IMG 3`; la edición para Audio y Vídeo, `MUS 6`, `MUS 7` y `VID 4` |
 | C.1 (verificar con ExifTool real) | `IMG 2` |
-| C.2 (miniaturas de vídeo y audio) | `VID 2`, `VID 3` (portadas) y `MUS 4` |
+| C.2 (miniaturas de vídeo y audio) | `VID 2`, `VID 3` (portadas), `MUS 3` y `MUS 9` |
 | C.3 (miniaturas, extras) | `GEN 4` |
-| C.4 (datos del usuario, lo que falta) | `GEN 3`; `MUS 5.4` |
+| C.4 (datos del usuario, lo que falta) | `GEN 3`; la valoración en POPM, M5 de [MOD_MUSICA.md](MOD_MUSICA.md) |
 | C.5 (más metadatos editables) | `GEN 2` |
 | C.6 (extractores de audio y ebooks) | `MUS 1`; `GEN 9` |
 | C.7 (hashes) | `CAT 2` |
@@ -280,4 +319,4 @@ Para leer [HISTORIAL.md](HISTORIAL.md), [DECISIONES.md](DECISIONES.md) y las cab
 | C.10 (interfaz) | `GEN 6` |
 | C.11 (optimizaciones) | `GEN 10` |
 | C.12 (omitido de la v1) | Mejoras menores (GENERAL) |
-| Fases 4 a 8 de [MAPA.md](MAPA.md) §10 | `TRK 4` a `TRK 8` (el mismo número) |
+| Fases 4 a 8 de [MOD_TRACKS.md](MOD_TRACKS.md) §10 | `TRK 4` a `TRK 8` (el mismo número) |

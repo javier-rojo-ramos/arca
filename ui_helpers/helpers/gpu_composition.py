@@ -33,7 +33,7 @@ Uso (en el constructor de la ventana principal, ANTES de mostrarla):
 
 1.1.0 Sin elegir, según el sistema ('default_gpu_setting'): sí en Windows y macOS, no en
       Linux.
-1.0.0 Primera versión (paso suelto antes de la fase 3 de docs/MAPA.md).
+1.0.0 Primera versión (paso suelto antes de la fase 3 de docs/MOD_TRACKS.md).
 
 Prueba rápida (desde la raíz del proyecto; crea ventanas que no se muestran en pantalla):
     python -m ui_helpers.helpers.gpu_composition

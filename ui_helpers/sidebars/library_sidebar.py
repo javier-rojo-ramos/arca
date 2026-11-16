@@ -36,7 +36,7 @@ Uso:
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
 'scroll_library_sidebar' y 'widget_library_sidebar_content' (y los de cada sección).
 
-1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.2): para el módulo Tracks.
+1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.2): para el módulo Tracks.
 """
 
 __version__ = "1.0.0"

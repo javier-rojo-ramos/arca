@@ -4,7 +4,7 @@ Este módulo NO depende de Qt ni de la base de datos.
 
 El lector del extractor ('core/metadata/track/gpx_reader.py') RESUME un track (distancia,
 desnivel, fechas) y tira los puntos. Este los conserva: es la base del módulo Tracks
-(docs/MAPA.md, fases 4 a 7): pintar el recorrido entero en el mapa, el perfil de elevación
+(docs/MOD_TRACKS.md, fases 4 a 7): pintar el recorrido entero en el mapa, el perfil de elevación
 y, más adelante, editar y exportar. El del extractor no se toca.
 
 Ofrece dos lecturas:
@@ -35,7 +35,7 @@ Lo que NO se edita se guarda como elementos XML sueltos ('Element'), no como tex
 exportar se meterán en un único árbol y los espacios de nombres saldrán declarados una
 sola vez, con sus prefijos de origen ('GpxDocument.namespaces': gpxtpx, ns3...). No se
 conservan los comentarios XML ni el formato exacto (sangrías, orden de los atributos).
-(En docs/MAPA.md §7.1 se pensó en guardarlos como texto para ahorrar memoria con tracks
+(En docs/MOD_TRACKS.md §7.1 se pensó en guardarlos como texto para ahorrar memoria con tracks
 de 100 000 puntos; los del autor tienen de 1 000 a 10 000 y así el exportado es limpio.)
 
 Uso:
@@ -58,7 +58,7 @@ y 'OSError' si no se puede leer.
 
 1.1.0 'TrackPath.waypoints': la lectura rápida recoge también los puntos de interés, para
       verlos en el mapa con el track activo (paso 4.3b).
-1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.1).
+1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.tracks.gpx_document

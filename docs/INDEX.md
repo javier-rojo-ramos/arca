@@ -1,6 +1,6 @@
 # Arca Media — Índice de la documentación
 
-Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (Windows, macOS, Linux), inspirado en Lightroom, FastStone, Mp3tag y VisualDivX. Gestiona colecciones de **imágenes** (en curso), **vídeo, audio y ebooks** (previstos). Python 3.14 + PySide6 (vía `qtpy`), SQLite y ExifTool. Uso interno de la empresa; se empaquetará con PyInstaller (pendiente: [PENDIENTE.md](PENDIENTE.md), C.9).
+Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (Windows, macOS, Linux), inspirado en Lightroom, FastStone, Mp3tag y VisualDivX. Gestiona colecciones de **imágenes** (en curso), **vídeo, audio y ebooks** (previstos). Python 3.14 + PySide6 (vía `qtpy`), SQLite y ExifTool. Uso interno de la empresa; se empaquetará con PyInstaller (pendiente: [PENDIENTE.md](PENDIENTE.md), `GEN 5`).
 
 **¿En qué punto está el proyecto?** → [ESTADO.md](ESTADO.md) (qué está hecho, qué falta por verificar y los últimos cambios).
 **¿Qué viene después?** → [PENDIENTE.md](PENDIENTE.md).
@@ -11,20 +11,23 @@ Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (W
 | Documento | Qué contiene | Cuándo leerlo |
 |---|---|---|
 | [ESTADO.md](ESTADO.md) | Lo verificado, lo entregado pendiente de verificar, lo nunca probado y los últimos cambios | Siempre, al empezar |
-| [PENDIENTE.md](PENDIENTE.md) | Hoja de ruta por bloques (A: módulos e interfaz; B: mejoras anotadas; C: resto) | Al decidir el siguiente paso |
+| [PENDIENTE.md](PENDIENTE.md) | Hoja de ruta por categorías (GENERAL y una por módulo: CATÁLOGO, IMAGEN, MÚSICA, VÍDEO y TRACKS), en fases y pasos (`TRK 6.3`); al final, la equivalencia con la numeración anterior (A, B, C) | Al decidir el siguiente paso |
 | [ARQUITECTURA.md](ARQUITECTURA.md) | Principios, componentes, reglas de arquitectura, **mapa del proyecto (qué hace cada archivo)** y qué corre en cada hilo | Para orientarse o encontrar dónde está algo |
 | [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) | Convenciones de los datos, tablas, bloques de columnas (quién escribe cada una), migraciones | Al tocar la base de datos o una consulta |
 | [FLUJOS.md](FLUJOS.md) | Paso a paso de cada operación: arranque, catálogo, añadir carpeta, metadatos, miniaturas, cuadrícula, datos del usuario, opciones, barra lateral, cierre, módulos, inspector, eliminar, barra inferior, barra de filtros | Al cambiar el comportamiento de una operación |
 | [METADATOS.md](METADATOS.md) | Mapa de campos (qué se extrae y dónde se ve), campos de imagen, vídeo y tracks, prioridad entre etiquetas, equivalencias con Lightroom | Al añadir o corregir un campo |
 | [MINIATURAS.md](MINIATURAS.md) | Tamaños, reglas, orígenes por formato, caché | Al tocar las miniaturas |
-| [MAPA.md](MAPA.md) | **Diseño, sin implementar**: componente de mapa (`MapView`) para Catálogo, Imagen y Tracks: tecnología, API, capas, elevación, datos, correlación foto-track, edición de GPX y plan por pasos; decisiones pendientes del autor | Antes de empezar la vista de mapa (A.5) o el módulo Tracks (A.6) |
+| [MOD_TRACKS.md](MOD_TRACKS.md) | **Módulo Tracks** (antes `MAPA.md`): diseño y plan por pasos del módulo y del componente de mapa (`MapView`), que usan también el Catálogo e Imagen: tecnología, API, capas, elevación, datos, correlación foto-track, edición de GPX; decisiones pendientes del autor. Hechas las fases 0 a 5; pendientes, la 6, la 7 y la 8 | Al tocar el mapa o seguir con el módulo Tracks (fases `TRK` de [PENDIENTE.md](PENDIENTE.md)) |
+| [MOD_MUSICA.md](MOD_MUSICA.md) | **Módulo Música** (Audio): arquitectura prevista (mutagen, `audio_details`, tabla campo ↔ etiqueta, escritura en los archivos, carátulas) y plan en fases `MUS 1` a `MUS 10`. Diseño acordado el 16/11/2026; sin implementar | Antes de cada paso del módulo Música |
 | [COMO_AMPLIAR.md](COMO_AMPLIAR.md) | La tabla «Quiero... → toco...» | Antes de añadir algo nuevo |
 | [PRUEBAS.md](PRUEBAS.md) | Autopruebas, ventanas que se abren solas, diagnóstico con ExifTool | Para comprobar un cambio |
 | [DECISIONES.md](DECISIONES.md) | Por qué las cosas son como son (con fecha) | Antes de cambiar algo que parece raro |
 | [TRAMPAS.md](TRAMPAS.md) | Comportamientos que sorprenden y errores fáciles de cometer | Antes de tocar un área delicada |
 | [HISTORIAL.md](HISTORIAL.md) | Registro de cambios y detalle de cómo se probó cada entrega | Solo si hace falta el detalle de algo pasado |
 
-Documentación por módulo (detalle y recetas): [core/metadata/LEEME.md](../core/metadata/LEEME.md) · [core/thumbnails/LEEME.md](../core/thumbnails/LEEME.md) · [core/userdata/LEEME.md](../core/userdata/LEEME.md). Cada archivo `.py` explica en su cabecera qué hace y cómo se usa, y cada función, en su docstring.
+**Un documento `MOD_` por módulo de la aplicación** (acordado el 16/11/2026): `MOD_<MÓDULO>.md` describe, por un lado, la arquitectura del módulo y, por otro, su planificación (fases y pasos, con los códigos de [PENDIENTE.md](PENDIENTE.md)). Existen `MOD_TRACKS.md` y `MOD_MUSICA.md`; seguirá `MOD_VIDEO.md`.
+
+Documentación por carpeta del código (detalle y recetas): [core/metadata/LEEME.md](../core/metadata/LEEME.md) · [core/thumbnails/LEEME.md](../core/thumbnails/LEEME.md) · [core/userdata/LEEME.md](../core/userdata/LEEME.md). Cada archivo `.py` explica en su cabecera qué hace y cómo se usa, y cada función, en su docstring.
 
 ## Versiones actuales
 

@@ -1,4 +1,4 @@
-Bibliotecas web del mapa (docs/MAPA.md). Copiadas tal cual, sin modificar, el 13/11/2026.
+Bibliotecas web del mapa (docs/MOD_TRACKS.md). Copiadas tal cual, sin modificar, el 13/11/2026.
 No hay cadena de construcción (ni npm ni empaquetadores): se usan estos mismos archivos.
 
   leaflet/leaflet.js, leaflet.css   Leaflet 1.9.4      BSD-2-Clause   https://unpkg.com/leaflet@1.9.4/dist/

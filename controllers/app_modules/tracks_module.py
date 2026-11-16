@@ -4,7 +4,7 @@ Es el quinto módulo (botón 'btn_tracks'). Tiene su barra lateral izquierda
 ('LibrarySidebar': «Biblioteca - Tracks», «Carpetas» y «Fechas») y usa el inspector, la
 cuadrícula y el mapa comunes. Empieza en el MAPA: es donde un track se ve como lo que es
 (los del origen elegido, con su contorno; el detalle del elegido llega con el paso 4.3 de
-docs/MAPA.md).
+docs/MOD_TRACKS.md).
 
 Lo común con los demás módulos de una biblioteca (la barra, lo que se lee para ella, lo
 guardado y el menú de las carpetas) está en 'LibraryModule' ('library_module.py'). Las
@@ -26,8 +26,8 @@ Los textos de la barra están aquí ('_TEXTS').
 1.2.0 Lo común con los demás módulos de una biblioteca pasa a 'LibraryModule' (sin
       cambiar lo que hace), para Vídeo y Audio.
 1.1.0 'map_options': el perfil de elevación bajo el mapa y la tira de fotos oculta al
-      principio (docs/MAPA.md, paso 5.3a).
-1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.2): sustituye al módulo provisional.
+      principio (docs/MOD_TRACKS.md, paso 5.3a).
+1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.2): sustituye al módulo provisional.
 """
 
 __version__ = "1.2.0"
@@ -74,7 +74,7 @@ class TracksModule(LibraryModule):
 
     def map_options(self) -> MapOptions:
         """Su mapa solo mira; debajo, el perfil del track activo; la tira de fotos empieza
-        oculta (docs/MAPA.md, paso 5.3a; D11)."""
+        oculta (docs/MOD_TRACKS.md, paso 5.3a; D11)."""
         return MapOptions(show_profile=True, filmstrip_starts_visible=False)
 
     def filter_media_types(self) -> tuple[str, ...]:

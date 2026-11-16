@@ -3,7 +3,7 @@
 Cumple el contrato de 'map_backend.MapBackend' con una página local (resources/map/)
 dentro de un 'QWebEngineView'. Python llama a las funciones de la página ('arca.xxx',
 siempre con los argumentos en JSON) y la página avisa por 'MapBridge' (QWebChannel).
-Decidido tras la prueba de concepto del 13/11/2026 (docs/MAPA.md, §1 y §10).
+Decidido tras la prueba de concepto del 13/11/2026 (docs/MOD_TRACKS.md, §1 y §10).
 
 Arranque: se carga 'arca-map://app/index.html' -> la página avisa ('loaded') -> se le
 pasan los colores del tema, los textos y el encuadre inicial ('arca.init') -> crea el
@@ -38,7 +38,7 @@ pinta en la página dónde caería y, al soltar, la página traduce el píxel a 
       derecho. Con esto cumple todo el contrato de 'MapBackend'.
 1.1.0 Tracks (paso 1.4): líneas con borde claro, track activo, punto señalado y avisos
       de clic y de punto bajo el ratón; colores de los tracks y del texto emergente.
-1.0.0 Primera versión (docs/MAPA.md, paso 1.3): capas, marcadores agrupados con
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 1.3): capas, marcadores agrupados con
       miniatura, selección, encuadre.
 """
 

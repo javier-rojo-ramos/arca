@@ -77,7 +77,7 @@
 
 ## Catálogo, escaneo y metadatos
 
-- Un vídeo convertido a otro formato (`.MOV` → `.mp4`) es, para el catálogo, un archivo nuevo: el original queda ausente con sus datos de usuario (idea para reasociarlos en [PENDIENTE.md](PENDIENTE.md), B).
+- Un vídeo convertido a otro formato (`.MOV` → `.mp4`) es, para el catálogo, un archivo nuevo: el original queda ausente con sus datos de usuario (idea para reasociarlos en [PENDIENTE.md](PENDIENTE.md), mejoras menores de VÍDEO).
 - Un archivo cuya lectura falla se marca "intentado" y no se reintenta hasta que cambie o suba la versión.
 - `ScanFilter` no distingue el atributo de "oculto" propio de macOS (solo el punto inicial y los atributos de Windows).
 - La unicidad de rutas distingue mayúsculas en macOS y Linux, no en Windows.
@@ -118,7 +118,7 @@
 - **Mapa: la página no se entera sola de su tamaño en todos los casos**: al pasar del mapa de un módulo al de otro (o al volver a verse), Leaflet seguía con el tamaño de antes y pintaba solo una parte hasta moverlo. `WebMapBackend` le pide `refreshSize` (`map.invalidateSize`) al verse y al cambiar de tamaño, y la página lo hace también antes de encuadrar.
 - **`QTimer.singleShot(0, self.metodo)` en un widget que se puede destruir**: si el widget desaparece antes (al cerrar la aplicación, al quitarlo), el temporizador llama igual y sale «Internal C++ object already deleted» en el registro. Con el widget como contexto, `QTimer.singleShot(0, self, self.metodo)`, Qt lo cancela solo (lo vio una prueba del mapa, `web_backend._WebView.childEvent`).
 - **Mapa: los colores de la página, del tema**: `arca_map.css` solo usa variables `--arca-*`, que pone `web_backend._theme_colors()`; los translúcidos de Qt (`#aarrggbb`) se pasan con `css_color` (`#rrggbbaa`).
-- **Cortes horizontales («tearing») al mover deprisa algo grande**: Qt Widgets en Windows dibuja sin esperar al refresco de la pantalla. Dibujar no es lento (una foto de 6000 × 4000 a 1:1, menos de 2 ms, y sin remuestrear a ninguna escala): no se arregla optimizando el dibujo, sino componiendo con la GPU (OpenGL o QML; ver PENDIENTE.md, B).
+- **Cortes horizontales («tearing») al mover deprisa algo grande**: Qt Widgets en Windows dibuja sin esperar al refresco de la pantalla. Dibujar no es lento (una foto de 6000 × 4000 a 1:1, menos de 2 ms, y sin remuestrear a ninguna escala): no se arregla optimizando el dibujo, sino componiendo con la GPU (OpenGL o QML). Hecho el 13/11/2026: la ventana usa la GPU desde que se abre ([ESTADO.md](ESTADO.md)).
 
 - **Los recuentos de los árboles de palabras clave son de UNA biblioteca** (la del módulo, o la de lo resumido en el inspector): para lo que afecta a todo el catálogo (borrar una palabra) hay que contar aparte (`fetch_keyword_usage`), o se avisará de menos.
 

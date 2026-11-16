@@ -1,6 +1,6 @@
 """Perfil de elevación de un track: la gráfica de la altitud según la distancia.
 
-Irá en una banda bajo el mapa del módulo Tracks (docs/MAPA.md, paso 5.3), sincronizada
+Irá en una banda bajo el mapa del módulo Tracks (docs/MOD_TRACKS.md, paso 5.3), sincronizada
 con él: el círculo ámbar del mapa aparece en el perfil y al revés. Este widget solo
 muestra y avisa; quién le da el perfil y a quién avisa lo decide el controlador.
 
@@ -39,7 +39,7 @@ Uso:
 1.1.0 'message()': el aviso que se ve (para quien lo contiene y sus pruebas; paso 5.3a).
 1.0.1 Ventana de prueba: el modo de la pendiente elegido en el desplegable llegaba como
       texto y el perfil salía sin colores (lo arregla también 'ProfileStyle' 1.0.1).
-1.0.0 Primera versión (15/11/2026; docs/MAPA.md, paso 5.2).
+1.0.0 Primera versión (15/11/2026; docs/MOD_TRACKS.md, paso 5.2).
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m ui_helpers.widgets.elevation_profile

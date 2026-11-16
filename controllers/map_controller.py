@@ -3,7 +3,7 @@
 El mapa ('MapView', en la página 'MapPage') muestra LO MISMO que la cuadrícula: lo elegido
 a la izquierda y el filtro de la barra de filtros (lo lee del modelo de la cuadrícula). Lo
 pide en segundo plano ('core/catalog/map_queries.fetch_map_items') y lo pinta: las fotos
-con coordenadas, como marcadores; los tracks, como líneas. Diseño en docs/MAPA.md (§2.6).
+con coordenadas, como marcadores; los tracks, como líneas. Diseño en docs/MOD_TRACKS.md (§2.6).
 
 Qué hace (decidido por el autor el 13/11/2026):
     - Solo trabaja con el mapa a la vista: si cambia lo elegido o el filtro con el mapa
@@ -25,7 +25,7 @@ Qué hace (decidido por el autor el 13/11/2026):
       Clic en una foto o en un grupo: solo eso; Ctrl+clic: se añade o se quita; clic en
       el mapa vacío: nada seleccionado. Clic en un track: solo ese track. El track
       seleccionado se ve resaltado (el «activo» del mapa).
-    - Track activo (paso 4.3 de docs/MAPA.md): su recorrido COMPLETO sustituye a su
+    - Track activo (paso 4.3 de docs/MOD_TRACKS.md): su recorrido COMPLETO sustituye a su
       contorno en cuanto se lee del GPX, en segundo plano ('TrackDetailController'); los
       demás tracks se ven atenuados. Si se elige FUERA del mapa (en la tira o en la
       cuadrícula), el mapa lo encuadra; si se pulsa en el propio mapa, no se mueve.
@@ -111,7 +111,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
       clic en una tarjeta, la vista individual; la tarjeta actual, siempre a la vista).
 1.1.0 Paso 2.4: capas propias, tope de la caché de teselas, 'apply_settings' y 'refresh'
       (el mapa, al día tras un cambio del inspector).
-1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 2.3).
 """
 
 __version__ = "1.10.0"

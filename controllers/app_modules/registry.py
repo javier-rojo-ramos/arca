@@ -14,7 +14,7 @@ qué módulo activa cada uno.
 
 1.4.0 Vídeo y Audio, con su módulo ('VideoModule' y 'AudioModule', con la barra de Tracks;
       ya no queda ningún provisional).
-1.3.0 Tracks, con su módulo de verdad ('TracksModule'; docs/MAPA.md, paso 4.2).
+1.3.0 Tracks, con su módulo de verdad ('TracksModule'; docs/MOD_TRACKS.md, paso 4.2).
 1.2.0 Módulo provisional Tracks (botón 'btn_tracks'); Vídeo y Audio, con su icono.
 """
 

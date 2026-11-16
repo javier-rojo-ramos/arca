@@ -24,7 +24,7 @@ Qué guarda:
         geográfica, punto de llegada, tipo de actividad y programa que lo creó.
         overview: el CONTORNO, el recorrido simplificado (como mucho 1 000 puntos),
         para pintar muchos tracks a la vez en el mapa sin abrir sus GPX
-        (core/tracks/simplify.py; docs/MAPA.md, §5.3). Los puntos completos no se
+        (core/tracks/simplify.py; docs/MOD_TRACKS.md, §5.3). Los puntos completos no se
         guardan: el GPX es la fuente.
 
 Hora local: el GPX guarda las horas en UTC, pero 'content_created_at' es la hora LOCAL

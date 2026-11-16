@@ -59,7 +59,7 @@ Uso:
     preset = preset_from_filter("Bodas", grid_filter, default_fields)
     config.set(SETTING_FILTER_PRESETS, presets_to_config(with_preset_saved(presets, preset)))
 
-1.2.0 De fábrica, «Sin ubicación» (docs/MAPA.md, paso 3.5). Quien ya tiene su lista lo
+1.2.0 De fábrica, «Sin ubicación» (docs/MOD_TRACKS.md, paso 3.5). Quien ya tiene su lista lo
       recibe con «Restaurar los de fábrica».
 1.1.0 'matching_preset': en «Metadatos», basta con las mismas columnas (lo elegido en
       ellas puede cambiar), con preferencia por el que coincide del todo y por el último

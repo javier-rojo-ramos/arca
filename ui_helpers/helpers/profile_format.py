@@ -18,7 +18,7 @@ Textos:
                            lo que el punto no tenga, no sale; la hora, la local del equipo)
 
 1.1.0 En los totales, la altitud mínima antes que la máxima (el autor, 15/11/2026).
-1.0.0 Primera versión (15/11/2026; docs/MAPA.md, paso 5.2).
+1.0.0 Primera versión (15/11/2026; docs/MOD_TRACKS.md, paso 5.2).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.helpers.profile_format

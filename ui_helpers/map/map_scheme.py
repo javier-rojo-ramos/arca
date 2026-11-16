@@ -1,7 +1,7 @@
 """Esquema 'arca-map://': de dónde saca la página del mapa todo lo que pide.
 
 La página del mapa (resources/map/) NO habla con Internet ni lee el disco: todo lo pide a
-este esquema propio, que atiende Python. Diseño en docs/MAPA.md (§3.2).
+este esquema propio, que atiende Python. Diseño en docs/MOD_TRACKS.md (§3.2).
 
     arca-map://app/<archivo>               recursos de la página (resources/map/) y
                                            'qwebchannel.js', que viene dentro de Qt
@@ -20,7 +20,7 @@ DOS OBLIGACIONES DE Qt (ver docs/TRAMPAS.md):
     - Este módulo importa QtWebEngineCore, que también debe importarse antes de crear
       QApplication: por eso main.py lo importa aunque el mapa no se abra.
 
-Teselas caducadas (docs/MAPA.md, §3.3): se devuelven en el acto y se renuevan por detrás.
+Teselas caducadas (docs/MOD_TRACKS.md, §3.3): se devuelven en el acto y se renuevan por detrás.
 Lo que se ejecuta aquí lo hace en el hilo principal (Qt llama ahí a 'requestStarted'):
 leer un archivo pequeño de la caché es inmediato y las descargas son asíncronas.
 
@@ -31,7 +31,7 @@ Uso:
 
 1.1.0 El tipo de cada tesela se mira en sus bytes (las capas propias no dicen si sirven
       PNG o JPEG).
-1.0.0 Primera versión (docs/MAPA.md, paso 1.3).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 1.3).
 """
 
 __version__ = "1.1.0"

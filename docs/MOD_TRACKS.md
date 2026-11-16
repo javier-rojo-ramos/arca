@@ -1,7 +1,8 @@
-# Arca Media — Mapa (`MapView`): diseño y plan de implementación
+# Arca Media — Módulo Tracks y mapa (`MapView`): diseño y plan
 
-> **Diseño; fase 0 hecha el 13/11/2026 (se sigue con el plan A: QtWebEngine + Leaflet), el resto sin implementar.** Componente de mapa único para los módulos Catálogo, Imagen y Tracks: tecnología, API, capas, elevación, datos, correlación foto-track, edición de GPX, rendimiento, riesgos y plan por pasos. Cuando un paso se entregue, su parte pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md) y [DECISIONES.md](DECISIONES.md), y aquí se tacha.
-> Índice: [INDEX.md](INDEX.md). Punto de la hoja de ruta: [PENDIENTE.md](PENDIENTE.md), A.5 y A.6.
+> Documento del módulo Tracks (hasta el 16/11/2026 se llamaba `MAPA.md`; [HISTORIAL.md](HISTORIAL.md) lo cita con ese nombre). Incluye el componente de mapa, que usan también el Catálogo e Imagen.
+> **Diseño y plan; hechas las fases 0 a 5 (mapa base, Catálogo, Imagen, lo básico de Tracks y el perfil de elevación; plan A: QtWebEngine + Leaflet); pendientes, la 6 (edición), la 7 (creación) y la 8 (fotos y tracks).** Componente de mapa único para los módulos Catálogo, Imagen y Tracks: tecnología, API, capas, elevación, datos, correlación foto-track, edición de GPX, rendimiento, riesgos y plan por pasos. Cuando un paso se entregue, su parte pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md) y [DECISIONES.md](DECISIONES.md), y aquí se tacha.
+> Índice: [INDEX.md](INDEX.md). Punto de la hoja de ruta: [PENDIENTE.md](PENDIENTE.md), las fases `TRK` (con el mismo número que aquí, §10) y `GEN 8`.
 
 ## Resumen
 
@@ -23,7 +24,7 @@
 | # | Decisión | Recomendación |
 |---|---|---|
 | ~~D1~~ | Geoetiquetar desde el mapa escribe en los archivos: **decidido el 13/11/2026** | Sí, con la regla de la edición del GPS en el inspector; confirmación al soltar muchas fotos a la vez |
-| D2 | Editar un GPX existente: ¿se sobrescribe o siempre se exporta a otro archivo? | Siempre a un archivo nuevo («Exportar a GPX…»); el original no se toca (principio del proyecto) |
+| D2 | Editar un GPX existente: ¿se sobrescribe o siempre se exporta a otro archivo? | **Decidida el 16/11/2026 (el autor): se guarda sobre el propio GPX, sin generar copias.** (La recomendación era: siempre a un archivo nuevo) |
 | ~~D3~~ | Modo Imagen: tira de fotos debajo del mapa: **decidido el 13/11/2026** | Al ancho del centro; ocultable con un botón en el extremo derecho de la barra inferior (solo con el mapa) y con F9 (F6 hasta el 15/11/2026); alto ajustable y recordado (100 px como mínimo); tarjetas compactas, sin banda; también en el mapa del Catálogo (confirmado por el autor) |
 | D4 | «Fotos de una ruta»: ¿basta con una colección hecha a mano, o se calcula (por hora y cercanía)? | Las dos: la colección ya funciona; en Tracks, calculado |
 | ~~D5~~ | Capas de partida: **decidido el 13/11/2026** (§3.1) | Callejero de OpenStreetMap, tres del IGN y OpenTopoMap, sin claves |
@@ -113,7 +114,7 @@ Valorado el 13/11/2026, a petición del autor. No cambia la recomendación, pero
 - **Lo que seguro que cambiará en 20 años son los servicios de teselas** (direcciones, condiciones, cierres), con cualquier tecnología. Por eso la lista de capas es declarativa, el usuario puede **añadir una capa propia** (plantilla de dirección y atribución) desde las opciones sin tocar código (§3.1), y lo esencial (tracks, marcadores, perfil, edición) funciona sin ninguna capa.
 - **Datos**: nada del mapa crea un formato propio. Las coordenadas van a las etiquetas estándar (EXIF/XMP) y los tracks son GPX 1.1.
 
-**Relación con la «isla QML» de la vista individual** (sugerida para los cortes horizontales al arrastrar a 1:1; [PENDIENTE.md](PENDIENTE.md), B): son dos decisiones independientes y la propuesta no cambia. Que la vista individual acabe usando QML quitaría a la opción B la pega de «un lenguaje nuevo», pero no sus puntos débiles (madurez de Qt Location y edición de tracks grandes). Lo que sí comparten: un `QWebEngineView`, un `QQuickWidget` y un `QOpenGLWidget` hacen los tres que la ventana pase a componerse con la GPU. Puede que, con solo existir el mapa, los cortes desaparezcan o cambien; no se sabe hasta probarlo, así que la fase 0 lo mide (punto 8) antes de decidir nada sobre la vista individual. Si hiciera falta actuar, `QOpenGLWidget` (ya anotado en PENDIENTE) lo resuelve sin meter QML.
+**Relación con la «isla QML» de la vista individual** (sugerida para los cortes horizontales al arrastrar a 1:1, resueltos el 13/11/2026 al componerse la ventana con la GPU: [ESTADO.md](ESTADO.md)): son dos decisiones independientes y la propuesta no cambia. Que la vista individual acabe usando QML quitaría a la opción B la pega de «un lenguaje nuevo», pero no sus puntos débiles (madurez de Qt Location y edición de tracks grandes). Lo que sí comparten: un `QWebEngineView`, un `QQuickWidget` y un `QOpenGLWidget` hacen los tres que la ventana pase a componerse con la GPU. Puede que, con solo existir el mapa, los cortes desaparezcan o cambien; no se sabe hasta probarlo, así que la fase 0 lo mide (punto 8) antes de decidir nada sobre la vista individual. Si hiciera falta actuar, `QOpenGLWidget` (ya anotado en PENDIENTE) lo resuelve sin meter QML.
 
 ---
 
@@ -237,7 +238,7 @@ Reglas de la API:
 
 - **Todo va por `media_items.id`**; nada de filas, rutas ni objetos de la tecnología.
 - Las llamadas anteriores a `ready` se guardan y se aplican al llegar (la página carga de forma asíncrona).
-- `MapView` es instanciable más de una vez (comparten perfil y manejador del esquema), pensando en la sección «Ubicación» del inspector (PENDIENTE A.5); cada instancia cuesta memoria: se decidirá entonces.
+- `MapView` es instanciable más de una vez (comparten perfil y manejador del esquema), pensando en la sección «Ubicación» del inspector (PENDIENTE, `GEN 8.1`); cada instancia cuesta memoria: se decidirá entonces.
 - Los controles sobre el mapa (zoom, «Encuadrar», escala, atribución) los dibuja la página con variables CSS que `WebMapBackend` genera desde `COLORS` (`ui_theme.py`). El selector de capas y los botones de modo son **widgets nativos** en la barra inferior o en `MapPage`, no en la página.
 - El menú contextual de Chromium se desactiva; el propio es un `QMenu` nativo.
 - La vista **no coge el teclado** (como las barras, [DECISIONES.md](DECISIONES.md) del 12/11/2026): los atajos de clasificación siguen yendo a la tira de fotos. Excepción: en modo edición, `Supr`, `Esc`, `Ctrl+Z` y `Ctrl+Y` los atiende `TrackEditController` con atajos del `MapPage`.
@@ -377,7 +378,7 @@ Con la opción 1, las salvaguardas: la ventana de vista previa de la correlació
 ### 5.3 Tracks y sus puntos
 
 - **Lo que hay**: una fila en `media_items` (tipo `track`, biblioteca `tracks`, salida en `latitude`/`longitude`) y su resumen en `track_details` (caja, llegada, distancia, desnivel, horas UTC, recuentos).
-- **Lo nuevo (migración 4)**: `track_details.overview TEXT`: el recorrido **simplificado** (Douglas-Peucker, tolerancia ~15 m, tope de 1 000 puntos entre todos los segmentos), como polilínea codificada (el formato de Google, precisión 5; un segmento por línea). Lo calcula `TrackExtractor` → sube `TRACK_EXTRACTOR_VERSION` a 3 (los GPX se releen solos; es rápido). Sirve para pintar cientos de tracks sin abrir ningún archivo y, más adelante, para la miniatura del recorrido (PENDIENTE A.6, GPX-c).
+- **Lo nuevo (migración 4)**: `track_details.overview TEXT`: el recorrido **simplificado** (Douglas-Peucker, tolerancia ~15 m, tope de 1 000 puntos entre todos los segmentos), como polilínea codificada (el formato de Google, precisión 5; un segmento por línea). Lo calcula `TrackExtractor` → sube `TRACK_EXTRACTOR_VERSION` a 3 (los GPX se releen solos; es rápido). Sirve para pintar cientos de tracks sin abrir ningún archivo y, más adelante, para la miniatura del recorrido (hecha el 14/11/2026: paso 4.5).
 - **Los puntos completos no van a SQLite.** Opciones consideradas:
 
 | Opción | Valoración |
@@ -386,11 +387,11 @@ Con la opción 1, las salvaguardas: la ventana de vista previa de la correlació
 | B. Tabla `track_points` | 1 000 tracks × 10 000 puntos = 10 millones de filas y cientos de MB en el catálogo, para un dato que ya está en los archivos; con un GPX ausente, el contorno de `overview` ya da para verlo |
 | C. Un archivo binario por track en `cache/track/` del catálogo | Solo si se mide que A es lenta con archivos enormes; se puede añadir después sin cambiar nada más |
 
-- **Track nuevo o editado**: no existe en el catálogo hasta que se exporta a un GPX dentro de una carpeta catalogada y esa carpeta se sincroniza (hoy solo se catalogan carpetas completas: PENDIENTE C.8). El paso de exportar ofrece sincronizarla al terminar.
+- **Track nuevo o editado**: no existe en el catálogo hasta que se exporta a un GPX dentro de una carpeta catalogada y esa carpeta se sincroniza (hoy solo se catalogan carpetas completas: PENDIENTE, `CAT 1.1`). El paso de exportar ofrece sincronizarla al terminar.
 
 ### 5.4 Relación de los tracks con las colecciones
 
-**No hace falta nada nuevo**: un track es un `media_items`, así que una colección estática (`collection_items`) ya puede contener tracks y fotos, y una inteligente puede mezclarlos con reglas. El mapa del Catálogo pinta lo que haya en el origen: los `track`, como líneas; lo que tenga coordenadas, como marcadores. Es justo «juntar los GPX de una ruta con sus fotos» (PENDIENTE, B).
+**No hace falta nada nuevo**: un track es un `media_items`, así que una colección estática (`collection_items`) ya puede contener tracks y fotos, y una inteligente puede mezclarlos con reglas. El mapa del Catálogo pinta lo que haya en el origen: los `track`, como líneas; lo que tenga coordenadas, como marcadores. Es justo «juntar los GPX de una ruta con sus fotos» (PENDIENTE, `TRK 8`).
 
 Lo que queda por decidir (D4): si además se quiere la relación **calculada** («las fotos de esta ruta» sin hacer la colección a mano). Propuesta: una consulta, sin tabla nueva, `fetch_track_photos(conn, track_id, margin_s, max_distance_m)` en `map_queries.py`: fotos y vídeos cuya hora (convertida a UTC, §6) cae entre `started_at` y `ended_at` con un margen, o, si el track no tiene horas, dentro de su caja y a menos de cierta distancia del contorno. El módulo Tracks la usa para pintar las fotos junto al track ([DECISIONES.md](DECISIONES.md), «Vistas del centro»), y una acción «Crear colección con esta ruta y sus fotos» la convierte en colección estática. Una tabla de enlaces (`track_media`) solo si se quiere fijar la relación a mano foto a foto: no se propone.
 
@@ -486,7 +487,7 @@ Al editar (en caliente, sin bloquear) y, sobre todo, antes de exportar:
 ### 7.4 Exportar
 
 - `write_gpx(document, path)`: GPX 1.1, UTF-8, escritura atómica (archivo temporal + sustitución, como `folder_file.py`). Un GPX 1.0 de origen se exporta como 1.1.
-- **Dónde** (D2): por defecto «Exportar a GPX…» a un archivo **nuevo** (se propone `<nombre> (editado).gpx` junto al original); el original no se modifica nunca, como manda el principio del proyecto. Si el autor quiere «Guardar» sobre el original, sería una excepción nueva de ese principio (con copia `.bak`) y habría que anotarla en [CLAUDE.md](../CLAUDE.md) y [ARQUITECTURA.md](ARQUITECTURA.md).
+- **Dónde** (D2; **cambiado el 16/11/2026**: el autor decide que un GPX editado se guarda sobre el propio archivo, sin generar copias, y «Exportar a GPX…» queda para guardar en otro archivo; lo que sigue es el diseño anterior, a rehacer en el paso 6.1): por defecto «Exportar a GPX…» a un archivo **nuevo** (se propone `<nombre> (editado).gpx` junto al original); el original no se modifica nunca, como manda el principio del proyecto. Si el autor quiere «Guardar» sobre el original, sería una excepción nueva de ese principio (con copia `.bak`) y habría que anotarla en [CLAUDE.md](../CLAUDE.md) y [ARQUITECTURA.md](ARQUITECTURA.md).
 - El atributo `creator`: se conserva el del original en los editados; en los nuevos, el nombre de la aplicación.
 - Si la carpeta de destino está catalogada, al terminar se ofrece sincronizarla para que el GPX aparezca (con su `overview` y su resumen).
 - Cambios sin exportar: al salir del modo edición, cambiar de track o cerrar el catálogo, se pregunta (exportar, descartar, cancelar).
@@ -523,7 +524,7 @@ Objetivos: 20 000 fotos con coordenadas en un origen; un track activo de 50 000 
 **Graves (pueden cambiar el plan)**
 
 1. **Soltar tarjetas sobre `QWebEngineView`**: que la subclase reciba los eventos de arrastre con `MEDIA_IDS_MIME` y que la coordenada del píxel sea exacta con el escalado de Windows (125-150 %). Si los eventos los recibe el widget interno, alternativa: filtro de eventos sobre él o una capa transparente encima solo mientras dura el arrastre. → Fase 0.
-2. **QtWebEngine dentro de la ventana real**: al crear el primer `QWebEngineView`, Qt puede pasar la ventana entera a componerse con la GPU (parpadeo o recreación de la ventana al abrir el mapa por primera vez, y posible cambio en cómo se pintan la cuadrícula y la vista individual). Puede ser bueno (el «tearing» anotado en [PENDIENTE.md](PENDIENTE.md), B) o malo. → Fase 0, dentro de una ventana con un `QListView` grande.
+2. **QtWebEngine dentro de la ventana real**: al crear el primer `QWebEngineView`, Qt puede pasar la ventana entera a componerse con la GPU (parpadeo o recreación de la ventana al abrir el mapa por primera vez, y posible cambio en cómo se pintan la cuadrícula y la vista individual). Puede ser bueno (el «tearing» de la vista individual a 1:1: [TRAMPAS.md](TRAMPAS.md)) o malo. → Fase 0, dentro de una ventana con un `QListView` grande.
 3. **macOS y Linux, sin probar** (como todo el proyecto): QtWebEngine es la pieza más delicada fuera de Windows (bibliotecas del sistema y entorno aislado en Linux; firma del proceso auxiliar en macOS al empaquetar).
 4. **Modificar archivos del usuario por lotes** (D1) y **sobrescribir un GPX** (D2): no son riesgos técnicos, sino de datos; el diseño propone lo conservador y deja la decisión al autor.
 
@@ -533,7 +534,7 @@ Objetivos: 20 000 fotos con coordenadas en un origen; un track activo de 50 000 
 6. **Condiciones de los servicios de teselas**: cambian; OSM estándar y OpenTopoMap no garantizan servicio y prohíben el uso intensivo; los de pago por clave pueden excluir el uso en empresa. IGN es el más seguro para España. Revisar al implementar el paso de las capas.
 7. **Rendimiento del esquema `arca-map://` en Python** (decenas de teselas por movimiento, con el GIL). Alternativa dentro del plan A en §3.2. → Fase 0.
 8. **Pantallas con escalado**: las teselas ráster se ven borrosas al 150 % si no se piden las del nivel siguiente a mitad de tamaño (`detectRetina`), y entonces los rótulos salen más pequeños. Hay que elegir viendo el resultado. → Fase 0 (captura para el autor).
-9. **Empaquetado futuro**: +220 MB aproximados, proceso `QtWebEngineProcess.exe` y carpeta `resources` de Qt que PyInstaller debe incluir. Se anota en PENDIENTE C.9 cuando se implemente; no condiciona el diseño.
+9. **Empaquetado futuro**: +220 MB aproximados, proceso `QtWebEngineProcess.exe` y carpeta `resources` de Qt que PyInstaller debe incluir. Anotado en PENDIENTE, `GEN 5`; no condiciona el diseño.
 10. **Zonas horarias en la correlación**: fotos sin desfase guardado hechas en otro huso; la ventana deja elegir la zona, pero el valor por defecto (la del equipo) puede ser incorrecto en un viaje. Mejora posible: deducir la zona de las coordenadas del track (`timezonefinder`, ya anotada en `track/extractor.py`).
 11. **Memoria**: un proceso Chromium (100-300 MB) más las miniaturas de los marcadores. Medir en la fase 0 con 20 000 marcadores.
 
@@ -545,7 +546,7 @@ Objetivos: 20 000 fotos con coordenadas en un origen; un track activo de 50 000 
 15. ¿Marcador con miniatura o un punto simple? (aspecto; se decide viéndolo en el paso 1.3).
 16. ¿Los vídeos con GPS se pueden recolocar igual que las fotos? El mecanismo lo permite (van al `.arca.json`); se propone que sí.
 17. Privacidad: los servidores de teselas ven qué zonas se consultan (no las fotos ni sus coordenadas exactas). Aceptable para uso interno; anotarlo.
-18. Sección «Ubicación» del inspector con un mapa pequeño (PENDIENTE A.5): posible con una segunda `MapView`; no está en este plan.
+18. Sección «Ubicación» del inspector con un mapa pequeño (PENDIENTE, `GEN 8.1`): posible con una segunda `MapView`; no está en este plan.
 
 ---
 
@@ -568,7 +569,7 @@ Hecha en `scripts/poc_map/` (borrada el 13/11/2026, al terminar el paso 1.5: tod
 | Ida y vuelta Python ↔ página | 0,17 ms de mediana (máximo 0,67 ms) |
 | Esquema `arca-map://` | 362 teselas sin errores (IGN MTN y OpenTopoMap; las direcciones de §3.1 valen), unos 100 ms por descarga; segunda vez y sin conexión, de la caché. El manejador se ejecuta en el hilo principal y no se nota |
 | Memoria | Unos 170 MB más con el mapa vacío y unos 400-500 MB más con el track y los 20 000 marcadores cargados (714 MB en total en la prueba, que incluye una imagen de 96 MB). Es el coste de Chromium; a vigilar con datos reales |
-| Cortes horizontales de la foto | **Desaparecen en cuanto existe la vista web** (antes de crearla, los mismos cortes que en la vista individual). Confirma que basta con que la ventana se componga con la GPU; ver [PENDIENTE.md](PENDIENTE.md), B |
+| Cortes horizontales de la foto | **Desaparecen en cuanto existe la vista web** (antes de crearla, los mismos cortes que en la vista individual). Confirma que basta con que la ventana se componga con la GPU (hecho el 13/11/2026: [ESTADO.md](ESTADO.md)) |
 
 Aprendido para la implementación (irá a [TRAMPAS.md](TRAMPAS.md) con el paso 1.3): `QNetworkRequest.setHeader(UserAgentHeader, ...)` no acepta `bytes` desde Python (avisa y no pone la cabecera): usar `setRawHeader`; una lista de JavaScript devuelta por `runJavaScript` no llega bien a Python: devolver texto JSON. 
 
@@ -621,7 +622,7 @@ Aprendido para la implementación (irá a [TRAMPAS.md](TRAMPAS.md) con el paso 1
 | ~~**3.1** Tira de fotos (según D3)~~ (hecho el 13/11/2026; también en el Catálogo; aún sin menú contextual en la tira) | En `MapPage`, una tira horizontal debajo del mapa: un segundo `MediaGridView` con el **mismo modelo y el mismo `selectionModel`** que la cuadrícula; atajos con `GridActions.watch`. Arrastra **sin imagen** (una opción de `MediaGridView`): sobre el mapa solo se ve el círculo ámbar que dice dónde caen (el autor, 13/11/2026) | `map_page.py`, `map_controller.py`, `image_module.py` (`views`, `map_options`) | 2.3 | En Imagen, vista «Mapa»: tira con las fotos del origen; la selección de la tira, la del mapa y la de la cuadrícula son la misma; los atajos («3», «P») funcionan con el ratón sobre el mapa | La cuadrícula no cambia (mismo modelo); probar selección múltiple y Ctrl+A |
 | ~~**3.2** Soltar para ubicar~~ (hecho el 13/11/2026, con el mover de 3.3: al dejar soltar, el mapa ya deja arrastrar las fotos sueltas y tenía que guardarse) | `media_dropped` → `update_metadata_fields` por `InspectorController.request_edit`; confirmación a partir de N; el marcador aparece sin recargar todo | `map_controller.py` | 3.1; D1 | Arrastrar una o varias fotos de la tira al mapa: aparecen ahí; el inspector («Metadatos», GPS) muestra las coordenadas; con la escritura activada, Lightroom las lee | Autoprueba de `media_queries`; la edición del GPS en el inspector sigue igual |
 | ~~**3.3** Recolocar y quitar~~ (hecho el 13/11/2026) | ~~`markers_moved` (igual que 3.2)~~ (hecho con 3.2); menú contextual «Quitar la ubicación» (latitud y longitud a vacío) | `map_controller.py` | 3.2; D7 | Arrastrar un marcador lo mueve y queda pendiente de escribir; quitar la ubicación lo borra del mapa | — |
-| ~~**3.4** Deshacer en el mapa (según D6)~~ (hecho el 13/11/2026: `controllers/undo_history.py` y `core/catalog/geotagging.py`; sin rehacer) | El primer cliente de un deshacer para toda la aplicación (acordado el 13/11/2026; [PENDIENTE.md](PENDIENTE.md), B): un historial de cambios que saben deshacerse, con Ctrl+Z en la ventana; de momento, solo lo llena el mapa (ids → coordenadas anteriores) | `map_controller.py` (si crece, `controllers/geotag_history.py`) | 3.3 | Ctrl+Z devuelve las fotos a donde estaban (o las deja sin ubicación) | Ctrl+Z no hace nada fuera del mapa |
+| ~~**3.4** Deshacer en el mapa (según D6)~~ (hecho el 13/11/2026: `controllers/undo_history.py` y `core/catalog/geotagging.py`; sin rehacer) | El primer cliente de un deshacer para toda la aplicación (acordado el 13/11/2026; [PENDIENTE.md](PENDIENTE.md), `GEN 1`): un historial de cambios que saben deshacerse, con Ctrl+Z en la ventana; de momento, solo lo llena el mapa (ids → coordenadas anteriores) | `map_controller.py` (si crece, `controllers/geotag_history.py`) | 3.3 | Ctrl+Z devuelve las fotos a donde estaban (o las deja sin ubicación) | Ctrl+Z no hace nada fuera del mapa |
 | ~~**3.5** Ver quién no tiene ubicación~~ (hecho el 13/11/2026: el campo ya existía, «Tiene coordenadas GPS»; solo hacía falta el ajuste de fábrica «Sin ubicación». Con él, la fase 3 está completa) | Campo «Ubicación GPS» (tiene / no tiene) en `smart_fields.py` si no existe, y un ajuste de fábrica «Sin ubicación» en `filter_presets.py` | `smart_fields.py`, `filter_presets.py` | — | El filtro deja en la tira solo las fotos sin GPS | Autopruebas de `smart_fields`, `smart_rules`, `filter_presets` |
 
 ### Plan del módulo Tracks (revisado el 14/11/2026)
@@ -630,7 +631,7 @@ Acordado con el autor el 14/11/2026, con su lista de funciones de edición y de 
 
 **Para todo el plan**:
 
-- **Los originales no se tocan**: un track editado o nuevo se exporta a un GPX (D2); si la carpeta está catalogada, se ofrece sincronizarla para que aparezca.
+- **Guardar** (D2, decidida el 16/11/2026): un track editado se guarda **sobre su propio GPX, sin generar copias**; uno nuevo, o «Exportar a GPX…», en un archivo nuevo; si la carpeta está catalogada, se ofrece sincronizarla para que aparezca.
 - **Track activo**: el único track seleccionado (en el mapa, la tira o la cuadrícula). De él son el recorrido con detalle, el perfil y los datos del inspector.
 - **Deshacer y rehacer**: la edición tiene su historial en `core/` (`EditHistory`, sin Qt), con Ctrl+Z y Ctrl+Y mientras se edita; fuera de ella sigue el deshacer general (`UndoHistory`).
 - **Todo cambio es una orden** que sabe deshacerse (§7.2), también las limpiezas y la simplificación: enseñan lo que van a cambiar, se aplican de una vez y se deshacen de una vez.
@@ -697,7 +698,7 @@ Hasta la fase 3, el sugerido al principio (base → Catálogo → Imagen). Desde
 ## 11. Decisiones pendientes del autor (detalle)
 
 - **D1. Escritura de las coordenadas en los archivos.** Opciones y salvaguardas en §5.2. Recomendación: la misma regla que la edición a mano. Bloquea el paso 3.2.
-- **D2. Guardar un GPX editado.** Recomendación: siempre «Exportar a GPX…» a un archivo nuevo; el original no se toca. Alternativa: permitir «Guardar» con copia `.bak` (excepción nueva del principio de los originales). Bloquea 7.3.
+- **D2. Guardar un GPX editado.** **Decidida el 16/11/2026 (el autor): sobre el propio archivo, sin generar copias** ([DECISIONES.md](DECISIONES.md)); cómo se hace con seguridad, en el paso 6.1. Lo que se recomendaba: siempre «Exportar a GPX…» a un archivo nuevo; el original no se toca. Alternativa: permitir «Guardar» con copia `.bak` (excepción nueva del principio de los originales). Bloquea 7.3.
 - **D3. Modo Imagen: cómo conviven la cuadrícula y el mapa.** (a) Mapa con una **tira de fotos** debajo, como el módulo Mapa de Lightroom (recomendada: reutiliza el modelo y la selección; el mapa conserva el ancho); (b) cuadrícula y mapa lado a lado con un separador. También: si el Catálogo lleva la tira. Bloquea 3.1.
 - **D4. «Fotos de una ruta».** Colección a mano (ya funciona) y, en Tracks, cálculo por hora y cercanía con sus umbrales (margen de tiempo, distancia máxima). Bloquea 4.4.
 - **D5. Capas de partida** y si interesa alguna con clave. Bloquea 1.1 (la lista) y 2.4.

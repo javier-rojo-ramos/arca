@@ -1,6 +1,6 @@
 """Simplificar un recorrido y guardarlo como texto compacto (el contorno de un track).
 
-Este módulo NO depende de Qt ni de la base de datos. Diseño en docs/MAPA.md (§5.3 y §8).
+Este módulo NO depende de Qt ni de la base de datos. Diseño en docs/MOD_TRACKS.md (§5.3 y §8).
 
 Para pintar muchos tracks a la vez en el mapa no se abren sus GPX: cada uno guarda en el
 catálogo un CONTORNO ('track_details.overview'), su recorrido simplificado. Lo calcula el
@@ -30,7 +30,7 @@ de Google Maps: cada número es la diferencia con el anterior, en caracteres del
 Los segmentos llegan como listas PLANAS [lat, lon, lat, lon...] (o 'array.array("d")',
 que es como los guarda el lector de GPX: 16 bytes por punto).
 
-1.0.0 Primera versión (docs/MAPA.md, paso 2.1).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 2.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.tracks.simplify
@@ -56,7 +56,7 @@ from collections.abc import Iterable, Sequence
 from core.tracks.geodesy import EARTH_RADIUS_M
 
 # Contorno de un track: tolerancia de partida y tope de puntos entre todos sus segmentos
-# (docs/MAPA.md, §5.3). Si cambian, hay que subir TRACK_EXTRACTOR_VERSION para recalcularlo
+# (docs/MOD_TRACKS.md, §5.3). Si cambian, hay que subir TRACK_EXTRACTOR_VERSION para recalcularlo
 OVERVIEW_TOLERANCE_M = 15.0
 OVERVIEW_MAX_POINTS = 1000
 

@@ -1,6 +1,6 @@
 """Tira de fotos debajo del mapa: las tarjetas de la cuadrícula, en una sola fila.
 
-Como la tira de Lightroom (decidido por el autor el 13/11/2026; docs/MAPA.md, paso 3.1):
+Como la tira de Lightroom (decidido por el autor el 13/11/2026; docs/MOD_TRACKS.md, paso 3.1):
 muestra LO MISMO que la cuadrícula (su modelo) y comparte su SELECCIÓN (su
 'selectionModel'): lo que se elige aquí se elige en la cuadrícula, en el mapa y en el
 inspector. Desde aquí se arrastran las fotos al mapa para ubicarlas.
@@ -29,7 +29,7 @@ Uso:
       de tamaños y montar unas tarjetas sobre otras.
 1.1.0 Tarjetas compactas (sin banda ni círculo de la selección rápida) y alto mínimo de
       100 px (miniaturas de 72 px).
-1.0.0 Primera versión (docs/MAPA.md, paso 3.1).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 3.1).
 """
 
 __version__ = "1.2.0"

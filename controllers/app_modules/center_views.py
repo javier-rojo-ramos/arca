@@ -8,13 +8,13 @@ recuerda por módulo y por catálogo ('ModuleViewState'); la pone en pantalla el
     GRID    cuadrícula de tarjetas            (todos los módulos, de momento)
     SINGLE  vista individual: un archivo      (todos los módulos, de momento)
     LIST    lista con columnas                (llegará con el módulo Audio)
-    MAP     mapa                              (el Catálogo, desde el 13/11/2026; docs/MAPA.md)
+    MAP     mapa                              (el Catálogo, desde el 13/11/2026; docs/MOD_TRACKS.md)
 
 Decidido por el autor el 08/11/2026 (ver docs/DECISIONES.md, «Vistas del centro»).
 
 1.3.0 'MapOptions.show_profile' (la banda del perfil, en Tracks) y
       'MapOptions.filmstrip_starts_visible' (la tira, recordada por módulo; en Tracks empieza
-      oculta). Docs/MAPA.md, paso 5.3a.
+      oculta). Docs/MOD_TRACKS.md, paso 5.3a.
 1.2.0 'MapOptions': qué permite el mapa de cada módulo (de momento, ubicar fotos).
 1.1.0 El mapa: icono y atajo «Mapa (M)» (decidido por el autor el 13/11/2026).
 1.0.0 Primera versión (paso A.1, subpaso 3).
@@ -64,7 +64,7 @@ class CenterView(Enum):
 
 @dataclass(frozen=True, slots=True)
 class MapOptions:
-    """Qué permite el mapa de un módulo ('AppModule.map_options'; docs/MAPA.md, §2.6).
+    """Qué permite el mapa de un módulo ('AppModule.map_options'; docs/MOD_TRACKS.md, §2.6).
 
     Attributes:
         allow_geotag: Ubicar fotos soltándolas en el mapa y mover las ya ubicadas (Imagen,

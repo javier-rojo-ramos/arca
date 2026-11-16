@@ -1,4 +1,4 @@
-// Página del mapa de Arca Media (docs/MAPA.md). La carga ui_helpers/map/web_backend.py.
+// Página del mapa de Arca Media (docs/MOD_TRACKS.md). La carga ui_helpers/map/web_backend.py.
 //
 // REGLA: esta página solo PINTA y AVISA. No guarda más estado que lo que dibuja, no
 // decide nada y no cambia datos. Python llama a las funciones de 'arca' (siempre con

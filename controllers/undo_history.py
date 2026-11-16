@@ -1,6 +1,6 @@
 """Deshacer (Ctrl+Z) en toda la aplicación: un solo historial de cambios.
 
-Acordado con el autor el 13/11/2026 (docs/PENDIENTE.md, B; docs/MAPA.md, paso 3.4): cada
+Acordado con el autor el 13/11/2026 (docs/PENDIENTE.md, B; docs/MOD_TRACKS.md, paso 3.4): cada
 cambio que se puede deshacer deja aquí un PASO con su descripción y la forma de deshacerlo;
 Ctrl+Z, en cualquier sitio de la ventana, deshace el último. Las cajas de texto conservan
 su propio Ctrl+Z mientras se escribe en ellas (Qt les da preferencia).
@@ -21,7 +21,7 @@ Uso (en el controlador principal, que solo lo crea y lo conecta):
     historial.undone.connect(...)                         # «Deshecho: ubicar 3 fotos»
     historial.push(UndoStep("ubicar 3 fotos", funcion))   # quien hace un cambio
 
-1.0.0 Primera versión (docs/MAPA.md, paso 3.4).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 3.4).
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.undo_history

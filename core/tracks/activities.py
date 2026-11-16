@@ -42,7 +42,7 @@ está en los catálogos y en los '.arca.json') y, si tiene variantes, en '_ALIAS
 
 1.1.0 'activity_key': lo que se guarda (lo que no se reconoce, «Otra actividad»); el texto
       de 'generic' pasa de «Otra» a «Otra actividad» (paso 4.6b).
-1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.6a).
+1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.6a).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.tracks.activities

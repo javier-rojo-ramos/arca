@@ -25,14 +25,14 @@ atajos de clasificación («3», «P»...) y la G (volver a la cuadrícula) func
 mapa a la vista. Al hacer clic en el mapa, el foco viene aquí (la primera de sus capas
 que lo acepta).
 
-Diseño en docs/MAPA.md (§2.6).
+Diseño en docs/MOD_TRACKS.md (§2.6).
 
 1.2.0 La banda del perfil de elevación entre el mapa y la tira (paso 5.3a): 'profile',
       'set_profile_visible', 'set_profile_height', 'profile_resized'; los altos de las
       dos bandas se reparten juntos.
 1.1.0 La tira de fotos debajo del mapa, con un separador para su alto (paso 3.1):
       'filmstrip', 'set_filmstrip_visible', 'set_filmstrip_height', 'filmstrip_resized'.
-1.0.0 Primera versión (docs/MAPA.md, paso 2.3).
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 2.3).
 """
 
 __version__ = "1.2.0"

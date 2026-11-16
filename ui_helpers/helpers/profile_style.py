@@ -33,7 +33,7 @@ Uso:
 1.0.1 'slope_mode' admite el texto del modo ('"line"') y lo convierte en 'SlopeMode': desde
       el desplegable de la ventana de prueba llegaba como texto y el perfil salía sin
       colores en los tres modos (lo vio el autor).
-1.0.0 Primera versión (15/11/2026; docs/MAPA.md, paso 5.2).
+1.0.0 Primera versión (15/11/2026; docs/MOD_TRACKS.md, paso 5.2).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.helpers.profile_style

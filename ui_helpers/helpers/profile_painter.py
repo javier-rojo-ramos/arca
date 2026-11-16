@@ -32,7 +32,7 @@ La curva es la altitud SUAVIZADA del perfil; los números (cabecera, etiqueta), 
 altitud sin suavizar ('core/tracks/profile.py'). Todos los colores y grosores salen del
 estilo ('profile_style.py').
 
-1.0.0 Primera versión (15/11/2026; docs/MAPA.md, paso 5.2).
+1.0.0 Primera versión (15/11/2026; docs/MOD_TRACKS.md, paso 5.2).
 """
 
 __version__ = "1.0.0"

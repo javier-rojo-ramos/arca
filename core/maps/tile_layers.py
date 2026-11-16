@@ -1,7 +1,7 @@
 """Capas del mapa: la LISTA de servicios de teselas que ofrece la aplicación.
 
 Este módulo NO depende de Qt ni de la red: es una lista declarativa y unas pocas cuentas.
-Diseño completo en docs/MAPA.md (§3).
+Diseño completo en docs/MOD_TRACKS.md (§3).
 
 Una TESELA es un cuadrado (256 px) del mapa, identificado por su nivel de zoom 'z' y su
 columna 'x' y su fila 'y' (el esquema de casi todos los mapas web: en el zoom z hay
@@ -21,7 +21,7 @@ Condiciones de las capas de partida (leídas el 13/11/2026; direcciones comproba
     OpenTopoMap (topográfico mundial)           gratuito con uso moderado; CC BY-SA.
 
 CAPAS DEL USUARIO (por durabilidad: si un servicio cambia de dirección o cierra, se corrige
-sin tocar el código; docs/MAPA.md, §1.5): las añade el usuario en Opciones > Mapa y se
+sin tocar el código; docs/MOD_TRACKS.md, §1.5): las añade el usuario en Opciones > Mapa y se
 guardan en settings.json ('map_user_layers'). Llevan una clave 'user_N' y van detrás de las
 de fábrica ('all_layers'). Su dirección se comprueba con 'check_url_template'. Sus
 teselas se guardan en la caché como '.png' aunque sean JPEG: al servirlas, el tipo se
@@ -34,7 +34,7 @@ identifica con 'user_agent'.
 1.1.0 Capas del usuario: 'user_layer', 'check_url_template', 'all_layers', 'new_user_key',
       'user_layers_from_settings' y 'user_layers_to_settings'.
 1.0.1 Orden de las capas decidido por el autor.
-1.0.0 Primera versión (docs/MAPA.md, paso 1.1): cinco capas y 'user_agent'.
+1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 1.1): cinco capas y 'user_agent'.
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.maps.tile_layers

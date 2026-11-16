@@ -32,7 +32,7 @@ Uso (el inspector lo lanza con 'execute_async'):
 1.2.0 La actividad de varios tracks: unos con ella y otros sin ninguna es 'MIXED' (antes,
       los que no tenían se ignoraban y salía la de los demás: lo vio el autor).
 1.1.0 La actividad, por su clave ('normalize_activity'; paso 4.6a).
-1.0.0 Primera versión (14/11/2026; docs/MAPA.md, paso 4.4).
+1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.4).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.track_stats
