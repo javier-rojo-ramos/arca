@@ -108,6 +108,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 16/11/2026: plan para preparar el crecimiento (`GEN 11` a `GEN 19` en `PENDIENTE.md`): qué se refactoriza y qué pasa a ser común antes de los módulos nuevos. Sin cambios de código.
 - 16/11/2026: módulo Ebooks definido como punto de partida (`MOD_EBOOKS.md`, fases `EBK 1` a `EBK 11`, categoría propia en `PENDIENTE.md`); borrado un archivo temporal de `controllers/`. Sin cambios de código.
 - 16/11/2026: nuevo `MOD_CATALOGO.md` (a posteriori, desde el código): con él, un documento `MOD_` por módulo. `FLUJOS.md` §9 y §11, al día (Vídeo, Audio y Tracks tienen su módulo). Sin cambios de código.
 - 16/11/2026: nuevo `MOD_IMAGEN.md`, escrito a posteriori desde el código: cómo funciona hoy el módulo Imagen, dónde está cada cosa y lo que falta. Sin cambios de código.
@@ -117,4 +118,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 16/11/2026: módulo Música definido (`MOD_MUSICA.md`, fases `MUS 1` a `MUS 10`); regla nueva de los archivos del usuario: lo editado se guarda en el propio archivo, sin copias (también el audio y, más adelante, los GPX: D2 de Tracks, decidida). Sin cambios de código.
 - 16/11/2026: documentación: `PENDIENTE.md` reorganizado por categorías (GENERAL, CATÁLOGO, IMAGEN, MÚSICA, VÍDEO, TRACKS), en fases y pasos (`GEN 1`, `TRK 6.3`...), con la equivalencia con la numeración anterior; referencias de los demás documentos, al día. `MAPA.md` pasa a llamarse `MOD_TRACKS.md` (un documento `MOD_` por módulo); en el código, solo ese nombre en los comentarios.
 - 15/11/2026: mapa: cada módulo vuelve a su encuadre (al arrancar, al volver de otro módulo) si tiene elegido lo mismo; se guarda por catálogo.
-- 15/11/2026: con una sola vista (Audio), su botón de vista se ve, marcado.

@@ -21,7 +21,7 @@
 | Palabras clave: leer, asignar, gestionar el árbol | Hecho y verificado |
 | Metadatos: lectura con ExifTool y edición (título, pie, creador, copyright, ubicación, GPS) | Hecho y verificado con JPEG, HEIC y DNG; otros RAW, sin probar (`IMG 2`) |
 | Miniaturas (cuatro tamaños) | Hecho y verificado; las de los vídeos, pendientes (`VID 4.1`) |
-| Perfil de tarjeta, reconocimiento facial, ubicar por la hora con un GPX | Pendiente (`IMG 1`, `IMG 3`, `TRK 8`) |
+| Perfil de tarjeta, reconocimiento facial, ubicar por la hora con un GPX | Pendiente (`GEN 16` e `IMG 1`, `IMG 3`, `TRK 8`) |
 
 ---
 
@@ -124,7 +124,7 @@ Lo que falta del módulo, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí
 
 | Fase | Qué | Notas |
 |---|---|---|
-| `IMG 1` | Perfil de tarjeta | Proporción y líneas de información (dimensiones, duración...). Es la «tarjeta configurable por perfiles» del plan de interfaz: sirve a los demás módulos |
+| `IMG 1` | La tarjeta de Imagen | Sus líneas de información (dimensiones, duración...), con el perfil de tarjeta común (`GEN 16`) |
 | `IMG 2` | Verificar los RAW con ExifTool real | `inspect_cli --campos` con NEF, CR2/CR3, ARW, ORF, RW2, PEF, RAF y WebP, comparando con Lightroom |
 | `IMG 3` | Reconocimiento facial | Personas como palabras clave especiales; importar las regiones de caras de Lightroom; por decidir, la detección propia |
 
@@ -136,6 +136,8 @@ Lo que falta del módulo, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí
 | `GEN 2` | Más metadatos editables: la fecha (en su ventana), el estado del copyright, el género y la escena |
 | `GEN 4` | Miniaturas, extras: PSD, `rawpy` (también para el 1:1 de los RAW), insignia «editada en Lightroom» |
 | `GEN 7` | Guardar el filtro activo como colección inteligente |
+| `GEN 13` | Una sola barra de biblioteca: la de Imagen pasa a `LibrarySidebar` |
+| `GEN 16` | Perfil de tarjeta, común a todos los módulos |
 | `GEN 8` | Sección «Ubicación» del inspector con el mapa; el rumbo de la foto en el mapa |
 | `VID 4.1` | Fotograma de los vídeos con `ffmpeg`: da miniatura también a los vídeos de Imagen |
 | `TRK 8` | Ubicar fotos por la hora con un GPX; las fotos de una ruta |

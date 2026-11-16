@@ -132,7 +132,7 @@ Regla del 16/11/2026: lo editado se guarda en el propio archivo, sin generar cop
 
 - **Toolbar**: un botón más, «Libros», con su icono.
 - **Barra izquierda**: «Biblioteca - Libros» (todos, «No leídos», «Selección rápida»), «Carpetas», «Autores» (autor ▸ serie), «Series», «Materias», «Idiomas» y «Años». Dadas de alta en `section_registry.py`.
-- **Centro**: la cuadrícula de portadas y la vista de lista (`MUS 5`). Doble clic abre el libro con el programa del sistema (E8).
+- **Centro**: la cuadrícula de portadas y la vista de lista (`GEN 18`). Doble clic abre el libro con el programa del sistema (E8).
 - **Inspector**: sección «Libro» (título, autor, serie, editorial, idioma, año, ISBN, materias, páginas, formato, protegido; la sinopsis, plegable), primero de solo lectura; después, editable, también con varios libros («Varios»).
 - **Orden, filtros y colecciones inteligentes** (grupo «Libros electrónicos»): autor, título, serie y número, año, editorial, idioma, formato, leído, protegido.
 
@@ -183,7 +183,7 @@ Cada paso deja la aplicación funcionando. Hasta `EBK 6` no se escribe en ningú
 
 - **EBK 5.1** «Autores» (autor ▸ serie) y «Series».
 - **EBK 5.2** «Materias», «Idiomas» y «Años».
-- **EBK 5.3** La vista de lista (la de `MUS 5`) y las listas que se recorren con las flechas (lo de `MUS 4.3`).
+- **EBK 5.3** La vista de lista (`GEN 18`) y las listas que se recorren con las flechas (lo de `MUS 4.3`).
 
 ### Fase EBK 6 — Leído / no leído y abrir
 
@@ -192,7 +192,7 @@ Cada paso deja la aplicación funcionando. Hasta `EBK 6` no se escribe en ningú
 
 ### Fase EBK 7 — Escribir en los archivos
 
-Sin interfaz: se prueba con copias.
+Sin interfaz: se prueba con copias. Antes, `GEN 14` (los escritores, con una interfaz común).
 
 - **EBK 7.1** Escritor de EPUB (el OPF dentro del ZIP), con las comprobaciones de §7.
 - **EBK 7.2** En la cola de escritura: los campos en `editable_fields.py` y el escritor en `sync.py`; lo que no sabe guardar, y los libros con DRM, al `.arca.json`.
@@ -206,7 +206,7 @@ Sin interfaz: se prueba con copias.
 
 ### Fase EBK 9 — Un libro, varios formatos
 
-Una tarjeta por libro cuando hay varios archivos del mismo (EPUB, MOBI, PDF): mismo nombre en la misma carpeta, o la carpeta de Calibre. Con el mecanismo de la tarjeta agrupada de Vídeo (`VID 5.3`), así que va después de él.
+Una tarjeta por libro cuando hay varios archivos del mismo (EPUB, MOBI, PDF): mismo nombre en la misma carpeta, o la carpeta de Calibre. Con la tarjeta agrupada común (`GEN 17`), la misma de Vídeo.
 
 ### Fase EBK 10 — Internet
 

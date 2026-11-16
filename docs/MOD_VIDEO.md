@@ -130,7 +130,7 @@ Visto / no visto y los campos de texto de la ficha pasan por el mecanismo de edi
 ## 9. Interfaz
 
 - **Barra izquierda**: «Biblioteca - Vídeos» (todos, por tipo —películas, series, documentales, eventos deportivos—, «No vistos», «Sin ficha» y «Selección rápida»), «Carpetas», «Series» (serie ▸ temporada), «Géneros», «Directores», «Reparto» y «Años». Dadas de alta en `section_registry.py`. Las listas largas (reparto) llevan filtro, como la «Lista de palabras clave».
-- **Centro**: la cuadrícula de carteles; la **vista «Ficha»** (`VID 8`), al estilo de VisualDivX: el cartel en grande, el título, el año, la duración, las puntuaciones, la sinopsis, el director, el reparto, los datos técnicos y, en una serie, sus episodios; con «Reproducir» (abre el archivo en el reproductor del sistema, V7). La vista de lista de Música (`MUS 5`) sirve aquí.
+- **Centro**: la cuadrícula de carteles; la **vista «Ficha»** (`VID 8`), al estilo de VisualDivX: el cartel en grande, el título, el año, la duración, las puntuaciones, la sinopsis, el director, el reparto, los datos técnicos y, en una serie, sus episodios; con «Reproducir» (abre el archivo en el reproductor del sistema, V7). La vista de lista (`GEN 18`) sirve aquí.
 - **Inspector**: sección «Ficha» (resumen y, con `VID 6`, edición), y las de siempre. Visto / no visto: un botón en la ficha, una orden del menú y un atajo; se filtra en «Atributos».
 - **Orden, filtros y colecciones inteligentes** (grupo «Vídeo»): título, año, duración, tipo, género, director, actor, visto, puntuación de la web, resolución, códec, idioma.
 - **Ventanas**: «Identificar…» y la descarga por lotes.
@@ -154,7 +154,7 @@ Cuando la regla se equivoca, se corrige a mano sobre la selección: **«Agrupar 
 
 ### 10.2 Qué muestra la cuadrícula
 
-- **En los listados de títulos** («Todos», «Películas», «Series», un género, un director...): **una tarjeta por obra**. Una película es su tarjeta de siempre; una película en dos partes, una tarjeta; una serie, una tarjeta con su cartel y un número («24 episodios»). «Películas» es así la lista de películas, en la cuadrícula o en la vista de lista (`MUS 5`), con una fila por película.
+- **En los listados de títulos** («Todos», «Películas», «Series», un género, un director...): **una tarjeta por obra**. Una película es su tarjeta de siempre; una película en dos partes, una tarjeta; una serie, una tarjeta con su cartel y un número («24 episodios»). «Películas» es así la lista de películas, en la cuadrícula o en la vista de lista (`GEN 18`), con una fila por película.
 - **Al entrar en una serie** (doble clic, Intro, o serie ▸ temporada en la barra): sus episodios, una tarjeta por archivo.
 - **En «Carpetas»**: los archivos tal cual, como ahora.
 
@@ -166,7 +166,7 @@ Estrellas, marca, color, visto / no visto y palabras clave **se aplican a todos 
 
 ### 10.4 En el plan
 
-Primero, solo películas: un archivo, una obra, la cuadrícula como está (el esquema ya lleva la tabla de obras). La tarjeta agrupada, «Agrupar» y «Separar» llegan con las series (`VID 5.3`).
+Primero, solo películas: un archivo, una obra, la cuadrícula como está (el esquema ya lleva la tabla de obras). La tarjeta agrupada, «Agrupar» y «Separar» llegan con las series (`VID 5.3`), sobre la tarjeta agrupada común (`GEN 17`, que usará también Ebooks).
 
 ## 11. Riesgos
 
@@ -233,6 +233,8 @@ Cada paso deja la aplicación funcionando. Hasta `VID 6` no hace falta internet.
 | **VID 6.6** Lo identificado y lo editado, en el `.arca.json`; se recupera al recrear el catálogo |
 
 ### Fase VID 7 — Descargar de la web
+
+Antes: la base común de los servicios web (`GEN 19`) y los trabajos fuera del controlador principal (`GEN 15`).
 
 | Paso | Objetivo |
 |---|---|

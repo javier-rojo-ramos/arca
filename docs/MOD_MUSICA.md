@@ -146,7 +146,7 @@ Un archivo puede traer varios géneros o varios artistas. En la primera versión
 ## 7. Interfaz
 
 - **Barra izquierda** (`MUS 4`): «Artistas» (artista del álbum ▸ álbum; si falta, el artista), «Géneros» y «Años» (la sección «Fechas» que ya existe, si sirve con fechas de solo año). Secciones dadas de alta en `section_registry.py`: se pliegan, se ocultan y se reordenan como las demás.
-- **Centro**: la cuadrícula (con la carátula) y la **vista de lista** (`MUS 5`), estilo Mp3tag: columnas a elegir, orden por columna y selección múltiple, compartida con la cuadrícula. Opcional: vista de álbumes.
+- **Centro**: la cuadrícula (con la carátula) y la **vista de lista** (`GEN 18`, común a todos los módulos; lo de Música, en `MUS 5`), estilo Mp3tag: columnas a elegir, orden por columna y selección múltiple, compartida con la cuadrícula. Opcional: vista de álbumes.
 - **Inspector**: sección «Audio» (`MUS 2`), primero de solo lectura; con `MUS 7`, editable, también con varias canciones («Varios» y el aviso «Edición múltiple», como en «Metadatos»). Palabras clave y clasificación, como en todos los módulos.
 - **Ventanas, solo para lo pesado o por lotes** (plan de interfaz): las herramientas de `MUS 8`.
 
@@ -200,6 +200,8 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 
 ### Fase MUS 5 — Vista de lista
 
+> **Cambiado el 16/11/2026**: la vista de lista pasa a ser una fase general (`GEN 18`: la lista y sus columnas a elegir, 5.1 y 5.2 de abajo); de Música quedan sus columnas y la vista de álbumes (5.3).
+
 Estilo Mp3tag. Es una vista más del centro, pensada para servir a otros módulos.
 
 | Paso | Objetivo | Aceptación |
@@ -210,7 +212,7 @@ Estilo Mp3tag. Es una vista más del centro, pensada para servir a otros módulo
 
 ### Fase MUS 6 — Escribir en los archivos
 
-Sin interfaz: se prueba con copias antes de que nada lo use.
+Sin interfaz: se prueba con copias antes de que nada lo use. Antes, `GEN 14` (los escritores, con una interfaz común).
 
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|

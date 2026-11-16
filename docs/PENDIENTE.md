@@ -20,6 +20,7 @@
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
+- **Preparar el crecimiento** (16/11/2026): primero `GEN 11` (guion de autopruebas) y `GEN 13` (una sola barra de biblioteca); después `GEN 12` (ficha por módulo), antes de `EBK 1`; `GEN 14` (escritores), antes de `MUS 6`; `GEN 15` (trabajos fuera del controlador), antes de `VID 7`. `MUS 1` a `MUS 3` y `VID 1` a `VID 4` no dependen de nada de esto.
 
 ---
 
@@ -83,13 +84,57 @@ De [MOD_TRACKS.md](MOD_TRACKS.md) §10, «Después (sin fecha)»:
 
 Pedir a ExifTool solo las etiquetas necesarias, `-stay_open` o varios procesos; un grupo de hilos propio para los trabajos (hoy comparten los 4 del gestor de BD: metadatos o escritura, miniaturas y añadir carpeta pueden ocupar 3 a la vez); más índices (p. ej. por valoración).
 
+### Preparar el crecimiento (`GEN 11` a `GEN 19`)
+
+Acordado con el autor el 16/11/2026, tras analizar el código ([DECISIONES.md](DECISIONES.md)): lo que conviene refactorizar o hacer común **antes** de los módulos nuevos, para que no lo pague cada uno por separado. Son refactorizaciones: no cambian lo que hace la aplicación, y cada una va en su paso, sin mezclarla con una funcionalidad. El orden, en «En curso».
+
+### Fase GEN 11 — Guion de autopruebas
+
+Un guion que ejecute de una vez todas las autopruebas que no abren ventana ([PRUEBAS.md](PRUEBAS.md) lista unas 144 órdenes y nada las lanza juntas) y diga cuáles fallan. Es la red de seguridad de las demás refactorizaciones.
+
+### Fase GEN 12 — Una ficha por módulo
+
+Dar de alta Tracks tocó unos 21 archivos: el nombre, el icono, el botón, la clave del modo y los textos de cada tipo («1 foto», «1 track») están repartidos (`app_constants.py`, `mode_toolbar.py`, `registry.py`, `formatting.py`, `selection_section.py`...). Reunir lo que describe a cada módulo y a cada biblioteca en un solo sitio, del que lean los demás. Antes de `EBK 1`.
+
+### Fase GEN 13 — Una sola barra de biblioteca
+
+`ImageSidebar` y `LibrarySidebar` (la de Tracks, Vídeo y Audio) comparten el 61 % de sus líneas de código, y hay dos módulos base (`ImageModule` y `LibraryModule`). Que la barra reciba la lista de sus secciones y pasar Imagen a ella (con la «Lista de palabras clave» como una sección más). Antes de `MUS 4`, `VID 5` y `EBK 5`, que añaden secciones propias.
+
+### Fase GEN 14 — Escritores con una interfaz común
+
+`core/userdata/sync.py` conoce sus dos destinos por nombre (`_write_xmp_items`, `_write_folder_items`) y cada campo editable lleva dentro su etiqueta XMP (`xmp_tag`, `legacy_tags`). Una interfaz de escritor (qué formatos, qué campos, escribir, comprobar) con su registro, como los extractores; la tabla campo → etiqueta, en cada escritor. Primero se pasan a ella los dos de hoy (XMP y `.arca.json`) sin cambiar lo que hacen, con la autoprueba de `sync` como comprobación. Antes de `MUS 6` y `EBK 7`.
+
+### Fase GEN 15 — Los trabajos, fuera del controlador principal
+
+`main_window_controller.py` tiene 2 026 líneas y 80 métodos; la cadena metadatos → miniaturas → escritura, con sus esperas, vive ahí. Sacarla a su módulo (nombres, títulos, encadenado, progreso) y, en pasos aparte, lo de añadir carpeta, quitar ausentes y eliminar. Con ello, el grupo de hilos propio para los trabajos (de `GEN 10`) y, al mover cada bloque, sus nombres en inglés. Antes de `VID 7` (descargas).
+
+### Fase GEN 16 — Perfil de tarjeta
+
+La «tarjeta configurable por perfiles» del plan de interfaz: la proporción y las líneas de información de la tarjeta, por biblioteca (hoy, una tabla de proporciones y un caso especial para los carteles en el delegado). Lo necesitan Música (cuadrada), Vídeo (cartel) y Ebooks; lo propio de Imagen, en `IMG 1`.
+
+### Fase GEN 17 — Tarjeta agrupada
+
+Una tarjeta que representa a varios archivos (uno de ellos y el recuento); entrar muestra los archivos; las acciones, a todos. Diseñada una vez para Vídeo (obras: `VID 5.3`; [MOD_VIDEO.md](MOD_VIDEO.md) §10) y Ebooks (un libro en varios formatos: `EBK 9`).
+
+### Fase GEN 18 — Vista de lista
+
+Una vista más del centro, estilo Mp3tag, para todos los módulos.
+
+- **GEN 18.1** La lista, con la selección compartida con la cuadrícula y los atajos de clasificación.
+- **GEN 18.2** Columnas a elegir, moverlas, su ancho y el orden por columna; recordado por módulo.
+
+Las columnas de cada módulo, en su fase (`MUS 5`, `EBK 5.3`).
+
+### Fase GEN 19 — Base común de los servicios web
+
+Vídeo, Ebooks y Música descargarán datos, cada uno de su proveedor, y los tres necesitan lo mismo: identificarse, limitar las peticiones, guardar en caché, la clave en Opciones y un trabajo cancelable. Antes del primero (`VID 7`).
+
 ### Mejoras menores (GENERAL)
 
 - **Cuadrícula**: recordar el desplazamiento exacto de cada módulo (desde el 12/11/2026 cada módulo recuerda su archivo actual, que queda a la vista al volver, pero no la posición; al recargar con el mismo origen, la posición se conserva); refresco por filas al terminar los metadatos (hoy recarga entera); recargar una colección inteligente que se está viendo cuando un elemento deja de cumplir las reglas; un módulo sin cuadrícula oculta el deslizador (y el orden, si no ofrece campos).
 - **Vista individual**: mantener el 1:1 y la zona al pasar de foto (como Lightroom, para comparar el enfoque de una ráfaga); más niveles de zoom con Ctrl + rueda (2:1, 4:1, para ver los píxeles).- **Inspector**: en «Metadatos», una vista «Personalizada» (el usuario elige los campos; en `settings.json`) y vistas IPTC y DNG; miniatura grande arriba cuando la selección es de una sola biblioteca.
 - **Palabras clave**: fusionar dos palabras (hoy, renombrar una con el nombre de otra hermana avisa); arrastrar una palabra a otra para moverla; «Mover a…» con un árbol filtrable si la lista se hace larga; «Conjuntos de palabras clave» personalizables (como Lightroom) junto a «Últimas palabras clave»; quitar una palabra de «Últimas» sin borrarla. Opcional: importar el `.txt` de *Metadatos > Exportar palabras clave* de Lightroom (palabras sin usar, categorías entre corchetes → `include_on_export = 0`, sinónimos entre llaves); importador de solo lectura del catálogo de Lightroom (`.lrcat`) para traer palabras, valoraciones y colecciones de los vídeos.
 - **Secciones de las barras** (personalizables desde el 14/11/2026; [FLUJOS.md §9](FLUJOS.md)): si se quiere, mover una sección de una barra a la otra (el registro ya lo admite: `SectionSpec.sidebars`; faltaría que la sección sirva en las dos y revisar `reset` de una sola barra); un icono propio para la página «Paneles».
-- **Una sola barra de biblioteca**: `ImageSidebar` y `LibrarySidebar` (la de Tracks, Vídeo y Audio) hacen casi lo mismo; pasar Imagen a `LibrarySidebar` con la «Lista de palabras clave» como sección opcional. Es una refactorización: paso aparte.
 - **«Abrir en su módulo»**: atajo de navegación («ver esta foto en su línea de tiempo»), con baja prioridad.
 - **Mapa**: si se quiere, la distancia a la que el punto ámbar engancha la línea del track activo (`HOVER_PX`, 24 px), como opción en Opciones > Mapa.
 - **Aspecto**: fuente de la aplicación (incluida en `resources/fonts`, p. ej. Inter, con tamaño fijo); esquinas redondeadas de los menús; si el autor lo pide, una opción para que la etiqueta de color sea una franja inferior en lugar de teñir la tarjeta.
@@ -127,9 +172,9 @@ Cómo funciona hoy y dónde está cada cosa: [MOD_CATALOGO.md](MOD_CATALOGO.md).
 
 Cómo funciona hoy el módulo y dónde está cada cosa: [MOD_IMAGEN.md](MOD_IMAGEN.md).
 
-### Fase IMG 1 — Perfil de tarjeta
+### Fase IMG 1 — La tarjeta de Imagen
 
-Proporción y líneas de información (dimensiones, duración...); las de la vista individual ya se piden por archivo (`fetch_media_file`). Es la «tarjeta configurable por perfiles» del plan de interfaz: lo que se haga aquí sirve a los demás módulos. Pasos, por definir.
+Las líneas de información de la tarjeta de Imagen (dimensiones, duración...; las de la vista individual ya se piden por archivo: `fetch_media_file`), con el perfil de tarjeta común (`GEN 16`).
 
 ### Fase IMG 2 — Verificar los RAW con ExifTool real
 
@@ -169,12 +214,11 @@ Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso (a
 - **MUS 4.2** Secciones «Géneros» y «Años».
 - **MUS 4.3** Listas que se recorren con las flechas (álbumes; vale también para las películas, `VID 5.4`): el detalle, en [MOD_MUSICA.md](MOD_MUSICA.md).
 
-### Fase MUS 5 — Vista de lista
+### Fase MUS 5 — La lista en Música
 
-Estilo Mp3tag; una vista más del centro, que sirve a otros módulos.
+La vista de lista es de todos los módulos (`GEN 18`). Aquí, lo de Música:
 
-- **MUS 5.1** La lista, con la selección compartida con la cuadrícula.
-- **MUS 5.2** Columnas a elegir y orden por columna.
+- **MUS 5.1** Sus columnas (título, artista, álbum, pista, año, duración...).
 - **MUS 5.3** Opcional: vista de álbumes con su carátula.
 
 ### Fase MUS 6 — Escribir en los archivos
@@ -241,7 +285,7 @@ Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso y 
 
 - **VID 5.1** «Biblioteca - Vídeos» por tipo; «Sin ficha».
 - **VID 5.2** «Géneros», «Directores», «Reparto» y «Años».
-- **VID 5.3** Series: sección «Series» (serie ▸ temporada), la tarjeta agrupada (una por obra, con su recuento) y «Agrupar en una obra» / «Separar».
+- **VID 5.3** Series: sección «Series» (serie ▸ temporada) y «Agrupar en una obra» / «Separar», sobre la tarjeta agrupada común (`GEN 17`).
 - **VID 5.4** Listas que se recorren con las flechas (lo de `MUS 4.3`).
 
 ### Fase VID 6 — Visto / no visto y ficha a mano
@@ -316,7 +360,7 @@ Definido con el autor el 16/11/2026, como punto de partida. La arquitectura, lo 
 
 - **EBK 5.1** Secciones «Autores» (autor ▸ serie) y «Series».
 - **EBK 5.2** Secciones «Materias», «Idiomas» y «Años».
-- **EBK 5.3** La vista de lista (la de `MUS 5`) y las listas que se recorren con las flechas (lo de `MUS 4.3`).
+- **EBK 5.3** La vista de lista (`GEN 18`) y las listas que se recorren con las flechas (lo de `MUS 4.3`).
 
 ### Fase EBK 6 — Leído / no leído y abrir
 
@@ -339,7 +383,7 @@ Sin interfaz: se prueba con copias.
 
 ### Fase EBK 9 — Un libro, varios formatos
 
-Una tarjeta por libro (EPUB, MOBI y PDF del mismo), con el mecanismo de la tarjeta agrupada de Vídeo: va después de `VID 5.3`.
+Una tarjeta por libro (EPUB, MOBI y PDF del mismo), con la tarjeta agrupada común (`GEN 17`).
 
 ### Fase EBK 10 — Internet
 
@@ -413,8 +457,8 @@ Para leer [HISTORIAL.md](HISTORIAL.md), [DECISIONES.md](DECISIONES.md) y las cab
 | Antes | Ahora |
 |---|---|
 | A.3 (lo que queda: guardar el filtro como colección inteligente) | `GEN 7` |
-| A.4 (módulo Imagen completo) | `IMG 1` |
-| A.5 (vista de lista; vista de mapa) | `MUS 5`; `GEN 8` y las fases de TRACKS |
+| A.4 (módulo Imagen completo) | `GEN 16`; `IMG 1` |
+| A.5 (vista de lista; vista de mapa) | `GEN 18` y `MUS 5`; `GEN 8` y las fases de TRACKS |
 | A.6 (módulos Vídeo, Audio y Tracks) | `MUS 1` a `MUS 10`, `VID 1` a `VID 10`, fases de TRACKS |
 | A.7 («Abrir en su módulo») | Mejoras menores (GENERAL) |
 | B (mejoras anotadas) | Las «Mejoras menores» de cada categoría; el deshacer, `GEN 1`; el reconocimiento facial, `IMG 3`; la edición para Audio y Vídeo, `MUS 6`, `MUS 7` y `VID 6` |
