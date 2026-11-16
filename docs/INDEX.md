@@ -11,7 +11,7 @@ Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (W
 | Documento | Qué contiene | Cuándo leerlo |
 |---|---|---|
 | [ESTADO.md](ESTADO.md) | Lo verificado, lo entregado pendiente de verificar, lo nunca probado y los últimos cambios | Siempre, al empezar |
-| [PENDIENTE.md](PENDIENTE.md) | Hoja de ruta por categorías (GENERAL y una por módulo: CATÁLOGO, IMAGEN, MÚSICA, VÍDEO y TRACKS), en fases y pasos (`TRK 6.3`); al final, la equivalencia con la numeración anterior (A, B, C) | Al decidir el siguiente paso |
+| [PENDIENTE.md](PENDIENTE.md) | Hoja de ruta por categorías (GENERAL y una por módulo: CATÁLOGO, IMAGEN, MÚSICA, VÍDEO, EBOOKS y TRACKS), en fases y pasos (`TRK 6.3`); al final, la equivalencia con la numeración anterior (A, B, C) | Al decidir el siguiente paso |
 | [ARQUITECTURA.md](ARQUITECTURA.md) | Principios, componentes, reglas de arquitectura, **mapa del proyecto (qué hace cada archivo)** y qué corre en cada hilo | Para orientarse o encontrar dónde está algo |
 | [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) | Convenciones de los datos, tablas, bloques de columnas (quién escribe cada una), migraciones | Al tocar la base de datos o una consulta |
 | [FLUJOS.md](FLUJOS.md) | Paso a paso de cada operación: arranque, catálogo, añadir carpeta, metadatos, miniaturas, cuadrícula, datos del usuario, opciones, barra lateral, cierre, módulos, inspector, eliminar, barra inferior, barra de filtros | Al cambiar el comportamiento de una operación |
@@ -22,13 +22,14 @@ Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (W
 | [MOD_IMAGEN.md](MOD_IMAGEN.md) | **Módulo Imagen** (fotos y vídeos personales): cómo funciona hoy (barra, vistas, inspector, filtros, datos, lo que se guarda en los archivos, miniaturas), dónde está cada cosa y lo que falta (`IMG 1` a `IMG 3` y lo de otras categorías que le afecta). Escrito a posteriori, desde el código | Para orientarse en el módulo Imagen |
 | [MOD_MUSICA.md](MOD_MUSICA.md) | **Módulo Música** (Audio): arquitectura prevista (mutagen, `audio_details`, tabla campo ↔ etiqueta, escritura en los archivos, carátulas) y plan en fases `MUS 1` a `MUS 10`. Diseño acordado el 16/11/2026; sin implementar | Antes de cada paso del módulo Música |
 | [MOD_VIDEO.md](MOD_VIDEO.md) | **Módulo Vídeo** (películas, series, documentales...): arquitectura prevista (fichas por obra, una tarjeta por obra, géneros y personas, descarga de la web, visto / no visto) y plan en fases `VID 1` a `VID 10`. Diseño acordado el 16/11/2026; sin implementar | Antes de cada paso del módulo Vídeo |
+| [MOD_EBOOKS.md](MOD_EBOOKS.md) | **Módulo Ebooks** (Libros): lo básico de los formatos (EPUB, PDF, Kindle) y arquitectura prevista (lectura, portadas, escritura en EPUB, convivencia con Calibre); plan en fases `EBK 1` a `EBK 11`. Diseño acordado el 16/11/2026 como punto de partida; sin implementar | Antes de cada paso del módulo Ebooks |
 | [COMO_AMPLIAR.md](COMO_AMPLIAR.md) | La tabla «Quiero... → toco...» | Antes de añadir algo nuevo |
 | [PRUEBAS.md](PRUEBAS.md) | Autopruebas, ventanas que se abren solas, diagnóstico con ExifTool | Para comprobar un cambio |
 | [DECISIONES.md](DECISIONES.md) | Por qué las cosas son como son (con fecha) | Antes de cambiar algo que parece raro |
 | [TRAMPAS.md](TRAMPAS.md) | Comportamientos que sorprenden y errores fáciles de cometer | Antes de tocar un área delicada |
 | [HISTORIAL.md](HISTORIAL.md) | Registro de cambios y detalle de cómo se probó cada entrega | Solo si hace falta el detalle de algo pasado |
 
-**Un documento `MOD_` por módulo de la aplicación** (acordado el 16/11/2026): `MOD_<MÓDULO>.md` describe, por un lado, la arquitectura del módulo y, por otro, su planificación (fases y pasos, con los códigos de [PENDIENTE.md](PENDIENTE.md)). Existen los cinco: `MOD_CATALOGO.md`, `MOD_IMAGEN.md`, `MOD_MUSICA.md`, `MOD_VIDEO.md` y `MOD_TRACKS.md` (Ebooks no tiene módulo todavía).
+**Un documento `MOD_` por módulo de la aplicación** (acordado el 16/11/2026): `MOD_<MÓDULO>.md` describe, por un lado, la arquitectura del módulo y, por otro, su planificación (fases y pasos, con los códigos de [PENDIENTE.md](PENDIENTE.md)). Existen los cinco: `MOD_CATALOGO.md`, `MOD_IMAGEN.md`, `MOD_MUSICA.md`, `MOD_VIDEO.md` y `MOD_TRACKS.md`, y `MOD_EBOOKS.md` (su módulo aún no existe).
 
 Documentación por carpeta del código (detalle y recetas): [core/metadata/LEEME.md](../core/metadata/LEEME.md) · [core/thumbnails/LEEME.md](../core/thumbnails/LEEME.md) · [core/userdata/LEEME.md](../core/userdata/LEEME.md). Cada archivo `.py` explica en su cabecera qué hace y cómo se usa, y cada función, en su docstring.
 

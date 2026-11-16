@@ -7,18 +7,19 @@
 
 ## Cómo se nombra (desde el 16/11/2026)
 
-- Lo pendiente se agrupa en **categorías**: GENERAL (lo que comparten los módulos o no es de ninguno) y una por módulo: CATÁLOGO, IMAGEN, MÚSICA (el módulo Audio), VÍDEO y TRACKS.
-- Cada funcionalidad principal es una **fase**, con el código de su categoría y un número: `GEN 1`, `CAT 1`, `IMG 1`, `MUS 1`, `VID 1`, `TRK 6`. Sus **pasos** son `X.1`, `X.2`...: `TRK 6.3` es el paso 3 de la fase 6 de Tracks. Un paso que se parte lleva letra (`6.3a`, `6.3b`).
+- Lo pendiente se agrupa en **categorías**: GENERAL (lo que comparten los módulos o no es de ninguno) y una por módulo: CATÁLOGO, IMAGEN, MÚSICA (el módulo Audio), VÍDEO, EBOOKS (Libros) y TRACKS.
+- Cada funcionalidad principal es una **fase**, con el código de su categoría y un número: `GEN 1`, `CAT 1`, `IMG 1`, `MUS 1`, `VID 1`, `EBK 1`, `TRK 6`. Sus **pasos** son `X.1`, `X.2`...: `TRK 6.3` es el paso 3 de la fase 6 de Tracks. Un paso que se parte lleva letra (`6.3a`, `6.3b`).
 - Los números no se reutilizan: una fase terminada sale de aquí y su número queda libre para siempre. El número no fija el orden: el orden se decide al planificar (ver «En curso»).
 - Las fases de TRACKS conservan el número de [MOD_TRACKS.md](MOD_TRACKS.md) §10 (allí, las fases 0 a 3 fueron el mapa; la 4 y la 5, lo básico de Tracks y el perfil de elevación, hechas el 14 y el 15/11/2026).
 - Lo pequeño no es una fase: va en la lista **«Mejoras menores»** de su categoría, sin número.
-- Cada módulo tiene su documento `MOD_` ([MOD_CATALOGO.md](MOD_CATALOGO.md), [MOD_IMAGEN.md](MOD_IMAGEN.md), [MOD_TRACKS.md](MOD_TRACKS.md), [MOD_MUSICA.md](MOD_MUSICA.md), [MOD_VIDEO.md](MOD_VIDEO.md)), con su arquitectura y el detalle de sus fases; aquí, solo la lista.
+- Cada módulo tiene su documento `MOD_` ([MOD_CATALOGO.md](MOD_CATALOGO.md), [MOD_IMAGEN.md](MOD_IMAGEN.md), [MOD_TRACKS.md](MOD_TRACKS.md), [MOD_MUSICA.md](MOD_MUSICA.md), [MOD_VIDEO.md](MOD_VIDEO.md), [MOD_EBOOKS.md](MOD_EBOOKS.md)), con su arquitectura y el detalle de sus fases; aquí, solo la lista.
 - [HISTORIAL.md](HISTORIAL.md) y las cabeceras del código citan los bloques de antes (A.1 a A.7, B, C.1 a C.12): la tabla del final dice a qué corresponde cada uno.
 
 ## En curso
 
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
+- **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
 
 ---
 
@@ -77,10 +78,6 @@ De [MOD_TRACKS.md](MOD_TRACKS.md) §10, «Después (sin fecha)»:
 - **GEN 8.1** Sección «Ubicación» del inspector con el mapa.
 - **GEN 8.2** El rumbo de la foto (`gps_direction`), dibujado y editable en el mapa.
 - **GEN 8.3** Descarga de zonas para usarlas sin conexión.
-
-### Fase GEN 9 — Módulo Ebooks
-
-Sin categoría propia hasta que se planifique. Extractor de ebooks con su tabla de detalles; decidir si PDF y CBZ cuentan como ebook. El grupo «Ebooks» de las colecciones inteligentes existe vacío; en `resources/images` está `library_books.svg` sin registrar.
 
 ### Fase GEN 10 — Optimizaciones (cuando se midan)
 
@@ -286,6 +283,74 @@ Sagas en la barra; tráiler; importar y exportar `.nfo`; un proveedor para event
 
 ---
 
+## EBOOKS (Libros)
+
+Definido con el autor el 16/11/2026, como punto de partida. La arquitectura, lo básico de los formatos, el detalle de cada paso y las decisiones (E1 a E10), en [MOD_EBOOKS.md](MOD_EBOOKS.md). El módulo aún no existe. Hasta `EBK 6` no se escribe en ningún libro; el escritor (`EBK 7`) va antes que la edición (`EBK 8`). Antes de `EBK 2` hace falta una carpeta de prueba con libros reales (en el catálogo del autor no hay ninguno).
+
+### Fase EBK 1 — El módulo
+
+- **EBK 1.1** Botón en la toolbar, icono y `EbookModule` (sobre `LibraryModule`: biblioteca, carpetas y fechas).
+- **EBK 1.2** Los formatos que se catalogan: `.azw` y, solo en carpetas declaradas de libros, `.pdf`.
+
+### Fase EBK 2 — Leer los metadatos
+
+- **EBK 2.1** Lector de OPF y de EPUB (`core/ebooks/`): campos, portada y DRM.
+- **EBK 2.2** La tabla `ebook_details` (una migración).
+- **EBK 2.3** El extractor (`core/metadata/ebook/`, `EBOOK_FIELDS_VERSION`), con EPUB.
+- **EBK 2.4** El `metadata.opf` de Calibre, si está junto al libro.
+- **EBK 2.5** PDF y Kindle (MOBI, AZW3), con ExifTool: a comprobar con archivos reales.
+
+### Fase EBK 3 — Verlos
+
+- **EBK 3.1** Sección «Libro» del inspector, de solo lectura.
+- **EBK 3.2** Orden propio: autor, título, serie y número, año.
+- **EBK 3.3** Campos del grupo «Libros electrónicos» en filtros y colecciones inteligentes.
+
+### Fase EBK 4 — Portadas como miniatura
+
+- **EBK 4.1** La portada del EPUB y el `cover.jpg` de Calibre.
+- **EBK 4.2** La de MOBI / AZW3.
+- **EBK 4.3** La primera página del PDF (necesita una dependencia nueva: E4).
+
+### Fase EBK 5 — Navegar
+
+- **EBK 5.1** Secciones «Autores» (autor ▸ serie) y «Series».
+- **EBK 5.2** Secciones «Materias», «Idiomas» y «Años».
+- **EBK 5.3** La vista de lista (la de `MUS 5`) y las listas que se recorren con las flechas (lo de `MUS 4.3`).
+
+### Fase EBK 6 — Leído / no leído y abrir
+
+- **EBK 6.1** Leído / no leído: menú, atajo, filtro en «Atributos» y «No leídos» en la barra; en el `.arca.json`.
+- **EBK 6.2** Abrir el libro con el programa del sistema.
+
+### Fase EBK 7 — Escribir en los archivos
+
+Sin interfaz: se prueba con copias.
+
+- **EBK 7.1** Escritor de EPUB (el OPF dentro del ZIP), comprobando que el resto del libro no cambia.
+- **EBK 7.2** En la cola de escritura; lo que no sabe guardar, y los libros con DRM, al `.arca.json`.
+- **EBK 7.3** PDF con ExifTool, si la prueba con lectores reales sale bien (E5).
+
+### Fase EBK 8 — Editar
+
+- **EBK 8.1** Edición en la sección «Libro», de un libro y de varios.
+- **EBK 8.2** Cambiar la portada de un EPUB.
+- **EBK 8.3** Por lotes: nombre del archivo → título y autor; mayúsculas y minúsculas; buscar y reemplazar.
+
+### Fase EBK 9 — Un libro, varios formatos
+
+Una tarjeta por libro (EPUB, MOBI y PDF del mismo), con el mecanismo de la tarjeta agrupada de Vídeo: va después de `VID 5.3`.
+
+### Fase EBK 10 — Internet
+
+Datos y portada por ISBN, o por título y autor, como una edición más.
+
+### Fase EBK 11 — Extras (sin orden)
+
+Cómics (CBZ, CBR); FB2 completo; exportar un `metadata.opf` para Calibre.
+
+---
+
 ## TRACKS
 
 Plan revisado con el autor el 14/11/2026: lo básico, el perfil de elevación, la edición y la creación, de lo más útil a lo menos necesario. El detalle de cada paso (archivos, de qué depende, cómo se acepta) está en [MOD_TRACKS.md](MOD_TRACKS.md) §10; las decisiones, en §11.
@@ -358,7 +423,8 @@ Para leer [HISTORIAL.md](HISTORIAL.md), [DECISIONES.md](DECISIONES.md) y las cab
 | C.3 (miniaturas, extras) | `GEN 4` |
 | C.4 (datos del usuario, lo que falta) | `GEN 3`; la valoración en POPM, M5 de [MOD_MUSICA.md](MOD_MUSICA.md) |
 | C.5 (más metadatos editables) | `GEN 2` |
-| C.6 (extractores de audio y ebooks) | `MUS 1`; `GEN 9` |
+| C.6 (extractores de audio y ebooks) | `MUS 1`; `EBK 2` |
+| `GEN 9` (módulo Ebooks; solo del 16/11/2026) | La categoría EBOOKS: `EBK 1` a `EBK 11` |
 | C.7 (hashes) | `CAT 2` |
 | C.8 (archivos sueltos, ubicaciones solapadas) | `CAT 1` |
 | C.9 (empaquetado) | `GEN 5` |

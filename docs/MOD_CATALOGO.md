@@ -161,7 +161,7 @@ Lo que falta, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí está la li
 | `GEN 5` | Empaquetado |
 | `GEN 6` | La lista de errores de escaneo (`scan_errors`), las acciones de menú sin conectar y separar «Abrir catálogo» de «Nuevo catálogo» |
 | `GEN 7` | Guardar el filtro activo como colección inteligente |
-| `GEN 9` | Módulo Ebooks (la biblioteca `ebook` existe; no hay extractor ni módulo) |
+| `EBK 1` a `EBK 11` | Módulo Ebooks ([MOD_EBOOKS.md](MOD_EBOOKS.md)): la biblioteca `ebook` existe; no hay extractor ni módulo |
 | `GEN 10` | Optimizaciones: un grupo de hilos propio para los trabajos, más índices |
 
 ### Mejoras menores
