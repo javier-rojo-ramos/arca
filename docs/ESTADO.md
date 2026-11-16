@@ -11,7 +11,6 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Una sola barra de biblioteca (`GEN 13`)** (16/11/2026; refactorización: no debe notarse nada) | En **Imagen**, la barra izquierda como siempre: «Biblioteca - Imagen» (Todas las imágenes y Selección rápida, con sus números), «Carpetas», «Fechas» y «Lista de palabras clave». (1) Al abrir, lo desplegado y la fila elegida, como se dejaron (también una palabra clave o una fecha). (2) Elegir una carpeta, una fecha y una palabra cambia la cuadrícula. (3) El filtro de palabras: al escribir, la lista se reduce y la palabra elegida sigue mostrando sus fotos aunque no se vea. (4) La flecha «ver sus fotos» del inspector elige la palabra en la barra. (5) Plegar, ocultar y reordenar las secciones (menú y arrastre) y Opciones > «Paneles», igual. (6) «Mostrar en el Explorador» en una carpeta y la opción de las subcarpetas. En **Tracks, Vídeo y Audio**, su barra igual que antes |
 | **Guion de autopruebas (`GEN 11`)** (16/11/2026) | Desde la raíz, `.venv\Scripts\python.exe scripts/run_selftests.py`: lista 126 autopruebas con «ok» o «FALLO» y un resumen al final, en unos 20 segundos y **sin abrir ninguna ventana** (si se abre alguna, decirlo: hay que añadirla a `WINDOWED`). Hoy falla una, `core.thumbnails.cache`, que ya fallaba antes (ver «Comprobaciones sueltas»). Con `--list`, enseña cuáles ejecutaría y las tres con ventana que se salta |
 | **Mapa: cada módulo vuelve a su encuadre, también al reiniciar** (15/11/2026) | (1) En Tracks, elegir un track, encuadrarlo (o acercar a mano), cerrar y volver a abrir: el mapa sale **igual que al cerrar** (mismo centro y zoom), con el track seleccionado, sin encuadrar antes todo. (2) Sin reiniciar: Tracks → Imagen → Tracks (o Catálogo): cada módulo vuelve a su encuadre. (3) Al elegir otra carpeta o fecha en la barra, se encuadra todo, como siempre; si se vuelve a la de antes, también todo (solo se recuerda el último encuadre de cada módulo). (4) Con otro catálogo, el encuadre es el de ese catálogo. (5) «Encuadrar», la chincheta y elegir un track en la tira o la cuadrícula, igual que antes |
 | **Con una sola vista, su botón se ve** (15/11/2026) | En Audio (que solo tiene la cuadrícula), abajo a la izquierda, el botón de la cuadrícula, marcado (con el icono en el acento), y la raya de al lado. En los demás módulos, como siempre |
@@ -107,6 +106,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Módulos Vídeo y Audio, pasos 1 y 2** (15/11/2026; «todo funciona»): Tracks igual con `LibraryModule`; Vídeo y Audio, cada uno con su biblioteca y la barra de Tracks.
 - **Iconos de los botones de las barras, de 18 px** (15/11/2026; «genial»), con `BAR_ICON_SIZE`; y la toolbar de módulos con `TOOLBAR_ICON_SIZE`.
 - **Ctrl + clic en una tarjeta solo selecciona; totales del perfil con la mínima antes que la máxima** (15/11/2026; «genial»).
+- **Una sola barra de biblioteca (`GEN 13`)** (16/11/2026; «todo funciona»): Imagen con la barra y el módulo base comunes (`LibrarySidebar`, `LibraryModule`), sin cambio a la vista; Tracks, Vídeo y Audio, igual.
 
 ## Últimos cambios
 
