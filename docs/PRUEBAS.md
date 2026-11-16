@@ -14,6 +14,14 @@ python -m venv .venv                                                            
 
 Al regenerar `requirements.txt` desde PowerShell no se usa `>`: en Windows PowerShell 5.1 lo escribe en UTF-16 y Git lo trata como binario.
 
+**Todas las autopruebas de una vez** (16/11/2026; `scripts/run_selftests.py`): busca los módulos con autoprueba, lanza cada una en su proceso (varias a la vez; unos 20 segundos en total) y dice cuáles fallan, con el final de su salida. No ejecuta las que abren una ventana (su lista `WINDOWED`: **una autoprueba nueva que abra una ventana se añade ahí**); las demás entran solas, sin lista que mantener. Termina con código 0 si todas pasan.
+
+```
+python scripts/run_selftests.py                 # todas
+python scripts/run_selftests.py core.tracks     # solo las que contienen ese texto
+python scripts/run_selftests.py --list          # qué ejecutaría, sin ejecutar nada
+```
+
 **Autopruebas** (desde la raíz del proyecto; cada una termina con "Autoprueba finalizada correctamente"). Las que dicen «una ventana» (`organize_bar`, `theme_style`, `map_layer_dialog`) y las de `--ventana` se quedan abiertas hasta que alguien las cierra:
 
 ```

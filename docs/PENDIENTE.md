@@ -20,7 +20,7 @@
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
-- **Preparar el crecimiento** (16/11/2026): primero `GEN 11` (guion de autopruebas) y `GEN 13` (una sola barra de biblioteca); después `GEN 12` (ficha por módulo), antes de `EBK 1`; `GEN 14` (escritores), antes de `MUS 6`; `GEN 15` (trabajos fuera del controlador), antes de `VID 7`. `MUS 1` a `MUS 3` y `VID 1` a `VID 4` no dependen de nada de esto.
+- **Preparar el crecimiento** (16/11/2026): hecho `GEN 11` (el guion de autopruebas); ahora, `GEN 13` (una sola barra de biblioteca); después `GEN 12` (ficha por módulo), antes de `EBK 1`; `GEN 14` (escritores), antes de `MUS 6`; `GEN 15` (trabajos fuera del controlador), antes de `VID 7`. `MUS 1` a `MUS 3` y `VID 1` a `VID 4` no dependen de nada de esto.
 
 ---
 
@@ -84,13 +84,9 @@ De [MOD_TRACKS.md](MOD_TRACKS.md) §10, «Después (sin fecha)»:
 
 Pedir a ExifTool solo las etiquetas necesarias, `-stay_open` o varios procesos; un grupo de hilos propio para los trabajos (hoy comparten los 4 del gestor de BD: metadatos o escritura, miniaturas y añadir carpeta pueden ocupar 3 a la vez); más índices (p. ej. por valoración).
 
-### Preparar el crecimiento (`GEN 11` a `GEN 19`)
+### Preparar el crecimiento (`GEN 12` a `GEN 19`)
 
-Acordado con el autor el 16/11/2026, tras analizar el código ([DECISIONES.md](DECISIONES.md)): lo que conviene refactorizar o hacer común **antes** de los módulos nuevos, para que no lo pague cada uno por separado. Son refactorizaciones: no cambian lo que hace la aplicación, y cada una va en su paso, sin mezclarla con una funcionalidad. El orden, en «En curso».
-
-### Fase GEN 11 — Guion de autopruebas
-
-Un guion que ejecute de una vez todas las autopruebas que no abren ventana ([PRUEBAS.md](PRUEBAS.md) lista unas 144 órdenes y nada las lanza juntas) y diga cuáles fallan. Es la red de seguridad de las demás refactorizaciones.
+Acordado con el autor el 16/11/2026, tras analizar el código ([DECISIONES.md](DECISIONES.md)): lo que conviene refactorizar o hacer común **antes** de los módulos nuevos, para que no lo pague cada uno por separado. Son refactorizaciones: no cambian lo que hace la aplicación, y cada una va en su paso, sin mezclarla con una funcionalidad. El orden, en «En curso». Hecho: `GEN 11`, el guion que lanza todas las autopruebas (`scripts/run_selftests.py`, 16/11/2026): se ejecuta antes y después de cada una de estas.
 
 ### Fase GEN 12 — Una ficha por módulo
 

@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Guion de autopruebas (`GEN 11`)** (16/11/2026) | Desde la raíz, `.venv\Scripts\python.exe scripts/run_selftests.py`: lista 126 autopruebas con «ok» o «FALLO» y un resumen al final, en unos 20 segundos y **sin abrir ninguna ventana** (si se abre alguna, decirlo: hay que añadirla a `WINDOWED`). Hoy falla una, `core.thumbnails.cache`, que ya fallaba antes (ver «Comprobaciones sueltas»). Con `--list`, enseña cuáles ejecutaría y las tres con ventana que se salta |
 | **Mapa: cada módulo vuelve a su encuadre, también al reiniciar** (15/11/2026) | (1) En Tracks, elegir un track, encuadrarlo (o acercar a mano), cerrar y volver a abrir: el mapa sale **igual que al cerrar** (mismo centro y zoom), con el track seleccionado, sin encuadrar antes todo. (2) Sin reiniciar: Tracks → Imagen → Tracks (o Catálogo): cada módulo vuelve a su encuadre. (3) Al elegir otra carpeta o fecha en la barra, se encuadra todo, como siempre; si se vuelve a la de antes, también todo (solo se recuerda el último encuadre de cada módulo). (4) Con otro catálogo, el encuadre es el de ese catálogo. (5) «Encuadrar», la chincheta y elegir un track en la tira o la cuadrícula, igual que antes |
 | **Con una sola vista, su botón se ve** (15/11/2026) | En Audio (que solo tiene la cuadrícula), abajo a la izquierda, el botón de la cuadrícula, marcado (con el icono en el acento), y la raya de al lado. En los demás módulos, como siempre |
 | **Los botones de la tira y del perfil, en el acento mientras se ven** (15/11/2026) | En la vista de mapa, abajo a la derecha: con la tira de fotos a la vista, el icono de su botón sale en **ámbar**; al ocultarla (botón o F9), vuelve a su color. Igual con el botón del perfil de elevación en Tracks (botón o F10). Al cambiar de módulo, cada botón según cómo esté lo suyo en ese módulo (la tira se recuerda por módulo) |
@@ -43,6 +44,8 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Detección con el catálogo abierto**: la comprobación (cada 5 s y al volver a la ventana) de archivos que desaparecen o vuelven.
 - **Datos del usuario con Lightroom**: qué hace Lightroom con un sidecar de RAW **creado** por la aplicación al «Leer metadatos del archivo» (con un sidecar que ya existía, de Lightroom, va bien: 14/11/2026); que `-overwrite_original` conserve en Windows la fecha de creación.
 - **Metadatos de imagen**: `city` y `region` (se añadieron después de verificar `sublocation` y `country`).
+
+- **Autoprueba de `core.thumbnails.cache`** (vista el 16/11/2026 al lanzarlas todas; falla siempre en el equipo del autor, también sin el guion): en el paso 6, varios hilos escriben la misma miniatura y la releen, y la lectura da `PermissionError` mientras otro hilo sustituye el archivo (Windows no deja abrir un archivo en el instante en que se reemplaza). Por decidir: si es solo la prueba, que pide algo que Windows no garantiza, o si la caché debe reintentar la lectura; en la aplicación no se ha visto ningún síntoma.
 
 ## Nunca probado
 
@@ -108,6 +111,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 16/11/2026: `GEN 11`: `scripts/run_selftests.py` lanza de una vez las 126 autopruebas sin ventana (unos 20 s). Al estrenarlo: una ya fallaba, `core.thumbnails.cache` (anotada, sin tocar).
 - 16/11/2026: plan para preparar el crecimiento (`GEN 11` a `GEN 19` en `PENDIENTE.md`): qué se refactoriza y qué pasa a ser común antes de los módulos nuevos. Sin cambios de código.
 - 16/11/2026: módulo Ebooks definido como punto de partida (`MOD_EBOOKS.md`, fases `EBK 1` a `EBK 11`, categoría propia en `PENDIENTE.md`); borrado un archivo temporal de `controllers/`. Sin cambios de código.
 - 16/11/2026: nuevo `MOD_CATALOGO.md` (a posteriori, desde el código): con él, un documento `MOD_` por módulo. `FLUJOS.md` §9 y §11, al día (Vídeo, Audio y Tracks tienen su módulo). Sin cambios de código.
@@ -117,4 +121,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 16/11/2026: módulo Vídeo definido (`MOD_VIDEO.md`, fases `VID 1` a `VID 10`): fichas por obra, una tarjeta por obra, descarga de la web. Sin cambios de código.
 - 16/11/2026: módulo Música definido (`MOD_MUSICA.md`, fases `MUS 1` a `MUS 10`); regla nueva de los archivos del usuario: lo editado se guarda en el propio archivo, sin copias (también el audio y, más adelante, los GPX: D2 de Tracks, decidida). Sin cambios de código.
 - 16/11/2026: documentación: `PENDIENTE.md` reorganizado por categorías (GENERAL, CATÁLOGO, IMAGEN, MÚSICA, VÍDEO, TRACKS), en fases y pasos (`GEN 1`, `TRK 6.3`...), con la equivalencia con la numeración anterior; referencias de los demás documentos, al día. `MAPA.md` pasa a llamarse `MOD_TRACKS.md` (un documento `MOD_` por módulo); en el código, solo ese nombre en los comentarios.
-- 15/11/2026: mapa: cada módulo vuelve a su encuadre (al arrancar, al volver de otro módulo) si tiene elegido lo mismo; se guarda por catálogo.

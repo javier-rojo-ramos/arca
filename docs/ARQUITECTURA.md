@@ -267,6 +267,7 @@ core/
 tools/exiftool/                      ExifTool (no se versiona; ver tools/exiftool/LEEME.txt)
 scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc (genera resources/recursos_rc.py)
 scripts/export_qtbase_es.py          Copia la traducción al español de Qt (qtbase_es.qm) a resources/locales
+scripts/run_selftests.py             Ejecuta de una vez todas las autopruebas que no abren ventana y dice cuáles fallan (docs/PRUEBAS.md)
 resources/map/                       Página del mapa (index.html, arca_map.js, arca_map.css) y vendor/ (Leaflet y Supercluster copiados; ver su LEEME.txt). Se lee del disco, no va en el .qrc
 resources/                           recursos.qrc (lista de iconos e imágenes), images/ (SVG), icons/ (icono de la aplicación),
                                      locales/qtbase_es.qm (traducción de Qt) y recursos_rc.py (se GENERA con build_ui.py; no editar)

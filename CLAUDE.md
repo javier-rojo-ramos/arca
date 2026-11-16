@@ -72,6 +72,7 @@ Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto e
 
 - **Usa siempre el Python del entorno virtual `.venv`** (es el que tiene PySide6 y el resto de dependencias), no el del sistema: en Windows, `.venv\Scripts\python.exe` (en la terminal Bash, `.venv/Scripts/python`); en macOS y Linux, `.venv/bin/python`. Ruff NO está en `.venv` (está instalado aparte): se ejecuta directamente, `ruff check ...`. Si `.venv` no existe o le falta un paquete, díselo al autor en vez de instalar nada.
 - La autoprueba de cada módulo tocado, desde la raíz: `python -m paquete.modulo` (con el `python` de `.venv`). La lista completa está en [docs/PRUEBAS.md](docs/PRUEBAS.md).
+- Antes y después de una refactorización, o de un cambio que toque varios módulos, **todas las autopruebas sin ventana de una vez**: `python scripts/run_selftests.py` (unos 20 segundos; admite un texto para filtrar, p. ej. `core.userdata`). Una autoprueba nueva que abra una ventana se añade a su lista `WINDOWED`.
 - **No ejecutes nada que abra una ventana y espere**: la aplicación (`main.py`) ni las pruebas que abren ventanas (en `PRUEBAS.md`, las que dicen «una ventana», como `theme_style` y `organize_bar`, y los diálogos que se abren solos: `settings_dialog`, `folder_content_dialog`, `remove_dialog`...). Se quedan esperando a que alguien las cierre. Pásaselas al autor en la lista de comprobaciones.
 - `ruff check` de los archivos tocados.
 - Si una autoprueba depende de lo que haya instalado (ExifTool, `pillow-heif`), pásale un registro explícito.
