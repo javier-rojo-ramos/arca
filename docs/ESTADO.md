@@ -108,13 +108,13 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 16/11/2026: nuevo `MOD_CATALOGO.md` (a posteriori, desde el código): con él, un documento `MOD_` por módulo. `FLUJOS.md` §9 y §11, al día (Vídeo, Audio y Tracks tienen su módulo). Sin cambios de código.
+- 16/11/2026: nuevo `MOD_IMAGEN.md`, escrito a posteriori desde el código: cómo funciona hoy el módulo Imagen, dónde está cada cosa y lo que falta. Sin cambios de código.
+- 16/11/2026: `MOD_TRACKS.md`, secciones 1 a 9 contrastadas con el código: corregido lo que había cambiado al implementar (API de `MapView`, tipos, opciones por módulo, teselas, perfil, ubicar fotos) y marcado lo pendiente. Sin cambios de código.
+- 16/11/2026: `MOD_TRACKS.md`, con la plantilla de dos partes (arquitectura y planificación), el estado de cada fase y la tabla de lo que hay hecho; sin renumerar sus secciones. Sin cambios de código.
+- 16/11/2026: módulo Vídeo definido (`MOD_VIDEO.md`, fases `VID 1` a `VID 10`): fichas por obra, una tarjeta por obra, descarga de la web. Sin cambios de código.
 - 16/11/2026: módulo Música definido (`MOD_MUSICA.md`, fases `MUS 1` a `MUS 10`); regla nueva de los archivos del usuario: lo editado se guarda en el propio archivo, sin copias (también el audio y, más adelante, los GPX: D2 de Tracks, decidida). Sin cambios de código.
 - 16/11/2026: documentación: `PENDIENTE.md` reorganizado por categorías (GENERAL, CATÁLOGO, IMAGEN, MÚSICA, VÍDEO, TRACKS), en fases y pasos (`GEN 1`, `TRK 6.3`...), con la equivalencia con la numeración anterior; referencias de los demás documentos, al día. `MAPA.md` pasa a llamarse `MOD_TRACKS.md` (un documento `MOD_` por módulo); en el código, solo ese nombre en los comentarios.
 - 15/11/2026: mapa: cada módulo vuelve a su encuadre (al arrancar, al volver de otro módulo) si tiene elegido lo mismo; se guarda por catálogo.
 - 15/11/2026: con una sola vista (Audio), su botón de vista se ve, marcado.
 - 15/11/2026: módulos Vídeo y Audio, paso 2: cada uno con su biblioteca y la barra de Tracks (biblioteca, carpetas y fechas); ya no dejan en la cuadrícula lo del módulo anterior.
-- 15/11/2026: módulos Vídeo y Audio, paso 1: lo común de los módulos de una biblioteca sale de `TracksModule` a `LibraryModule` (sin cambio visible).
-- 15/11/2026: arreglo: la tira del mapa vaciaba la selección al recargarse la cuadrícula (al abrir, al cambiar de módulo, al elegir en una barra...): desde el 13/11/2026.
-- 15/11/2026: mostrar u ocultar las barras laterales (menú «Ver», F7, F8, Tab y «Ocultar barra» en el menú de las secciones); la tira pasa a F9 y el perfil a F10.
-- 15/11/2026: el tamaño de los iconos de la toolbar de módulos (y del botón de ajustes), en una constante (`TOOLBAR_ICON_SIZE`, 24 px como hasta ahora).
-- 15/11/2026: los iconos de los botones de las barras, de 18 px (antes, 16), con una sola constante (`BAR_ICON_SIZE`).

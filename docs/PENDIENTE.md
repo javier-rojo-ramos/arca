@@ -12,15 +12,13 @@
 - Los números no se reutilizan: una fase terminada sale de aquí y su número queda libre para siempre. El número no fija el orden: el orden se decide al planificar (ver «En curso»).
 - Las fases de TRACKS conservan el número de [MOD_TRACKS.md](MOD_TRACKS.md) §10 (allí, las fases 0 a 3 fueron el mapa; la 4 y la 5, lo básico de Tracks y el perfil de elevación, hechas el 14 y el 15/11/2026).
 - Lo pequeño no es una fase: va en la lista **«Mejoras menores»** de su categoría, sin número.
-- Cada módulo tiene su documento `MOD_` ([MOD_TRACKS.md](MOD_TRACKS.md), [MOD_MUSICA.md](MOD_MUSICA.md)), con su arquitectura y el detalle de sus fases; aquí, solo la lista.
-- Cada módulo tiene su documento `MOD_` ([MOD_TRACKS.md](MOD_TRACKS.md), [MOD_MUSICA.md](MOD_MUSICA.md)), con su arquitectura y el detalle de sus fases; aquí, solo la lista.
-- Cada módulo tiene su documento `MOD_` ([MOD_TRACKS.md](MOD_TRACKS.md), [MOD_MUSICA.md](MOD_MUSICA.md)), con su arquitectura y el detalle de sus fases; aquí, solo la lista.
+- Cada módulo tiene su documento `MOD_` ([MOD_CATALOGO.md](MOD_CATALOGO.md), [MOD_IMAGEN.md](MOD_IMAGEN.md), [MOD_TRACKS.md](MOD_TRACKS.md), [MOD_MUSICA.md](MOD_MUSICA.md), [MOD_VIDEO.md](MOD_VIDEO.md)), con su arquitectura y el detalle de sus fases; aquí, solo la lista.
 - [HISTORIAL.md](HISTORIAL.md) y las cabeceras del código citan los bloques de antes (A.1 a A.7, B, C.1 a C.12): la tabla del final dice a qué corresponde cada uno.
 
 ## En curso
 
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
-- **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, por definir (será `MOD_VIDEO.md`).
+- **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 
 ---
 
@@ -37,7 +35,7 @@ Acordado con el autor el 13/11/2026: un solo historial de cambios en el que cada
 
 ### Fase GEN 2 — Más metadatos editables
 
-El mecanismo está hecho (título, pie, creador, copyright y ubicación desde el 10/11/2026; GPS, altitud y dirección desde el 11/11/2026; la actividad de un track, el 14/11/2026; receta en [COMO_AMPLIAR.md](COMO_AMPLIAR.md)). La escritura con un NEF real y su sidecar, probada el 14/11/2026; sin probar con un DNG y con un CR3. La edición de las etiquetas de audio y de las fichas de vídeo, en `MUS 6`, `MUS 7` y `VID 4`.
+El mecanismo está hecho (título, pie, creador, copyright y ubicación desde el 10/11/2026; GPS, altitud y dirección desde el 11/11/2026; la actividad de un track, el 14/11/2026; receta en [COMO_AMPLIAR.md](COMO_AMPLIAR.md)). La escritura con un NEF real y su sidecar, probada el 14/11/2026; sin probar con un DNG y con un CR3. La edición de las etiquetas de audio y de las fichas de vídeo, en `MUS 6`, `MUS 7` y `VID 6`.
 
 - **GEN 2.1** La fecha (ventana propia, por biblioteca).
 - **GEN 2.2** El estado del copyright, el género y la escena.
@@ -50,7 +48,7 @@ El mecanismo está hecho (título, pie, creador, copyright y ubicación desde el
 
 ### Fase GEN 4 — Miniaturas: extras
 
-Las de vídeo y las carátulas de audio, en `VID 2` y `MUS 3`.
+Las de vídeo y las carátulas de audio, en `VID 4` y `MUS 3`.
 
 - **GEN 4.1** PSD.
 - **GEN 4.2** `rawpy`: RAW sin vista previa o con una pequeña; también para el 1:1 de la vista individual, que hoy en un RAW es su mayor vista previa (en un DNG de Lightroom, a veces de solo 1024 px).
@@ -104,6 +102,8 @@ Pedir a ExifTool solo las etiquetas necesarias, `-stay_open` o varios procesos; 
 
 ## CATÁLOGO
 
+Cómo funciona hoy y dónde está cada cosa: [MOD_CATALOGO.md](MOD_CATALOGO.md).
+
 ### Fase CAT 1 — Archivos sueltos y ubicaciones solapadas
 
 - **CAT 1.1** Añadir archivos sueltos (hoy solo carpetas completas; `action_add_files` está sin conectar).
@@ -127,6 +127,8 @@ Pedir a ExifTool solo las etiquetas necesarias, `-stay_open` o varios procesos; 
 ---
 
 ## IMAGEN
+
+Cómo funciona hoy el módulo y dónde está cada cosa: [MOD_IMAGEN.md](MOD_IMAGEN.md).
 
 ### Fase IMG 1 — Perfil de tarjeta
 
@@ -168,7 +170,7 @@ Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso (a
 
 - **MUS 4.1** Sección «Artistas» (artista del álbum ▸ álbum).
 - **MUS 4.2** Secciones «Géneros» y «Años».
-- **MUS 4.3** Listas que se recorren con las flechas (álbumes; vale también para las películas, `VID 1.3`): el detalle, en [MOD_MUSICA.md](MOD_MUSICA.md).
+- **MUS 4.3** Listas que se recorren con las flechas (álbumes; vale también para las películas, `VID 5.4`): el detalle, en [MOD_MUSICA.md](MOD_MUSICA.md).
 
 ### Fase MUS 5 — Vista de lista
 
@@ -214,25 +216,69 @@ Etiquetas y carátulas de MusicBrainz y Cover Art Archive, como una edición má
 
 ## VÍDEO
 
-### Fase VID 1 — Navegación propia
+Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso y las decisiones (V1 a V11), en [MOD_VIDEO.md](MOD_VIDEO.md). La ficha es de la **obra** (película, serie, documental, evento deportivo), no del archivo; las obras salen solas de los archivos. Hasta `VID 6` no hace falta internet.
 
-La base está (15/11/2026: `VideoModule` con su biblioteca, carpetas y fechas). Falta:
+### Fase VID 1 — Datos técnicos y nombre
 
-- **VID 1.1** Secciones de la barra: directores y actores.
-- **VID 1.2** Campos de orden (duración...) y de colecciones inteligentes (el grupo «Vídeo» existe vacío).
-- **VID 1.3** Listas que se recorren con las flechas (películas): lo de `MUS 4.3`.
+- **VID 1.1** Datos técnicos de película: contenedor, audio, subtítulos, tasa de bits, HDR (`VIDEO_FIELDS_VERSION` 3). Se decide si basta ExifTool o hace falta `ffprobe`.
+- **VID 1.2** Leer el nombre (`core/video/name_parser.py`): título, año, temporada, episodio, parte.
 
-### Fase VID 2 — Miniaturas de vídeo
+### Fase VID 2 — Obras
 
-Lo piensa el autor. Fotograma con `ffmpeg` (en `tools/ffmpeg`, como ExifTool; hacia el 10 % de la duración, para evitar negros), como un origen más del motor (`video_frame`) con la misma escalera de tamaños. Por decidir: en las películas, fotograma o marcador de póster hasta descargar la portada.
+- **VID 2.1** El esquema: `video_works`, géneros, personas, créditos y las columnas nuevas de `video_details`.
+- **VID 2.2** Crear las obras y enlazar los archivos, por el nombre y la carpeta.
+- **VID 2.3** El tipo de obra (película, serie, documental, evento deportivo, otro).
 
-### Fase VID 3 — Fichas de películas
+### Fase VID 3 — Verlas
 
-Descarga de fichas (p. ej. TMDb) y de la portada (`media_assets/posters`). Lo descargado entra como una edición más, por la misma cola que lo editado a mano. Pasos, por definir.
+- **VID 3.1** Sección «Ficha» del inspector, de solo lectura.
+- **VID 3.2** Orden propio: título, año, duración, resolución.
+- **VID 3.3** Campos del grupo «Vídeo» en filtros y colecciones inteligentes.
 
-### Fase VID 4 — Edición de los metadatos
+### Fase VID 4 — Miniaturas
 
-Como `MUS 6` y `MUS 7`: el escritor de vídeo (etiquetas del contenedor, `.nfo` o solo `.arca.json`: por decidir) y las listas (reparto), en tablas propias.
+- **VID 4.1** Fotograma con `ffmpeg` (en `tools/ffmpeg`, como ExifTool; hacia el 10 % de la duración, para evitar negros), como un origen más del motor; también para los vídeos de Imagen.
+- **VID 4.2** El cartel como miniatura, cuando la obra lo tiene.
+
+### Fase VID 5 — Navegar
+
+- **VID 5.1** «Biblioteca - Vídeos» por tipo; «Sin ficha».
+- **VID 5.2** «Géneros», «Directores», «Reparto» y «Años».
+- **VID 5.3** Series: sección «Series» (serie ▸ temporada), la tarjeta agrupada (una por obra, con su recuento) y «Agrupar en una obra» / «Separar».
+- **VID 5.4** Listas que se recorren con las flechas (lo de `MUS 4.3`).
+
+### Fase VID 6 — Visto / no visto y ficha a mano
+
+- **VID 6.1** Visto / no visto: botón, menú, atajo, filtro en «Atributos» y «No vistos» en la barra.
+- **VID 6.2** Editar los campos de texto de la ficha en el inspector.
+- **VID 6.3** Editar géneros, director y reparto.
+- **VID 6.4** Poner el cartel a mano.
+- **VID 6.5** Cambiar la temporada y el número de un episodio, la parte y la versión.
+- **VID 6.6** La identificación, visto y lo editado, en el `.arca.json` (el archivo de vídeo no se escribe).
+
+### Fase VID 7 — Descargar de la web
+
+Antes de empezar: comprobar las condiciones de TMDb para el uso interno de la empresa (V2).
+
+- **VID 7.1** El proveedor de fichas (`core/video/providers/`) y Opciones > Vídeo.
+- **VID 7.2** «Identificar…» para una obra: candidatos, elegir, descargar la ficha, el reparto, el cartel y el fondo.
+- **VID 7.3** Por lotes, en segundo plano y cancelable.
+- **VID 7.4** «Actualizar la ficha» sin pisar lo editado a mano.
+
+### Fase VID 8 — Vista «Ficha»
+
+- **VID 8.1** La vista del centro, al estilo de VisualDivX, con «Reproducir» (reproductor del sistema).
+- **VID 8.2** Edición en la propia ficha.
+- **VID 8.3** Pulsar un director, un actor o un género lleva a sus obras.
+
+### Fase VID 9 — Series a fondo
+
+- **VID 9.1** Los episodios en la ficha de la serie, con su título y su sinopsis descargados.
+- **VID 9.2** Progreso de episodios vistos; «siguiente episodio».
+
+### Fase VID 10 — Extras (sin orden)
+
+Sagas en la barra; tráiler; importar y exportar `.nfo`; un proveedor para eventos deportivos; obras sin archivo.
 
 ### Mejoras menores (VÍDEO)
 
@@ -276,7 +322,7 @@ Para después; no depende de la edición y se puede adelantar. Pasos, por defini
 
 ### Por decidir (TRACKS)
 
-Detalle y recomendación en [MOD_TRACKS.md](MOD_TRACKS.md) §11; ninguna bloquea hasta su paso. **D2, decidida** (el autor, 16/11/2026): un GPX editado se guarda sobre el propio archivo, sin generar copias; cómo se hace con seguridad, en `TRK 6.1`. **D2, decidida** (el autor, 16/11/2026): un GPX editado se guarda sobre el propio archivo, sin generar copias; cómo se hace con seguridad, en `TRK 6.1`. **D2, decidida** (el autor, 16/11/2026): un GPX editado se guarda sobre el propio archivo, sin generar copias; cómo se hace con seguridad, en `TRK 6.1`.
+Detalle y recomendación en [MOD_TRACKS.md](MOD_TRACKS.md) §11; ninguna bloquea hasta su paso. **D2, decidida** (el autor, 16/11/2026): un GPX editado se guarda sobre el propio archivo, sin generar copias; cómo se hace con seguridad, en `TRK 6.1`.
 
 | Decisión | Para | Qué |
 |---|---|---|
@@ -304,11 +350,11 @@ Para leer [HISTORIAL.md](HISTORIAL.md), [DECISIONES.md](DECISIONES.md) y las cab
 | A.3 (lo que queda: guardar el filtro como colección inteligente) | `GEN 7` |
 | A.4 (módulo Imagen completo) | `IMG 1` |
 | A.5 (vista de lista; vista de mapa) | `MUS 5`; `GEN 8` y las fases de TRACKS |
-| A.6 (módulos Vídeo, Audio y Tracks) | `MUS 1` a `MUS 10`, `VID 1` a `VID 4`, fases de TRACKS |
+| A.6 (módulos Vídeo, Audio y Tracks) | `MUS 1` a `MUS 10`, `VID 1` a `VID 10`, fases de TRACKS |
 | A.7 («Abrir en su módulo») | Mejoras menores (GENERAL) |
-| B (mejoras anotadas) | Las «Mejoras menores» de cada categoría; el deshacer, `GEN 1`; el reconocimiento facial, `IMG 3`; la edición para Audio y Vídeo, `MUS 6`, `MUS 7` y `VID 4` |
+| B (mejoras anotadas) | Las «Mejoras menores» de cada categoría; el deshacer, `GEN 1`; el reconocimiento facial, `IMG 3`; la edición para Audio y Vídeo, `MUS 6`, `MUS 7` y `VID 6` |
 | C.1 (verificar con ExifTool real) | `IMG 2` |
-| C.2 (miniaturas de vídeo y audio) | `VID 2`, `VID 3` (portadas), `MUS 3` y `MUS 9` |
+| C.2 (miniaturas de vídeo y audio) | `VID 4`, `VID 7` (carteles), `MUS 3` y `MUS 9` |
 | C.3 (miniaturas, extras) | `GEN 4` |
 | C.4 (datos del usuario, lo que falta) | `GEN 3`; la valoración en POPM, M5 de [MOD_MUSICA.md](MOD_MUSICA.md) |
 | C.5 (más metadatos editables) | `GEN 2` |

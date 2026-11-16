@@ -1,12 +1,30 @@
-# Arca Media — Módulo Tracks y mapa (`MapView`): diseño y plan
+# Arca Media — Módulo Tracks y mapa (`MapView`): arquitectura y plan
 
-> Documento del módulo Tracks (hasta el 16/11/2026 se llamaba `MAPA.md`; [HISTORIAL.md](HISTORIAL.md) lo cita con ese nombre). Incluye el componente de mapa, que usan también el Catálogo e Imagen.
-> **Diseño y plan; hechas las fases 0 a 5 (mapa base, Catálogo, Imagen, lo básico de Tracks y el perfil de elevación; plan A: QtWebEngine + Leaflet); pendientes, la 6 (edición), la 7 (creación) y la 8 (fotos y tracks).** Componente de mapa único para los módulos Catálogo, Imagen y Tracks: tecnología, API, capas, elevación, datos, correlación foto-track, edición de GPX, rendimiento, riesgos y plan por pasos. Cuando un paso se entregue, su parte pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md) y [DECISIONES.md](DECISIONES.md), y aquí se tacha.
-> Índice: [INDEX.md](INDEX.md). Punto de la hoja de ruta: [PENDIENTE.md](PENDIENTE.md), las fases `TRK` (con el mismo número que aquí, §10) y `GEN 8`.
+> Documento del módulo Tracks (`TracksModule`, biblioteca `tracks`: los GPX) y del **componente de mapa**, que usan también el Catálogo e Imagen. Hasta el 16/11/2026 se llamaba `MAPA.md` ([HISTORIAL.md](HISTORIAL.md) lo cita con ese nombre). Tiene dos partes: **I, arquitectura** (secciones 0 a 9) y **II, planificación** (secciones 10 y 11; fases y pasos, con los códigos `TRK` de [PENDIENTE.md](PENDIENTE.md) y el mismo número que aquí).
+> **Estado (16/11/2026): hechas las fases 0 a 5; pendientes, la 6 (edición), la 7 (creación) y la 8 (fotos y tracks).** Las secciones conservan su número de siempre: el código y los demás documentos las citan (§5.3, §10, §11...). Si el código y este documento no coinciden, manda el código.
+> Índice: [INDEX.md](INDEX.md). Lo que queda del mapa fuera de Tracks: `GEN 8` de [PENDIENTE.md](PENDIENTE.md).
 
 ## Resumen
 
-**Decisiones clave que propone este documento**
+**Objetivo**: ver en un mapa lo que hay en el catálogo (fotos como marcadores, tracks como líneas), ubicar las fotos, y un módulo Tracks para ver los GPX con su perfil de elevación, editarlos y crearlos.
+
+**En qué punto está**
+
+| Fase | Qué | Estado |
+|---|---|---|
+| 0 | Prueba de concepto (QtWebEngine + Leaflet) | Hecha el 13/11/2026 |
+| 1 | Componente base (`MapView`) | Hecha el 13/11/2026 |
+| 2 | Mapa en el Catálogo (ver y seleccionar) | Hecha el 13/11/2026 |
+| 3 | Mapa en Imagen (ubicar fotos, tira de fotos, deshacer) | Hecha el 13/11/2026 |
+| 4 | Tracks, lo básico (módulo, track activo, waypoints, inspector, recorrido en la tarjeta, actividad) | Hecha el 14/11/2026 |
+| 5 | Perfil de elevación | Hecha el 15/11/2026 (el 5.4, eje por tiempo, en espera) |
+| 6 | Edición de los GPX | Pendiente (`TRK 6`) |
+| 7 | Creación de tracks | Pendiente (`TRK 7`) |
+| 8 | Fotos y tracks | Pendiente (`TRK 8`) |
+
+Lo entregado y lo que falta por comprobar de cada fase, en [ESTADO.md](ESTADO.md); cómo funciona hoy, en [FLUJOS.md](FLUJOS.md) §16.
+
+**Las ideas del diseño**
 
 1. **Tecnología: QtWebEngine + Leaflet + `QWebChannel`**, con los recursos (Leaflet, JS y CSS propios) en local, sin CDN. Motivo: los tres requisitos imprescindibles (topográfico, elevación, edición de GPX) salen con piezas maduras y la parte difícil (editar miles de vértices, agrupar miles de marcadores) es mucho más barata en un lienzo web que en QML. **Plan alternativo: Qt Location (QML) en un `QQuickWidget`**; lo decide la fase 0 con criterios medibles (§1.4 y §10).
 2. **`MapView(QWidget)` es una fachada**: recibe datos sencillos (`MapMarker`, `MapTrack`), emite intenciones (selección, soltar, mover, editar) y **nunca cambia datos**. La tecnología queda detrás de un `MapBackend`: cambiar de plan no toca los módulos.
@@ -17,14 +35,14 @@
 7. **Elevación**: la `ele` del GPX; si falta, teselas «terrarium» (AWS Terrain Tiles) decodificadas con Pillow. Sin dependencias nuevas.
 8. **Puntos de los tracks: no se guardan en SQLite.** El GPX es la fuente; en la base solo va un **contorno simplificado** por track (columna nueva `track_details.overview`, migración 4) para pintar muchos a la vez. La geometría completa se lee del archivo a demanda, en segundo plano.
 9. **Coordenadas de las fotos**: se reutiliza tal cual la edición del GPS del 11/11/2026 (`update_metadata_fields`, bits de pendiente, escritura con las reglas de `core/userdata/`).
-10. **Orden**: fase 0 → componente base → Catálogo → Imagen → Tracks (ver, elevación, correlación, edición). Es el sugerido; solo se añade la correlación entre la elevación y la edición.
+10. **Orden**: fase 0 → componente base → Catálogo → Imagen → Tracks (lo básico, el perfil de elevación, la edición y la creación; las fotos de la ruta y la correlación, al final). El de Tracks se revisó con el autor el 14/11/2026 (§10).
 
-**Decisiones pendientes del autor** (detalle y recomendación en §11)
+**Decisiones del autor** (detalle en §11). Abiertas: **D4** (para `TRK 8`), **D8** (`TRK 6.2`), **D12** (`TRK 6.5`), **D13** (`TRK 7.2`) y **D9** (los textos, en cada paso).
 
-| # | Decisión | Recomendación |
+| # | Decisión | Recomendación o lo decidido |
 |---|---|---|
 | ~~D1~~ | Geoetiquetar desde el mapa escribe en los archivos: **decidido el 13/11/2026** | Sí, con la regla de la edición del GPS en el inspector; confirmación al soltar muchas fotos a la vez |
-| D2 | Editar un GPX existente: ¿se sobrescribe o siempre se exporta a otro archivo? | **Decidida el 16/11/2026 (el autor): se guarda sobre el propio GPX, sin generar copias.** (La recomendación era: siempre a un archivo nuevo) |
+| ~~D2~~ | Editar un GPX existente: ¿se sobrescribe o siempre se exporta a otro archivo? | **Decidida el 16/11/2026 (el autor): se guarda sobre el propio GPX, sin generar copias.** (La recomendación era: siempre a un archivo nuevo) |
 | ~~D3~~ | Modo Imagen: tira de fotos debajo del mapa: **decidido el 13/11/2026** | Al ancho del centro; ocultable con un botón en el extremo derecho de la barra inferior (solo con el mapa) y con F9 (F6 hasta el 15/11/2026); alto ajustable y recordado (100 px como mínimo); tarjetas compactas, sin banda; también en el mapa del Catálogo (confirmado por el autor) |
 | D4 | «Fotos de una ruta»: ¿basta con una colección hecha a mano, o se calcula (por hora y cercanía)? | Las dos: la colección ya funciona; en Tracks, calculado |
 | ~~D5~~ | Capas de partida: **decidido el 13/11/2026** (§3.1) | Callejero de OpenStreetMap, tres del IGN y OpenTopoMap, sin claves |
@@ -33,12 +51,39 @@
 | D8 | Puntos insertados en un GPX: ¿hora interpolada o sin hora? | Interpolada por distancia entre los dos vecinos |
 | D9 | Textos, icono y atajo de la vista «Mapa»; textos de las capas | Los propone cada paso; decide el autor |
 | ~~D10~~ | Identificación ante los servidores de teselas: **decidido el 13/11/2026** | `ArcaMedia/<versión>`, sin datos personales |
+| ~~D11~~ | La banda del perfil y la tira de fotos: **decidido el 15/11/2026** | Conviven bajo el mapa, cada una con su botón; en Tracks la tira empieza oculta |
+| D12 | Las horas al invertir un track | Quitarlas, con aviso |
+| D13 | El servicio de enrutado | Sin elegir: se compara al llegar al paso |
 
 ---
 
-## 0. Punto de partida (lo que ya existe y se reutiliza)
+# Parte I — Arquitectura
 
-Comprobado en el código el 13/11/2026:
+Las secciones 1 a 9 son el diseño que se escribió el 13/11/2026, antes de implementar. **Contrastado con el código el 16/11/2026**: lo que describen de lo ya hecho (§1 a §5 y §8) se ha corregido donde el código es distinto, y lo que aún no existe está marcado como **pendiente**. §6 (correlación foto-track) y §7.2 a §7.5 (edición de GPX) son diseño de lo pendiente; §7.4 hay que rehacerlo en el paso 6.1 (D2: un GPX editado se guarda sobre su propio archivo). No se ha revisado línea a línea el JavaScript de la página ni cada método: si algo no coincide, manda el código.
+
+## Lo que hay hecho (16/11/2026)
+
+Dónde está cada pieza ya implementada. Qué hace cada archivo, en el mapa de [ARQUITECTURA.md](ARQUITECTURA.md) y en la cabecera de cada `.py`.
+
+| Capa | Archivos | Qué hacen |
+|---|---|---|
+| Componente de mapa | `ui_helpers/map/` (`map_view.py`, `map_backend.py`, `web_backend.py`, `web_bridge.py`, `map_scheme.py`, `map_types.py`); `resources/map/` (`index.html`, `arca_map.js`, `arca_map.css`, `vendor/`) | `MapView`, la fachada; detrás, la página con Leaflet y el esquema `arca-map://` |
+| Capas y teselas | `core/maps/` (`tile_layers.py`, `tile_store.py`); `ui_helpers/dialogs/map_layer_dialog.py` | Las capas, la caché en disco y las capas propias de Opciones > Mapa |
+| Mapa en la ventana | `controllers/map_controller.py`, `controllers/map_framing.py`; `ui_helpers/widgets/map_page.py`, `map_filmstrip.py` | La vista «Mapa» del centro, el encuadre recordado por módulo y la tira de fotos |
+| Consultas y cambios | `core/catalog/map_queries.py`, `geotagging.py`, `track_stats.py`; `controllers/undo_history.py` | Lo que pinta el mapa, ubicar fotos (con deshacer) y los datos del inspector |
+| Lectura de los GPX | `core/metadata/track/` (`gpx_reader.py`, `extractor.py`); `core/tracks/gpx_document.py` | El resumen para el catálogo (`TRACK_EXTRACTOR_VERSION`) y el lector completo, sin pérdidas |
+| Cálculos sobre recorridos | `core/tracks/` (`geodesy.py`, `simplify.py`, `profile.py`, `activities.py`) | Distancias, el contorno simplificado, el perfil y la lista de actividades |
+| Módulo Tracks | `controllers/app_modules/tracks_module.py` (sobre `library_module.py`); `ui_helpers/sidebars/library_sidebar.py` | El módulo, con su barra (biblioteca, carpetas y fechas) |
+| Track activo y perfil | `controllers/track_detail_controller.py`, `track_profile_controller.py`; `ui_helpers/widgets/elevation_profile.py`; `ui_helpers/helpers/profile_painter.py`, `profile_style.py`, `profile_format.py` | El recorrido completo del track elegido y la banda del perfil, sincronizada con el mapa |
+| Inspector, tarjeta y opciones | `ui_helpers/inspector/track_section.py`; `ui_helpers/helpers/track_outline.py`; `ui_helpers/dialogs/tracks_settings_page.py` | La sección «Track», el recorrido dibujado en la tarjeta y Opciones > Tracks |
+
+**Todavía no existe** (lo crearán las fases 6 a 8): `core/tracks/track_model.py` (edición), `core/tracks/cleanup.py`, `core/tracks/correlation.py`, `core/maps/dem.py` (modelo de elevaciones), `core/maps/routing.py` y `controllers/track_edit_controller.py`.
+
+---
+
+## 0. Punto de partida (lo que había antes de empezar el mapa)
+
+Lo que existía el 13/11/2026 y se ha reutilizado (comprobado entonces en el código; hoy el módulo Tracks ya existe y `registry.py` no tiene módulos provisionales):
 
 | Pieza | Dónde | Para qué sirve aquí |
 |---|---|---|
@@ -62,6 +107,8 @@ Reglas del proyecto que condicionan el diseño ([CLAUDE.md](../CLAUDE.md)): `cor
 ---
 
 ## 1. Tecnología del mapa
+
+> **Cómo quedó**: se eligió y se implementó la opción A (resultado de la fase 0, en §10). En `resources/map/vendor/` están Leaflet 1.9.4 y Supercluster 8.0.1, sin modificar, con sus licencias y un `LEEME.txt`. El resto de la sección es el razonamiento de la elección, que sigue valiendo.
 
 ### 1.1 Opciones
 
@@ -125,50 +172,84 @@ Valorado el 13/11/2026, a petición del autor. No cambia la recomendación, pero
 ```
 ui_helpers/map/                       ── Componente de mapa ──
   map_view.py          ► MapView(QWidget): la fachada. Lo ÚNICO que conocen los módulos y controladores
-  map_types.py           MapMarker, MapTrack, MapBounds, MapViewport, MapHit, MapMode, SelectionMode,
-                         TrackEditIntent (dataclasses y enumeraciones; sin Qt)
+  map_types.py           MapMarker, MapTrack, MapWaypoint, MapBounds, MapViewport, MapHit, HitKind,
+                         MapMode, SelectionMode (dataclasses y enumeraciones; sin Qt)
   map_backend.py         MapBackend: contrato interno (lo que MapView pide a la tecnología)
   web_backend.py         WebMapBackend: QWebEngineView + QWebChannel + página local
   web_bridge.py          MapBridge(QObject): ranuras y señales expuestas a JavaScript
   map_scheme.py          MapSchemeHandler: sirve arca-map:// (recursos, teselas, miniaturas)
 resources/map/           index.html, arca_map.js, arca_map.css, vendor/ (Leaflet, Supercluster)
+ui_helpers/widgets/map_page.py            MapPage(QWidget): página del centro (mapa + perfil + tira de fotos)
+ui_helpers/widgets/map_filmstrip.py       La tira de fotos bajo el mapa
 ui_helpers/widgets/elevation_profile.py   ElevationProfile(QWidget): perfil dibujado con QPainter
-ui_helpers/widgets/map_page.py            MapPage(QWidget): página del centro (mapa + tira de fotos + perfil)
+                                          (con ui_helpers/helpers/profile_painter.py, profile_style.py, profile_format.py)
 controllers/map_controller.py             MapController: une MapView con el modelo, la selección y la BD
-controllers/track_edit_controller.py      TrackEditController: sesión de edición, deshacer, exportar
+controllers/map_framing.py                MapFraming: el último encuadre de cada módulo (sin Qt)
+controllers/track_detail_controller.py    El recorrido completo, los waypoints y el perfil del track activo
+controllers/track_profile_controller.py   La banda del perfil y su sincronización con el mapa
+controllers/undo_history.py               UndoHistory: Ctrl+Z (hoy, lo hecho en el mapa)
 controllers/app_modules/tracks_module.py  TracksModule
-core/maps/               tile_layers.py (► lista de capas), tile_store.py (caché en disco), dem.py (elevación)
-core/tracks/             geodesy.py, gpx_document.py, track_model.py, simplify.py, profile.py, correlation.py
-core/catalog/map_queries.py, geotagging.py
+core/maps/               tile_layers.py (► lista de capas), tile_store.py (caché en disco)
+core/tracks/             geodesy.py, gpx_document.py, simplify.py, profile.py, activities.py
+core/catalog/            map_queries.py, geotagging.py, track_stats.py
+
+PENDIENTE (fases 6 a 8; aún no existen):
+controllers/track_edit_controller.py      TrackEditController: sesión de edición, deshacer, guardar
+core/maps/               dem.py (modelo de elevaciones), routing.py (enrutado)
+core/tracks/             track_model.py (edición), cleanup.py (errores del GPS), correlation.py (fotos por la hora)
+map_types.py             TrackEditIntent, TrackPatch y los modos EDIT_TRACK / DRAW_TRACK de MapMode
 ```
 
-`MapView` **no** se promociona en el `.ui`: lo crea `MapPage` en código la primera vez que se muestra (Chromium no arranca si nunca se abre el mapa).
+`MapView` **no** se promociona en el `.ui`: lo crea `MapPage.map_view()` la primera vez que se pide (y avisa con `map_created`); Chromium no arranca si nunca se abre el mapa.
 
 ### 2.2 Datos que recibe
 
 No recibe un `QAbstractItemModel`: `MediaGridModel` no lleva coordenadas (solo lo que pinta la tarjeta) y atar el mapa a un modelo de Qt impediría cambiar de tecnología. Recibe **datos inmutables y sencillos** (`ui_helpers/map/map_types.py`, sin Qt):
 
 ```python
+Position = tuple[float, float]         # (latitud, longitud)
+
 @dataclass(frozen=True, slots=True)
 class MapMarker:
     media_id: int
     latitude: float
     longitude: float
-    media_type: str            # valor de MediaType (para el dibujo sin miniatura)
-    has_thumbnail: bool        # la miniatura se pide a arca-map://thumb/<media_id>
-    direction: float | None    # gps_direction, por si se dibuja el rumbo
+    media_type: str = "photo"          # valor de MediaType (para el dibujo sin miniatura)
+    has_thumbnail: bool = True         # la miniatura se pide a arca-map://thumb/<media_id>
+    direction: float | None = None     # gps_direction, por si se dibuja el rumbo (hoy no se dibuja)
 
 @dataclass(frozen=True, slots=True)
 class MapTrack:
-    track_id: int              # media_items.id del GPX (negativo: track nuevo, aún sin archivo)
+    track_id: int                      # media_items.id del GPX
     name: str
-    segments: tuple[tuple[tuple[float, float], ...], ...]   # (lat, lon) por segmento
-    detailed: bool             # False = contorno simplificado; True = geometría completa
+    segments: tuple[tuple[Position, ...], ...]
+    detailed: bool = False             # False = contorno simplificado; True = recorrido completo
+
+@dataclass(frozen=True, slots=True)
+class MapWaypoint:                     # punto de interés del track activo (paso 4.3b)
+    latitude: float
+    longitude: float
+    name: str = ""
+    description: str = ""
 
 @dataclass(frozen=True, slots=True)
 class MapBounds:
     south: float; west: float; north: float; east: float
+
+@dataclass(frozen=True, slots=True)
+class MapViewport:                     # lo que se ve: centro, zoom y caja
+    latitude: float; longitude: float; zoom: float; bounds: MapBounds
+
+@dataclass(frozen=True, slots=True)
+class MapHit:                          # qué hay bajo el ratón (menú contextual)
+    kind: HitKind                      # EMPTY, MARKER, CLUSTER o TRACK
+    latitude: float; longitude: float
+    media_ids: tuple[int, ...] = ()
+    track_id: int | None = None
+    point_index: int | None = None
 ```
+
+`SelectionMode`: `REPLACE` y `TOGGLE`. `MapMode`: hoy solo `BROWSE` (los modos de edición llegan con la fase 6).
 
 ### 2.3 Señales (el mapa avisa; nunca cambia nada)
 
@@ -176,14 +257,14 @@ class MapBounds:
 |---|---|---|
 | `ready()` | La página está cargada (lo pedido antes se guarda en cola y se aplica aquí) | `MapController` |
 | `load_failed(str)` | La tecnología no arranca (se muestra un aviso en la página, no una ventana) | `MapController` |
-| `viewport_changed(MapViewport)` | Se mueve o cambia el zoom (con retardo) | Guardar el encuadre |
+| `viewport_changed(MapViewport)` | Se mueve o cambia el zoom (con retardo) | `MapController`: recuerda el encuadre de cada módulo (`MapFraming`) |
 | `selection_requested(list[int], SelectionMode)` | Clic en un marcador o en un grupo (`REPLACE`), Ctrl+clic (`TOGGLE`), clic en vacío (`REPLACE` con lista vacía) | `MapController` → `selectionModel` de la cuadrícula |
 | `marker_activated(int)` | Doble clic en un marcador | `CenterViewController.open_single` |
 | `media_dropped(MediaDrag, float, float)` | Se sueltan tarjetas (`MEDIA_IDS_MIME`) en un punto | `MapController` → cola de cambios |
 | `markers_moved(list[int], float, float)` | Se arrastra un marcador ya ubicado (o un grupo) a otro punto | Igual |
 | `track_clicked(int)` | Clic en la línea de un track | Selección / track activo |
-| `track_hovered(int, int)` | El ratón pasa cerca del track activo: `(track_id, índice de punto)`; `-1` al salir | `ElevationProfile.set_cursor` |
-| `edit_requested(TrackEditIntent)` | En modo edición: mover, insertar, borrar, cortar, añadir al final | `TrackEditController` |
+| `track_hovered(int, int)` | El ratón pasa a menos de 24 px (`HOVER_PX`) de la línea del track activo: `(track_id, índice de punto)`; `-1` al salir | `TrackProfileController` → `ElevationProfile.set_cursor` |
+| `edit_requested(TrackEditIntent)` (**pendiente, fase 6: aún no existe**) | En modo edición: mover, insertar, borrar, cortar, añadir al final | `TrackEditController` |
 | `context_menu_requested(MapHit, QPoint)` | Botón derecho (qué hay debajo y dónde) | El controlador abre un `QMenu` nativo |
 | `fit_requested()` | Botón «Encuadrar» (encima del zoom; 15/11/2026) | `MapController` → `fit_preferred(lo seleccionado en la cuadrícula)` |
 | `layer_changed(str)` | El usuario cambia de capa | Guardarla en `settings.json` |
@@ -196,36 +277,44 @@ class MapView(QWidget):
     def set_markers(self, markers: Sequence[MapMarker]) -> None: ...
     def update_markers(self, markers: Sequence[MapMarker]) -> None: ...   # añadir o mover unos pocos
     def remove_markers(self, media_ids: Sequence[int]) -> None: ...
+    def markers(self) -> tuple[MapMarker, ...]: ...
     def set_selected_ids(self, media_ids: Sequence[int]) -> None: ...
-    def set_preview_markers(self, markers: Sequence[MapMarker]) -> None: ...  # propuesta de la correlación
+    def selected_ids(self) -> tuple[int, ...]: ...
+    def set_thumbnail_provider(self, provider: Callable[[int], Path | None] | None) -> None: ...
+    def set_drop_enabled(self, enabled: bool) -> None: ...                # soltar tarjetas (Imagen)
+    def drop_enabled(self) -> bool: ...
+    def set_preview_markers(self, markers: Sequence[MapMarker]) -> None: ...  # para la correlación (aún sin uso)
 
     # Tracks
     def set_tracks(self, tracks: Sequence[MapTrack]) -> None: ...
     def set_track_geometry(self, track: MapTrack) -> None: ...    # sustituye el contorno por el detalle
-    def set_active_track(self, track_id: int | None) -> None: ...
-    def set_track_cursor(self, track_id: int, point_index: int | None) -> None: ...
+    def tracks(self) -> tuple[MapTrack, ...]: ...
+    def track(self, track_id: int) -> MapTrack | None: ...
+    def set_active_track(self, track_id: int | None) -> bool: ...
+    def active_track(self) -> int | None: ...
+    def set_track_cursor(self, track_id: int, point_index: int | None) -> None: ...   # el punto ámbar
+    def set_track_range(self, track_id: int, first: int, last: int) -> None: ...     # el tramo elegido en el perfil
+    def clear_track_range(self) -> None: ...
+    def set_track_colors(self, track: str, active: str) -> None: ...                  # Opciones > Tracks
+    def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None: ...            # los del track activo
+    def waypoints(self) -> tuple[MapWaypoint, ...]: ...
 
-    # Encuadre
+    # Encuadre (los 'fit_*' devuelven si había algo que encuadrar)
     def fit_bounds(self, bounds: MapBounds, *, animate: bool = True) -> None: ...
-    def fit_content(self) -> None: ...        # todo lo que hay
-    def fit_selection(self) -> None: ...
-    def fit_track(self, track_id: int) -> bool: ...
-    def fit_ids(self, media_ids: Sequence[int]) -> bool: ...   # fotos y tracks de esos id
+    def fit_content(self, *, animate: bool = True) -> bool: ...        # todo lo que hay
+    def fit_selection(self, *, animate: bool = True) -> bool: ...
+    def fit_track(self, track_id: int, *, animate: bool = True) -> bool: ...
+    def fit_ids(self, media_ids: Sequence[int], *, animate: bool = True) -> bool: ...   # fotos y tracks de esos id
     def show_default_view(self) -> None: ...  # el encuadre de partida (DEFAULT_VIEW: España)
     def fit_preferred(self, media_ids: Sequence[int] = ()) -> None: ...  # el botón «Encuadrar»: esos id; si no, todo; si no, el de partida
-    def center_on(self, latitude: float, longitude: float, zoom: int | None = None) -> None: ...
+    def center_on(self, latitude: float, longitude: float, zoom: float | None = None) -> None: ...
     def viewport(self) -> MapViewport | None: ...
 
     # Capas
+    def layers(self) -> tuple[TileLayer, ...]: ...
     def set_layers(self, layers: Sequence[TileLayer]) -> None: ...
-    def set_base_layer(self, key: str) -> None: ...
     def base_layer(self) -> str: ...
-    def set_overlay_visible(self, key: str, visible: bool) -> None: ...
-
-    # Modo de interacción
-    def set_mode(self, mode: MapMode) -> None: ...   # BROWSE, EDIT_TRACK, DRAW_TRACK
-    def show_edit_segment(self, track_id: int, patch: TrackPatch) -> None: ...  # repinta lo editado
-    def set_drop_enabled(self, enabled: bool) -> None: ...
+    def set_base_layer(self, key: str) -> bool: ...
 
     # Ciclo de vida
     def is_ready(self) -> bool: ...
@@ -233,6 +322,8 @@ class MapView(QWidget):
     def save_state(self) -> dict: ...         # capa y encuadre (JSON)
     def restore_state(self, state: object) -> None: ...
 ```
+
+**Pendiente** (aún no existen): `set_mode(MapMode)` y `show_edit_segment(track_id, TrackPatch)`, de la edición (fase 6), y `set_overlay_visible(key, visible)` (capas superpuestas: no hay ninguna).
 
 Reglas de la API:
 
@@ -245,9 +336,9 @@ Reglas de la API:
 
 ### 2.5 Contrato interno con la página (solo para `WebMapBackend`)
 
-- **Python → JS**: llamadas a funciones de `arca_map.js` con JSON compacto (marcadores como `[id, lat, lon, tipo, miniatura]`; tracks como polilíneas codificadas). Nunca se construye JavaScript concatenando textos del usuario: siempre `json.dumps`.
-- **JS → Python**: ranuras de `MapBridge` (`on_select`, `on_drop_point`, `on_marker_moved`, `on_track_hover`, `on_edit`, `on_viewport`, `on_context_menu`). El JS no guarda más estado que lo que pinta.
-- **Soltar tarjetas** (comprobado en la fase 0: los eventos llegan al widget interno de la vista, no a la subclase): un filtro de eventos en los hijos del `QWebEngineView` acepta `DragEnter`/`DragMove` solo si el arrastre trae `MEDIA_IDS_MIME` y no pasa el evento a Chromium; en `Drop` guarda el `MediaDrag`, pide a la página la coordenada del punto (`containerPointToLatLng`) y, con la respuesta, emite `media_dropped`. Durante el arrastre, la página pinta un marcador fantasma (`set_drop_cursor`).
+- **Python → JS**: llamadas a funciones de `arca_map.js` con JSON compacto (marcadores como `[id, lat, lon, tipo, miniatura]`, `marker_payload`; tracks con cada segmento como una lista plana `[lat, lon, lat, lon...]` de 6 decimales, `track_payload`: no como polilínea codificada, que solo se usa para guardar el contorno en el catálogo). Nunca se construye JavaScript concatenando textos del usuario: siempre `json.dumps`.
+- **JS → Python**: ranuras de `MapBridge` (`on_loaded`, `on_ready`, `on_viewport`, `on_select`, `on_fit`, `on_activate`, `on_track_click`, `on_track_hover`, `on_markers_moved`, `on_context_menu`). El JS no guarda más estado que lo que pinta. Las listas viajan como texto JSON ([TRAMPAS.md](TRAMPAS.md)). La ranura de la edición (`on_edit`) llegará con la fase 6.
+- **Soltar tarjetas** (comprobado en la fase 0: los eventos llegan al widget interno de la vista, no a la subclase): un filtro de eventos en los hijos del `QWebEngineView` acepta `DragEnter`/`DragMove` solo si el arrastre trae `MEDIA_IDS_MIME` y no pasa el evento a Chromium; en `Drop` guarda el `MediaDrag`, pide a la página la coordenada del punto (`arca.dropPoint`, con `runJavaScript`: no hay una ranura para ello) y, con la respuesta, emite `media_dropped`. Durante el arrastre, la página pinta un marcador fantasma (`set_drop_cursor`).
 - **Seguridad**: la página solo puede navegar dentro de `arca-map://` (`acceptNavigationRequest`); sin acceso a `file://` ni a la red directa (las teselas pasan por el esquema).
 
 ### 2.6 Cómo lo usan los tres modos
@@ -255,13 +346,13 @@ Reglas de la API:
 Ningún módulo toca `MapView` directamente. Lo hace `MapController` (uno, creado en `_conectar_vistas` como `CenterViewController`), que recibe el `ModuleHost`, el modelo y la vista de la cuadrícula, el `InspectorController` (para la cola de cambios) y el `MapPage`. Cada módulo solo **declara** lo que quiere:
 
 - `AppModule.views()` incluye o no `CenterView.MAP` (ya existe).
-- Un método nuevo, `AppModule.map_options() -> MapOptions` (dataclass sin Qt en `center_views.py` o junto a él): `show_filmstrip` (tira de fotos), `allow_geotag` (soltar y mover), `show_profile` (perfil), `allow_track_edit`, `related_photos` (añadir las fotos de la ruta). Por defecto, todo apagado.
+- `AppModule.map_options() -> MapOptions` (dataclass sin Qt, en `center_views.py`): `allow_geotag` (soltar y mover fotos), `show_profile` (la banda del perfil) y `filmstrip_starts_visible` (si la tira se ve mientras el usuario no la muestre u oculte en ese módulo). Por defecto: sin geoetiquetado, sin perfil y con la tira a la vista. Lo previsto para más adelante (`allow_track_edit`, `related_photos`) aún no existe.
 
 | Modo | `views()` | `map_options()` | Qué se ve |
 |---|---|---|---|
-| Catálogo | cuadrícula, individual, **mapa** | todo apagado, salvo la tira si se decide (D3) | Lo del origen: marcadores y contornos de tracks. Solo ver y seleccionar |
-| Imagen | cuadrícula, individual, **mapa** | tira + geoetiquetado | Marcadores; soltar desde la tira; mover los ubicados |
-| Tracks | **mapa** (inicial), cuadrícula | perfil + edición + fotos de la ruta | El track elegido con detalle, los demás en contorno, perfil debajo |
+| Catálogo | cuadrícula, individual, **mapa** | Las de partida (con la tira) | Lo del origen: marcadores y contornos de tracks. Solo ver y seleccionar |
+| Imagen | cuadrícula, individual, **mapa** | `allow_geotag` | Marcadores; soltar desde la tira; mover los ubicados; quitar la ubicación; deshacer |
+| Tracks | cuadrícula, **mapa** (la inicial) | `show_profile`; la tira empieza oculta | El track elegido con detalle y sus waypoints, los demás en contorno y atenuados, el perfil debajo |
 
 ---
 
@@ -269,7 +360,7 @@ Ningún módulo toca `MapView` directamente. Lo hace `MapController` (uno, cread
 
 ### 3.1 Proveedores
 
-Lista declarativa en `core/maps/tile_layers.py` (`TILE_LAYERS`, sin Qt; ► «aquí se añade una capa»): clave estable, nombre para el usuario, plantilla de dirección, zoom mínimo y máximo, atribución, si necesita clave y si permite descarga anticipada. **Las condiciones cambian: hay que volver a leerlas antes de activar cada capa** (las direcciones se comprueban en la fase 0).
+Lista declarativa en `core/maps/tile_layers.py` (`TILE_LAYERS`, sin Qt; ► «aquí se añade una capa»). Cada `TileLayer`: clave estable (`key`), nombre para el usuario, plantilla de dirección (`{z}`, `{x}`, `{y}` y, opcional, `{s}`), atribución, formato de las teselas (`extension`), zoom mínimo y máximo, `subdomains` y `allow_prefetch` (si sus condiciones permiten descargar por adelantado). No hay un campo «necesita clave»: ninguna capa la usa. La capa de partida es `DEFAULT_LAYER_KEY` (`osm`). **Las condiciones cambian: hay que volver a leerlas antes de activar una capa nueva.**
 
 | Capa | Tipo | Servicio | Condiciones (resumen) | Atribución |
 |---|---|---|---|---|
@@ -283,7 +374,7 @@ Lista declarativa en `core/maps/tile_layers.py` (`TILE_LAYERS`, sin Qt; ► «aq
 
 **Decidido el 13/11/2026 (D5)** y hecho en `core/maps/tile_layers.py`: «Callejero (OpenStreetMap)» (el mapa «normal» de todo el mundo, para fotos de viajes y de ciudades; es la capa con la que empieza el mapa), «OpenTopoMap», «Mapa base (IGN)», «Topográfico (IGN)» y «Ortofoto (PNOA)» (en ese orden, el del autor). Las claves, si algún día se usan, van en `settings.json` y se añaden en Python al pedir la tesela: nunca llegan a la página.
 
-**Capas del usuario** (por durabilidad, §1.5): además de las de fábrica, las opciones permiten añadir capas propias (nombre, plantilla de dirección XYZ o WMTS, zoom máximo y atribución), guardadas en `settings.json`. Si un servicio cambia de dirección o cierra, se corrige sin tocar el código.
+**Capas del usuario** (por durabilidad, §1.5; hecho en el paso 2.4): Opciones > Mapa permite añadir capas propias (nombre, plantilla de dirección, zoom máximo y atribución; `ui_helpers/dialogs/map_layer_dialog.py`), guardadas en `settings.json` con claves `user_…` (`user_layer`, `user_layers_from_settings`, `check_url_template`). Si un servicio cambia de dirección o cierra, se corrige sin tocar el código.
 
 La **atribución** de la capa activa se muestra siempre en la esquina del mapa (es condición de todas).
 
@@ -293,26 +384,26 @@ La página no habla con Internet. Todo lo pide a un esquema propio que atiende `
 
 | Dirección | Qué devuelve |
 |---|---|
-| `arca-map://app/...` | Los recursos de `resources/map/` (página, JS, CSS, Leaflet) |
+| `arca-map://app/...` | Los recursos de `resources/map/` (página, JS, CSS, Leaflet) y `qwebchannel.js`, que viene dentro de Qt |
 | `arca-map://tiles/<capa>/<z>/<x>/<y>` | La tesela: de la caché si está y vale; si no, se descarga (`QNetworkAccessManager`), se guarda y se devuelve |
-| `arca-map://thumb/<media_id>` | La miniatura de 160 px de la caché del catálogo (`ThumbnailCache.resolve`) |
+| `arca-map://thumb/<media_id>` | La miniatura del marcador: la da una función que se le pasa al abrir el catálogo (`set_thumbnail_provider`), que la saca de la caché de miniaturas |
 
-Ventajas: caché y modo sin conexión controlados por la aplicación; un único sitio para el `User-Agent`, las claves, el límite de peticiones simultáneas (2 por servidor) y los reintentos; mismo origen para todo (sin problemas de CORS); las miniaturas llegan sin convertirlas a texto.
+Ventajas: caché y uso sin conexión controlados por la aplicación; un único sitio para el `User-Agent` (`tile_layers.user_agent`) y, si un día hay claves, no llegan a la página; mismo origen para todo (sin problemas de CORS); las miniaturas llegan sin convertirlas a texto. **No implementado**: un límite propio de peticiones simultáneas por servidor ni reintentos (no han hecho falta).
 
-Dos obligaciones de Qt (van a [TRAMPAS.md](TRAMPAS.md) cuando se implemente): el esquema se **registra antes de crear `QApplication`** (`QWebEngineUrlScheme.registerScheme`) y `QtWebEngineWidgets` debe importarse (o ponerse `Qt.AA_ShareOpenGLContexts`) también antes. Es el único cambio en `main.py`.
+Dos obligaciones de Qt (en [TRAMPAS.md](TRAMPAS.md)): el esquema se **registra antes de crear `QApplication`** (`register_map_scheme()`, que llama `main.py`) y QtWebEngine debe importarse también antes. Si en el equipo falta QtWebEngine, la aplicación sigue adelante sin mapa.
 
-Si en la fase 0 el manejador en Python resultara lento, la alternativa **dentro del mismo plan** es que Leaflet pida las teselas por `https` y usar la caché HTTP del perfil de WebEngine (se pierde el control del modo sin conexión).
+El manejador se ejecuta en el hilo principal y no se nota (medido en la fase 0, §10): leer una tesela de la caché es inmediato y las descargas son asíncronas. La alternativa que se había previsto (que Leaflet pidiera las teselas por `https`) no ha hecho falta.
 
 ### 3.3 Caché local
 
-- `core/maps/tile_store.py` (`TileStore`, sin Qt): ruta `<carpeta de caché de la aplicación>/tiles/<capa>/<z>/<x>/<y>.<ext>`, escritura atómica (como `ThumbnailCache`), fecha de descarga = fecha del archivo.
-- **Por aplicación, no por catálogo**: las teselas no son datos del catálogo y se pueden volver a bajar. La carpeta sale de `config/app_paths.py` (junto a `settings.json`, en una subcarpeta `cache`).
-- **Caducidad**: 30 días (la política de OSM pide 7 como mínimo). Una tesela caducada se sigue sirviendo y se renueva en segundo plano; sin conexión, vale siempre.
-- **Tope de tamaño**: configurable (2 GB al empezar), con limpieza de las descargadas hace más tiempo al crear el mapa (no al arrancar: si nunca se abre el mapa, no se recorre la caché), en segundo plano. Opción en la ventana de opciones (sección «Mapa»): tamaño máximo, lo que ocupa y «Vaciar la caché…».
+- `core/maps/tile_store.py` (`TileStore`, sin Qt): ruta `<raíz>/<capa>/<z>/<x>/<y>.<ext>`, escritura atómica (como `ThumbnailCache`), fecha de descarga = fecha del archivo. Solo guarda imágenes (`looks_like_image`): una página de error de un servidor no se queda en la caché.
+- **Por aplicación, no por catálogo**: las teselas no son datos del catálogo y se pueden volver a bajar. La carpeta es `TILE_CACHE_DIR` de `config/app_paths.py`: `cache/tiles`, junto a `settings.json`.
+- **Caducidad**: 30 días (`DEFAULT_MAX_AGE_DAYS`; la política de OSM pide 7 como mínimo). Una tesela caducada se devuelve en el acto y se renueva por detrás; sin conexión, vale siempre.
+- **Tope de tamaño**: configurable en Opciones > Mapa (2 GB de partida), donde también se ve lo que ocupa y se puede vaciar. La limpieza de las descargadas hace más tiempo (`prune`) la lanza `MapController` en otro hilo al crearse el mapa y al cambiar el tope (no al arrancar: si nunca se abre el mapa, no se recorre la caché).
 
 ### 3.4 Sin conexión
 
-- Lo que está en la caché se ve; lo que no, una tesela lisa del color de fondo del tema y un aviso discreto en el mapa («Sin conexión: se muestra lo guardado»; texto a decidir).
+- Lo que está en la caché se ve; lo que no, queda con el fondo del mapa (el color de la cuadrícula). **El aviso «Sin conexión» que se había previsto no está implementado.**
 - Marcadores, tracks, selección, perfil y edición funcionan igual: no dependen de la red.
 - **Descargar una zona para usarla sin conexión**: posible más adelante y solo con las capas que lo permitan (campo `allow_prefetch`; OSM estándar lo prohíbe). No está en el plan inicial.
 
@@ -321,6 +412,8 @@ Si en la fase 0 el manejador en Python resultara lento, la alternativa **dentro 
 ## 4. Elevación
 
 ### 4.1 De dónde sale
+
+> **Cómo quedó**: hoy el perfil usa solo la `ele` de cada punto del GPX (punto 1). El modelo de elevaciones del punto 2 (`core/maps/dem.py`) **está pendiente** (paso 6.8) y, con él, la marca de «altitud estimada».
 
 1. **La `ele` de cada punto del GPX**: siempre que exista. Es la que usa hoy el resumen (`gpx_reader`).
 2. **Si falta** (rutas planificadas, puntos insertados, GPX sin altitud): un **modelo digital de elevaciones** por teselas, en `core/maps/dem.py`:
@@ -332,11 +425,11 @@ Si en la fase 0 el manejador en Python resultara lento, la alternativa **dentro 
 
 ### 4.2 Cómo se calcula el perfil (`core/tracks/profile.py`, sin Qt)
 
-- **Distancia**: acumulada en 2D con haversine entre puntos consecutivos **del mismo segmento**, igual que `gpx_reader` (entre segmentos no se suma; el perfil marca el salto). La función de haversine pasa a `core/tracks/geodesy.py` y `gpx_reader` la importa de allí: una sola implementación.
+- **Distancia**: acumulada en 2D con haversine entre puntos consecutivos **del mismo segmento**, igual que `gpx_reader` (entre segmentos no se suma; el perfil marca el salto). La función de haversine está en `core/tracks/geodesy.py` (`haversine_m`) y `gpx_reader` la importa de allí: una sola implementación.
 - **Desnivel acumulado**: el mismo método del umbral (`ELEVATION_THRESHOLD_M` = 8 m, calibrado con Wikiloc; repetido en `profile.py`, y la autoprueba comprueba que da lo mismo). Así el perfil dice **los mismos números** que el catálogo y el inspector. No se cambia el cálculo (obligaría a subir `TRACK_EXTRACTOR_VERSION` y a recalibrar).
 - **Suavizado, solo para dibujar**: mediana móvil sobre una ventana de distancia (30 m) para quitar los picos del GPS; los números (mínima, máxima, desnivel) salen de los datos sin suavizar.
 - **Reducción para pintar**: mínimo y máximo por columna de píxel (como mucho dos puntos por píxel de ancho); 50 000 puntos se dibujan como ~2 000.
-- Resultado: `ElevationProfileData` (distancias, altitudes, índice del punto original de cada muestra, saltos de segmento, mínimos, máximos, desnivel, tramo estimado). Con la **pendiente** (%) de cada punto, medida sobre la altitud suavizada en una ventana de 200 m (elegida con los GPX del autor el 15/11/2026, al verla dibujada: con 100 m, los colores cambiaban casi en cada punto; con 300 m se pierden las rampas cortas), para pintarla por colores; el widget añade una histéresis del 2 % al decidir la franja. Opcional más adelante: eje de tiempo en vez de distancia.
+- Resultado: `ElevationProfileData` (distancias, altitudes, índice del punto original de cada muestra, saltos de segmento, mínimos, máximos, desnivel; el tramo estimado, todavía no). Funciones: `build_profile`, `range_stats` (las estadísticas de un tramo), `index_at_distance` y `drawing_runs` (la reducción para pintar). Constantes: `SMOOTHING_WINDOW_M` = 30 y `SLOPE_WINDOW_M` = 200. Con la **pendiente** (%) de cada punto, medida sobre la altitud suavizada en una ventana de 200 m (elegida con los GPX del autor el 15/11/2026, al verla dibujada: con 100 m, los colores cambiaban casi en cada punto; con 300 m se pierden las rampas cortas), para pintarla por colores; el widget añade una histéresis del 2 % al decidir la franja. Opcional más adelante: eje de tiempo en vez de distancia.
 
 ### 4.3 Con qué se dibuja
 
@@ -345,11 +438,14 @@ Si en la fase 0 el manejador en Python resultara lento, la alternativa **dentro 
 - Por qué no QtCharts o QtGraphs (están instalados): es un solo gráfico de área; a mano son ~250 líneas, se controla el aspecto al píxel como el resto de la aplicación y no entra otro módulo de Qt.
 - Por qué no dentro de la página web: el perfil debe verse igual con cualquier tecnología de mapa y probarse sin ella.
 
-Sincronización (la hace `MapController`, no los widgets entre sí):
+Sincronización (hecha en el paso 5.3b; la hace `TrackProfileController`, que crea `MapController`, no los widgets entre sí; sin eco: los métodos que se llaman desde fuera no avisan):
 
-- Perfil → mapa: `ElevationProfile.cursor_moved(point_index | None)` → `MapView.set_track_cursor(track_id, point_index)`.
-- Mapa → perfil: `MapView.track_hovered(track_id, point_index)` → `ElevationProfile.set_cursor(point_index)`. La página busca el vértice más cercano al ratón (dentro de unos píxeles) sobre la geometría completa; con 50 000 puntos es menos de 1 ms, una vez por fotograma.
-- Arrastrar en el perfil selecciona un tramo → `range_selected(first, last)` → el mapa lo resalta; en edición, es la forma cómoda de **recortar** (§7).
+- Perfil → mapa: `ElevationProfile.cursor_moved(int)` → `MapView.set_track_cursor(track_id, point_index)`.
+- Mapa → perfil: `MapView.track_hovered(track_id, point_index)` → `ElevationProfile.set_cursor(point_index)`. La página busca el punto más cercano de la **línea** del track activo, a menos de 24 px (`HOVER_PX`), sobre el recorrido completo.
+- Arrastrar en el perfil elige un tramo → `range_selected(first, last)` → `MapView.set_track_range`, que lo resalta en ámbar; un clic en el perfil (`selection_cleared`) o Esc lo quitan de los dos (`clear_track_range`). En la edición será la forma cómoda de **recortar** (§7).
+- Solo mientras el mapa tiene el recorrido **completo** de ese track: sus índices de punto son entonces los del perfil (con el contorno serían otros).
+
+El recorrido completo, los waypoints y el perfil los calcula `TrackDetailController` en segundo plano, de una vez (`TrackDetail`), con memoria de los 5 últimos (`CACHE_SIZE`).
 
 ---
 
@@ -360,10 +456,12 @@ Sincronización (la hace `MapController`, no los widgets entre sí):
 `media_items.latitude`, `longitude`, `altitude`, `gps_direction` (bloque B, editables; [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md)). No hace falta ninguna columna nueva.
 
 - **Leer para el mapa**: `core/catalog/map_queries.py`, `fetch_map_items(conn, source, filters) -> MapItems`: una sola consulta con `source_condition` que devuelve (a) los elementos con latitud y longitud (id, coordenadas, tipo, estado de la miniatura, dirección) y (b) los de tipo `track` con su `overview` y su caja. No se añaden columnas a `fetch_grid_rows`: la cuadrícula sigue pidiendo solo lo que pinta.
-- **Escribir**: soltar o mover N fotos en un punto → `update_metadata_fields(conn, ids, {"latitude": ..., "longitude": ...})`, que ya existe, por la cola del inspector (`InspectorController.request_edit`). La correlación (cada foto, su punto) necesita una función nueva, `update_media_positions(conn, positions: Mapping[int, Position])`, en `core/catalog/geotagging.py`, que reutiliza `normalize_value` y `bits_for` de `editable_fields.py` (mismas validaciones y mismos bits de pendiente).
-- **Índice**: no hace falta para pintar (se consulta por origen, como la cuadrícula). Para «las fotos de la zona de este track» sí conviene un índice parcial, `idx_media_geo ON media_items(latitude, longitude) WHERE latitude IS NOT NULL`: va en la migración del paso que lo use (§10, fase 6), no antes.
+- **Escribir** (hecho, pasos 3.2 a 3.4): soltar, mover o quitar la ubicación de N fotos → `core/catalog/geotagging.py`: `set_media_position(conn, ids, latitud, longitud)` (con `None`, quita la ubicación), que pasa por `update_metadata_fields` (las mismas comprobaciones y bits de pendiente que el inspector) y devuelve las coordenadas de antes; con ellas, `restore_media_positions` deshace el cambio (`UndoHistory`). Va por la cola del inspector (`InspectorController.request_edit`). Solo cambian la latitud y la longitud (D7). **Pendiente** (`TRK 8`): la función de la correlación (cada foto, su punto), `update_media_positions`.
+- **Índice**: no hace falta para pintar (se consulta por origen, como la cuadrícula). Para «las fotos de la zona de este track» sí convendrá un índice parcial, `idx_media_geo ON media_items(latitude, longitude) WHERE latitude IS NOT NULL`: **no existe**; irá en la migración del paso que lo use (fase 8).
 
 ### 5.2 ¿Las coordenadas se escriben también en el archivo? (D1, decide el autor)
+
+> **Decidido el 13/11/2026 (D1): la opción 1**, igual que la edición a mano. Soltar 50 fotos o más pide confirmación (`_CONFIRM_FROM`, en `map_controller.py`) y lo hecho en el mapa se deshace con Ctrl+Z. Lo que sigue es cómo se planteó.
 
 Hoy **ya está decidido para la edición a mano** (11/11/2026): lo editado en el inspector se escribe en el EXIF/XMP, en el sidecar de los RAW o en el `.arca.json`, con `write_user_data_to_files` activado. La pregunta es si el geoetiquetado **desde el mapa y por lotes** sigue la misma regla.
 
@@ -378,26 +476,28 @@ Con la opción 1, las salvaguardas: la ventana de vista previa de la correlació
 ### 5.3 Tracks y sus puntos
 
 - **Lo que hay**: una fila en `media_items` (tipo `track`, biblioteca `tracks`, salida en `latitude`/`longitude`) y su resumen en `track_details` (caja, llegada, distancia, desnivel, horas UTC, recuentos).
-- **Lo nuevo (migración 4)**: `track_details.overview TEXT`: el recorrido **simplificado** (Douglas-Peucker, tolerancia ~15 m, tope de 1 000 puntos entre todos los segmentos), como polilínea codificada (el formato de Google, precisión 5; un segmento por línea). Lo calcula `TrackExtractor` → sube `TRACK_EXTRACTOR_VERSION` a 3 (los GPX se releen solos; es rápido). Sirve para pintar cientos de tracks sin abrir ningún archivo y, más adelante, para la miniatura del recorrido (hecha el 14/11/2026: paso 4.5).
+- **Lo nuevo (migración 4)**: `track_details.overview TEXT`: el recorrido **simplificado** (Douglas-Peucker, tolerancia ~15 m, tope de 1 000 puntos entre todos los segmentos), como polilínea codificada (el formato de Google, precisión 5; un segmento por línea). Lo calcula `TrackExtractor` (`core/tracks/simplify.py`: `OVERVIEW_TOLERANCE_M` = 15, `OVERVIEW_MAX_POINTS` = 1 000); con ello `TRACK_EXTRACTOR_VERSION` subió a 3 (hoy es 5, por la actividad; los GPX se releen solos). Sirve para pintar cientos de tracks sin abrir ningún archivo y, más adelante, para la miniatura del recorrido (hecha el 14/11/2026: paso 4.5).
 - **Los puntos completos no van a SQLite.** Opciones consideradas:
 
 | Opción | Valoración |
 |---|---|
-| **A. Leer el GPX a demanda** (recomendada) | El archivo es la fuente y no se duplica nada. 30 000 puntos se leen en décimas de segundo, en segundo plano, y se guardan en memoria (los últimos 5 tracks). Función nueva `read_gpx_points` en `core/tracks/gpx_document.py` |
+| **A. Leer el GPX a demanda** (recomendada) | El archivo es la fuente y no se duplica nada. 30 000 puntos se leen en décimas de segundo, en segundo plano, y se guardan en memoria (los últimos 5 tracks). **Hecho así**: `read_gpx_path` en `core/tracks/gpx_document.py`; la memoria, en `TrackDetailController` |
 | B. Tabla `track_points` | 1 000 tracks × 10 000 puntos = 10 millones de filas y cientos de MB en el catálogo, para un dato que ya está en los archivos; con un GPX ausente, el contorno de `overview` ya da para verlo |
 | C. Un archivo binario por track en `cache/track/` del catálogo | Solo si se mide que A es lenta con archivos enormes; se puede añadir después sin cambiar nada más |
 
-- **Track nuevo o editado**: no existe en el catálogo hasta que se exporta a un GPX dentro de una carpeta catalogada y esa carpeta se sincroniza (hoy solo se catalogan carpetas completas: PENDIENTE, `CAT 1.1`). El paso de exportar ofrece sincronizarla al terminar.
+- **Track nuevo o editado** (pendiente, fases 6 y 7): un track **editado** se guarda sobre su propio GPX (D2, 16/11/2026) y el catálogo lo relee como cualquier archivo que cambia. Uno **nuevo** no existe en el catálogo hasta que se guarda en una carpeta catalogada y esa carpeta se sincroniza (hoy solo se catalogan carpetas completas: PENDIENTE, `CAT 1.1`); al guardarlo se ofrece sincronizarla.
 
 ### 5.4 Relación de los tracks con las colecciones
 
 **No hace falta nada nuevo**: un track es un `media_items`, así que una colección estática (`collection_items`) ya puede contener tracks y fotos, y una inteligente puede mezclarlos con reglas. El mapa del Catálogo pinta lo que haya en el origen: los `track`, como líneas; lo que tenga coordenadas, como marcadores. Es justo «juntar los GPX de una ruta con sus fotos» (PENDIENTE, `TRK 8`).
 
-Lo que queda por decidir (D4): si además se quiere la relación **calculada** («las fotos de esta ruta» sin hacer la colección a mano). Propuesta: una consulta, sin tabla nueva, `fetch_track_photos(conn, track_id, margin_s, max_distance_m)` en `map_queries.py`: fotos y vídeos cuya hora (convertida a UTC, §6) cae entre `started_at` y `ended_at` con un margen, o, si el track no tiene horas, dentro de su caja y a menos de cierta distancia del contorno. El módulo Tracks la usa para pintar las fotos junto al track ([DECISIONES.md](DECISIONES.md), «Vistas del centro»), y una acción «Crear colección con esta ruta y sus fotos» la convierte en colección estática. Una tabla de enlaces (`track_media`) solo si se quiere fijar la relación a mano foto a foto: no se propone.
+Lo que queda por decidir (D4): si además se quiere la relación **calculada** («las fotos de esta ruta» sin hacer la colección a mano). Propuesta (**pendiente**, `TRK 8`: la función aún no existe): una consulta, sin tabla nueva, `fetch_track_photos(conn, track_id, margin_s, max_distance_m)` en `map_queries.py`: fotos y vídeos cuya hora (convertida a UTC, §6) cae entre `started_at` y `ended_at` con un margen, o, si el track no tiene horas, dentro de su caja y a menos de cierta distancia del contorno. El módulo Tracks la usa para pintar las fotos junto al track ([DECISIONES.md](DECISIONES.md), «Vistas del centro»), y una acción «Crear colección con esta ruta y sus fotos» la convierte en colección estática. Una tabla de enlaces (`track_media`) solo si se quiere fijar la relación a mano foto a foto: no se propone.
 
 ---
 
 ## 6. Correlación foto-track (geoetiquetado automático)
+
+> **Pendiente entero** (`TRK 8`): no existen `core/tracks/correlation.py`, la ventana ni su controlador. Es el diseño de partida. Lo único hecho es `MapView.set_preview_markers`, todavía sin uso.
 
 ### 6.1 Cálculo (`core/tracks/correlation.py`, sin Qt ni BD)
 
@@ -428,28 +528,40 @@ El último desfase y la zona se recuerdan en `settings.json` (clave nueva en `DE
 
 ## 7. Edición de GPX
 
+> **Hecho**: solo §7.1 (el lector completo, paso 4.1). **Pendiente** (`TRK 6` y `TRK 7`): §7.2 a §7.5; no existen `track_model.py`, `TrackEditController`, `write_gpx` ni los modos de edición del mapa.
+
 ### 7.1 Leer sin perder nada (`core/tracks/gpx_document.py`, sin Qt)
 
-`read_gpx` (el del extractor) es un resumen en streaming y tira los puntos: no sirve para editar. Hace falta un lector **completo y sin pérdidas**, aparte (el del extractor no se toca):
+`read_gpx` (el del extractor) es un resumen en streaming y tira los puntos: no sirve para editar. Por eso hay un lector **completo y sin pérdidas**, aparte (el del extractor no se toca). Como está hoy:
 
 ```python
 @dataclass(slots=True)
 class TrackPoint:
     latitude: float
     longitude: float
-    elevation: float | None
-    time: datetime | None          # UTC
-    extra: bytes | None            # el resto de hijos del punto, tal cual (pulso, cadencia, temperatura...)
-    elevation_estimated: bool = False   # altitud puesta por el modelo de elevaciones
+    elevation: float | None = None
+    time: datetime | None = None            # UTC, con zona
+    extra: tuple[Element, ...] = ()         # el resto de hijos del punto, tal cual (pulso, cadencia, hdop...)
+    elevation_estimated: bool = False       # altitud puesta por el modelo de elevaciones (al leer, siempre False)
 
+@dataclass(slots=True)
 class GpxDocument:
-    root_attributes, namespaces    # version, creator, xmlns:*, schemaLocation
-    metadata: bytes | None         # <metadata> entero, sin tocar
-    waypoints: list[bytes]         # cada <wpt>, sin tocar
-    routes: list[bytes]            # cada <rte>, sin tocar
-    tracks: list[GpxTrack]         # cabecera sin tocar (name, desc, type, extensions) + segmentos
-    trailing: list[bytes]          # <extensions> del documento
+    version: str                            # '1.0' o '1.1'
+    creator: str | None
+    namespace: str                          # el de las etiquetas GPX
+    namespaces: tuple[tuple[str, str], ...] # (prefijo, dirección), en su orden: para guardar con los mismos prefijos
+    root_attributes: dict[str, str]         # p. ej. xsi:schemaLocation
+    metadata: Element | None                # <metadata> entero (GPX 1.1), tal cual
+    header: ...                             # en GPX 1.0, los datos sueltos de <gpx> (name, desc, author...), tal cual
+    waypoints: ...                          # los puntos de interés (Waypoint), con sus campos
+    tracks: ...                             # GpxTrack, con sus TrackSegment (o las rutas, si el archivo solo tenía rutas)
+    routes: ...                             # las rutas que no se usan como recorrido, tal cual
+    extensions: ...                         # los <extensions> del documento, tal cual
+    skipped_points: int                     # puntos ignorados por no ser válidos
+    skipped_waypoints: int
 ```
+
+Dos lecturas: `read_gpx_document(path)` (el archivo entero, para editar) y `read_gpx_path(path)` (solo el recorrido, `TrackPath` con sus `PathSegment`: para verlo en el mapa y para el perfil).
 
 - **Cambiado al implementarlo (paso 4.1, 14/11/2026)**: lo que no se edita se guarda como elementos XML sueltos (`Element`), no como texto: los tracks del autor tienen de 1 000 a 10 000 puntos (la memoria no aprieta) y así, al exportar, todo va en un solo árbol con los espacios de nombres declarados una vez. Los waypoints se leen con sus campos (nombre, descripción, símbolo), para verlos y editarlos. Y hay una lectura rápida aparte, `read_gpx_path`, solo con el recorrido. El resto de este apartado es el diseño original.
 - Se lee con `defusedxml` (como hoy). Cada parte que no se edita se guarda **como fragmento XML ya serializado** (`bytes`), no como árbol: un track de 100 000 puntos ocupa decenas de MB, no cientos, y al exportar esos fragmentos se escriben tal cual.
@@ -502,6 +614,8 @@ Al editar (en caliente, sin bloquear) y, sobre todo, antes de exportar:
 
 ## 8. Rendimiento
 
+> **Cómo quedó**: medido en la fase 0 (§10): un track de 10 000 puntos y 20 000 marcadores agrupados, fluido; los tracks reales del autor tienen de 1 000 a 10 000 puntos, así que los 50 000 de los objetivos son margen, no requisito. De la tabla, **está hecho**: la agrupación con Supercluster, el dibujo en `canvas` (`preferCanvas`), los tres niveles de los tracks (contorno, recorrido completo del activo con memoria de los 5 últimos), la carga con `db.execute_async` y número de generación, y la caché de teselas. **No está hecho** (o no ha hecho falta): `smoothFactor` (no se usa), el límite de 2 peticiones por servidor y `fetch_track_photos`; la fila de la edición es de la fase 6.
+
 Objetivos: 20 000 fotos con coordenadas en un origen; un track activo de 50 000 puntos; 500 tracks en contorno; nada bloquea la interfaz.
 
 | Problema | Solución |
@@ -509,7 +623,7 @@ Objetivos: 20 000 fotos con coordenadas en un origen; un track activo de 50 000 
 | **Miles de marcadores** | Agrupación en la página con **Supercluster** (índice espacial, cientos de miles de puntos en milisegundos). Al mover o cambiar el zoom se piden los grupos de lo visible y se pintan como mucho unos cientos de elementos. Cada grupo: miniatura de una de sus fotos y el número (como Lightroom); los marcadores sueltos, su miniatura (`arca-map://thumb/<id>`, cargada solo si se ve). Clic en un grupo: selecciona todas sus fotos |
 | **Selección con grupos** | El índice acumula por grupo cuántas de sus fotos están seleccionadas (propiedad agregada de Supercluster): el grupo se resalta sin recorrer sus hijos. `set_selected_ids` con 20 000 ids (Ctrl+A) es un conjunto en JS y un repintado de lo visible |
 | **Pasar los datos a la página** | Una sola llamada con una lista compacta (`[id, lat, lon, tipo, miniatura]`): 20 000 marcadores ≈ 0,7 MB de JSON. Los cambios pequeños (soltar, mover), con `update_markers`: no se reenvía todo |
-| **Tracks largos** | Tres niveles: (1) el **contorno** de `track_details.overview` (≤ 1 000 puntos) para todos los tracks del origen, sin abrir archivos; (2) la **geometría completa** solo del track activo, leída en segundo plano y enviada como polilínea codificada (50 000 puntos ≈ 250 kB); (3) al pintar, Leaflet simplifica por nivel de zoom (`smoothFactor`) sobre `canvas` y recorta a lo visible. Mientras llega la completa se ve el contorno |
+| **Tracks largos** | Tres niveles: (1) el **contorno** de `track_details.overview` (≤ 1 000 puntos) para todos los tracks del origen, sin abrir archivos; (2) la **geometría completa** solo del track activo, leída en segundo plano y enviada como lista plana de coordenadas (`track_payload`); (3) al pintar, Leaflet simplifica por nivel de zoom (`smoothFactor`) sobre `canvas` y recorta a lo visible. Mientras llega la completa se ve el contorno |
 | **Simplificación** | `core/tracks/simplify.py`: Douglas-Peucker iterativo (sin recursión: 100 000 puntos) y codificación de polilíneas. Se usa al extraer (`overview`) y para el perfil no hace falta (reduce por píxel) |
 | **Edición de tracks grandes** | Asas solo de lo visible; cada orden repinta un rango (`TrackPatch`), no el track entero; el perfil se recalcula entero (50 000 puntos: milisegundos) con un retardo de 100 ms durante los arrastres |
 | **Carga en segundo plano** | Consultas con `db.execute_async` (`fetch_map_items`, `fetch_track_photos`); lectura de GPX completos en el mismo grupo de hilos (la función recibe `conn` para sacar la ruta y luego lee el archivo) con memoria de los 5 últimos; elevación del modelo como trabajo (`JobManager`) si hay que descargar teselas. Cada respuesta lleva un número de generación: las tardías se descartan (patrón de `MetadataFilterController`) y se comprueba `if self.db is None: return` |
@@ -520,6 +634,8 @@ Objetivos: 20 000 fotos con coordenadas en un origen; un track activo de 50 000 
 ---
 
 ## 9. Riesgos y preguntas abiertas (por gravedad)
+
+> **Cómo quedó cada uno** (16/11/2026). **Resueltos**: 1 (los eventos de arrastre llegan al widget interno: `WebMapBackend` pone un filtro en los hijos de la vista; 1-3 px de diferencia), 2 (la ventana se compone con la GPU desde que se abre, con su opción: sin parpadeo y sin cortes en la vista individual), 5 (la vista y sus hijos van en `NoFocus`), 7 (el manejador en Python no se nota), 15 (marcadores con miniatura; los grupos, de 44 px) y 16 (los vídeos se recolocan como las fotos: `LOCATABLE_MEDIA_TYPES`). **Decididos**: 4 (D1 el 13/11/2026 y D2 el 16/11/2026: en los dos casos se escribe en los archivos). **Medido**: 11 (unos 170 MB más con el mapa vacío; 400-500 MB más con un track y 20 000 marcadores). **Siguen abiertos**: 3 (macOS y Linux), 6 (condiciones de los servicios), 8 (pantallas con escalado: no se usa `detectRetina` y solo se ha probado al 100 %), 9 (empaquetado, `GEN 5`), 10 (zonas horarias, con la correlación), 12, 13, 14, 17 y 18 (`GEN 8.1`).
 
 **Graves (pueden cambiar el plan)**
 
@@ -550,11 +666,15 @@ Objetivos: 20 000 fotos con coordenadas en un origen; un track activo de 50 000 
 
 ---
 
+# Parte II — Planificación
+
+Las fases 0 a 5 están hechas (se conservan, tachadas, como registro de lo que se pidió y cómo se aceptó). Lo pendiente son las fases 6, 7 y 8; su lista corta, en [PENDIENTE.md](PENDIENTE.md) (`TRK 6`, `TRK 7`, `TRK 8`).
+
 ## 10. Plan de implementación
 
 Reglas para quien lo implemente: un paso cada vez, con el visto bueno del autor antes de los que tocan varios archivos; al terminar cada paso, lo que manda [CLAUDE.md](../CLAUDE.md) («Al terminar cada paso: actualizar la documentación»): `ESTADO.md` siempre, el mapa de `ARQUITECTURA.md` con cada archivo nuevo, `PRUEBAS.md` con cada autoprueba, `MODELO_DE_DATOS.md` e `INDEX.md` con la migración y la versión, `FLUJOS.md` con un apartado nuevo «Mapa», `TRAMPAS.md` con lo que se descubra y `DECISIONES.md` con lo que decida el autor. **En cada paso**, además de sus criterios: `ruff check` de lo tocado, las autopruebas de los módulos tocados y que la aplicación arranca y la cuadrícula, la vista individual y el inspector siguen igual (lo comprueba el autor).
 
-Antes de empezar: resolver D1, D2 y D3 (condicionan las fases 3 y 7) y recordar al autor que haga un commit.
+Antes de empezar (13/11/2026; las tres están ya decididas): resolver D1, D2 y D3 y recordar al autor que haga un commit.
 
 ### Resultado de la fase 0 (13/11/2026): se sigue con el plan A
 
@@ -695,7 +815,7 @@ Hasta la fase 3, el sugerido al principio (base → Catálogo → Imagen). Desde
 
 ---
 
-## 11. Decisiones pendientes del autor (detalle)
+## 11. Decisiones del autor (detalle)
 
 - **D1. Escritura de las coordenadas en los archivos.** Opciones y salvaguardas en §5.2. Recomendación: la misma regla que la edición a mano. Bloquea el paso 3.2.
 - **D2. Guardar un GPX editado.** **Decidida el 16/11/2026 (el autor): sobre el propio archivo, sin generar copias** ([DECISIONES.md](DECISIONES.md)); cómo se hace con seguridad, en el paso 6.1. Lo que se recomendaba: siempre «Exportar a GPX…» a un archivo nuevo; el original no se toca. Alternativa: permitir «Guardar» con copia `.bak` (excepción nueva del principio de los originales). Bloquea 7.3.
