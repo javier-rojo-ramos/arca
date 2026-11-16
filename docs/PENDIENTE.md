@@ -20,7 +20,7 @@
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
-- **Preparar el crecimiento** (16/11/2026): hechos `GEN 11` (el guion de autopruebas) y `GEN 13` (una sola barra de biblioteca); lo siguiente, `GEN 12` (ficha por módulo), antes de `EBK 1`; `GEN 14` (escritores), antes de `MUS 6`; `GEN 15` (trabajos fuera del controlador), antes de `VID 7`. `MUS 1` a `MUS 3` y `VID 1` a `VID 4` no dependen de nada de esto.
+- **Preparar el crecimiento** (16/11/2026): hechos `GEN 11` (el guion de autopruebas), `GEN 13` (una sola barra de biblioteca) y `GEN 12` (una ficha por módulo); lo siguiente, `GEN 14` (escritores), antes de `MUS 6`; `GEN 15` (trabajos fuera del controlador), antes de `VID 7`. `MUS 1` a `MUS 3` y `VID 1` a `VID 4` no dependen de nada de esto.
 
 ---
 
@@ -84,13 +84,9 @@ De [MOD_TRACKS.md](MOD_TRACKS.md) §10, «Después (sin fecha)»:
 
 Pedir a ExifTool solo las etiquetas necesarias, `-stay_open` o varios procesos; un grupo de hilos propio para los trabajos (hoy comparten los 4 del gestor de BD: metadatos o escritura, miniaturas y añadir carpeta pueden ocupar 3 a la vez); más índices (p. ej. por valoración).
 
-### Preparar el crecimiento (`GEN 12` a `GEN 19`)
+### Preparar el crecimiento (`GEN 14` a `GEN 19`)
 
-Acordado con el autor el 16/11/2026, tras analizar el código ([DECISIONES.md](DECISIONES.md)): lo que conviene refactorizar o hacer común **antes** de los módulos nuevos, para que no lo pague cada uno por separado. Son refactorizaciones: no cambian lo que hace la aplicación, y cada una va en su paso, sin mezclarla con una funcionalidad. El orden, en «En curso». Hecho: `GEN 11`, el guion que lanza todas las autopruebas (`scripts/run_selftests.py`, 16/11/2026): se ejecuta antes y después de cada una de estas; y `GEN 13`, una sola barra de biblioteca (16/11/2026): Imagen usa `LibrarySidebar` y `LibraryModule`, y una sección nueva de un módulo es un `ExtraSection` ([COMO_AMPLIAR.md](COMO_AMPLIAR.md)).
-
-### Fase GEN 12 — Una ficha por módulo
-
-Dar de alta Tracks tocó unos 21 archivos: el nombre, el icono, el botón, la clave del modo y los textos de cada tipo («1 foto», «1 track») están repartidos (`app_constants.py`, `mode_toolbar.py`, `registry.py`, `formatting.py`, `selection_section.py`...). Reunir lo que describe a cada módulo y a cada biblioteca en un solo sitio, del que lean los demás. Antes de `EBK 1`.
+Acordado con el autor el 16/11/2026, tras analizar el código ([DECISIONES.md](DECISIONES.md)): lo que conviene refactorizar o hacer común **antes** de los módulos nuevos, para que no lo pague cada uno por separado. Son refactorizaciones: no cambian lo que hace la aplicación, y cada una va en su paso, sin mezclarla con una funcionalidad. El orden, en «En curso». Hecho: `GEN 11`, el guion que lanza todas las autopruebas (`scripts/run_selftests.py`, 16/11/2026): se ejecuta antes y después de cada una de estas; y `GEN 13`, una sola barra de biblioteca (16/11/2026): Imagen usa `LibrarySidebar` y `LibraryModule`, y una sección nueva de un módulo es un `ExtraSection` ([COMO_AMPLIAR.md](COMO_AMPLIAR.md)); y `GEN 12`, una ficha por módulo (16/11/2026): `config/app_modules.py` (`MODULES`), de donde leen los módulos, el registro de secciones y el inspector.
 
 ### Fase GEN 14 — Escritores con una interfaz común
 
@@ -325,7 +321,7 @@ Definido con el autor el 16/11/2026, como punto de partida. La arquitectura, lo 
 
 ### Fase EBK 1 — El módulo
 
-- **EBK 1.1** Botón en la toolbar, icono y `EbookModule` (sobre `LibraryModule`: biblioteca, carpetas y fechas).
+- **EBK 1.1** Su línea en `MODULES` (`config/app_modules.py`), botón en la toolbar, icono y `EbookModule` (sobre `LibraryModule`: biblioteca, carpetas y fechas).
 - **EBK 1.2** Los formatos que se catalogan: `.azw` y, solo en carpetas declaradas de libros, `.pdf`.
 
 ### Fase EBK 2 — Leer los metadatos

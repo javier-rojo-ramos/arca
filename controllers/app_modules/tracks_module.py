@@ -23,6 +23,8 @@ Lo propio de los tracks:
 
 Los textos de la barra están aquí ('_TEXTS').
 
+1.2.1 Su clave, título, icono y biblioteca, de 'config/app_modules.py' (docs/PENDIENTE.md,
+      GEN 12).
 1.2.0 Lo común con los demás módulos de una biblioteca pasa a 'LibraryModule' (sin
       cambiar lo que hace), para Vídeo y Audio.
 1.1.0 'map_options': el perfil de elevación bajo el mapa y la tira de fotos oculta al
@@ -30,22 +32,24 @@ Los textos de la barra están aquí ('_TEXTS').
 1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.2): sustituye al módulo provisional.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["TracksModule"]
 
 # Módulos del proyecto
-from config.app_constants import AppIcons
+from config.app_modules import module_spec
 from controllers.app_modules.center_views import CenterView, MapOptions
 from controllers.app_modules.library_module import LibraryModule
 from core.catalog.grid_orders import TRACK_SORT_FIELDS, GridOrder
-from core.catalog.libraries import Library
 from core.catalog.media_types import MediaType
 from ui_helpers.helpers.mode_toolbar import MODE_TRACKS
 from ui_helpers.sidebars.library_sidebar import LibraryTexts
 
+# Su ficha: clave, título, icono, biblioteca y título de su sección
+_SPEC = module_spec(MODE_TRACKS)
+
 # Textos de la barra
 _TEXTS = LibraryTexts(
-    library_title="Biblioteca - Tracks",
+    library_title=_SPEC.library_title,
     all_title="Todos los tracks",
     all_tooltip="Todos los recorridos GPS (archivos GPX) del catálogo",
     quick_tooltip=(
@@ -58,10 +62,7 @@ _TEXTS = LibraryTexts(
 class TracksModule(LibraryModule):
     """Módulo Tracks (ver el docstring del archivo)."""
 
-    key = MODE_TRACKS
-    title = "Tracks"
-    icon = AppIcons.LIB_TRACKS
-    library = Library.TRACKS.value
+    key, title, icon, library = _SPEC.key, _SPEC.title, _SPEC.icon, _SPEC.library
     texts = _TEXTS
 
     def views(self) -> tuple[CenterView, ...]:

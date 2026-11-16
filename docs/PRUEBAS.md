@@ -25,6 +25,9 @@ python scripts/run_selftests.py --list          # qué ejecutaría, sin ejecutar
 **Autopruebas** (desde la raíz del proyecto; cada una termina con "Autoprueba finalizada correctamente"). Las que dicen «una ventana» (`organize_bar`, `theme_style`, `map_layer_dialog`) y las de `--ventana` se quedan abiertas hasta que alguien las cierra:
 
 ```
+# config
+python -m config.app_modules                                   (la ficha de cada módulo: claves, orden, bibliotecas de 'core', iconos e iniciales; sin Qt)
+
 # core.jobs
 python -m core.jobs.progress
 

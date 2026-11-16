@@ -40,6 +40,9 @@ Uso:
     SECTION_REGISTRY.defaults("image", Sidebar.LEFT)  # sus secciones, en el orden de partida
     SECTION_REGISTRY.get("folders").title_for("image")
 
+1.5.0 Los modos, sus títulos, qué modos llevan las secciones de una biblioteca y el título
+      de «Biblioteca - …» salen de 'config/app_modules.py' (docs/PENDIENTE.md, GEN 12): un
+      módulo nuevo entra solo. Las mismas secciones y los mismos títulos que antes.
 1.4.0 Las secciones de la barra de Vídeo y Audio: «Biblioteca - Vídeos» / «Biblioteca -
       Música», «Carpetas» y «Fechas» (las de Tracks).
 1.3.0 Sección «Track» del inspector (entre «Selección» y «Palabras clave»).
@@ -53,7 +56,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_registry
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "LEFT",
     "RIGHT",
@@ -68,6 +71,9 @@ __all__ = [
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+
+# Módulos del proyecto
+from config.app_modules import MODULES, library_modules
 
 
 class Sidebar(StrEnum):
@@ -209,38 +215,30 @@ def _build_default_registry() -> SectionRegistry:
     """El registro de la aplicación: AQUÍ se añaden los modos y las secciones nuevos."""
     registry = SectionRegistry()
 
-    # --- Modos, en el orden de la toolbar. Las claves son las de los módulos
-    # ('AppModule.key', en 'controllers/app_modules/'); no se importan de allí porque
-    # este módulo no depende de Qt
-    registry.register_mode("catalog", "Catálogo")
-    registry.register_mode("image", "Imagen")
-    registry.register_mode("video", "Vídeo")
-    registry.register_mode("audio", "Audio")
-    registry.register_mode("tracks", "Tracks")
+    # --- Modos: uno por módulo, en el orden de la toolbar, con su clave y su título
+    # ('config/app_modules.py': un módulo nuevo entra solo)
+    for module in MODULES:
+        registry.register_mode(module.key, module.title)
 
     # --- Barra izquierda (la de cada módulo). Los 'id' son las claves con las que ya se
     # guardaba lo plegado de cada barra
-    catalog = frozenset({"catalog"})
-    image = frozenset({"image"})
-    # Los módulos de una biblioteca con la barra 'LibrarySidebar' (biblioteca, carpetas y fechas)
-    libraries = frozenset({"video", "audio", "tracks"})
+    # El Catálogo (el módulo sin biblioteca) tiene su barra; los demás, la de una
+    # biblioteca ('LibrarySidebar': biblioteca, carpetas y fechas, más las de cada uno)
+    catalog = frozenset(module.key for module in MODULES if module.library is None)
+    libraries = frozenset(module.key for module in library_modules())
+    image = frozenset({"image"})  # las secciones solo de Imagen
     registry.register(SectionSpec("catalog", "Catálogo", LEFT, 100, modes=catalog))
     registry.register(
         SectionSpec(
-            "library", "Biblioteca", LEFT, 100, modes=image | libraries,
-            mode_titles={
-                "image": "Biblioteca - Imagen",
-                "video": "Biblioteca - Vídeos",
-                "audio": "Biblioteca - Música",
-                "tracks": "Biblioteca - Tracks",
-            },
+            "library", "Biblioteca", LEFT, 100, modes=libraries,
+            mode_titles={module.key: module.library_title for module in library_modules()},
         )
     )  # fmt: skip
     registry.register(
-        SectionSpec("folders", "Carpetas", LEFT, 200, modes=catalog | image | libraries)
+        SectionSpec("folders", "Carpetas", LEFT, 200, modes=catalog | libraries)
     )
     registry.register(SectionSpec("collections", "Colecciones", LEFT, 300, modes=catalog))
-    registry.register(SectionSpec("dates", "Fechas", LEFT, 300, modes=image | libraries))
+    registry.register(SectionSpec("dates", "Fechas", LEFT, 300, modes=libraries))
     registry.register(SectionSpec("keywords", "Lista de palabras clave", LEFT, 400, modes=image))
 
     # --- Barra derecha (el inspector): las mismas en todos los modos. Los 'id' son las

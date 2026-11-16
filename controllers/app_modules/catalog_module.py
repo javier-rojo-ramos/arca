@@ -21,6 +21,7 @@ el controlador principal, que conecta esas señales de 'CatalogSidebar' directam
 Orden de la cuadrícula: todos los campos de 'grid_orders.py'; parte de «Nombre» (con tipos
 mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 
+1.6.2 Su clave, título e icono, de 'config/app_modules.py' (docs/PENDIENTE.md, GEN 12).
 1.6.1 Ordena por los campos comunes ('COMMON_SORT_FIELDS': los mismos seis de antes; los
       de los tracks son de su módulo).
 1.6.0 Une su barra al modelo de colocación de las secciones ('context.section_layout').
@@ -35,7 +36,7 @@ mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 1.1.0 'sort_fields' y 'default_order' (orden de partida: «Nombre»).
 """
 
-__version__ = "1.6.1"
+__version__ = "1.6.2"
 __all__ = ["CatalogModule"]
 
 # Librerías estándar
@@ -51,7 +52,8 @@ from qtpy.QtCore import QObject
 from qtpy.QtWidgets import QToolButton, QWidget
 
 # Módulos del proyecto
-from config.app_constants import SETTING_SHOW_SUBFOLDER_ITEMS, AppIcons
+from config.app_constants import SETTING_SHOW_SUBFOLDER_ITEMS
+from config.app_modules import module_spec
 from controllers.app_modules.base import AppModule, ModuleContext
 from controllers.app_modules.center_views import CenterView
 from controllers.collection_actions import CollectionActions
@@ -63,14 +65,14 @@ from core.catalog.media_types import MediaType
 from ui_helpers.helpers.mode_toolbar import MODE_CATALOG
 from ui_helpers.sidebars.catalog_sidebar import CatalogSidebar
 
+# Su ficha: clave, título e icono
+_SPEC = module_spec(MODE_CATALOG)
+
 
 class CatalogModule(AppModule):
     """Módulo Catálogo (ver el docstring del archivo)."""
 
-    key = MODE_CATALOG
-    title = "Catálogo"
-    # 'getattr': si el icono no está en 'AppIcons', el botón muestra su inicial
-    icon = getattr(AppIcons, "LIB_ALL", None)
+    key, title, icon = _SPEC.key, _SPEC.title, _SPEC.icon
 
     def __init__(
         self,

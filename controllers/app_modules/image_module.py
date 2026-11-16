@@ -13,6 +13,8 @@ el menú de las carpetas) está en 'LibraryModule'. Aquí queda lo de Imagen:
     - Sus vistas (con el mapa, donde se ubican fotos), su orden y sus filtros.
     - 'show_source': una palabra clave pedida sin biblioteca se limita a Imagen.
 
+1.17.1 Su clave, título, icono y biblioteca, de 'config/app_modules.py' (docs/PENDIENTE.md,
+       GEN 12).
 1.17.0 Hereda de 'LibraryModule' y usa la barra común, con la «Lista de palabras clave»
        como sección de más (docs/PENDIENTE.md, GEN 13; antes, 'ImageSidebar'). Nada cambia
        a la vista ni en lo guardado por catálogo.
@@ -44,25 +46,27 @@ el menú de las carpetas) está en 'LibraryModule'. Aquí queda lo de Imagen:
       'inspector_expanded_keywords'), para que se abra como se dejó.
 """
 
-__version__ = "1.17.0"
+__version__ = "1.17.1"
 __all__ = ["ImageModule"]
 
 # Módulos del proyecto
-from config.app_constants import AppIcons
+from config.app_modules import module_spec
 from controllers.app_modules.center_views import CenterView, MapOptions
 from controllers.app_modules.library_module import LibraryModule
 from core.catalog.grid_orders import CAPTURE_TIME_ORDER, COMMON_SORT_FIELDS, GridOrder
 from core.catalog.grid_source import GridSource, SourceKind, keyword_source
 from core.catalog.keywords import fetch_keyword_tree
-from core.catalog.libraries import Library
 from core.catalog.media_types import MediaType
 from ui_helpers.helpers.mode_toolbar import MODE_IMAGE
 from ui_helpers.sidebars.library_sidebar import ExtraSection, LibraryTexts
 from ui_helpers.sidebars.sections.keyword_section import KeywordSection
 
+# Su ficha: clave, título, icono, biblioteca y título de su sección
+_SPEC = module_spec(MODE_IMAGE)
+
 # Textos de la barra
 _TEXTS = LibraryTexts(
-    library_title="Biblioteca - Imagen",
+    library_title=_SPEC.library_title,
     all_title="Todas las imágenes",
     all_tooltip="Todas las fotos y los vídeos de la biblioteca Imagen",
     # Sin menú: «Vaciar selección rápida» vaciaría también lo que no se ve; está en el Catálogo
@@ -85,11 +89,7 @@ _KEYWORDS = ExtraSection(
 class ImageModule(LibraryModule):
     """Módulo Imagen (ver el docstring del archivo)."""
 
-    key = MODE_IMAGE
-    title = "Imagen"
-    # 'getattr': si el icono no está en 'AppIcons', el botón muestra su inicial
-    icon = getattr(AppIcons, "LIB_IMAGE", None)
-    library = Library.IMAGE.value
+    key, title, icon, library = _SPEC.key, _SPEC.title, _SPEC.icon, _SPEC.library
     texts = _TEXTS
     extra_sections = (_KEYWORDS,)
 

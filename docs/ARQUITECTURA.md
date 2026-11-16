@@ -45,6 +45,7 @@ config/
                                      main_splitter_state, show_subfolder_items, sidebar_state, inspector_metadata_preset, inspector_sections, active_module, filter_metadata_height, filter_presets, confirm_multi_edit,
                                      last_add_folder_parent, map_layer, map_user_layers, map_cache_mb, map_filmstrip, gpu_rendering, section_layout, window_geometry; todas, con su valor por defecto, en DEFAULTS)
   app_info.py                        Texto de ayuda en HTML (pendiente de implementar; hoy no lo usa nadie)
+  app_modules.py                     MODULES: la ficha de cada módulo (clave, título, biblioteca, icono, inicial y título de su sección «Biblioteca - …»), en el orden de la toolbar; AQUÍ se da de alta un módulo. La leen los módulos, el registro de secciones y el inspector (module_spec, library_modules, library_badge)
   app_constants.py                   Constantes, iconos (AppIcons), tamaños de miniatura, claves compartidas de settings.json
   app_logging_manager.py             setup_logging (loguru + InterceptHandler)
 controllers/
@@ -124,7 +125,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   sidebars/sections/folder_section.py  FolderSection: «Carpetas» con lo de una biblioteca (recuentos, opción de subcarpetas, lo desplegado, menú «Mostrar en el Explorador»)
   sidebars/sections/date_section.py  DateSection: «Fechas» (años ▸ meses ▸ días con recuentos y «Sin fecha»; filas con date_source; lo desplegado en expanded_dates); date_label, date_tooltip
   sidebars/sections/keyword_section.py KeywordSection: «Lista de palabras clave» (filtro y árbol con recuentos que incluyen las hijas; las que no tienen nada, en gris; lo desplegado en KeywordExpansion)
-  layout/section_registry.py         SECTION_REGISTRY (sin Qt): el registro de modos y de secciones plegables de las dos barras (SectionSpec: id estable, título, barras, modos, posición y estado de partida); AQUÍ se da de alta una sección o un modo
+  layout/section_registry.py         SECTION_REGISTRY (sin Qt): el registro de modos y de secciones plegables de las dos barras (SectionSpec: id estable, título, barras, modos, posición y estado de partida); AQUÍ se da de alta una sección. Los modos y los títulos «Biblioteca - …» salen de config/app_modules.py
   layout/section_layout.py           SectionLayout (sin Qt): la colocación por modo y barra (lista ordenada de SectionEntry: id, visible, expanded); mover, ocultar, plegar, restaurar; to_state / from_state con versión (LAYOUT_VERSION) y fusión con el registro
   layout/section_layout_model.py     SectionLayoutModel: la única fuente de verdad de la colocación; lee y guarda 'section_layout' en settings.json y avisa con layout_changed(modo, barra); working_copy / apply para editar una copia y aplicarla de una vez (Opciones); la primera vez importa lo plegado que se guardaba antes. Lo crea el controlador y llega a los módulos en ModuleContext.section_layout
   helpers/sidebar_icons.py           load_sidebar_icons: iconos de unidades, carpetas y colecciones (barras del Catálogo e Imagen), con sus variantes ':open' y ':menu'

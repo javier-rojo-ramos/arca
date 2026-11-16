@@ -23,6 +23,8 @@ La extensión y los iconos van pegados al borde derecho, alineados entre sí.
 Aquí NO se edita nada: la fecha y el resto de metadatos se editarán en secciones propias
 (ver «Inspector único, que edita en todos los módulos» en docs/DECISIONES.md).
 
+1.3.3 El icono y la inicial de cada biblioteca, de 'config/app_modules.library_badge' (antes,
+      una tabla aquí; docs/PENDIENTE.md, GEN 12).
 1.3.2 Colores del círculo de «Estado», del tema ('COLORS.missing' y 'offline'; los mismos
       valores que antes, compartidos con el aviso de la tarjeta).
 1.3.1 Vista actual vacía: título «Selección (vacío)» y filas en blanco (antes, «Ningún
@@ -36,7 +38,7 @@ Aquí NO se edita nada: la fecha y el resto de metadatos se editarán en seccion
       ('IconCell'); nombres de las bibliotecas desde 'LIBRARY_NAMES'.
 """
 
-__version__ = "1.3.2"
+__version__ = "1.3.3"
 __all__ = ["SelectionSection"]
 
 # Librerías estándar
@@ -49,7 +51,8 @@ from qtpy.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 # Módulos del proyecto
 from config.app_constants import AppIcons
-from core.catalog.libraries import LIBRARY_NAMES, Library
+from config.app_modules import library_badge
+from core.catalog.libraries import LIBRARY_NAMES
 from core.catalog.selection_summary import SelectionSummary
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME
 from ui_helpers.helpers.ui_icons import tinted_icon
@@ -71,15 +74,6 @@ from ui_helpers.inspector.formatting import (
 )
 from ui_helpers.widgets.elided_label import ElidedLabel
 
-# Icono de cada biblioteca: el del botón de su módulo en la toolbar. Si el SVG aún no
-# existe en 'AppIcons', se muestra la inicial, como hace la toolbar
-_LIBRARY_ICONS: dict[str, tuple[str, str]] = {
-    Library.IMAGE: ("LIB_IMAGE", "I"),
-    Library.VIDEO: ("LIB_VIDEO", "V"),
-    Library.AUDIO: ("LIB_AUDIO", "A"),
-    Library.EBOOK: ("LIB_EBOOK", "L"),
-    Library.TRACKS: ("LIB_TRACKS", "T"),
-}
 _DOT_SIZE = 10  # diámetro del círculo de estado
 
 
@@ -325,12 +319,13 @@ class SelectionSection(InspectorSection):
 
     def _set_library_icon(self, library: str | None) -> None:
         """Icono del módulo de la biblioteca (o su inicial); nada si son varias."""
-        if library is None or library not in _LIBRARY_ICONS:
+        # El icono de su módulo y, si aún no lo tiene, su inicial ('config/app_modules.py')
+        badge = library_badge(library) if library is not None else None
+        if badge is None:
             self._library_icon.set_icon(None)
             self._library_icon.clear()
             return
-        attribute, initial = _LIBRARY_ICONS[library]
-        path = getattr(AppIcons, attribute, None)
+        path, initial = badge
         if path:
             # Color del texto: discreto, como los iconos de la barra izquierda
             self._library_icon.set_icon(tinted_icon(path))

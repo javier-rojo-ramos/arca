@@ -107,11 +107,13 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Iconos de los botones de las barras, de 18 px** (15/11/2026; «genial»), con `BAR_ICON_SIZE`; y la toolbar de módulos con `TOOLBAR_ICON_SIZE`.
 - **Ctrl + clic en una tarjeta solo selecciona; totales del perfil con la mínima antes que la máxima** (15/11/2026; «genial»).
 - **Una sola barra de biblioteca (`GEN 13`)** (16/11/2026; «todo funciona»): Imagen con la barra y el módulo base comunes (`LibrarySidebar`, `LibraryModule`), sin cambio a la vista; Tracks, Vídeo y Audio, igual.
+- **Una ficha por módulo (`GEN 12`)** (16/11/2026; «funciona bien»): la toolbar de módulos, los títulos «Biblioteca - …» de cada barra, el desplegable de Opciones > «Paneles», el icono de la biblioteca en el inspector y la vuelta al módulo en que se cerró, como antes.
 
 ## Últimos cambios
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 16/11/2026: `GEN 12`: una ficha por módulo (`config/app_modules.py`, `MODULES`); la leen los módulos, el registro de secciones y el inspector. Sin cambio a la vista. `GEN 13`, verificado.
 - 16/11/2026: `GEN 13`: una sola barra de biblioteca. Imagen usa `LibrarySidebar` y `LibraryModule`, con la «Lista de palabras clave» como sección de más; fuera `image_sidebar.py`. Sin cambio a la vista.
 - 16/11/2026: `GEN 11`: `scripts/run_selftests.py` lanza de una vez las 126 autopruebas sin ventana (unos 20 s). Al estrenarlo: una ya fallaba, `core.thumbnails.cache` (anotada, sin tocar).
 - 16/11/2026: plan para preparar el crecimiento (`GEN 11` a `GEN 19` en `PENDIENTE.md`): qué se refactoriza y qué pasa a ser común antes de los módulos nuevos. Sin cambios de código.
@@ -121,4 +123,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 16/11/2026: `MOD_TRACKS.md`, secciones 1 a 9 contrastadas con el código: corregido lo que había cambiado al implementar (API de `MapView`, tipos, opciones por módulo, teselas, perfil, ubicar fotos) y marcado lo pendiente. Sin cambios de código.
 - 16/11/2026: `MOD_TRACKS.md`, con la plantilla de dos partes (arquitectura y planificación), el estado de cada fase y la tabla de lo que hay hecho; sin renumerar sus secciones. Sin cambios de código.
 - 16/11/2026: módulo Vídeo definido (`MOD_VIDEO.md`, fases `VID 1` a `VID 10`): fichas por obra, una tarjeta por obra, descarga de la web. Sin cambios de código.
-- 16/11/2026: módulo Música definido (`MOD_MUSICA.md`, fases `MUS 1` a `MUS 10`); regla nueva de los archivos del usuario: lo editado se guarda en el propio archivo, sin copias (también el audio y, más adelante, los GPX: D2 de Tracks, decidida). Sin cambios de código.

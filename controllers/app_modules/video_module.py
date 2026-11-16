@@ -12,25 +12,29 @@ Decidido por el autor el 15/11/2026:
     - Filtros: el tipo «vídeo» en «Atributos»; en «Metadatos», fecha y palabras clave.
     - Textos de la barra, provisionales hasta que se decidan los nombres ('_TEXTS').
 
+1.0.1 Su clave, título, icono y biblioteca, de 'config/app_modules.py' (docs/PENDIENTE.md,
+      GEN 12).
 1.0.0 Primera versión (15/11/2026): sustituye al módulo provisional.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["VideoModule"]
 
 # Módulos del proyecto
-from config.app_constants import AppIcons
+from config.app_modules import module_spec
 from controllers.app_modules.center_views import CenterView
 from controllers.app_modules.library_module import LibraryModule
 from core.catalog.grid_orders import NAME_ORDER, VIDEO_AUDIO_SORT_FIELDS, GridOrder
-from core.catalog.libraries import Library
 from core.catalog.media_types import MediaType
 from ui_helpers.helpers.mode_toolbar import MODE_VIDEO
 from ui_helpers.sidebars.library_sidebar import LibraryTexts
 
+# Su ficha: clave, título, icono, biblioteca y título de su sección
+_SPEC = module_spec(MODE_VIDEO)
+
 # Textos de la barra (provisionales)
 _TEXTS = LibraryTexts(
-    library_title="Biblioteca - Vídeos",
+    library_title=_SPEC.library_title,
     all_title="Todos los vídeos",
     all_tooltip="Todas las películas y series del catálogo (biblioteca Vídeos)",
     quick_tooltip=(
@@ -43,10 +47,7 @@ _TEXTS = LibraryTexts(
 class VideoModule(LibraryModule):
     """Módulo Vídeo (ver el docstring del archivo)."""
 
-    key = MODE_VIDEO
-    title = "Vídeo"
-    icon = AppIcons.LIB_VIDEO
-    library = Library.VIDEO.value
+    key, title, icon, library = _SPEC.key, _SPEC.title, _SPEC.icon, _SPEC.library
     texts = _TEXTS
 
     def views(self) -> tuple[CenterView, ...]:
