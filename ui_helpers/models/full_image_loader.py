@@ -18,13 +18,15 @@ Detalles:
       dos catálogos pueden coincidir.
     - Los archivos sin miniatura se recuerdan para no buscarlos en cada repintado.
 
+1.0.1 Las imágenes se leen con 'ThumbnailCache.read', que reintenta si el archivo está
+      bloqueado (en Windows, al coincidir con su sustitución al regenerarla).
 1.0.0 Primera versión (paso A.1, subpaso 4).
 
 Prueba rápida (desde la raíz del proyecto; crea una caché temporal y no abre ventanas):
     python -m ui_helpers.models.full_image_loader
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["FullImageLoader"]
 
 # Librerías estándar
@@ -33,7 +35,7 @@ from collections.abc import Callable, Iterable
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
-from qtpy.QtGui import QImage, QImageReader
+from qtpy.QtGui import QImage
 
 # Módulos del proyecto
 from core.thumbnails.cache import ThumbnailCache
@@ -66,9 +68,10 @@ class _Task(QRunnable):
         image = QImage()
         try:
             path = self._cache.resolve(self._media_type, self._media_id, _WANTED)
-            if path is not None:
+            data = self._cache.read(path) if path is not None else None
+            if data is not None:
                 # Las miniaturas de la caché ya están derechas: no hay que rotarlas
-                image = QImageReader(str(path)).read()
+                image = QImage.fromData(data)
         except (OSError, ValueError):
             image = QImage()  # «sin miniatura»: un hilo nunca debe lanzar
         self._signals.done.emit(self._generation, self._media_id, image)

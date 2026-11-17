@@ -23,6 +23,8 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.17.1 Las miniaturas se leen con 'ThumbnailCache.read', que reintenta si el archivo está
+       bloqueado (en Windows, al coincidir con su sustitución al regenerarla).
 1.17.0 'ROLE_TRACK_OUTLINE': el recorrido de un track, encajado para dibujarlo en su
        tarjeta (de 'track_overview'; se calcula la primera vez que se pide y se guarda).
 1.16.0 'ROLE_HAS_LOCATION' (de 'has_location') y 'set_located': quién tiene coordenadas,
@@ -57,7 +59,7 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.17.0"
+__version__ = "1.17.1"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
@@ -77,7 +79,7 @@ from qtpy.QtCore import (
     QThreadPool,
     Signal,
 )
-from qtpy.QtGui import QImage, QImageReader, QPixmap
+from qtpy.QtGui import QImage, QPixmap
 
 # Módulos del proyecto
 from core.catalog.color_labels import is_valid_color_label, normalize_color_label
@@ -164,9 +166,10 @@ class _LoadTask(QRunnable):
         image = QImage()
         try:
             path = self._cache.resolve(self._media_type, self._media_id, self._wanted)
-            if path is not None:
+            data = self._cache.read(path) if path is not None else None
+            if data is not None:
                 # Las miniaturas de la caché ya están derechas: no hay que rotarlas
-                image = QImageReader(str(path)).read()
+                image = QImage.fromData(data)
         except (OSError, ValueError):
             image = QImage()  # tratado como "sin miniatura"; un hilo nunca debe lanzar
         self._signals.loaded.emit(

@@ -29,12 +29,14 @@ Uso:
     handler = shared_handler()              # el único de la aplicación (lo crea 'WebMapBackend')
     handler.set_thumbnail_provider(funcion) # al abrir un catálogo
 
+1.1.1 Las miniaturas se leen con 'ThumbnailCache.read', que reintenta si el archivo está
+      bloqueado (en Windows, al coincidir con su sustitución al regenerarla).
 1.1.0 El tipo de cada tesela se mira en sus bytes (las capas propias no dicen si sirven
       PNG o JPEG).
 1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 1.3).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __all__ = ["SCHEME", "START_URL", "MapSchemeHandler", "register_map_scheme", "shared_handler"]
 
 # Librerías estándar
@@ -59,6 +61,7 @@ from qtpy.QtWebEngineCore import (
 from config import app_paths
 from core.maps.tile_layers import TILE_LAYERS, TileLayer, is_valid_tile, tile_url, user_agent
 from core.maps.tile_store import TileStorageError, TileStore, image_mime
+from core.thumbnails.cache import ThumbnailCache
 
 SCHEME = "arca-map"
 START_URL = f"{SCHEME}://app/index.html"
@@ -285,9 +288,13 @@ class MapSchemeHandler(QWebEngineUrlSchemeHandler):
         if path is None:
             self._fail(job, _Job.Error.UrlNotFound)  # la página pinta el recuadro vacío
             return
+        # 'read' reintenta si la miniatura está bloqueada (al regenerarse); es el hilo
+        # principal, pero la espera solo se da en esa coincidencia y es de milisegundos
         try:
-            data = path.read_bytes()
+            data = ThumbnailCache.read(path)
         except OSError:
+            data = None
+        if data is None:
             self._fail(job, _Job.Error.UrlNotFound)
             return
         self._reply(job, _THUMBNAIL_MIME_TYPES.get(path.suffix.lower(), "image/jpeg"), data)
