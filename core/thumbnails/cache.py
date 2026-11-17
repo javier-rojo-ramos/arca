@@ -22,11 +22,23 @@ Las escrituras son ATÓMICAS: la miniatura se escribe en un archivo temporal y d
 se renombra, de modo que quien la lea (la cuadrícula, desde otro hilo) nunca ve un
 JPEG a medias.
 
+Las lecturas se hacen con 'read', que REINTENTA si el archivo está bloqueado: en Windows,
+abrirlo justo cuando se está sustituyendo (al regenerar una miniatura que se está viendo)
+da 'PermissionError'. Se reintenta en todos los sistemas, aunque en los demás no pase.
+
+    path = cache.resolve("photo", media_id, ThumbnailSize.MEDIUM)
+    data = cache.read(path) if path is not None else None   # bytes del JPEG, o None
+
 Prueba rápida (desde la raíz del proyecto):
     python -m core.thumbnails.cache
+
+1.2.0 'read': lectura de una miniatura que reintenta si el archivo está bloqueado (antes,
+      cada lector abría la ruta y, si coincidía con una sustitución, se quedaba sin
+      miniatura); la autoprueba lee con él (fallaba según el momento). Los reintentos de
+      la escritura y de la lectura comparten '_retry_while_locked'.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 # ruff: noqa: RUF022
 __all__ = [
     "CACHE_DIRECTORY_NAME",
@@ -40,9 +52,10 @@ import os
 import sys
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeVar
 
 # Librerías de terceros
 from PIL import Image
@@ -53,6 +66,29 @@ from core.thumbnails.sizes import ALL_SIZES, ThumbnailSize
 
 # Nombre de la carpeta de la caché dentro del catálogo (la crea 'CatalogBuilder')
 CACHE_DIRECTORY_NAME = "cache"
+
+# Lectura de un archivo bloqueado: intentos y espera entre ellos (como mucho, unos 80 ms:
+# una sustitución dura mucho menos, y la lectura va siempre en un hilo aparte)
+READ_ATTEMPTS = 5
+READ_RETRY_DELAY = 0.02
+
+_T = TypeVar("_T")
+
+
+def _retry_while_locked(action: Callable[[], _T], attempts: int, delay: float) -> _T:
+    """Ejecuta 'action' y, si da 'PermissionError' (archivo bloqueado), la reintenta.
+
+    Tras el último intento fallido, deja pasar el 'PermissionError'. Cualquier otro error
+    sale a la primera: reintentarlo no lo arreglaría.
+    """
+    for attempt in range(attempts):
+        try:
+            return action()
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(delay)
+    raise ValueError("'attempts' debe ser 1 o más")
 
 
 class ThumbnailStorageError(OSError):
@@ -153,6 +189,26 @@ class ThumbnailCache:
         if not_larger:
             return available[not_larger[-1]]  # 'available' va de menor a mayor
         return next(iter(available.values()))
+
+    @staticmethod
+    def read(path: Path) -> bytes | None:
+        """Lee una miniatura entera (los bytes del JPEG), reintentando si está bloqueada.
+
+        Se lee todo de una vez y se decodifica después (p. ej. 'QImage.fromData'): así el
+        archivo está abierto lo mínimo y la espera, si la hay, queda aquí.
+
+        Returns:
+            Los bytes, o None si el archivo no existe (se ha borrado entre 'resolve' y la
+            lectura) o sigue bloqueado tras los reintentos: para quien lo pinta, «sin
+            miniatura», como antes.
+
+        Raises:
+            OSError: Otros fallos del disco (unidad desconectada...).
+        """
+        try:
+            return _retry_while_locked(path.read_bytes, READ_ATTEMPTS, READ_RETRY_DELAY)
+        except (FileNotFoundError, PermissionError):
+            return None
 
     # -------------------------------------------------------------------------
     # Escritura y borrado
@@ -264,19 +320,13 @@ class ThumbnailCache:
 
         # Windows: si un antivirus o el propio visor tiene abierto el archivo de destino
         # en ese instante, el renombrado falla. Se reintenta unos milisegundos.
-        for attempt in range(5):
-            try:
-                os.replace(temp_path, final_path)
-                return
-            except PermissionError:
-                if attempt == 4:
-                    raise
-                time.sleep(0.05)
+        _retry_while_locked(lambda: os.replace(temp_path, final_path), 5, 0.05)
 
 
 if __name__ == "__main__":
     # Autoprueba en una carpeta temporal.
     # Ejecutar desde la raíz del proyecto:  python -m core.thumbnails.cache
+    import io
     import tempfile
     from concurrent.futures import ThreadPoolExecutor
 
@@ -329,18 +379,69 @@ if __name__ == "__main__":
         assert cache.delete("photo", 1) == [THUMB, MEDIUM]
         assert cache.existing("photo", 1) == {} and cache.delete("photo", 1) == []
 
-        # 6. Escritura desde varios hilos sobre el MISMO elemento: nunca queda un JPEG roto
-        def hammer(worker: int) -> None:
+        # 6. Escritura desde varios hilos sobre el MISMO elemento: nunca queda un JPEG roto.
+        #    Se lee con 'read', como la aplicación: abrir la ruta sin más puede coincidir
+        #    con una sustitución y, en Windows, dar 'PermissionError'
+        def hammer(worker: int) -> int:
+            unread = 0
             for _ in range(20):
                 color = (worker * 20 % 256, 100, 100)
                 cache.store("photo", 99, THUMB, Image.new("RGB", (160, 100), color))
-                with Image.open(cache.path_for("photo", 99, THUMB)) as reread:
+                data = cache.read(cache.path_for("photo", 99, THUMB))
+                if data is None:
+                    unread += 1  # bloqueado incluso tras los reintentos
+                    continue
+                with Image.open(io.BytesIO(data)) as reread:
                     reread.load()  # si el archivo estuviera a medias, fallaría aquí
+            return unread
 
         with ThreadPoolExecutor(max_workers=6) as pool:
-            list(pool.map(hammer, range(6)))
+            unread = sum(pool.map(hammer, range(6)))
         assert not list(Path(tmp).rglob("*.tmp"))
-        print("Escrituras simultáneas sobre el mismo archivo: sin archivos rotos ni temporales")
+        # Con los reintentos, quedarse sin leer tiene que ser una rareza, no la norma
+        assert unread <= 6, f"{unread} de 120 lecturas sin conseguir"
+        print(
+            "Escrituras simultáneas sobre el mismo archivo: sin archivos rotos ni temporales "
+            f"({unread} de 120 lecturas bloqueadas tras reintentar)"
+        )
+
+        # 6b. 'read': un archivo que no existe es None; los reintentos, con un archivo de
+        #     mentira que está bloqueado las primeras veces o siempre
+        assert cache.read(cache.path_for("photo", 12345, THUMB)) is None
+        calls: list[int] = []
+
+        def locked_twice() -> str:
+            calls.append(1)
+            if len(calls) <= 2:
+                raise PermissionError(13, "bloqueado")
+            return "leído"
+
+        assert _retry_while_locked(locked_twice, 5, 0) == "leído" and len(calls) == 3
+
+        def always_locked() -> str:
+            calls.append(1)
+            raise PermissionError(13, "bloqueado")
+
+        calls.clear()
+        try:
+            _retry_while_locked(always_locked, 5, 0)
+        except PermissionError:
+            assert len(calls) == 5
+        else:
+            raise AssertionError("Bloqueado siempre: debería dejar pasar el error")
+
+        def broken() -> str:
+            calls.append(1)
+            raise OSError(5, "fallo del disco")
+
+        calls.clear()
+        try:
+            _retry_while_locked(broken, 5, 0)
+        except PermissionError:
+            raise AssertionError("Otro error no es un bloqueo") from None
+        except OSError:
+            assert len(calls) == 1  # sin reintentos
+        print("read: reintenta solo si está bloqueado; sin archivo, None")
 
         # 7. Si la escritura falla no queda ningún temporal. Dos tipos de fallo:
         #    a) un modo no guardable en JPEG es un error de programación (OSError a secas)

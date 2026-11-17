@@ -248,7 +248,7 @@ core/
     sync.py                            write_pending_user_data (trabajo: qué hay pendiente, lo reparte entre los escritores de writers.py y anota el resultado) y la lectura al importar (apply_file_user_data, apply_folder_files)
   thumbnails/                        ── Generar y guardar las miniaturas ── (ver core/thumbnails/LEEME.md)
     sizes.py                           ThumbnailSize: 160 / 480 / 1200 / 2560 px (lado largo) y calidad JPEG
-    cache.py                           ThumbnailCache: ruta derivada del id, escritura atómica, resolve(); ThumbnailStorageError
+    cache.py                           ThumbnailCache: ruta derivada del id, escritura atómica, resolve(), read() (lee los bytes reintentando si el archivo está bloqueado); ThumbnailStorageError
     imaging.py                         Orientación, modos de color, conversión a sRGB, escalera sin ampliar
     generator.py                       generate_thumbnails (UN archivo), load_source_image (prueba los orígenes) y THUMBNAIL_VERSION
     full_image.py                      load_full_image: el original a tamaño completo (RAW: su mayor vista previa), derecho y en sRGB como la caché, para la vista individual a 1:1; sin Qt

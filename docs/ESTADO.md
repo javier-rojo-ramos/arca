@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Icono nuevo de la aplicación** (17/11/2026) | Al arrancar, el icono nuevo (capas ámbar sobre gris oscuro) en la esquina de la ventana, en la barra de tareas y con Alt+Tab; en los tamaños pequeños (barra de título, 16 px), la versión simplificada, nítida. Si la barra de tareas sigue con el antiguo (acceso anclado), desanclarlo y volver a anclarlo. Las ventanas de diálogo (Opciones...), con el mismo icono |
+| **Caché de miniaturas: lectura con reintentos, paso 1** (17/11/2026) | Nada que ver en la aplicación (aún no la usa nadie: los lectores, en el paso 2). `scripts/run_selftests.py`: `core.thumbnails.cache` pasa, también varias veces seguidas |
 | **Escritores con una interfaz común (`GEN 14`)** (16/11/2026; refactorización: no debe notarse nada) | Con «Escribir los cambios en los archivos» activado: cambiar la **valoración**, el **color**, una **palabra clave** y el **título** en (1) un JPG, (2) un RAW (sale o cambia su `.xmp`) y (3) un vídeo o una canción (su `.arca.json`). A los pocos segundos, en el registro (`%LOCALAPPDATA%\arca\logs`): «Datos del usuario escritos», con «Escritos: N» y sin fallidos. Lightroom («Leer metadatos del archivo») ve lo del JPG y lo del RAW como siempre. El **GPS** editado en el inspector o soltando en el mapa, igual. Con un archivo abierto en otro programa: el aviso de la barra de estado y se reintenta, como antes |
 | **Guion de autopruebas (`GEN 11`)** (16/11/2026) | Desde la raíz, `.venv\Scripts\python.exe scripts/run_selftests.py`: lista 126 autopruebas con «ok» o «FALLO» y un resumen al final, en unos 20 segundos y **sin abrir ninguna ventana** (si se abre alguna, decirlo: hay que añadirla a `WINDOWED`). Hoy falla una, `core.thumbnails.cache`, que ya fallaba antes (ver «Comprobaciones sueltas»). Con `--list`, enseña cuáles ejecutaría y las tres con ventana que se salta |
 | **Mapa: cada módulo vuelve a su encuadre, también al reiniciar** (15/11/2026) | (1) En Tracks, elegir un track, encuadrarlo (o acercar a mano), cerrar y volver a abrir: el mapa sale **igual que al cerrar** (mismo centro y zoom), con el track seleccionado, sin encuadrar antes todo. (2) Sin reiniciar: Tracks → Imagen → Tracks (o Catálogo): cada módulo vuelve a su encuadre. (3) Al elegir otra carpeta o fecha en la barra, se encuadra todo, como siempre; si se vuelve a la de antes, también todo (solo se recuerda el último encuadre de cada módulo). (4) Con otro catálogo, el encuadre es el de ese catálogo. (5) «Encuadrar», la chincheta y elegir un track en la tira o la cuadrícula, igual que antes |
@@ -46,8 +46,6 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Detección con el catálogo abierto**: la comprobación (cada 5 s y al volver a la ventana) de archivos que desaparecen o vuelven.
 - **Datos del usuario con Lightroom**: qué hace Lightroom con un sidecar de RAW **creado** por la aplicación al «Leer metadatos del archivo» (con un sidecar que ya existía, de Lightroom, va bien: 14/11/2026); que `-overwrite_original` conserve en Windows la fecha de creación.
 - **Metadatos de imagen**: `city` y `region` (se añadieron después de verificar `sublocation` y `country`).
-
-- **Autoprueba de `core.thumbnails.cache`** (vista el 16/11/2026 al lanzarlas todas; falla siempre en el equipo del autor, también sin el guion): en el paso 6, varios hilos escriben la misma miniatura y la releen, y la lectura da `PermissionError` mientras otro hilo sustituye el archivo (Windows no deja abrir un archivo en el instante en que se reemplaza). Por decidir: si es solo la prueba, que pide algo que Windows no garantiza, o si la caché debe reintentar la lectura; en la aplicación no se ha visto ningún síntoma.
 
 ## Nunca probado
 
@@ -109,12 +107,14 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 - **Iconos de los botones de las barras, de 18 px** (15/11/2026; «genial»), con `BAR_ICON_SIZE`; y la toolbar de módulos con `TOOLBAR_ICON_SIZE`.
 - **Ctrl + clic en una tarjeta solo selecciona; totales del perfil con la mínima antes que la máxima** (15/11/2026; «genial»).
 - **Una sola barra de biblioteca (`GEN 13`)** (16/11/2026; «todo funciona»): Imagen con la barra y el módulo base comunes (`LibrarySidebar`, `LibraryModule`), sin cambio a la vista; Tracks, Vídeo y Audio, igual.
+- **Icono nuevo de la aplicación** (17/11/2026; «todo comprobado»): en la ventana, la barra de tareas y los diálogos, con el juego de cada sistema de `resources/icons/`.
 - **Una ficha por módulo (`GEN 12`)** (16/11/2026; «funciona bien»): la toolbar de módulos, los títulos «Biblioteca - …» de cada barra, el desplegable de Opciones > «Paneles», el icono de la biblioteca en el inspector y la vuelta al módulo en que se cerró, como antes.
 
 ## Últimos cambios
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 17/11/2026: caché de miniaturas, paso 1 del reintento de lectura: `ThumbnailCache.read` reintenta si el archivo está bloqueado (en Windows, al coincidir con una sustitución); la autoprueba de `core.thumbnails.cache`, que fallaba según el momento, lee con él y pasa. Los lectores (cuadrícula, vista individual y mapa), en el paso 2. Icono nuevo, verificado.
 - 17/11/2026: icono nuevo de la aplicación: `resources/icons/` con el juego de cada sistema y `build_app_icon` (`ui_helpers/helpers/app_icon.py`); fuera del `.qrc` y `AppIcons.MAIN_ICON`, que no se usaba.
 - 16/11/2026: `GEN 14`: los escritores, con una interfaz común (`core/userdata/writers.py`); un archivo puede repartirse entre el escritor de su formato y el `.arca.json`. Sin cambio en lo que se escribe. `GEN 12`, verificado.
 - 16/11/2026: `GEN 12`: una ficha por módulo (`config/app_modules.py`, `MODULES`); la leen los módulos, el registro de secciones y el inspector. Sin cambio a la vista. `GEN 13`, verificado.
@@ -124,4 +124,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 16/11/2026: módulo Ebooks definido como punto de partida (`MOD_EBOOKS.md`, fases `EBK 1` a `EBK 11`, categoría propia en `PENDIENTE.md`); borrado un archivo temporal de `controllers/`. Sin cambios de código.
 - 16/11/2026: nuevo `MOD_CATALOGO.md` (a posteriori, desde el código): con él, un documento `MOD_` por módulo. `FLUJOS.md` §9 y §11, al día (Vídeo, Audio y Tracks tienen su módulo). Sin cambios de código.
 - 16/11/2026: nuevo `MOD_IMAGEN.md`, escrito a posteriori desde el código: cómo funciona hoy el módulo Imagen, dónde está cada cosa y lo que falta. Sin cambios de código.
-- 16/11/2026: `MOD_TRACKS.md`, secciones 1 a 9 contrastadas con el código: corregido lo que había cambiado al implementar (API de `MapView`, tipos, opciones por módulo, teselas, perfil, ubicar fotos) y marcado lo pendiente. Sin cambios de código.

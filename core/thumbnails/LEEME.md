@@ -8,7 +8,7 @@ aquí usa Qt. Solo `job.py` toca la base de datos (recibe la conexión como prim
 ```
 core/thumbnails/
 ├── sizes.py               Los 4 tamaños (160 / 480 / 1200 / 2560) y su calidad JPEG
-├── cache.py               Dónde se guarda cada miniatura (ruta derivada del id), escritura atómica
+├── cache.py               Dónde se guarda cada miniatura (ruta derivada del id), escritura atómica y lectura con reintentos (`read`)
 ├── imaging.py             Lo común a todo: orientación, modos de color, sRGB, escalera sin ampliar
 ├── generator.py           generate_thumbnails(): UN archivo -> todos sus tamaños en la caché; THUMBNAIL_VERSION;
 │                          load_source_image() (prueba los orígenes en orden)
