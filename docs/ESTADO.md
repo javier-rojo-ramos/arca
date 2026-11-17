@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 16/11/2026.
+**Actualizado**: 17/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes: añadir y sincronizar carpetas, metadatos con ExifTool, miniaturas, cuadrícula y vista individual, clasificación (valoración, marca, color y selección rápida) guardada también en los archivos, palabras clave, colecciones (también inteligentes, con grupos de reglas), barra de filtros («Texto», «Atributos», «Metadatos» y ajustes personalizados) e inspector, que edita las palabras clave en todos los módulos y, en las fotos y vídeos de Imagen, el título, el pie, el creador, el copyright, la ubicación y el GPS (también guardados en los archivos). El módulo Imagen navega por carpetas, fechas y palabras clave. Vídeo, audio, GPX y ebooks se catalogan y se clasifican en bibliotecas; los módulos Vídeo y Audio muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas), a falta de su navegación propia. Lo siguiente, en [PENDIENTE.md](PENDIENTE.md).
 
@@ -11,6 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
+| **Icono nuevo de la aplicación** (17/11/2026) | Al arrancar, el icono nuevo (capas ámbar sobre gris oscuro) en la esquina de la ventana, en la barra de tareas y con Alt+Tab; en los tamaños pequeños (barra de título, 16 px), la versión simplificada, nítida. Si la barra de tareas sigue con el antiguo (acceso anclado), desanclarlo y volver a anclarlo. Las ventanas de diálogo (Opciones...), con el mismo icono |
 | **Escritores con una interfaz común (`GEN 14`)** (16/11/2026; refactorización: no debe notarse nada) | Con «Escribir los cambios en los archivos» activado: cambiar la **valoración**, el **color**, una **palabra clave** y el **título** en (1) un JPG, (2) un RAW (sale o cambia su `.xmp`) y (3) un vídeo o una canción (su `.arca.json`). A los pocos segundos, en el registro (`%LOCALAPPDATA%\arca\logs`): «Datos del usuario escritos», con «Escritos: N» y sin fallidos. Lightroom («Leer metadatos del archivo») ve lo del JPG y lo del RAW como siempre. El **GPS** editado en el inspector o soltando en el mapa, igual. Con un archivo abierto en otro programa: el aviso de la barra de estado y se reintenta, como antes |
 | **Guion de autopruebas (`GEN 11`)** (16/11/2026) | Desde la raíz, `.venv\Scripts\python.exe scripts/run_selftests.py`: lista 126 autopruebas con «ok» o «FALLO» y un resumen al final, en unos 20 segundos y **sin abrir ninguna ventana** (si se abre alguna, decirlo: hay que añadirla a `WINDOWED`). Hoy falla una, `core.thumbnails.cache`, que ya fallaba antes (ver «Comprobaciones sueltas»). Con `--list`, enseña cuáles ejecutaría y las tres con ventana que se salta |
 | **Mapa: cada módulo vuelve a su encuadre, también al reiniciar** (15/11/2026) | (1) En Tracks, elegir un track, encuadrarlo (o acercar a mano), cerrar y volver a abrir: el mapa sale **igual que al cerrar** (mismo centro y zoom), con el track seleccionado, sin encuadrar antes todo. (2) Sin reiniciar: Tracks → Imagen → Tracks (o Catálogo): cada módulo vuelve a su encuadre. (3) Al elegir otra carpeta o fecha en la barra, se encuadra todo, como siempre; si se vuelve a la de antes, también todo (solo se recuerda el último encuadre de cada módulo). (4) Con otro catálogo, el encuadre es el de ese catálogo. (5) «Encuadrar», la chincheta y elegir un track en la tira o la cuadrícula, igual que antes |
@@ -114,6 +115,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 17/11/2026: icono nuevo de la aplicación: `resources/icons/` con el juego de cada sistema y `build_app_icon` (`ui_helpers/helpers/app_icon.py`); fuera del `.qrc` y `AppIcons.MAIN_ICON`, que no se usaba.
 - 16/11/2026: `GEN 14`: los escritores, con una interfaz común (`core/userdata/writers.py`); un archivo puede repartirse entre el escritor de su formato y el `.arca.json`. Sin cambio en lo que se escribe. `GEN 12`, verificado.
 - 16/11/2026: `GEN 12`: una ficha por módulo (`config/app_modules.py`, `MODULES`); la leen los módulos, el registro de secciones y el inspector. Sin cambio a la vista. `GEN 13`, verificado.
 - 16/11/2026: `GEN 13`: una sola barra de biblioteca. Imagen usa `LibrarySidebar` y `LibraryModule`, con la «Lista de palabras clave» como sección de más; fuera `image_sidebar.py`. Sin cambio a la vista.
@@ -123,4 +125,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 16/11/2026: nuevo `MOD_CATALOGO.md` (a posteriori, desde el código): con él, un documento `MOD_` por módulo. `FLUJOS.md` §9 y §11, al día (Vídeo, Audio y Tracks tienen su módulo). Sin cambios de código.
 - 16/11/2026: nuevo `MOD_IMAGEN.md`, escrito a posteriori desde el código: cómo funciona hoy el módulo Imagen, dónde está cada cosa y lo que falta. Sin cambios de código.
 - 16/11/2026: `MOD_TRACKS.md`, secciones 1 a 9 contrastadas con el código: corregido lo que había cambiado al implementar (API de `MapView`, tipos, opciones por módulo, teselas, perfil, ubicar fotos) y marcado lo pendiente. Sin cambios de código.
-- 16/11/2026: `MOD_TRACKS.md`, con la plantilla de dos partes (arquitectura y planificación), el estado de cada fase y la tabla de lo que hay hecho; sin renumerar sus secciones. Sin cambios de código.

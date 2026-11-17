@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!--
+    Arca Media — versión de 24 px (v3, contenido ampliado; barra 3 alargada hasta la diagonal de la "A").
+    Cuatro filas de 4 px con 1 px de separación, ajustadas a píxel entero.
+    El contenido ocupa 20x19 px del cuadro (antes 18x18 con barras de 3 px).
+  -->
+  <rect width="24" height="24" rx="4.5" fill="#222222"/>
+  <!-- Fila 1: tramo ámbar + blanco centrado -->
+  <rect x="2" y="3" width="5" height="4" rx="2" fill="#ECA531"/>
+  <rect x="9" y="3" width="6" height="4" rx="2" fill="#FFFFFF"/>
+  <!-- Filas 2 y 3: barras ámbar -->
+  <rect x="2" y="8" width="11" height="4" rx="2" fill="#ECA531"/>
+  <rect x="2" y="13" width="18" height="4" rx="2" fill="#ECA531"/>
+  <!-- Fila 4: blanco | ámbar | blanco -->
+  <rect x="2" y="18" width="6" height="4" rx="2" fill="#FFFFFF"/>
+  <rect x="10" y="18" width="4" height="4" rx="2" fill="#ECA531"/>
+  <rect x="16" y="18" width="6" height="4" rx="2" fill="#FFFFFF"/>
+</svg>

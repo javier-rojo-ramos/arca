@@ -86,6 +86,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/ui_file_dialogs.py         Diálogos de archivos y carpetas (QFileDialog): select_file, select_files, select_folder, save_file
   helpers/ui_message.py              MessageBoxHelper: avisos, errores y preguntas (QMessageBox); question_with_checkbox («No volver a mostrar»); details (texto largo en «Mostrar los detalles…»)
   helpers/ui_status.py               message_bar: mensaje con icono teñido y temporizador en la barra de estado
+  helpers/app_icon.py                build_app_icon: el icono de la ventana con el juego de cada sistema (resources/icons/: .ico en Windows, PNG de macos/ en macOS, PNG de windows/ y linux/ en el resto); app_icon_files
   helpers/ui_icons.py                tinted_icon: SVG monocromos del .qrc teñidos al dibujarse (paleta, color fijo o hover); menu_icon, para las opciones de los menús
   helpers/ui_info.py                 show_info_window: ventana de información con HTML (QTextBrowser); hoy no la usa nadie
   mixins/window_snap.py              WindowSnapMixin: ajuste magnético de la ventana a los bordes (desactivado en macOS)
@@ -270,7 +271,8 @@ scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources
 scripts/export_qtbase_es.py          Copia la traducción al español de Qt (qtbase_es.qm) a resources/locales
 scripts/run_selftests.py             Ejecuta de una vez todas las autopruebas que no abren ventana y dice cuáles fallan (docs/PRUEBAS.md)
 resources/map/                       Página del mapa (index.html, arca_map.js, arca_map.css) y vendor/ (Leaflet y Supercluster copiados; ver su LEEME.txt). Se lee del disco, no va en el .qrc
-resources/                           recursos.qrc (lista de iconos e imágenes), images/ (SVG), icons/ (icono de la aplicación),
+resources/                           recursos.qrc (lista de iconos e imágenes), images/ (SVG), icons/ (icono de la aplicación: svg/ los
+                                     maestros, windows/ .ico y PNG, macos/ .icns y PNG, linux/ PNG; ver su README.md; no va en el .qrc),
                                      locales/qtbase_es.qm (traducción de Qt) y recursos_rc.py (se GENERA con build_ui.py; no editar)
 repomix.config.json                  Qué entra en el REPOMIX (ver la nota de abajo)
 .gitattributes                       Finales de línea LF (ver TRAMPAS.md)

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!--
+    Arca Media — versión de 32 px (v3, para escalas 125-150 % de Windows; barra 3 alargada hasta la diagonal).
+    Cuatro filas de 5 px con 2 px de separación, ajustadas a píxel entero.
+  -->
+  <rect width="32" height="32" rx="6" fill="#222222"/>
+  <!-- Fila 1: tramo ámbar + blanco centrado -->
+  <rect x="3" y="3" width="7" height="5" rx="2.5" fill="#ECA531"/>
+  <rect x="12" y="3" width="8" height="5" rx="2.5" fill="#FFFFFF"/>
+  <!-- Filas 2 y 3: barras ámbar -->
+  <rect x="3" y="10" width="15" height="5" rx="2.5" fill="#ECA531"/>
+  <rect x="3" y="17" width="23" height="5" rx="2.5" fill="#ECA531"/>
+  <!-- Fila 4: blanco | ámbar | blanco -->
+  <rect x="3" y="24" width="8" height="5" rx="2.5" fill="#FFFFFF"/>
+  <rect x="13" y="24" width="6" height="5" rx="2.5" fill="#ECA531"/>
+  <rect x="21" y="24" width="8" height="5" rx="2.5" fill="#FFFFFF"/>
+</svg>

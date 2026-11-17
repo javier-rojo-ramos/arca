@@ -137,6 +137,7 @@ python -m ui_helpers.dialogs.filter_presets_dialog             (subir, bajar, ar
 python -m ui_helpers.dialogs.map_layer_dialog                  (una ventana: «Añadir capa», con lo que no vale dicho debajo)
 python -m ui_helpers.dialogs.smart_collection_dialog           (crear y editar, añadir y quitar reglas y grupos, recuento y recuentos tardíos, errores en rojo, lo elegido; sin ventana. Con --ventana, la ventana con un contador simulado y un aviso de ejemplo)
 python -m ui_helpers.helpers.gpu_composition                   (ventanas que NO se muestran en pantalla: con la plataforma real, la preparada nace con la GPU y no se rehace)
+python -m ui_helpers.helpers.app_icon                          (los archivos del icono de cada sistema, sin carpeta de iconos y los tamaños que trae el icono; sin ventana)
 python -m ui_helpers.helpers.card_glyphs                       (dibuja marcadores e indicadores en una imagen; sin ventana)
 python -m ui_helpers.helpers.track_appearance                  (colores de los tracks y pendiente del perfil guardados: validación y lo que se guarda)
 python -m ui_helpers.helpers.profile_style                     (estilo del perfil: franjas de la pendiente por inclinación, con y sin histéresis; estilos que no se pueden dibujar)

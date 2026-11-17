@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!--
+    Arca Media — versión de 16 px (v3, contenido ampliado; sin cambios de geometría respecto a v2).
+    Tres filas de 3 px con 2 px de separación, ajustadas a píxel entero.
+    El contenido ocupa 12x13 px del cuadro (antes 12x10).
+  -->
+  <rect width="16" height="16" rx="3" fill="#222222"/>
+  <!-- Fila 1: tramo ámbar + blanco centrado (vértice de la "A") -->
+  <rect x="2" y="2" width="3" height="3" rx="1.5" fill="#ECA531"/>
+  <rect x="6" y="2" width="4" height="3" rx="1.5" fill="#FFFFFF"/>
+  <!-- Fila 2: barra ámbar -->
+  <rect x="2" y="7" width="10" height="3" rx="1.5" fill="#ECA531"/>
+  <!-- Fila 3: blanco | ámbar | blanco -->
+  <rect x="2" y="12" width="4" height="3" rx="1.5" fill="#FFFFFF"/>
+  <rect x="7" y="12" width="2" height="3" rx="1" fill="#ECA531"/>
+  <rect x="10" y="12" width="4" height="3" rx="1.5" fill="#FFFFFF"/>
+</svg>

@@ -20,7 +20,6 @@ from qtpy.QtCore import (
 from qtpy.QtGui import (
     QAction,
     QCloseEvent,
-    QIcon,
     QMoveEvent,
     QShowEvent,
 )
@@ -91,6 +90,7 @@ from ui_helpers.delegates.thumbnails_delegate import ThumbnailsDelegate
 from ui_helpers.dialogs.folder_content_dialog import FolderContentDialog
 from ui_helpers.dialogs.remove_dialog import RemoveDialog
 from ui_helpers.dialogs.settings_dialog import SettingsDialog
+from ui_helpers.helpers.app_icon import build_app_icon
 from ui_helpers.helpers.gpu_composition import enable_gpu_composition, gpu_allowed
 from ui_helpers.helpers.grid_actions import GridActions
 from ui_helpers.helpers.mode_toolbar import toolbar_accent_color
@@ -1075,8 +1075,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
     def _establecer_estilos_estados_iniciales(self) -> None:
         """Aplica estilos e iconos iniciales."""
         self.setWindowTitle(app_paths.APP_NAME_COMERCIAL)
-        ruta_icono = str(app_paths.RESOURCES_DIR / "icons" / "icon_128.ico")
-        self.setWindowIcon(QIcon(ruta_icono))
+        # El icono de la ventana (y de la barra de tareas), con el juego de cada sistema
+        self.setWindowIcon(build_app_icon())
 
         # El tema (paleta y hoja de estilos) ya se aplicó en main.py, antes de crear la
         # ventana: ver 'ui_helpers/helpers/ui_theme.apply_theme'

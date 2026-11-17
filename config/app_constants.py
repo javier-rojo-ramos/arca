@@ -46,8 +46,8 @@ __all__ = [
 
 
 # Esta clase se debe actualizar con el contenido del archivo 'recursos.qrc'
+# (el icono de la aplicación no está aquí: ver 'ui_helpers/helpers/app_icon.py')
 class AppIcons:
-    MAIN_ICON = ":/img/main_icon.ico"
     LOGO = ":/img/logo.png"
     CHECK_CIRCLE = ":/img/check_circle.svg"
     CHECK_CIRCLE__GREEN = ":/img/check_circle__green.svg"

@@ -1,6 +1,5 @@
 <RCC>
     <qresource prefix="/img">
-        <file alias="main_icon.ico">icons/icon_128.ico</file>
         <file alias="logo.png">images/logo.png</file>
         <file alias="check_circle.svg">images/check_circle.svg</file>
         <file alias="check_circle__green.svg">images/check_circle__green.svg</file>

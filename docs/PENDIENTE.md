@@ -60,7 +60,7 @@ Las de vídeo y las carátulas de audio, en `VID 4` y `MUS 3`.
 
 ### Fase GEN 5 — Empaquetado
 
-Incluir `tools/exiftool` (`--add-data`), `--collect-data puremagic`, `defusedxml` y los datos de `pillow-heif`; QtWebEngine (el mapa: unos 220 MB más, el proceso `QtWebEngineProcess.exe` y la carpeta `resources` de Qt; [MOD_TRACKS.md](MOD_TRACKS.md) §9); comprobar que la ruta a `tools/exiftool` (basada en `__file__`) vale dentro del paquete; probar en macOS y Linux. Pasos, por definir.
+Incluir `tools/exiftool` (`--add-data`), `--collect-data puremagic`, `defusedxml` y los datos de `pillow-heif`; QtWebEngine (el mapa: unos 220 MB más, el proceso `QtWebEngineProcess.exe` y la carpeta `resources` de Qt; [MOD_TRACKS.md](MOD_TRACKS.md) §9); comprobar que la ruta a `tools/exiftool` (basada en `__file__`) vale dentro del paquete; probar en macOS y Linux; el icono del ejecutable, `--icon resources/icons/windows/arca-media.ico` en Windows y `resources/icons/macos/arca-media.icns` en macOS (en Linux, un `.desktop`; ver `resources/icons/README.md`), y la carpeta `resources/icons/` dentro del paquete, porque el de la ventana se lee del disco (`ui_helpers/helpers/app_icon.py`). Pasos, por definir.
 
 ### Fase GEN 6 — Interfaz sin terminar
 
