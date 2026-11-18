@@ -27,7 +27,8 @@ Contenido de una tarjeta, de arriba abajo:
           en la selección rápida  -> círculo blanco (siempre visible, como la marca)
           fuera de ella           -> nada; con el ratón encima, un círculo gris claro
     - Si NO tiene miniatura (vídeo, audio, libro y track, que aún no generan miniaturas,
-      o una foto cuya miniatura falló), un MARCADOR dibujado aquí mismo, con la proporción
+      o una foto cuya miniatura está pendiente de generar o falló), un MARCADOR dibujado
+      aquí mismo, con la proporción
       típica de su tipo y un dibujo sencillo (sin archivos ni iconos del .qrc):
           vídeo        -> 16:9 con un triángulo de "reproducir" (2:3 de póster si es de
                           la biblioteca de películas y series)
@@ -35,8 +36,11 @@ Contenido de una tarjeta, de arriba abajo:
           libro        -> 2:3 con un libro
           track GPS    -> cuadrado con SU recorrido (el contorno del catálogo); si aún
                           no lo tiene, un recorrido de adorno
-          foto (error) -> 3:2 con un paisaje
-      Una foto cuya miniatura aún se está leyendo NO lleva marcador (solo el hueco gris).
+          foto         -> 3:2 con un paisaje (pendiente o con error: el mismo, como en la
+                          vista individual)
+      Una foto cuya miniatura YA EXISTE y aún se está leyendo de la caché NO lleva marcador
+      (solo el hueco gris): son milisegundos, y un dibujo que apareciera y desapareciera
+      al desplazarse parpadearía.
     - En los vídeos y el audio, la DURACIÓN ("0:42", "1:32:05") en la esquina inferior
       derecha de la imagen o del marcador.
     - Si el archivo tiene ubicación y el módulo tiene mapa ('location_pin', lo pone
@@ -67,6 +71,10 @@ las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
 seleccionada, solo cambia ella. La chincheta no cambia nada: solo avisa. Con Ctrl, Alt o
 Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
 
+2.19.0 Una foto con la miniatura PENDIENTE de generar lleva el marcador del paisaje (antes,
+       el hueco gris liso, a veces durante minutos al añadir una carpeta grande), como la
+       vista individual y las que fallaron (pedido por el autor, 18/11/2026). El gris liso
+       queda para las que ya existen y se están leyendo de la caché.
 2.18.1 Ctrl (o Alt, o Meta) + clic en una zona activa solo selecciona: 'editorEvent' ya
        no lo atiende (antes, Ctrl + clic en una estrella valoraba).
 2.18.0 La chincheta también en la tarjeta normal ('location_pin': en los módulos con
@@ -103,7 +111,7 @@ Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.18.1"
+__version__ = "2.19.0"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -142,8 +150,9 @@ _REJECTED, _NONE, _PICKED = -1, 0, 1
 # 'core.catalog.media_queries')
 _AVAILABLE, _MISSING, _OFFLINE = 0, 1, 2
 
-# Estado de la miniatura con error (el mismo que en 'media_items.thumbnail_status')
-_THUMBNAIL_ERROR = 2
+# Estado de la miniatura ya generada (los mismos valores que 'media_items.thumbnail_status':
+# 0 pendiente, 1 lista, 2 error)
+_THUMBNAIL_READY = 1
 
 # Tipos de medio (los valores de 'core.catalog.media_types.MediaType') y la biblioteca de
 # películas y series ('core.catalog.libraries.Library.VIDEO'): el delegado no importa
@@ -325,15 +334,16 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         """True si la tarjeta lleva marcador en lugar de miniatura.
 
         Sin miniatura y: de un tipo que todavía no genera miniaturas (todo menos las
-        fotos), o una foto cuya miniatura falló. Una foto cuya miniatura aún se está
-        leyendo NO lleva marcador (aparecerá enseguida).
+        fotos), o una foto cuya miniatura está pendiente de generar o falló. Una foto cuya
+        miniatura YA EXISTE y aún se está leyendo de la caché NO lleva marcador: aparecerá
+        enseguida, y el dibujo parpadearía al desplazarse.
         """
         if isinstance(pixmap, QPixmap) and not pixmap.isNull():
             return False
         media_type = index.data(ROLE_MEDIA_TYPE)
         if media_type is None:
             return False  # modelo sin tipo (p. ej. el prototipo antiguo)
-        return media_type != _PHOTO or index.data(ROLE_THUMBNAIL_STATUS) == _THUMBNAIL_ERROR
+        return media_type != _PHOTO or index.data(ROLE_THUMBNAIL_STATUS) != _THUMBNAIL_READY
 
     def _placeholder_aspect(self, index) -> float:
         """Proporción del marcador según el tipo (y, en el vídeo, la biblioteca)."""

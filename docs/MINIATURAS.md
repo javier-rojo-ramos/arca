@@ -32,7 +32,7 @@ Reglas:
 
 **Estado y trabajo**: columnas en [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md); flujo y regeneración en [FLUJOS.md §5](FLUJOS.md). `THUMBNAIL_VERSION` (en `generator.py`) se sube cuando cambia el RESULTADO (tamaños, calidad, formato, color, elección de la imagen de partida); la autoprueba de `job.py` avisa si se cambian tamaños, calidad o formato sin subirla.
 
-**Sin miniatura** (vídeo, audio, ebook y track, hasta el paso 4b; o una foto con error): la cuadrícula dibuja un marcador por tipo y, en vídeo y audio, la duración ([FLUJOS.md §6](FLUJOS.md)). No se guarda ningún archivo por elemento.
+**Sin miniatura** (vídeo, audio, ebook y track, hasta el paso 4b; o una foto con la miniatura pendiente de generar o con error): la cuadrícula dibuja un marcador por tipo y, en vídeo y audio, la duración ([FLUJOS.md §6](FLUJOS.md)). No se guarda ningún archivo por elemento.
 
 **Tracks** (14/11/2026): no tienen miniatura en la caché ni la tendrán: su tarjeta dibuja al vuelo la forma del recorrido, con el contorno que guarda el catálogo (`track_details.overview`; `ui_helpers/helpers/track_outline.py`). Un track sin contorno (aún sin leer, o sin puntos) enseña el marcador de su tipo.
 
