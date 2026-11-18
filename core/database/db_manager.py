@@ -31,14 +31,31 @@ Reglas para las funciones que se envían al gestor:
     - Los callbacks (on_result, on_error, on_finished) deben ser MÉTODOS de un
       QObject (p. ej. del controlador) o funciones normales; se ejecutan siempre
       en el hilo principal.
+
+Medida de la cola (desde la 1.1.0): las consultas de la interfaz y los trabajos largos
+('JobManager', que ocupa un hilo mientras dura cada trabajo) comparten los DB_MAX_THREADS
+hilos. Para saber si la interfaz espera por falta de hilos (docs/PENDIENTE.md, GEN 15.4),
+cada tarea apunta cuánto esperó en la cola antes de empezar y cuánto duró: las que esperan
+QUEUE_WAIT_LOG_MS o más salen en el registro (DEBUG) con su nombre y cuántos hilos estaban
+ocupados al pedirla, y al cerrar el catálogo ('shutdown') sale un resumen (INFO).
+
+1.1.0 Medida de la espera en la cola de cada tarea, con su resumen al cerrar (GEN 15.4).
 """
 
-__version__ = "1.0.1"
-__all__ = ["CatalogDatabaseManager", "rows_to_dicts"]
+__version__ = "1.1.0"
+__all__ = [
+    "QUEUE_WAIT_LOG_MS",
+    "QUEUE_WAIT_SLOW_MS",
+    "CatalogDatabaseManager",
+    "QueueStats",
+    "rows_to_dicts",
+]
 
 # Librerías estándar
 import itertools
 import sqlite3
+import threading
+import time
 from collections.abc import Callable, Iterable
 from contextlib import closing
 from pathlib import Path
@@ -56,6 +73,60 @@ from core.catalog.catalog_schema import BUSY_TIMEOUT_SECONDS, configure_connecti
 # Hilos máximos para la base de datos. En modo WAL varias conexiones pueden LEER
 # a la vez, pero solo una puede ESCRIBIR (las demás esperan su turno).
 DB_MAX_THREADS = 4
+
+# Medida de la cola: una tarea que espera esto o más (ms) antes de empezar sale en el
+# registro; el resumen cuenta también las que esperan QUEUE_WAIT_SLOW_MS o más (a partir
+# de ahí, una espera ya se nota en la interfaz)
+QUEUE_WAIT_LOG_MS = 100
+QUEUE_WAIT_SLOW_MS = 300
+
+
+class QueueStats:
+    """Esperas en la cola de las tareas de un gestor (se apuntan desde los hilos)."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.tasks = 0  # tareas terminadas
+        self.waited = 0  # las que esperaron QUEUE_WAIT_LOG_MS o más
+        self.slow = 0  # las que esperaron QUEUE_WAIT_SLOW_MS o más
+        self.max_wait_ms = 0.0
+        self.max_wait_name = ""
+
+    def record(self, name: str, wait_ms: float, duration_ms: float, busy: int) -> None:
+        """Apunta una tarea terminada; si esperó, lo dice en el registro (DEBUG).
+
+        Args:
+            name: Nombre de la función que se ejecutó.
+            wait_ms: Desde que se pidió hasta que empezó (la espera en la cola).
+            duration_ms: Lo que tardó en ejecutarse.
+            busy: Hilos ocupados cuando se pidió.
+        """
+        with self._lock:
+            self.tasks += 1
+            if wait_ms >= QUEUE_WAIT_LOG_MS:
+                self.waited += 1
+            if wait_ms >= QUEUE_WAIT_SLOW_MS:
+                self.slow += 1
+            if wait_ms > self.max_wait_ms:
+                self.max_wait_ms, self.max_wait_name = wait_ms, name
+        if wait_ms >= QUEUE_WAIT_LOG_MS:
+            logger.debug(
+                f"BD: «{name}» esperó {wait_ms:.0f} ms en la cola ({busy} de "
+                f"{DB_MAX_THREADS} hilos ocupados al pedirla); duró {duration_ms:.0f} ms"
+            )
+
+    def summary(self) -> str:
+        """El resumen para el registro (vacío si no hubo tareas)."""
+        with self._lock:
+            if self.tasks == 0:
+                return ""
+            text = (
+                f"BD: {self.tasks} tareas; esperaron en la cola {QUEUE_WAIT_LOG_MS} ms o más: "
+                f"{self.waited}; {QUEUE_WAIT_SLOW_MS} ms o más: {self.slow}"
+            )
+            if self.max_wait_name:
+                text += f"; la que más, «{self.max_wait_name}», {self.max_wait_ms:.0f} ms"
+            return text
 
 
 def rows_to_dicts(rows: Iterable[sqlite3.Row]) -> list[dict[str, Any]]:
@@ -93,6 +164,8 @@ class DatabaseTask(QRunnable):
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
         signals: DatabaseWorkerSignals,
+        stats: QueueStats | None = None,
+        busy: int = 0,
     ) -> None:
         """Guarda lo necesario para ejecutar la consulta más tarde, en otro hilo.
 
@@ -103,6 +176,8 @@ class DatabaseTask(QRunnable):
             args: Argumentos posicionales extra para 'func'.
             kwargs: Argumentos con nombre extra para 'func'.
             signals: Señales (del gestor) por las que se devuelve el resultado.
+            stats: Dónde apuntar la espera en la cola y la duración (None = no se apunta).
+            busy: Hilos ocupados cuando se pidió (para el registro).
         """
         super().__init__()
         self.task_id = task_id
@@ -111,10 +186,15 @@ class DatabaseTask(QRunnable):
         self.args = args
         self.kwargs = kwargs
         self.signals = signals
+        self.stats = stats
+        self.busy = busy
+        # Se crea justo antes de entregarla al pool: desde aquí cuenta la espera
+        self.queued_at = time.monotonic()
 
     @Slot()
     def run(self) -> None:
         """Punto de entrada que Qt ejecuta en un hilo secundario."""
+        started_at = time.monotonic()
         try:
             # 'closing' asegura que la conexión se cierra pase lo que pase.
             # uri=True + mode=rw: si el .db no existe da error en vez de crear
@@ -141,6 +221,14 @@ class DatabaseTask(QRunnable):
             self.signals.error.emit(self.task_id, exc)
 
         finally:
+            if self.stats is not None:
+                name = getattr(self.func, "__name__", type(self.func).__name__)
+                self.stats.record(
+                    name,
+                    (started_at - self.queued_at) * 1000,
+                    (time.monotonic() - started_at) * 1000,
+                    self.busy,
+                )
             self.signals.finished.emit(self.task_id)
 
 
@@ -202,6 +290,8 @@ class CatalogDatabaseManager(QObject):
         self._pending: dict[int, _PendingCall] = {}
         self._id_counter = itertools.count(1)
         self._is_shutting_down = False
+        # Esperas en la cola de las tareas de este catálogo (ver la cabecera)
+        self.queue_stats = QueueStats()
 
     # -------------------------------------------------------------------------
     # API pública
@@ -234,7 +324,14 @@ class CatalogDatabaseManager(QObject):
         self._pending[task_id] = _PendingCall(on_result, on_error, on_finished)
 
         task = DatabaseTask(
-            task_id, self._db_uri, db_func, args, kwargs, self._signals
+            task_id,
+            self._db_uri,
+            db_func,
+            args,
+            kwargs,
+            self._signals,
+            stats=self.queue_stats,
+            busy=self._pool.activeThreadCount(),
         )
         self._pool.start(task)
 
@@ -248,6 +345,9 @@ class CatalogDatabaseManager(QObject):
         self._pool.clear()  # Descarta las tareas que aún no han empezado
         self._pool.waitForDone()  # Espera a las que ya están ejecutándose
         self._pending.clear()  # Ya nadie esperará sus callbacks
+        summary = self.queue_stats.summary()
+        if summary:
+            logger.info(summary)
 
     # -------------------------------------------------------------------------
     # Slots internos (siempre se ejecutan en el hilo principal)
@@ -339,4 +439,32 @@ if __name__ == "__main__":
 
         QTimer.singleShot(1500, terminar)
         app.exec()
+
+        # Medida de la cola: 6 tareas de 0,25 s con 4 hilos -> las 2 últimas esperan unos
+        # 250 ms antes de empezar; las primeras, nada
+        cola = CatalogDatabaseManager(ruta_db)
+        terminadas: list[int] = []
+
+        def dormir(conn: sqlite3.Connection, segundos: float) -> None:
+            """Una tarea lenta (no toca la base de datos)."""
+            time.sleep(segundos)
+
+        for _ in range(6):
+            cola.execute_async(dormir, 0.25, on_finished=lambda: terminadas.append(1))
+        limite = time.monotonic() + 5
+        while len(terminadas) < 6 and time.monotonic() < limite:
+            app.processEvents()
+            time.sleep(0.01)
+        stats = cola.queue_stats
+        assert len(terminadas) == 6 and stats.tasks == 6, (len(terminadas), stats.tasks)
+        assert stats.waited == 2 and stats.max_wait_name == "dormir", stats.__dict__
+        assert 150 <= stats.max_wait_ms < 1000, stats.max_wait_ms
+        assert stats.summary().startswith("BD: 6 tareas; esperaron en la cola 100 ms o más: 2")
+        cola.shutdown()
+        # Una espera corta no cuenta como espera
+        sueltas = QueueStats()
+        sueltas.record("rapida", 20, 5, 1)
+        assert (sueltas.tasks, sueltas.waited, sueltas.slow) == (1, 0, 0)
+        assert QueueStats().summary() == ""
+        print(f"Cola: {stats.summary()}")
         print("Autoprueba finalizada correctamente.")

@@ -220,7 +220,7 @@ core/
     folder_scanner.py                  FolderScanner: recorre carpetas y entrega ScanCandidate
     catalog_writer.py                  save_candidates, mark_missing, replace_walk_issues...
     folder_importer.py                 add_folder: orquesta registrar + escanear + guardar
-  database/db_manager.py             CatalogDatabaseManager: consultas asíncronas (QThreadPool, 4 hilos)
+  database/db_manager.py             CatalogDatabaseManager: consultas asíncronas (QThreadPool, 4 hilos, compartidos con los trabajos largos); mide la espera de cada tarea en la cola (QueueStats: las de 100 ms o más, al registro; resumen al cerrar el catálogo)
   jobs/progress.py                   JobProgress, protocolo JobResult, throttled (sin Qt)
   workers/
     job_manager.py                   JobManager: lanza/cancela trabajos con progreso (sobre db_manager)

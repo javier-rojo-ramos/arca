@@ -95,7 +95,7 @@ Acordado con el autor el 16/11/2026, tras analizar el código ([DECISIONES.md](D
 - ~~**GEN 15.1** El encadenado de los trabajos, a `controllers/job_coordinator.py` (`JobCoordinator`)~~ (hecho el 18/11/2026: el controlador, de 2 036 a 1 668 líneas; con una autoprueba de las reglas).
 - ~~**GEN 15.2** Añadir y sincronizar carpetas~~ (hecho el 18/11/2026: `controllers/folder_import.py`; «Mostrar en el Explorador», a `folder_actions.py`).
 - ~~**GEN 15.3** Eliminar~~ (hecho el 18/11/2026: `controllers/remove_actions.py`; el controlador, en 1 270 líneas).
-- **GEN 15.4** (opcional) El grupo de hilos propio para los trabajos (de `GEN 10`): sí cambia cuántas cosas corren a la vez; medir antes.
+- **GEN 15.4** (opcional, **en espera de la medida**) El grupo de hilos propio para los trabajos (de `GEN 10`): sí cambia cuántas cosas corren a la vez. Desde el 18/11/2026 se mide la espera en la cola de la base de datos (`db_manager` 1.1.0; cómo leerla, en [PRUEBAS.md](PRUEBAS.md), «Diagnóstico de la cola de la base de datos»): hacerlo si, durante una importación grande, las consultas de la interfaz esperan a menudo 300 ms o más; si no, en todo caso antes de `VID 7` (las descargas ocuparían más hilos).
 
 ### Fase GEN 16 — Perfil de tarjeta
 
