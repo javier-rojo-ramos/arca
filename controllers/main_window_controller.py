@@ -27,6 +27,7 @@ from config.app_config import config
 from config.app_constants import (
     SETTING_GPU_RENDERING,
     SETTING_MAIN_SPLITTER_STATE,
+    SETTING_MAP_GPU_RENDERING,
     SETTING_WRITE_USER_DATA_TO_FILES,
     SIDEBAR_CATALOG_DEFAULT_WIDTH,
     SIDEBAR_METADATA_DEFAULT_WIDTH,
@@ -665,8 +666,9 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # recarga sola)
         if self.module_host is not None:
             self.module_host.apply_settings(changed)
-        # La aceleración por GPU se aplica al volver a abrir la aplicación: se avisa
-        if SETTING_GPU_RENDERING in changed:
+        # La aceleración por GPU (la de la ventana y la de los mapas) se aplica al volver a
+        # abrir la aplicación: se avisa
+        if changed & {SETTING_GPU_RENDERING, SETTING_MAP_GPU_RENDERING}:
             self.message_box.info(
                 "El cambio de la aceleración por GPU se aplicará al volver a abrir la aplicación."
             )

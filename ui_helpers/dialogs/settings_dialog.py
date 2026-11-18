@@ -22,6 +22,9 @@ leerlo en 'load()' y guardarlo en 'save()' (y añadir la clave a
 
 Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 
+1.7.0 "General": opción «Usar aceleración por GPU en los mapas si está disponible»
+      (SETTING_MAP_GPU_RENDERING; activada mientras no se elija; al volver a abrir la
+      aplicación), debajo de la de la ventana. Textos del autor.
 1.6.0 Sección «Tracks» (colores de los tracks en el mapa y la pendiente del perfil; en su
       propio archivo: 'tracks_settings_page.py').
 1.5.0 Sección «Paneles» (las secciones de las barras de cada módulo; en su propio archivo:
@@ -40,7 +43,7 @@ Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 1.1.0 Sección "Catálogo": mostrar o no los elementos de las subcarpetas.
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = [
     "PAGES",
     "CatalogPage",
@@ -85,6 +88,7 @@ from config.app_constants import (
     SETTING_CONFIRM_MULTI_EDIT,
     SETTING_GPU_RENDERING,
     SETTING_MAP_CACHE_MB,
+    SETTING_MAP_GPU_RENDERING,
     SETTING_MAP_USER_LAYERS,
     SETTING_SHOW_SUBFOLDER_ITEMS,
     SETTING_WRITE_USER_DATA_TO_FILES,
@@ -99,7 +103,7 @@ from core.maps.tile_layers import (
 )
 from core.maps.tile_store import TileStorageError, TileStore
 from ui_helpers.dialogs.map_layer_dialog import MapLayerDialog
-from ui_helpers.helpers.gpu_composition import default_gpu_setting
+from ui_helpers.helpers.gpu_composition import default_gpu_setting, map_gpu_allowed
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.inspector.formatting import format_size
@@ -184,7 +188,8 @@ class SettingsPage(QWidget):
 
 
 class GeneralPage(SettingsPage):
-    """Sección "General": dónde guarda las cosas la aplicación y la aceleración por GPU."""
+    """Sección "General": dónde guarda las cosas la aplicación y la aceleración por GPU (la
+    de la ventana y la de los mapas)."""
 
     title = "General"
     icon = AppIcons.SETTINGS_APP
@@ -221,22 +226,45 @@ class GeneralPage(SettingsPage):
             )
         )
 
+        # La GPU en los mapas (el motor web), aparte: textos del autor (18/11/2026)
+        self.body.addSpacing(6)
+        self.check_map_gpu = QCheckBox("Usar aceleración por GPU en los mapas si está disponible")
+        self.body.addWidget(self.check_map_gpu)
+        self.body.addWidget(
+            self.make_help_label(
+                "Más fluido al desplazar y hacer zoom. En algunos equipos se muestran cuadros "
+                "negros o el mapa en negro; si pasa, se recomienda desactivar la opción (los "
+                "mapas se dibujan con el procesador, algo menos fluido). Se aplica al volver "
+                "a abrir la aplicación."
+            )
+        )
+
     def _gpu_setting(self) -> bool:
         """La opción tal como se aplica: la elegida o, si no, la del sistema."""
         value = self.config.get(SETTING_GPU_RENDERING)
         return value if isinstance(value, bool) else default_gpu_setting()
 
+    def _map_gpu_setting(self) -> bool:
+        """La de los mapas tal como se aplica: la elegida o, si no, activada."""
+        return map_gpu_allowed(self.config.get(SETTING_MAP_GPU_RENDERING), arguments=[])
+
     def load(self) -> None:
         self.check_gpu.setChecked(self._gpu_setting())
+        self.check_map_gpu.setChecked(self._map_gpu_setting())
 
     def save(self) -> set[str]:
-        # Solo si cambia lo que se aplica: «Aceptar» sin tocarla no la guarda (sigue
-        # dependiendo del sistema) ni avisa de volver a abrir la aplicación
+        # Solo si cambia lo que se aplica: «Aceptar» sin tocarlas no las guarda (siguen
+        # sin elegir) ni avisa de volver a abrir la aplicación
+        changed: set[str] = set()
         value = self.check_gpu.isChecked()
-        if value == self._gpu_setting():
-            return set()
-        self.config.set(SETTING_GPU_RENDERING, value)
-        return {SETTING_GPU_RENDERING}
+        if value != self._gpu_setting():
+            self.config.set(SETTING_GPU_RENDERING, value)
+            changed.add(SETTING_GPU_RENDERING)
+        map_value = self.check_map_gpu.isChecked()
+        if map_value != self._map_gpu_setting():
+            self.config.set(SETTING_MAP_GPU_RENDERING, map_value)
+            changed.add(SETTING_MAP_GPU_RENDERING)
+        return changed
 
 
 class CatalogPage(SettingsPage):
@@ -699,6 +727,7 @@ if __name__ == "__main__":
                 SETTING_MAP_CACHE_MB: 2048,
                 SETTING_MAP_USER_LAYERS: [],
                 SETTING_GPU_RENDERING: None,  # sin elegir: según el sistema
+                SETTING_MAP_GPU_RENDERING: None,  # sin elegir: activada
             }
 
         def get(self, key: str, default: Any = None) -> Any:

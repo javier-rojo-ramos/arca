@@ -24,6 +24,7 @@ __all__ = [
     "SETTING_LAST_ADD_FOLDER_PARENT",
     "SETTING_MAP_CACHE_MB",
     "SETTING_MAP_FILMSTRIP",
+    "SETTING_MAP_GPU_RENDERING",
     "SETTING_MAP_LAYER",
     "SETTING_MAP_PROFILE",
     "SETTING_MAP_TRACK_COLORS",
@@ -157,6 +158,11 @@ SETTING_FILTER_PRESETS = "filter_presets"
 # disponible»; ver 'ui_helpers/helpers/gpu_composition.py'). Se aplica al volver a abrir
 # la aplicación. None = según el sistema (sí en Windows y macOS, no en Linux)
 SETTING_GPU_RENDERING = "gpu_rendering"
+
+# Dibujar los mapas (el motor web) con la GPU (Opciones > General: «Usar aceleración por
+# GPU en los mapas si está disponible»; ver 'gpu_composition.apply_map_gpu_setting'). Se
+# aplica al volver a abrir la aplicación. None = activada (sin elegir)
+SETTING_MAP_GPU_RENDERING = "map_gpu_rendering"
 
 # Módulo activo al cerrar la aplicación ('catalog', 'image', 'video', 'audio'): se
 # vuelve a él al arrancar. Es común a todos los catálogos

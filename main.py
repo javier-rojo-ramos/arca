@@ -11,8 +11,11 @@ from qtpy.QtWidgets import QApplication
 
 # Módulos del proyecto
 from config import app_paths
+from config.app_config import config
+from config.app_constants import SETTING_MAP_GPU_RENDERING
 from config.app_logging_manager import setup_logging
 from controllers.main_window_controller import MainWindowController
+from ui_helpers.helpers.gpu_composition import apply_map_gpu_setting, map_gpu_allowed
 from ui_helpers.helpers.ui_theme import apply_theme
 
 
@@ -71,6 +74,10 @@ def main():
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:  # noqa: BLE001
         logger.opt(exception=True).warning("Error configurando AppUserModelID Windows.")
+
+    # Mapas sin la GPU si así se eligió (Opciones > General) o con '--sin-gpu': el motor
+    # web lee sus opciones una sola vez, así que tiene que ir ANTES de crear QApplication
+    apply_map_gpu_setting(map_gpu_allowed(config.get(SETTING_MAP_GPU_RENDERING)))
 
     # Mapa: Qt exige registrar su esquema ('arca-map://') e importar QtWebEngine ANTES de
     # crear QApplication, aunque el mapa no llegue a abrirse (ver docs/TRAMPAS.md). El

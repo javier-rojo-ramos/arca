@@ -35,16 +35,36 @@ Uso (en el constructor de la ventana principal, ANTES de mostrarla):
       Linux.
 1.0.0 Primera versión (paso suelto antes de la fase 3 de docs/MOD_TRACKS.md).
 
+Los mapas (el motor web, Chromium) tienen su propia opción, «Usar aceleración por GPU en
+los mapas si está disponible» (Opciones > General; activada mientras no se toque): en el
+equipo del autor, con la GPU, el mapa deja a veces cuadros negros o se queda en negro
+(docs/TRAMPAS.md). Sin ella, se añade '--disable-gpu' a las opciones de Chromium
+(QTWEBENGINE_CHROMIUM_FLAGS) ANTES de crear QApplication: el motor web las lee una sola
+vez. '--sin-gpu' también la desactiva.
+
+    apply_map_gpu_setting(map_gpu_allowed(config.get(SETTING_MAP_GPU_RENDERING)))
+
+1.2.0 La opción de la GPU en los mapas: 'map_gpu_allowed' y 'apply_map_gpu_setting'.
+
 Prueba rápida (desde la raíz del proyecto; crea ventanas que no se muestran en pantalla):
     python -m ui_helpers.helpers.gpu_composition
 """
 
-__version__ = "1.1.0"
-__all__ = ["NO_GPU_ARGUMENT", "default_gpu_setting", "enable_gpu_composition", "gpu_allowed"]
+__version__ = "1.2.0"
+__all__ = [
+    "CHROMIUM_FLAGS_VARIABLE",
+    "NO_GPU_ARGUMENT",
+    "apply_map_gpu_setting",
+    "default_gpu_setting",
+    "enable_gpu_composition",
+    "gpu_allowed",
+    "map_gpu_allowed",
+]
 
 # Librerías estándar
+import os
 import sys
-from collections.abc import Sequence
+from collections.abc import MutableMapping, Sequence
 
 # Librerías de terceros
 from loguru import logger
@@ -89,6 +109,51 @@ def gpu_allowed(
     if NO_GPU_ARGUMENT in arguments:
         return False
     return setting if isinstance(setting, bool) else default_gpu_setting(platform)
+
+
+# --- La GPU en los mapas (el motor web) ---
+
+# Variable de entorno con las opciones de Chromium del motor web de Qt (QtWebEngine)
+CHROMIUM_FLAGS_VARIABLE = "QTWEBENGINE_CHROMIUM_FLAGS"
+# La opción de Chromium que lo dibuja todo con el procesador
+_CHROMIUM_NO_GPU = "--disable-gpu"
+
+
+def map_gpu_allowed(setting: object, arguments: Sequence[str] | None = None) -> bool:
+    """True si los mapas deben usar la GPU: la opción (activada mientras no se elija) y sin
+    haber arrancado con '--sin-gpu'.
+
+    Args:
+        setting: El valor de la opción en settings.json: True o False si se eligió;
+            cualquier otra cosa (None, al empezar), activada.
+        arguments: Argumentos de la línea de órdenes (por defecto, 'sys.argv': se usa antes
+            de crear QApplication).
+    """
+    if NO_GPU_ARGUMENT in (sys.argv if arguments is None else arguments):
+        return False
+    return setting if isinstance(setting, bool) else True
+
+
+def apply_map_gpu_setting(
+    enabled: bool, environ: MutableMapping[str, str] | None = None
+) -> None:
+    """Sin la GPU en los mapas, añade '--disable-gpu' a las opciones de Chromium.
+
+    Hay que llamarla ANTES de crear QApplication (el motor web lee sus opciones una vez).
+    Conserva lo que ya tuviera la variable y no repite la opción.
+
+    Args:
+        enabled: Si los mapas usan la GPU ('map_gpu_allowed'); True no cambia nada.
+        environ: Las variables de entorno (por defecto, las del proceso; para las pruebas).
+    """
+    if enabled:
+        return
+    env = os.environ if environ is None else environ
+    flags = env.get(CHROMIUM_FLAGS_VARIABLE, "").split()
+    if _CHROMIUM_NO_GPU not in flags:
+        flags.append(_CHROMIUM_NO_GPU)
+    env[CHROMIUM_FLAGS_VARIABLE] = " ".join(flags)
+    logger.info("Mapas sin aceleración por GPU: se dibujan con el procesador.")
 
 
 def enable_gpu_composition(window: QWidget) -> bool:
@@ -136,6 +201,23 @@ if __name__ == "__main__":
     assert gpu_allowed(None, [], "win32") and gpu_allowed(None, [], "darwin")
     assert not gpu_allowed(None, [], "linux") and not gpu_allowed("x", [], "linux")
     assert default_gpu_setting("win32") and not default_gpu_setting("freebsd")
+
+    # 1b. La GPU en los mapas: activada mientras no se elija; '--sin-gpu' la quita; sin
+    #     ella, '--disable-gpu' en las opciones de Chromium, conservando las que hubiera
+    assert map_gpu_allowed(None, []) and map_gpu_allowed(True, []) and not map_gpu_allowed(False, [])
+    assert not map_gpu_allowed(True, ["main.py", NO_GPU_ARGUMENT])
+    env: dict[str, str] = {}
+    apply_map_gpu_setting(True, env)
+    assert env == {}  # con la GPU no se toca nada
+    apply_map_gpu_setting(False, env)
+    assert env == {CHROMIUM_FLAGS_VARIABLE: "--disable-gpu"}
+    env = {CHROMIUM_FLAGS_VARIABLE: "--foo --disable-gpu"}
+    apply_map_gpu_setting(False, env)
+    assert env[CHROMIUM_FLAGS_VARIABLE] == "--foo --disable-gpu"  # sin repetirla
+    env = {CHROMIUM_FLAGS_VARIABLE: "--foo"}
+    apply_map_gpu_setting(False, env)
+    assert env[CHROMIUM_FLAGS_VARIABLE] == "--foo --disable-gpu"
+    print("1. Opciones de la GPU (ventana y mapas): correctas")
 
     def window_with(prepared: bool) -> tuple[str, str, bool]:
         """(superficie al mostrarla, superficie tras añadirle algo de GPU, sin rehacerla)."""
