@@ -49,8 +49,9 @@ config/
   app_constants.py                   Constantes, iconos (AppIcons), tamaños de miniatura, claves compartidas de settings.json
   app_logging_manager.py             setup_logging (loguru + InterceptHandler); desde la 1.09, los errores fatales (nativos) dejan la pila de cada hilo en '<log>.crash.log' (faulthandler). Módulo compartido con otros programas del autor
 controllers/
-  main_window_controller.py          Controlador de la ventana: catálogo activo, añadir y sincronizar carpetas, quitar ausentes, trabajos (metadatos, miniaturas y escritura de datos del usuario), regenerar miniaturas, barra de estado, ventana de opciones; conecta la cuadrícula (modelo, atajos y guardado de rating/flag/color) y crea los módulos (_configurar_modulos)
+  main_window_controller.py          Controlador de la ventana: catálogo activo, añadir y sincronizar carpetas, quitar ausentes, eliminar, ventana de opciones; crea y conecta el coordinador de los trabajos (job_coordinator.py); conecta la cuadrícula (modelo, atajos y guardado de rating/flag/color) y crea los módulos (_configurar_modulos)
   inspector_controller.py            InspectorController: selección de la cuadrícula -> resumen en segundo plano -> inspector; cambios de las secciones en cola (edit_requested -> user_data_changed; request_edit con on_done: el resultado, para deshacer); flecha «ver sus fotos» (navigate_requested); lo desplegado del árbol del inspector (save_state / restore_state); «Mostrar en el Explorador»
+  job_coordinator.py                 JobCoordinator: los trabajos en segundo plano (metadatos, miniaturas, escritura en los archivos, eliminar): nombres y títulos, el gestor de cada catálogo (attach/detach), las reglas del encadenado, la escritura diferida, la pregunta de los pendientes, «Regenerar miniaturas», sus barras en la barra de estado y la ventana «Leyendo metadatos»; lo que toca la cuadrícula lo pide con señales (GEN 15.1)
   folder_actions.py                  FolderActions: «Quitar del catálogo...» de una carpeta de la barra lateral (cuenta, pregunta y pide al controlador el trabajo JOB_REMOVE)
   collection_actions.py              CollectionActions: une barra lateral + menú de la cuadrícula + BD para las colecciones del usuario (crear, renombrar, borrar, soltar, añadir, quitar); lo crea CatalogModule
   filter_controller.py               FilterController: barra de filtros <-> filtro del módulo activo (ModuleHost.set_filter / filter_changed); Ctrl+L; oculta la franja en la vista individual
@@ -272,6 +273,7 @@ tools/exiftool/                      ExifTool (no se versiona; ver tools/exiftoo
 scripts/build_ui.py                  Compila ui/*.ui con pyside6-uic y resources/recursos.qrc con pyside6-rcc (genera resources/recursos_rc.py)
 scripts/export_qtbase_es.py          Copia la traducción al español de Qt (qtbase_es.qm) a resources/locales
 scripts/run_selftests.py             Ejecuta de una vez todas las autopruebas que no abren ventana y dice cuáles fallan (docs/PRUEBAS.md)
+scripts/smoke_main_window.py         Prueba de humo de la ventana principal, fuera de pantalla, con la configuración en una carpeta temporal y un catálogo de prueba: añadir carpeta, valorar, regenerar, eliminar y cerrar (docs/PRUEBAS.md)
 resources/map/                       Página del mapa (index.html, arca_map.js, arca_map.css) y vendor/ (Leaflet y Supercluster copiados; ver su LEEME.txt). Se lee del disco, no va en el .qrc
 resources/                           recursos.qrc (lista de iconos e imágenes), images/ (SVG), icons/ (icono de la aplicación: svg/ los
                                      maestros, windows/ .ico y PNG, macos/ .icns y PNG, linux/ PNG; ver su README.md; no va en el .qrc),

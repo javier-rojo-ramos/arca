@@ -17,22 +17,23 @@ Cuándo se ve:
     - Lo demás no bloquea: el recorrido de «Añadir carpeta» (los archivos nuevos aún no
       se ven), las miniaturas (no tocan los datos del usuario) ni la escritura.
 
-Uso (en el controlador principal, que solo lo crea y le pasa cada gestor de trabajos):
-    self.metadata_progress = MetadataProgress(self, job_name=JOB_METADATA, parent=self)
+Uso (lo crea 'controllers/job_coordinator.py', que le pasa cada gestor de trabajos):
+    self._metadata_progress = MetadataProgress(window, job_name=JOB_METADATA, parent=self)
     ...
-    self.job_manager = JobManager(self.db, parent=self)
-    self.metadata_progress.attach(self.job_manager)   # antes de conectar lo demás
+    self._jobs = JobManager(db, parent=self)
+    self._metadata_progress.attach(self._jobs)   # antes de conectar lo demás
 
 Se conecta ANTES que el resto de las señales del gestor para que, al terminar o fallar
 la lectura, la ventana se cierre antes de que salga cualquier otro aviso.
 
+1.0.1 Cabecera al día: lo crea 'JobCoordinator' (GEN 15.1), no el controlador principal.
 1.0.0 Primera versión (GEN 20.2).
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.metadata_progress
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["RETRY_MS", "SHOW_AFTER_MS", "MetadataProgress"]
 
 # Librerías estándar

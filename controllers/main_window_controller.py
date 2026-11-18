@@ -1,6 +1,5 @@
 # Librerías estándar
 import threading
-import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -49,9 +48,9 @@ from controllers.filter_controller import FilterController
 from controllers.filter_preset_controller import FilterPresetController
 from controllers.folder_actions import FolderActions
 from controllers.inspector_controller import InspectorController
+from controllers.job_coordinator import JobCoordinator
 from controllers.map_controller import MapController
 from controllers.metadata_filter_controller import MetadataFilterController
-from controllers.metadata_progress import MetadataProgress
 from controllers.sidebar_visibility import SidebarVisibility
 from controllers.undo_history import UndoHistory
 from core.catalog.availability import AvailabilityCheck, check_availability
@@ -79,11 +78,6 @@ from core.catalog.missing_items import (
 )
 from core.catalog.storage_locations import StorageLocationError, refresh_location_status
 from core.database.db_manager import CatalogDatabaseManager
-from core.jobs.progress import JobProgress
-from core.metadata.processor import process_pending_metadata
-from core.thumbnails.job import generate_pending_thumbnails, invalidate_thumbnails
-from core.userdata.sync import count_pending_user_data, write_pending_user_data
-from core.workers.job_manager import JobManager
 
 # UI generada, helpers, mixins
 from ui.main_window import Ui_MainWindow
@@ -111,33 +105,15 @@ from ui_helpers.layout.section_registry import SECTION_REGISTRY
 from ui_helpers.mixins.window_snap import WindowSnapMixin
 from ui_helpers.models.media_grid_model import QUICK_SELECTION_FIELD, MediaGridModel
 from ui_helpers.widgets.attribute_filter_row import AttributeFilterRow
-from ui_helpers.widgets.job_progress_widget import JobProgressWidget
 from ui_helpers.widgets.map_page import MapPage
 from ui_helpers.widgets.metadata_filter_panel import MetadataFilterPanel
 from ui_helpers.widgets.text_filter_row import TextFilterRow
 
-# Nombres de los trabajos en segundo plano y texto con el que se muestran
-JOB_METADATA = "metadata"
-JOB_THUMBNAILS = "thumbnails"
-JOB_USERDATA = "userdata"
-JOB_REMOVE = "remove"
-JOB_TITLES: dict[str, str] = {
-    JOB_METADATA: "Leyendo metadatos",
-    JOB_THUMBNAILS: "Generando miniaturas",
-    JOB_USERDATA: "Guardando en los archivos",
-    JOB_REMOVE: "Eliminando",
-}
+# Los trabajos en segundo plano (nombres, títulos, encadenado, escritura diferida...) están
+# en 'controllers/job_coordinator.py' (GEN 15.1)
 
 # Archivos que, como mucho, se enumeran en el aviso de los que no se pudieron eliminar
 REMOVE_FAILED_LIST_MAX = 10
-
-# Segundos que se espera tras el último cambio del usuario (estrellas, marca, color) antes
-# de escribirlo en los archivos: así una ráfaga de clics se escribe de una vez
-USERDATA_WRITE_DELAY_MS = 2000
-
-# Por debajo de estos elementos, la escritura en los archivos y la eliminación no muestran
-# barra de progreso (lo normal es tocar uno o pocos archivos en un instante)
-USERDATA_PROGRESS_MIN_ITEMS = 20
 
 # Cada cuánto se comprueba, con el catálogo abierto, si se ha desconectado un disco o si
 # falta algún archivo de los que se ven (ver core/catalog/availability.py). También se
@@ -152,10 +128,6 @@ AVAILABILITY_MAX_VISIBLE = 400
 # (colecciones Clasificación, Etiqueta...) se actualizan pasado este tiempo sin más cambios:
 # así una ráfaga de teclas ('1', '2', '3'...) se cuenta una sola vez
 SIDEBAR_REFRESH_DELAY_MS = 400
-
-# Al abrir un catálogo con al menos estos elementos pendientes de escribir (p. ej. la
-# primera vez tras actualizar la aplicación), se pregunta antes de modificar los archivos
-USERDATA_CONFIRM_MIN_ITEMS = 100
 
 
 class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
@@ -184,8 +156,6 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # El modelo lee la lista de la base de datos del catálogo y las miniaturas de su caché
         self.mosaico_model = MediaGridModel(self)
         self.mosaico_delegate = ThumbnailsDelegate(self)
-        # Instante (time.monotonic) del último refresco de miniaturas durante su generación
-        self._last_thumb_refresh = 0.0
 
         # --- Estado del catálogo activo ---
         # Gestor de la base de datos (None mientras no haya catálogo abierto)
@@ -197,38 +167,15 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self._add_folder_cancel: threading.Event | None = None
         # True si lo que está en marcha es "Sincronizar carpeta" (solo cambian los textos)
         self._add_folder_is_sync = False
-        # Trabajos en segundo plano del catálogo activo (metadatos, miniaturas...)
-        self.job_manager: JobManager | None = None
-        # Widget de progreso (en la barra de estado) de cada trabajo en curso
-        self._job_widgets: dict[str, JobProgressWidget] = {}
-        # Mientras se leen los metadatos, una ventana con el avance bloquea la aplicación
-        # (GEN 20.2; recibe cada gestor de trabajos en '_open_catalog')
-        self.metadata_progress = MetadataProgress(self, job_name=JOB_METADATA, parent=self)
-        # True si se pidió generar miniaturas mientras ya había una pasada en curso: al terminar
-        # esa se hace otra (p. ej. una regeneración pedida a mitad de la pasada)
-        self._thumbnail_rerun_requested = False
-
-        # Escritura de los datos del usuario en los archivos: espera un poco tras el último
-        # cambio (temporizador de un disparo que se reinicia con cada cambio) y, si llega
-        # un cambio mientras escribe, repite al terminar
-        self._userdata_timer = QTimer(self)
-        self._userdata_timer.setSingleShot(True)
-        self._userdata_timer.setInterval(USERDATA_WRITE_DELAY_MS)
-        self._userdata_timer.timeout.connect(self._start_userdata_job)
-        self._userdata_rerun_requested = False
-        # La lectura de metadatos y la escritura en los archivos nunca van a la vez (una
-        # podría leer un archivo mientras la otra lo escribe): si se pide leer mientras se
-        # escribe, se lee al terminar
-        self._metadata_after_userdata = False
-        # Comprobación, una vez por catálogo abierto, de si hay muchos elementos pendientes
-        # de escribir: "unchecked" (aún no), "checking" (preguntando), "ok" (se escribe) o
-        # "postponed" (el usuario eligió "Más tarde": no se escribe en esta sesión)
-        self._userdata_backlog_state = "unchecked"
-        # Mientras se elimina (trabajo JOB_REMOVE) no se lanza ningún otro trabajo: lo que
-        # se pida se anota aquí y se lanza al terminar (las miniaturas y la escritura en los
-        # archivos usan sus propios indicadores de "repetir")
-        self._metadata_after_removal = False
-        self._thumbnails_after_removal = False
+        # Trabajos en segundo plano del catálogo activo (metadatos, miniaturas, escritura en
+        # los archivos, eliminar): qué se lanza, cuándo y qué espera a qué. Lo que toca la
+        # cuadrícula lo pide con señales (ver 'controllers/job_coordinator.py')
+        self.job_coordinator = JobCoordinator(self, self.message_box, self.config, parent=self)
+        self.job_coordinator.thumbnails_progressed.connect(self.mosaico_model.retry_missing)
+        self.job_coordinator.thumbnails_generated.connect(self._on_thumbnails_generated)
+        self.job_coordinator.metadata_read.connect(self._on_metadata_read)
+        self.job_coordinator.removal_finished.connect(self._on_removal_finished)
+        self.job_coordinator.removal_failed.connect(self._on_removal_failed)
 
         # Comprobación periódica de discos desconectados y archivos que faltan (solo los
         # visibles). Nunca hay dos comprobaciones a la vez
@@ -418,10 +365,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
 
         # Acciones de regeneración de miniaturas (creadas en _crear_acciones_miniaturas)
         self.action_regenerate_failed_thumbnails.triggered.connect(
-            self._on_regenerate_failed_thumbnails
+            self.job_coordinator.regenerate_failed_thumbnails
         )
         self.action_regenerate_all_thumbnails.triggered.connect(
-            self._on_regenerate_all_thumbnails
+            self.job_coordinator.regenerate_all_thumbnails
         )
 
         # Conexión del slider de miniaturas
@@ -496,7 +443,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
 
         # Atajos de teclado y menú contextual (actúan sobre la selección)
         self.grid_actions = GridActions(view, self.mosaico_model)
-        self.grid_actions.regenerate_requested.connect(self.regenerate_thumbnails)
+        self.grid_actions.regenerate_requested.connect(self.job_coordinator.regenerate_thumbnails)
         # Menú "Biblioteca": clasificar vídeos a mano (clip personal o película)
         self.grid_actions.library_change_requested.connect(self._on_library_change_requested)
         # "Eliminar..." (menú de la tarjeta y Supr fuera de las colecciones estáticas)
@@ -681,7 +628,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         y una foto deja de cumplirla, sigue a la vista hasta volver a elegir la colección
         (así no se pierden la selección ni la posición mientras se valora).
         """
-        self._schedule_userdata_write()
+        self.job_coordinator.schedule_write()
         self._sidebar_refresh_timer.start()  # si ya estaba en marcha, vuelve a empezar
 
     def _on_grid_save_error(self, error: Exception) -> None:
@@ -691,90 +638,6 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             self, "No se pudo guardar el cambio en el catálogo.", AppIcons.ERROR
         )
         self.mosaico_model.reload()  # la cuadrícula vuelve a mostrar lo que hay realmente guardado
-
-    # -------------------------------------------------------------------------
-    # Escritura de los datos del usuario en los archivos (XMP, sidecar, archivo de carpeta)
-    # -------------------------------------------------------------------------
-
-    def _write_to_files_enabled(self) -> bool:
-        """Lee la opción "Escribir los cambios en los archivos" (por defecto, activada)."""
-        value = self.config.get(SETTING_WRITE_USER_DATA_TO_FILES, True)
-        if not isinstance(value, bool):
-            logger.warning(
-                f"'{SETTING_WRITE_USER_DATA_TO_FILES}' no válido en la configuración: "
-                f"{value!r}. Se usa el valor por defecto (activada)."
-            )
-            return True
-        return value
-
-    def _schedule_userdata_write(self) -> None:
-        """Programa la escritura en los archivos tras un momento sin cambios del usuario."""
-        if self.job_manager is not None and self._write_to_files_enabled():
-            self._userdata_timer.start()  # si ya estaba en marcha, vuelve a empezar la cuenta
-
-    def _start_userdata_job(self) -> None:
-        """Lanza la escritura de los datos del usuario pendientes, si procede.
-
-        Espera a que termine la lectura de metadatos (así no se lee y se escribe a la vez
-        el mismo archivo). Si ya hay una escritura en curso, se repite al terminar.
-        """
-        if (
-            self.job_manager is None
-            or self.db is None
-            or not self._write_to_files_enabled()
-        ):
-            return
-        if self._userdata_backlog_state == "unchecked":
-            # Primera escritura desde que se abrió el catálogo: antes se mira cuánto hay
-            # pendiente (si es mucho, se pregunta; ver _on_userdata_backlog_counted)
-            self._userdata_backlog_state = "checking"
-            self.db.execute_async(
-                count_pending_user_data,
-                on_result=self._on_userdata_backlog_counted,
-                on_error=lambda _error: self._on_userdata_backlog_counted(0),
-            )
-            return
-        if self._userdata_backlog_state != "ok":
-            return  # preguntando, o el usuario lo aplazó en esta sesión
-        if self.job_manager.is_running(JOB_REMOVE):
-            self._userdata_rerun_requested = True  # se lanza al terminar de eliminar
-            return
-        if self.job_manager.is_running(JOB_METADATA):
-            self._userdata_rerun_requested = True  # se lanza al terminar los metadatos
-            return
-        if not self.job_manager.start(JOB_USERDATA, write_pending_user_data):
-            self._userdata_rerun_requested = True
-
-    def _on_userdata_backlog_counted(self, count: int) -> None:
-        """Si hay muchos elementos pendientes de escribir, pregunta antes de empezar.
-
-        Ocurre sobre todo la primera vez que se abre un catálogo tras actualizar la
-        aplicación: los valores que ya tenía el catálogo quedan pendientes de escribirse
-        en los archivos (solo se modifican los que no los tengan ya).
-        """
-        if self.job_manager is None or self._userdata_backlog_state != "checking":
-            return  # el catálogo se cerró mientras se contaba
-        if count >= USERDATA_CONFIRM_MIN_ITEMS:
-            answer = self.message_box.question(
-                f"Hay {count} elementos cuya valoración, marca o color solo están en el "
-                "catálogo.\n\n"
-                "¿Escribirlos ahora en los archivos (XMP de las fotos, sidecar .xmp de los "
-                "RAW y archivo .arca.json de cada carpeta)? Solo se modifican los archivos "
-                "que no tengan ya esos valores.\n\n"
-                "Con «Más tarde» no se toca ningún archivo en esta sesión: los cambios se "
-                "guardan en el catálogo y se volverá a preguntar al abrirlo.",
-                buttons=["Escribir ahora", "Más tarde"],
-            )
-            if answer != "Escribir ahora":
-                self._userdata_backlog_state = "postponed"
-                message_bar(
-                    self,
-                    "Escritura en los archivos aplazada: los cambios quedan en el catálogo.",
-                    AppIcons.INFO,
-                )
-                return
-        self._userdata_backlog_state = "ok"
-        self._start_userdata_job()
 
     # -------------------------------------------------------------------------
     # Ventana de opciones
@@ -819,15 +682,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         if self.map_controller is not None:
             self.map_controller.apply_settings(changed)
 
-        # Se acaba de activar la escritura en los archivos: se escribe lo pendiente (el
+        # Si se acaba de activar la escritura en los archivos, se escribe lo pendiente (el
         # usuario lo ha pedido expresamente: no se vuelve a preguntar)
-        if (
-            SETTING_WRITE_USER_DATA_TO_FILES in changed
-            and self._write_to_files_enabled()
-        ):
-            if self._userdata_backlog_state != "checking":
-                self._userdata_backlog_state = "ok"
-            self._start_userdata_job()
+        if SETTING_WRITE_USER_DATA_TO_FILES in changed:
+            self.job_coordinator.write_option_changed()
 
     def _on_grid_load_failed(self, error: Exception) -> None:
         """Falló la lectura de la lista de la cuadrícula."""
@@ -1212,13 +1070,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.db = CatalogDatabaseManager(db_path, parent=self)
         self.catalog_dir = db_path.parent
 
-        # Trabajos en segundo plano: sus señales llegan al hilo principal
-        self.job_manager = JobManager(self.db, parent=self)
-        # Antes que lo demás: al terminar la lectura, su ventana se cierra antes de otro aviso
-        self.metadata_progress.attach(self.job_manager)
-        self.job_manager.job_progress.connect(self._on_job_progress)
-        self.job_manager.job_finished.connect(self._on_job_finished)
-        self.job_manager.job_failed.connect(self._on_job_failed)
+        # Trabajos en segundo plano de este catálogo
+        self.job_coordinator.attach(self.db)
         self.config.set("catalogo_ruta", str(self.catalog_dir))
 
         self.setWindowTitle(f"{app_paths.APP_NAME_COMERCIAL} - {self.catalog_dir.name}")
@@ -1282,7 +1135,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
 
         # Si en una sesión anterior quedó trabajo a medias (o archivos sin leer),
         # se retoma ahora
-        self._start_metadata_job()
+        self.job_coordinator.start_metadata()
         return True
 
     def _on_location_status_refreshed(self, changed: int) -> None:
@@ -1342,7 +1195,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             self.mosaico_model.set_availability(result.changes)
         if result.rescan_needed:
             # Han vuelto archivos que cambiaron mientras faltaban: se releen
-            self._start_metadata_job()
+            self.job_coordinator.start_metadata()
 
     def _on_availability_check_finished(self) -> None:
         self._availability_check_running = False
@@ -1353,22 +1206,9 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             # add_folder se detiene en cuanto puede: lo ya guardado se conserva
             self._add_folder_cancel.set()
 
-        if self.job_manager is not None:
-            # Los trabajos paran en cuanto pueden; 'db.shutdown()' espera a que acaben
-            self.job_manager.cancel_all()
-            self.job_manager.deleteLater()
-            self.job_manager = None
-        self._clear_job_widgets()
-        self._thumbnail_rerun_requested = False
-        # Lo que quede sin escribir sigue pendiente en el catálogo: se escribirá al reabrirlo
-        self._userdata_timer.stop()
-        self._userdata_rerun_requested = False
-        self._metadata_after_userdata = False
-        self._metadata_after_removal = False
-        self._thumbnails_after_removal = False
-        self._userdata_backlog_state = (
-            "unchecked"  # el próximo catálogo se comprueba de nuevo
-        )
+        # Los trabajos paran en cuanto pueden ('db.shutdown()', más abajo, espera a que
+        # acaben); lo que quede sin escribir sigue pendiente en el catálogo
+        self.job_coordinator.detach()
         self._availability_timer.stop()
         self._availability_check_running = False
         self._sidebar_refresh_timer.stop()
@@ -1554,7 +1394,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # Lo recién añadido queda pendiente de leer: se empieza ya, mientras el usuario
         # lee el resumen (el cuadro de aviso no detiene el trabajo en segundo plano)
         if not result.cancelled:
-            self._start_metadata_job()
+            self.job_coordinator.start_metadata()
 
         # Los archivos nuevos ya están en el catálogo: aparecen en la cuadrícula
         self.mosaico_model.reload()
@@ -1707,15 +1547,11 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         """
         if self._add_folder_cancel is not None:
             return "Se está añadiendo una carpeta al catálogo."
-        if self.job_manager is not None:
-            for name, title in JOB_TITLES.items():
-                if self.job_manager.is_running(name):
-                    return f"Hay un trabajo en marcha: «{title}»."
-        return None
+        return self.job_coordinator.busy_reason()
 
     def _on_remove_requested(self, media_ids: list[int]) -> None:
         """«Eliminar...» de la cuadrícula: primero se calcula qué puede ir a la papelera."""
-        if self.db is None or self.job_manager is None or not media_ids:
+        if self.db is None or not self.job_coordinator.is_attached or not media_ids:
             return
         busy = self._busy_reason()
         if busy:
@@ -1734,58 +1570,51 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
 
     def _on_removal_planned(self, media_ids: list[int], plan: RemovalPlan) -> None:
         """Pregunta qué hacer (quitar del catálogo o papelera) y lanza el trabajo."""
-        if self.db is None or self.job_manager is None or plan.total == 0:
+        if self.db is None or not self.job_coordinator.is_attached or plan.total == 0:
             return  # el catálogo se cerró mientras tanto, o ya no existen
         # Mientras la ventana está abierta no debe arrancar la escritura diferida (su
         # temporizador sigue corriendo durante un diálogo modal): se para y, si no se
         # elimina, se vuelve a programar
-        self._userdata_timer.stop()
+        self.job_coordinator.stop_scheduled_write()
         to_trash = RemoveDialog.ask(self, plan)
         busy = self._busy_reason() if to_trash is not None else None
-        if to_trash is None or busy or self.job_manager is None:
+        if to_trash is None or busy or not self.job_coordinator.is_attached:
             if busy:
                 self.message_box.info(f"{busy}\n\nNo se ha eliminado nada; inténtalo al terminar.")
-            self._schedule_userdata_write()
+            self.job_coordinator.schedule_write()
             return
 
         # Con la papelera no se escribe antes lo pendiente: el archivo se va
-        self.job_manager.start(
-            JOB_REMOVE,
+        self.job_coordinator.start_removal(
             remove_media_items,
             media_ids,
             to_trash=to_trash,
             trash=move_to_trash if to_trash else None,
-            write_pending=None if to_trash else self._pending_writer(),
+            write_pending=None if to_trash else self.job_coordinator.pending_writer(),
         )
-
-    def _pending_writer(self) -> Callable[..., object] | None:
-        """Función que escribe lo pendiente antes de quitar algo del catálogo, o None.
-
-        Antes de quitar del catálogo se escribe en los archivos lo pendiente (p. ej. unas
-        estrellas puestas hace un instante), si la escritura en los archivos está activa y
-        ya confirmada en esta sesión: así vuelve con el archivo si se sincroniza otra vez.
-        """
-        if self._write_to_files_enabled() and self._userdata_backlog_state == "ok":
-            return write_pending_user_data
-        return None
 
     def _start_removal_job(self, job: Callable[..., object], *args: object) -> None:
         """Lanza un trabajo de quitar del catálogo (p. ej. una carpeta) como "Eliminar".
 
-        Con el mismo nombre (JOB_REMOVE): misma barra de progreso y, al terminar, lo mismo
+        Con el mismo nombre que «Eliminar»: misma barra de progreso y, al terminar, lo mismo
         que tras eliminar ('_on_removal_finished'). Se vuelve a comprobar que no haya nada
         en marcha: puede haber empezado algo mientras se preguntaba al usuario.
         """
-        if self.job_manager is None:
+        if not self.job_coordinator.is_attached:
             return
         busy = self._busy_reason()
         if busy:
             self.message_box.info(f"{busy}\n\nNo se ha quitado nada; inténtalo al terminar.")
             return
-        self.job_manager.start(JOB_REMOVE, job, *args, write_pending=self._pending_writer())
+        self.job_coordinator.start_removal(
+            job, *args, write_pending=self.job_coordinator.pending_writer()
+        )
 
     def _on_removal_finished(self, result: object) -> None:
-        """Terminó de eliminar: cuadrícula, contadores, aviso de fallos y trabajos en espera."""
+        """Terminó de eliminar: cuadrícula, contadores y aviso de fallos.
+
+        Lo que esperaba a que terminara lo lanza después 'JobCoordinator'.
+        """
         # Lo quitado desaparece de la cuadrícula (queda seleccionado el que ocupa su lugar:
         # 'CenterViewController')
         self.mosaico_model.reload()
@@ -1805,232 +1634,35 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
                 "el catálogo y en su carpeta; quizá estén abiertos en otro programa):"
             )
             self.message_box.warning(f"{head}\n\n{shown}\n\nEl detalle está en el registro.")
-        self._resume_after_removal()
 
-    def _resume_after_removal(self) -> None:
-        """Lanza lo que se pidió mientras se eliminaba (metadatos, miniaturas, escritura)."""
-        if self._metadata_after_removal:
-            self._metadata_after_removal = False
-            self._start_metadata_job()
-        if self._thumbnails_after_removal:
-            self._thumbnails_after_removal = False
-            self._start_thumbnail_job()
-        # Los cambios del usuario de los elementos que siguen en el catálogo, a los archivos
-        self._userdata_rerun_requested = False
-        self._schedule_userdata_write()
+    def _on_removal_failed(self) -> None:
+        """Eliminar falló: lo que se llegó a quitar está confirmado por lotes; se muestra."""
+        self.mosaico_model.reload()
+        self._refresh_sidebar_counts()
 
     # -------------------------------------------------------------------------
-    # Trabajos en segundo plano (metadatos, miniaturas...)
+    # Avisos de los trabajos en segundo plano ('controllers/job_coordinator.py')
     # -------------------------------------------------------------------------
 
-    def _start_metadata_job(self) -> None:
-        """Lanza la lectura de metadatos de los archivos pendientes, si no está ya en curso.
+    def _on_thumbnails_generated(self, media_ids: object) -> None:
+        """Las miniaturas recién generadas (o regeneradas) se vuelven a leer de la caché."""
+        self.mosaico_model.refresh_thumbnails(media_ids)
+        self.mosaico_model.retry_missing()
 
-        Si se están escribiendo datos del usuario en los archivos, espera a que termine.
-        """
-        if self.job_manager is None:
-            return
-        if self.job_manager.is_running(JOB_USERDATA):
-            self._metadata_after_userdata = True  # se lanza al terminar la escritura
-            return
-        if self.job_manager.is_running(JOB_REMOVE):
-            self._metadata_after_removal = True  # se lanza al terminar de eliminar
-            return
-        self.job_manager.start(JOB_METADATA, process_pending_metadata)
+    def _on_metadata_read(self) -> None:
+        """Terminó la lectura de metadatos: la rejilla se vuelve a leer.
 
-    def _start_thumbnail_job(self) -> None:
-        """Lanza la generación de miniaturas de los archivos pendientes, si no está ya en curso."""
-        if self.job_manager is None:
-            return
-        if self.job_manager.is_running(JOB_REMOVE):
-            # Generar a la vez dejaría miniaturas de elementos ya quitados del catálogo
-            self._thumbnails_after_removal = True
-            return
-        if not self.job_manager.start(JOB_THUMBNAILS, generate_pending_thumbnails):
-            # Ya hay una pasada en curso. Puede haber empezado antes de que se marcaran más
-            # archivos como pendientes (p. ej. una regeneración): se repetirá al terminar
-            self._thumbnail_rerun_requested = True
-
-    def regenerate_thumbnails(
-        self, media_ids: list[int] | None = None, *, only_errors: bool = False
-    ) -> None:
-        """Regenera miniaturas a demanda: las marca como pendientes y lanza el trabajo.
-
-        Es la función a la que llamará el menú contextual de la cuadrícula con los 'id' de la
-        selección. Con 'media_ids=None' afecta a todo el catálogo; con 'only_errors=True', solo
-        a los archivos cuya miniatura falló. Los metadatos no se tocan.
+        Valoración, marca y color pueden haberse rellenado desde el XMP de los archivos.
+        Antes, los vídeos que siguen sin biblioteca se clasifican con los metadatos recién
+        leídos (cámara, GPS, duración): así la cuadrícula se recarga una sola vez, ya con todo.
         """
         if self.db is None:
-            self.message_box.warning("Primero hay que crear o abrir un catálogo.")
             return
         self.db.execute_async(
-            invalidate_thumbnails,
-            media_ids,
-            only_errors=only_errors,
-            on_result=self._on_thumbnails_invalidated,
-            on_error=self._on_regenerate_thumbnails_error,
+            classify_pending_videos,
+            on_result=lambda count: self._on_videos_classified(count, reload_always=True),
+            on_error=lambda error: (
+                logger.warning(f"No se pudieron clasificar los vídeos: {error}"),
+                self.mosaico_model.reload(),
+            ),
         )
-
-    def _on_thumbnails_invalidated(self, count: int) -> None:
-        """Los archivos ya están marcados como pendientes: se lanza el trabajo (hilo principal)."""
-        if count == 0:
-            message_bar(self, "No hay miniaturas que regenerar.", AppIcons.INFO)
-            return
-        self._start_thumbnail_job()
-
-    def _on_regenerate_thumbnails_error(self, error: Exception) -> None:
-        """No se pudieron marcar las miniaturas como pendientes (hilo principal)."""
-        message_bar(self, "No se pudo preparar la regeneración.", AppIcons.ERROR)
-        self.message_box.critical(
-            f"No se pudo preparar la regeneración de miniaturas.\n\nDetalle: {error}"
-        )
-
-    def _on_regenerate_failed_thumbnails(self) -> None:
-        """Acción del menú: regenera solo las miniaturas que fallaron."""
-        self.regenerate_thumbnails(only_errors=True)
-
-    def _on_regenerate_all_thumbnails(self) -> None:
-        """Acción del menú: regenera las miniaturas de todo el catálogo (pide confirmación)."""
-        if self.db is None:
-            self.message_box.warning("Primero hay que crear o abrir un catálogo.")
-            return
-        answer = self.message_box.question(
-            "Se volverán a generar las miniaturas de todos los archivos del catálogo.\n\n"
-            "Puede tardar bastante. ¿Continuar?",
-            buttons=["Regenerar", "Cancelar"],
-        )
-        if answer == "Regenerar":
-            self.regenerate_thumbnails()
-
-    def _on_job_progress(self, name: str, progress: JobProgress) -> None:
-        """Muestra el avance de un trabajo en la barra de estado (hilo principal)."""
-        # Puede llegar un aviso rezagado de un trabajo que ya terminó o se canceló
-        if self.job_manager is None or not self.job_manager.is_running(name):
-            return
-        # La lectura de metadatos muestra su avance en su propia ventana (GEN 20.2,
-        # 'controllers/metadata_progress.py'): aquí no se repite
-        if name == JOB_METADATA:
-            return
-
-        # Mientras se generan miniaturas, las tarjetas que estaban vacías se reintentan cada
-        # poco: así van apareciendo sin esperar a que termine toda la pasada
-        if name == JOB_THUMBNAILS:
-            now = time.monotonic()
-            if now - self._last_thumb_refresh >= 1.5:
-                self._last_thumb_refresh = now
-                self.mosaico_model.retry_missing()
-
-        widget = self._job_widgets.get(name)
-        if widget is None:
-            if progress.total == 0:
-                return  # no hay nada que hacer: no se muestra la barra
-            if name in (JOB_USERDATA, JOB_REMOVE) and progress.total < USERDATA_PROGRESS_MIN_ITEMS:
-                # Escritura breve tras unos clics, o eliminar unos pocos archivos: sin barra
-                # que aparezca y desaparezca en un instante
-                return
-            widget = JobProgressWidget(JOB_TITLES.get(name, name))
-            widget.cancel_requested.connect(lambda: self._on_job_cancel_requested(name))
-            self.statusBar().addPermanentWidget(widget)
-            self._job_widgets[name] = widget
-
-        widget.set_progress(progress.done, progress.total)
-
-    def _on_job_cancel_requested(self, name: str) -> None:
-        """El usuario pulsó "Cancelar" en la barra de progreso de un trabajo."""
-        if self.job_manager is not None:
-            self.job_manager.cancel(name)
-
-    def _on_job_finished(self, name: str, result: object) -> None:
-        """Un trabajo terminó (o se canceló): se retira su barra y se informa (hilo principal)."""
-        self._remove_job_widget(name)
-
-        # Cada resultado ofrece 'status_text()' y 'has_warnings' (ver core.jobs.progress)
-        text = result.status_text()
-        if text:  # vacío = no había nada que hacer: no se molesta al usuario
-            icon = AppIcons.WARNING if result.has_warnings else AppIcons.CHECK_CIRCLE
-            message_bar(self, text, icon)
-
-        # Eliminar: la cuadrícula y los contadores, al día; lo que esperaba, se lanza
-        if name == JOB_REMOVE:
-            self._on_removal_finished(result)
-            return
-
-        # Las miniaturas recién generadas (o regeneradas) se vuelven a leer de la caché
-        if name == JOB_THUMBNAILS:
-            self.mosaico_model.refresh_thumbnails(getattr(result, "generated_ids", ()))
-            self.mosaico_model.retry_missing()
-
-        # Al terminar los metadatos, la rejilla se vuelve a leer: valoración, marca y color
-        # pueden haberse rellenado desde el XMP de los archivos. Antes, los vídeos que siguen
-        # sin biblioteca se clasifican con los metadatos recién leídos (cámara, GPS,
-        # duración): así la cuadrícula se recarga una sola vez, ya con todo
-        if name == JOB_METADATA and self.db is not None:
-            self.db.execute_async(
-                classify_pending_videos,
-                on_result=lambda count: self._on_videos_classified(count, reload_always=True),
-                on_error=lambda error: (
-                    logger.warning(f"No se pudieron clasificar los vídeos: {error}"),
-                    self.mosaico_model.reload(),
-                ),
-            )
-
-        # Encadenado: las miniaturas se generan al terminar los metadatos (salvo que el usuario
-        # los haya cancelado), y se repite la pasada si se pidió una regeneración mientras corría
-        if name == JOB_METADATA and not getattr(result, "cancelled", False):
-            self._start_thumbnail_job()
-        elif name == JOB_THUMBNAILS and self._thumbnail_rerun_requested:
-            self._thumbnail_rerun_requested = False
-            self._start_thumbnail_job()
-
-        # Escritura de los datos del usuario y lectura de metadatos, siempre por turnos:
-        #   - Al terminar los metadatos se escribe lo pendiente (al abrir el catálogo, lo
-        #     que quedó de la sesión anterior).
-        #   - Al terminar de escribir, si se pidió leer metadatos mientras tanto, o si se
-        #     vio que algún archivo había cambiado fuera (p. ej. en Lightroom), se leen;
-        #     al acabar esa lectura se volverá a escribir lo que siga pendiente.
-        #   - Si no, y hubo cambios mientras escribía, se escribe otra vez.
-        if name == JOB_METADATA:
-            self._userdata_rerun_requested = False
-            self._start_userdata_job()
-        elif name == JOB_USERDATA:
-            if self._metadata_after_userdata or getattr(result, "rescan_requested", 0):
-                self._metadata_after_userdata = False
-                self._userdata_rerun_requested = False  # se escribirá tras la lectura
-                self._start_metadata_job()
-            elif self._userdata_rerun_requested:
-                self._userdata_rerun_requested = False
-                self._start_userdata_job()
-
-    def _on_job_failed(self, name: str, error: Exception) -> None:
-        """Un trabajo falló con una excepción (hilo principal)."""
-        self._remove_job_widget(name)
-        title = JOB_TITLES.get(name, name)
-        message_bar(self, f"Error en el trabajo: {title}", AppIcons.ERROR)
-        if name == JOB_REMOVE:
-            # Lo que se llegó a quitar está confirmado por lotes: se muestra lo que hay
-            self.mosaico_model.reload()
-            self._refresh_sidebar_counts()
-            self._resume_after_removal()
-        # Las miniaturas no dependen de los metadatos: se generan igualmente (antes del cuadro
-        # modal), y lo pendiente de escribir en los archivos, también
-        if name == JOB_METADATA:
-            self._start_thumbnail_job()
-            self._start_userdata_job()
-        elif name == JOB_USERDATA and self._metadata_after_userdata:
-            self._metadata_after_userdata = False
-            self._start_metadata_job()  # la lectura que esperaba a la escritura
-        self.message_box.critical(
-            f"Ha fallado el trabajo «{title}».\n\nDetalle: {error}"
-        )
-
-    def _remove_job_widget(self, name: str) -> None:
-        """Quita de la barra de estado el widget de progreso de un trabajo."""
-        widget = self._job_widgets.pop(name, None)
-        if widget is not None:
-            self.statusBar().removeWidget(widget)
-            widget.deleteLater()
-
-    def _clear_job_widgets(self) -> None:
-        """Quita todos los widgets de progreso (al cerrar el catálogo)."""
-        for name in list(self._job_widgets):
-            self._remove_job_widget(name)

@@ -30,7 +30,7 @@
 - **Esquema**: `core/catalog/catalog_schema.py` (`MIGRATIONS`, solo se añade al final; hoy, v4). Tablas, bloques de columnas y quién escribe cada uno: [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md).
 - **Lo que no está en el catálogo**: la configuración (`settings.json`, en la carpeta de la aplicación; el catálogo abierto, el estado de cada barra por catálogo) y la caché de teselas del mapa.
 - **Sobrevive a recrearlo**: lo que el usuario pone en los archivos (valoración, marca, color, palabras clave, metadatos editados; `core/userdata/`) vuelve al añadir de nuevo las carpetas. Las colecciones, no: solo están en la base de datos.
-- **Acceso a la base de datos**: la interfaz nunca la toca en el hilo principal. Consultas con `db.execute_async` (`core/database/db_manager.py`); trabajos largos con `JobManager` (`core/workers/job_manager.py`). Qué corre en cada hilo: [ARQUITECTURA.md](ARQUITECTURA.md).
+- **Acceso a la base de datos**: la interfaz nunca la toca en el hilo principal. Consultas con `db.execute_async` (`core/database/db_manager.py`); trabajos largos con `JobManager` (`core/workers/job_manager.py`), que lanza y encadena `JobCoordinator` (`controllers/job_coordinator.py`). Qué corre en cada hilo: [ARQUITECTURA.md](ARQUITECTURA.md).
 - Crear, abrir y cerrar, paso a paso: [FLUJOS.md](FLUJOS.md) §2 y §10.
 
 ## 2. El módulo (`controllers/app_modules/catalog_module.py`)

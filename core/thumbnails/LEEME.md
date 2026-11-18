@@ -60,9 +60,9 @@ o si `thumbnail_mtime_ns` no coincide con `file_mtime_ns`. `add_folder` ya deja 
 Regenerar es **marcar como pendiente y lanzar el mismo trabajo**: no hay un segundo camino de código.
 
 ```python
-controller.regenerate_thumbnails([12, 15, 40])        # esos archivos
-controller.regenerate_thumbnails(only_errors=True)    # solo los que fallaron (p. ej. tras instalar pillow-heif)
-controller.regenerate_thumbnails()                    # todo el catálogo
+job_coordinator.regenerate_thumbnails([12, 15, 40])   # esos archivos
+job_coordinator.regenerate_thumbnails(only_errors=True)  # solo los que fallaron (p. ej. tras instalar pillow-heif)
+job_coordinator.regenerate_thumbnails()               # todo el catálogo
 ```
 
 Por dentro: `invalidate_thumbnails(conn, ids, only_errors=...)` hace `UPDATE thumbnail_status = 0` (no borra la caché: se
