@@ -38,10 +38,22 @@ Características principales:
     - Si la ruta de logs del sistema no es accesible (permisos, disco de solo
       lectura, perfil de empresa restringido), se usa la carpeta temporal del
       sistema como alternativa en lugar de impedir el arranque de la aplicación.
+    - (1.09) Los errores FATALES, los que tiran el proceso sin pasar por Python
+      (acceso a memoria no válido, memoria dañada: en Windows, 0xc0000005 y
+      0xc0000374), dejan la pila de cada hilo en un archivo aparte junto al log,
+      '{app_name}_{PID}.crash.log', con 'faulthandler' de la librería estándar.
+      Suelen venir de una librería nativa (Qt, una extensión en C, un controlador)
+      y sin esto no dejan ningún rastro en el log. Los vacíos (sesiones sin
+      errores) se borran al arrancar. Se desactiva con
+      'setup_logging(capture_fatal_errors=False)'.
 
 Requiere importar el nombre de la aplicación (APP_NAME) desde el archivo
 correspondiente.
 
+1.09 Volcado de los errores fatales con 'faulthandler' (añadido para Arca Media, el
+     18/11/2026, tras unos cierres con 0xc0000374 que no dejaban nada en el log).
+     Todo lo nuevo está en la sección «Errores fatales» del final y en el parámetro
+     'capture_fatal_errors' de 'setup_logging' (por defecto True); lo demás no cambia.
 1.08 Qt solo a través de 'qtpy': se quita la alternativa de importar PySide6 directamente
      (regla del proyecto); sin 'qtpy', los mensajes de Qt no se capturan.
 1.07 Se introcuce NOISY_LOGGERS como una lista de librerías que se limitan a WARNING.
@@ -59,19 +71,21 @@ correspondiente.
 1.01 Se preserva la profundidad de la pila de llamadas (stack trace)
 """
 
-__version__ = "1.08"
+__version__ = "1.09"
 __all__ = [
     "InterceptHandler",
     "setup_logging",
 ]
 
 # Librerías estándar
+import faulthandler
 import logging
 import os
 import sys
 import tempfile
 import threading
 from pathlib import Path
+from typing import TextIO
 
 # Librerías de terceros
 from loguru import logger
@@ -92,6 +106,12 @@ NOISY_LOGGERS = ("PIL", "urllib3", "asyncio", "matplotlib")
 # rellena en _install_qt_message_handler para no importar ninguna librería Qt al
 # cargar este módulo (así sigue funcionando en programas que no usan Qt)
 _QT_LEVELS: dict = {}
+
+# (1.09) Volcado de los errores fatales: terminación del archivo, que va junto al log de
+# la instancia ('arca_1234.log' -> 'arca_1234.crash.log'), y el archivo abierto, que
+# tiene que seguir así mientras dure el programa (ver '_enable_crash_dump')
+CRASH_SUFFIX = ".crash.log"
+_crash_file: TextIO | None = None
 
 # Se define el formato base con colores para la consola
 CONSOLE_FORMAT = (
@@ -166,6 +186,7 @@ def setup_logging(
     install_exception_hooks: bool = True,
     capture_warnings: bool = True,
     capture_qt_messages: bool = True,
+    capture_fatal_errors: bool = True,
 ) -> Path | None:
     """Configura 'loguru' para el proyecto (consola y archivo rotativo).
 
@@ -186,6 +207,9 @@ def setup_logging(
             Qt se envían al log (ver '_install_qt_message_handler'). Debe
             llamarse a 'setup_logging' antes de crear la QApplication para no
             perder los mensajes del arranque.
+        capture_fatal_errors: (1.09) Si es True (por defecto), un error fatal
+            deja la pila de cada hilo en '<log>.crash.log' (ver
+            '_enable_crash_dump'). Solo si hay archivo de log.
 
     Returns:
         Ruta del archivo de log en uso, o None si no se pudo crear ninguno
@@ -263,12 +287,19 @@ def setup_logging(
     if capture_qt_messages:
         _install_qt_message_handler()
 
+    # (1.09) Los errores fatales se vuelcan en un archivo aparte, junto al log
+    crash_path = None
+    if capture_fatal_errors and log_file is not None:
+        crash_path = _enable_crash_dump(log_file, app_name)
+
     # Se informa de los problemas con las rutas una vez el sistema está operativo
     if failures:
         if log_file is None:
             logger.warning("No se pudo crear ningún archivo de log: {}", failures)
         else:
             logger.warning("Ruta de logs por defecto no disponible: {}", failures)
+    if crash_path is not None:
+        logger.debug("Si hay un error fatal, su volcado irá a: {}", crash_path)
 
     return log_file
 
@@ -438,3 +469,101 @@ def _get_log_dir(app_name: str) -> Path:
                 # Fallback estándar si la variable no existe
                 base_dir = Path.home() / ".local" / "state"
             return base_dir / app_name
+
+
+# -----------------------------------------------------------------------------
+# Errores fatales (añadido en la versión 1.09)
+# -----------------------------------------------------------------------------
+
+
+def _enable_crash_dump(log_file: Path, app_name: str) -> Path | None:
+    """Activa 'faulthandler': si el proceso cae por un error fatal, deja la pila de cada hilo.
+
+    Un error fatal tira el proceso sin pasar por Python (un acceso a memoria no válido,
+    la memoria dañada...), así que ningún 'except' ni ningún hook llega a ejecutarse y el
+    log se corta sin más. 'faulthandler' (librería estándar) escribe en ese momento qué
+    estaba haciendo cada hilo de Python, y en Windows, el código de la excepción.
+
+    El volcado va a un archivo aparte, '<log>.crash.log', y no al propio log: 'loguru'
+    renombra el log al rotarlo, y en Windows no podría hacerlo con otro manejador abierto
+    sobre él. El archivo se crea vacío al arrancar y se queda abierto hasta que termina el
+    proceso (así recoge también los fallos al cerrar, después de 'atexit'); los vacíos de
+    sesiones anteriores se borran al arrancar ('_cleanup_empty_crash_files').
+
+    Nota (Windows): 'faulthandler' escribe también algunas excepciones que el programa
+    recupera después (las de COM o de algún controlador, p. ej.); un '.crash.log' con algo
+    no siempre es un cierre: hay que comprobar si el log termina ahí.
+
+    Args:
+        log_file: Log de esta instancia (el volcado va a su lado, con su nombre).
+        app_name: Nombre de la aplicación (prefijo de los archivos).
+
+    Returns:
+        La ruta del archivo de volcado, o None si no se pudo crear (no impide arrancar).
+    """
+    global _crash_file
+
+    # Si se vuelve a llamar a 'setup_logging', se cierra el archivo anterior
+    _disable_crash_dump()
+    _cleanup_empty_crash_files(log_file.parent, app_name)
+
+    crash_path = log_file.with_name(log_file.stem + CRASH_SUFFIX)
+    try:
+        # Sin 'with' a propósito: tiene que seguir abierto mientras dure el programa
+        _crash_file = open(crash_path, "a", encoding="utf-8")  # noqa: SIM115
+    except OSError:
+        return None
+    faulthandler.enable(file=_crash_file, all_threads=True)
+    return crash_path
+
+
+def _disable_crash_dump() -> None:
+    """Desactiva 'faulthandler' y cierra su archivo, si estaba activo."""
+    global _crash_file
+    if _crash_file is None:
+        return
+    faulthandler.disable()
+    _crash_file.close()
+    _crash_file = None
+
+
+def _cleanup_empty_crash_files(log_dir: Path, app_name: str) -> None:
+    """Borra los volcados vacíos de sesiones anteriores (terminaron sin ningún error fatal).
+
+    Los que tienen algo se conservan (cuentan entre los MAX_LOG_FILES de
+    '_cleanup_old_logs'). El de una instancia que sigue abierta no se borra: en Windows,
+    porque su archivo está abierto (el borrado falla y se ignora); en macOS y Linux,
+    porque se comprueba que su proceso ya no existe. Nunca lanza excepciones.
+    """
+    try:
+        candidates = list(log_dir.glob(f"{app_name}_*{CRASH_SUFFIX}"))
+    except OSError:
+        return
+
+    for path in candidates:
+        try:
+            if path.stat().st_size == 0 and not _crash_owner_alive(path, app_name):
+                path.unlink()
+        except OSError:
+            # En uso por otra instancia (Windows), ya borrado o sin permisos: se ignora
+            pass
+
+
+def _crash_owner_alive(crash_path: Path, app_name: str) -> bool:
+    """En macOS y Linux, si sigue en marcha el proceso de un volcado (el PID de su nombre).
+
+    En Windows devuelve siempre False: allí 'os.kill' no sirve para preguntar (TERMINA el
+    proceso), y no hace falta, porque el archivo de una instancia abierta no se puede borrar.
+    """
+    if sys.platform == "win32":
+        return False
+    pid_text = crash_path.name.removeprefix(f"{app_name}_").removesuffix(CRASH_SUFFIX)
+    if not pid_text.isdigit():
+        return False
+    try:
+        os.kill(int(pid_text), 0)  # la señal 0 no hace nada: solo comprueba que existe
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # existe, aunque sea de otro usuario
+    return True

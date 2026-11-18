@@ -47,7 +47,7 @@ config/
   app_info.py                        Texto de ayuda en HTML (pendiente de implementar; hoy no lo usa nadie)
   app_modules.py                     MODULES: la ficha de cada módulo (clave, título, biblioteca, icono, inicial y título de su sección «Biblioteca - …»), en el orden de la toolbar; AQUÍ se da de alta un módulo. La leen los módulos, el registro de secciones y el inspector (module_spec, library_modules, library_badge)
   app_constants.py                   Constantes, iconos (AppIcons), tamaños de miniatura, claves compartidas de settings.json
-  app_logging_manager.py             setup_logging (loguru + InterceptHandler)
+  app_logging_manager.py             setup_logging (loguru + InterceptHandler); desde la 1.09, los errores fatales (nativos) dejan la pila de cada hilo en '<log>.crash.log' (faulthandler). Módulo compartido con otros programas del autor
 controllers/
   main_window_controller.py          Controlador de la ventana: catálogo activo, añadir y sincronizar carpetas, quitar ausentes, trabajos (metadatos, miniaturas y escritura de datos del usuario), regenerar miniaturas, barra de estado, ventana de opciones; conecta la cuadrícula (modelo, atajos y guardado de rating/flag/color) y crea los módulos (_configurar_modulos)
   inspector_controller.py            InspectorController: selección de la cuadrícula -> resumen en segundo plano -> inspector; cambios de las secciones en cola (edit_requested -> user_data_changed; request_edit con on_done: el resultado, para deshacer); flecha «ver sus fotos» (navigate_requested); lo desplegado del árbol del inspector (save_state / restore_state); «Mostrar en el Explorador»

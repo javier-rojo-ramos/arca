@@ -134,6 +134,8 @@
 
 ## Repositorio, pruebas y herramientas
 
+- **Un cierre sin aviso no deja nada en el log**: un error nativo (en Windows, `0xc0000374`, memoria dañada; `0xc0000005`, acceso no válido) tira el proceso sin pasar por Python. Desde el 18/11/2026 queda `arca_<pid>.crash.log` junto al log (ver [PRUEBAS.md](PRUEBAS.md), «Diagnóstico de un cierre sin aviso»). Ojo: en Windows, `faulthandler` escribe también algunas excepciones que se recuperan después (COM, controladores): un `.crash.log` con algo es un cierre solo si el log de esa sesión se corta ahí. Al abrir el selector de carpetas nativo, Windows carga en el proceso las extensiones del Explorador (OneDrive, QNAP Qsync, Adobe...): un fallo suyo tira la aplicación.
+
 - **Las páginas de Opciones en su propio archivo** («Paneles», `section_layout_page.py`; «Tracks», `tracks_settings_page.py`) importan `SettingsPage` de `settings_dialog.py`, que las importa al final: importarlas ANTES que `settings_dialog` da un error de importación circular. En la aplicación siempre va primero la ventana; en un guion, importar antes `settings_dialog` (sus autopruebas funcionan porque se ejecutan como `__main__`).
 - Las autopruebas que usan `default_registry()` dependen de lo que haya instalado (ExifTool...): deben pasar un registro explícito. Falló la del procesador en un equipo con ExifTool.
 - **Tras cambiar el .ui hay que ejecutar `build_ui.py`**: si no, `ui/main_window.py` sigue con la versión anterior (p. ej. `list_view_grid` como `QListView` normal y las tarjetas se arrastran a tamaño real; o sin `widget_organize_bar`: la barra inferior no aparece y el registro avisa).

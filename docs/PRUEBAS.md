@@ -205,6 +205,8 @@ python -m core.thumbnails.inspect_cli foto.dng --detalle          # qué vistas 
 python -m core.thumbnails.inspect_cli foto.nef --tamanos 160,480
 ```
 
+**Diagnóstico de un cierre sin aviso** (18/11/2026): el registro de cada sesión está en `%LOCALAPPDATA%\arca\logs\arca_<pid>.log` (se guardan 20). Si la aplicación cayó por un error nativo, a su lado queda `arca_<pid>.crash.log` con el código (p. ej. `Windows fatal exception: code 0xc0000374`) y la pila de Python de cada hilo (en Windows, sin la de C); los vacíos se borran al arrancar. Windows apunta además cada cierre en el Visor de eventos (Registros de Windows > Aplicación, «Application Error», id 1000), con el módulo y el código, y en `C:\ProgramData\Microsoft\Windows\WER\ReportArchive\AppCrash_python.exe_*\Report.wer`, con los módulos cargados (p. ej. las extensiones del Explorador si había un selector de archivos abierto).
+
 **Instalar ExifTool**: Windows, ejecutable de exiftool.org renombrado a `exiftool.exe` junto a su carpeta `exiftool_files` en `tools/exiftool`; macOS, `brew install exiftool`; Linux, `sudo apt install libimage-exiftool-perl`.
 
 **`pillow-heif`** (HEIC en las miniaturas): ya está en `requirements.txt`; vale también la versión ligera `pi-heif`.
