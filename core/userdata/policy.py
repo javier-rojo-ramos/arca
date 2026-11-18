@@ -31,14 +31,18 @@ leerían del destino nuevo (vacío). Si algún día hiciera falta, habría que m
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.policy
+
+1.1.0 'xmp_extensions': las extensiones cuyos datos van en XMP (para filtrar en SQL; la
+      usa la escritura para no escribir en un archivo que aún no se ha leído).
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = [
     "UserDataDestination",
     "destination_for",
     "sidecar_path_for_writing",
     "uses_xmp",
+    "xmp_extensions",
 ]
 
 # Librerías estándar
@@ -137,6 +141,14 @@ def uses_xmp(extension_or_path: str | Path | None) -> bool:
     return destination_for(extension_or_path) is not UserDataDestination.FOLDER_FILE
 
 
+def xmp_extensions() -> frozenset[str]:
+    """Extensiones (en minúsculas y sin punto, como 'file_extension') cuyos datos van en XMP.
+
+    Son las mismas que 'uses_xmp' da por buenas: para filtrar en una consulta SQL.
+    """
+    return _EMBEDDED_EXTENSIONS | _SIDECAR_EXTENSIONS
+
+
 def sidecar_path_for_writing(path: Path) -> Path:
     """Sidecar '.xmp' donde se escriben los datos de un RAW.
 
@@ -169,6 +181,10 @@ if __name__ == "__main__":
     for value, expected in cases.items():
         assert destination_for(value) is expected, (value, destination_for(value))
     assert uses_xmp("tif") and uses_xmp("orf") and not uses_xmp("flac")
+    # 'xmp_extensions': exactamente las que 'uses_xmp' acepta, ya normalizadas
+    assert {"jpg", "heic", "dng", "nef", "cr3"} <= xmp_extensions()
+    assert not xmp_extensions() & {"mp4", "gpx", "bmp", "jxl", ""}
+    assert all(uses_xmp(ext) and ext == ext.lower() and "." not in ext for ext in xmp_extensions())
 
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "IMG_0001.CR3"

@@ -26,6 +26,9 @@ Dos sentidos:
    puede escribir (archivo abierto por otro programa, unidad desconectada, sin
    ExifTool...) sigue pendiente y se reintenta la próxima vez: nunca se pierde, porque
    el dato sigue en la base de datos.
+   Un archivo con XMP que AÚN NO SE HA LEÍDO NUNCA ('last_scanned_at' vacío) no se
+   escribe: lo que trae todavía no está en el catálogo, y escribir lo del catálogo lo
+   borraría (las palabras clave van exactas). Lo pendiente espera a la primera lectura.
    Tras modificar un archivo se actualizan su tamaño y su fecha en la base de datos,
    para que el escáner no lo confunda con un cambio externo (ni regenere la miniatura:
    los píxeles no cambian).
@@ -34,7 +37,8 @@ Dos sentidos:
    campo, salvo en los campos pendientes de escribir (su cambio es más nuevo).
        - XMP: 'apply_file_user_data', que llama el procesador de metadatos con lo que el
          extractor ha leído del archivo (y 'apply_file_keywords' para las palabras clave,
-         que dejan exactamente las del archivo). Un campo que el archivo NO trae (etiqueta
+         que dejan exactamente las del archivo; en la PRIMERA lectura, si se asignaron
+         palabras antes de leerlo, se suman a las suyas). Un campo que el archivo NO trae (etiqueta
          ausente) no toca el catálogo: "no dice nada" no es "sin estrellas". La
          aplicación escribe siempre el 0 explícito (ver 'xmp_writer.py').
        - Archivo de carpeta: 'apply_folder_files', que llama 'add_folder' tras guardar
@@ -49,6 +53,11 @@ Dos sentidos:
          archivo, el procesador con 'folder_file_edits'. En los formatos con XMP, los
          escribe el procesador como cualquier metadato extraído (salvo lo pendiente).
 
+1.11.0 La primera lectura no borra nada del archivo (docs/PENDIENTE.md, GEN 20, paso 1):
+       un archivo con XMP que aún no se ha leído nunca no se escribe ('_PENDING_SQL'), y
+       en su primera lectura las palabras clave asignadas antes se SUMAN a las del archivo
+       ('apply_file_keywords(first_read=True)'). Antes, asignar una palabra a una foto
+       sin leer dejaba en el archivo solo esa.
 1.10.0 Un archivo, dos destinos ('writers.split_items'): lo que el escritor de un formato
        no sabe guardar va al '.arca.json'; cada parte quita sus marcas por separado y el
        error de un archivo se anota una vez (docs/PENDIENTE.md, GEN 14, paso 2). Hoy no
@@ -79,7 +88,7 @@ Prueba rápida (desde la raíz del proyecto; la parte de XMP necesita ExifTool):
     python -m core.userdata.sync
 """
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 __all__ = [
     "SCAN_STAGE_USERDATA",
     "FolderFileCache",
@@ -132,6 +141,7 @@ from core.userdata.folder_file import (
 from core.userdata.policy import (
     UserDataDestination,
     destination_for,
+    xmp_extensions,
 )
 from core.userdata.writers import USER_COLUMNS as _USER_COLUMNS
 from core.userdata.writers import UserDataWriter, WriteItem, default_writers, split_items
@@ -215,17 +225,26 @@ class UserDataWriteResult:
         return "\n".join(lines)
 
 
-# Elementos con algo pendiente de escribir fuera del catálogo (presentes en disco)
+# Extensiones con XMP, para la consulta (de una lista cerrada, 'policy.py': sin inyección)
+_XMP_EXTENSIONS_SQL = ", ".join(f"'{extension}'" for extension in sorted(xmp_extensions()))
+
+# Elementos con algo pendiente de escribir fuera del catálogo (presentes en disco), salvo
+# los archivos con XMP que no se han leído NUNCA: 'last_scanned_at' solo lo pone la
+# lectura de metadatos (también si falla o el formato no se puede leer), así que vacío =
+# lo que trae el archivo aún no está en el catálogo. Esperan a su primera lectura, que
+# respeta lo pendiente (y suma las palabras clave), y después se escriben como los demás
 _PENDING_SQL = (
     "(user_data_pending <> 0 OR keywords_pending <> 0 OR metadata_edit_pending <> 0) "
-    "AND is_missing = 0"
+    "AND is_missing = 0 "
+    f"AND NOT (last_scanned_at IS NULL AND COALESCE(file_extension, '') IN ({_XMP_EXTENSIONS_SQL}))"
 )
 
 
 def count_pending_user_data(conn: sqlite3.Connection) -> int:
     """Cuántos elementos (presentes) tienen datos del usuario sin escribir fuera del catálogo.
 
-    Cuenta también los metadatos editados (título, pie...) y las palabras clave.
+    Cuenta también los metadatos editados (título, pie...) y las palabras clave. No cuenta
+    los archivos con XMP que aún no se han leído nunca: esperan a su primera lectura.
     """
     row = conn.execute(f"SELECT COUNT(*) FROM media_items WHERE {_PENDING_SQL}").fetchone()
     return int(row[0])
@@ -566,6 +585,7 @@ def apply_file_keywords(
     keywords: FileKeywords | None,
     *,
     expected_state: tuple[int | None, int | None] | None = None,
+    first_read: bool = False,
 ) -> bool:
     """Deja en un elemento las palabras clave leídas de su XMP. Manda el archivo.
 
@@ -574,6 +594,12 @@ def apply_file_keywords(
     palabras deja el elemento sin ninguna. Si las palabras del elemento están PENDIENTES
     de escribir (se cambiaron en la aplicación), no se tocan: su cambio es más nuevo.
 
+    Salvo en la PRIMERA lectura del archivo ('first_read'): si se le asignaron palabras
+    antes de leerlo (mientras se leían los metadatos, o con la lectura cancelada), el
+    usuario aún no había visto las del archivo y no ha podido quitar ninguna, así que se
+    SUMAN a las suyas. La marca de pendiente sigue: la suma se escribe después en el
+    archivo, que conserva lo que tenía.
+
     Args:
         conn: Conexión (con la transacción del procesador abierta).
         media_id: Elemento.
@@ -581,6 +607,8 @@ def apply_file_keywords(
             extractor no lee palabras clave: no se toca nada.
         expected_state: Como en 'apply_file_user_data': si el archivo cambió después de
             leerlo, lo leído ya no vale y no se aplica.
+        first_read: True si es la primera vez que se lee este archivo ('last_scanned_at'
+            vacío ANTES de esta lectura: lo mira el procesador).
 
     Returns:
         True si cambió alguna asignación.
@@ -591,11 +619,18 @@ def apply_file_keywords(
         "SELECT file_mtime_ns, sidecar_mtime_ns, keywords_pending FROM media_items WHERE id = ?",
         (media_id,),
     ).fetchone()
-    if row is None or row[2]:
-        return False  # no existe, o sus palabras están pendientes de escribir
+    if row is None:
+        return False
+    pending = bool(row[2])
+    if pending and not first_read:
+        return False  # sus palabras están pendientes de escribir: su cambio es más nuevo
     if expected_state is not None and (row[0], row[1]) != expected_state:
         return False
-    return set_media_keywords(conn, media_id, keywords.paths, keywords.flat)
+    paths = list(keywords.paths)
+    if pending:
+        # Primera lectura con palabras asignadas antes: las del archivo y las del catálogo
+        paths += media_keyword_paths(conn, media_id)
+    return set_media_keywords(conn, media_id, paths, keywords.flat)
 
 
 def apply_folder_files(
@@ -1214,5 +1249,66 @@ if __name__ == "__main__":
         assert tags_of(library / "foto.jpg")["XMP-photoshop:City"] == "Canfranc" and marks() == (0, 0)
         print("Si falla una parte, solo esa sigue pendiente; las fotos siguen yendo enteras al XMP")
         split.close()
+
+    # --- 10. Primera lectura: lo que se asigna ANTES de leer un archivo no borra lo que
+    #     trae (GEN 20, paso 1). Antes, una palabra asignada a una foto sin leer dejaba en
+    #     el archivo solo esa ----------------------------------------------------------------
+    from core.catalog.keywords import assign_keyword, ensure_keyword_path, remove_keyword
+
+    with tempfile.TemporaryDirectory() as tmp:
+        library = Path(tmp) / "Nuevas"
+        library.mkdir()
+        Image.new("RGB", (40, 30), "red").save(library / "playa.jpg", quality=90)
+        # Como si viniera de Lightroom: una palabra con su ruta, otra suelta y 2 estrellas
+        exiftool_args(
+            library / "playa.jpg",
+            "-XMP-lr:HierarchicalSubject=Lugares|Playa",
+            "-XMP-dc:Subject=Lugares", "-XMP-dc:Subject=Playa", "-XMP-dc:Subject=Sol",
+            "-XMP-xmp:Rating=2",
+        )  # fmt: skip
+        (library / "clip.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64)
+        fresh = new_catalog()
+        add_folder(fresh, library)
+        by_path = ids(fresh)
+        photo, clip = by_path["playa.jpg"], by_path["clip.mp4"]
+
+        # Antes de leer nada (mientras se leen los metadatos, o con la lectura cancelada)
+        assign_keyword(fresh, [photo], ensure_keyword_path(fresh, ("Nueva",)))
+        update_user_field(fresh, [photo], "rating", 4)
+        update_user_field(fresh, [clip], "rating", 3)
+        fresh.commit()
+
+        # a) La foto, sin leer, no se escribe; el vídeo sí (sus datos son del '.arca.json',
+        #    que ya se aplicó al añadir la carpeta)
+        mtime_before = (library / "playa.jpg").stat().st_mtime_ns
+        assert pending(fresh) == 1
+        result = write_pending_user_data(fresh)
+        assert (result.total, result.written) == (1, 1), result.summary()
+        assert (library / "playa.jpg").stat().st_mtime_ns == mtime_before  # sin tocar
+        assert read_folder_file(library).items["clip.mp4"]["rating"] == 3
+
+        # b) Primera lectura: las palabras se SUMAN; la valoración puesta aquí manda
+        process_pending_metadata(fresh, registry=registry)
+        paths = media_keyword_paths(fresh, photo)
+        assert paths == [("Lugares", "Playa"), ("Nueva",), ("Sol",)], paths
+        assert user_values(fresh)["playa.jpg"][0] == 4
+        assert pending(fresh) == 1  # ya leída: ahora sí se escribe
+        assert write_pending_user_data(fresh).written == 1
+        tags = tags_of(library / "playa.jpg")
+        assert {"Lugares", "Playa", "Sol", "Nueva"} <= set(tags["XMP-dc:Subject"]), tags
+        assert tags["XMP-xmp:Rating"] == 4, tags
+
+        # c) En las lecturas siguientes vuelve a mandar lo pendiente: quitar «Sol» aquí y
+        #    releer el archivo (que aún la tiene) no la recupera
+        (sol,) = fresh.execute("SELECT id FROM keywords WHERE name = 'Sol'").fetchone()
+        remove_keyword(fresh, [photo], sol)
+        fresh.execute("UPDATE media_items SET scan_version = 0")  # fuerza la relectura
+        fresh.commit()
+        process_pending_metadata(fresh, registry=registry)
+        assert ("Sol",) not in media_keyword_paths(fresh, photo)
+        write_pending_user_data(fresh)
+        assert "Sol" not in tags_of(library / "playa.jpg")["XMP-dc:Subject"]
+        print("Primera lectura: nada se escribe antes; las palabras asignadas se suman a las del archivo")
+        fresh.close()
 
     print("Autoprueba finalizada correctamente.")

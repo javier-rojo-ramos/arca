@@ -63,6 +63,8 @@
 
 ## Datos del usuario, edición y relectura
 
+- **`last_scanned_at` vacío significa «nunca leído»** (desde el 18/11/2026, `GEN 20`): la escritura no toca un archivo con XMP así, y su primera lectura suma las palabras clave asignadas antes. **No vaciarlo en ningún otro sitio** (para forzar una relectura, `scan_version = 0`): con él vacío, lo pendiente de ese archivo no se escribiría hasta leerlo. Caso límite sin cubrir: si en la primera lectura el archivo cambia entre que ExifTool lo lee y se guarda lo leído (`expected_state`), lo leído se descarta y la relectura ya no es «primera»: las palabras asignadas antes volverían a pisar las del archivo.
+
 - Los `.emc.json` (y sus `.bak`) de antes del cambio de nombre a Arca Media (05/11/2026) **ya no se leen**: la valoración, marca, color y palabras clave de esos vídeos, GPX... solo están en el catálogo, que los escribe en `.arca.json` la próxima vez que cambien. Los `.emc.json` sobrantes se pueden borrar a mano.
 - Renombrar, mover o borrar una palabra clave reescribe (con «Guardar en los archivos») el XMP de TODOS los archivos que la tienen, o tienen alguna de sus hijas, de todas las bibliotecas: con una palabra muy usada son muchos archivos. Borrar no se puede deshacer.
 - Al releer, los metadatos descriptivos (título, pie, ubicación...) los manda el archivo, salvo los editados pendientes de escribir (`metadata_edit_pending`) y, en los formatos sin XMP, lo editado en el `.arca.json`. Un archivo sin título deja el nombre sin extensión.

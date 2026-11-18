@@ -56,4 +56,6 @@ Mecanismo: `open_catalog` aplica al abrir las migraciones pendientes (cada una e
 
 **Archivos "pendientes" de metadatos**: los de un tipo con extractor registrado cuya `scan_version` es menor que la `version` de ese extractor (`add_folder` deja en 0 los nuevos y los modificados). Subir la versión de un extractor = reescaneo de ese tipo.
 
+**Archivos "nunca leídos"**: `last_scanned_at` vacío. Solo lo escribe la lectura de metadatos (al leer el archivo, y también si falla o el formato no se puede leer) y **nadie lo vuelve a vaciar**: un archivo modificado fuera vuelve a estar pendiente (`scan_version = 0`), pero no «nunca leído». Lo usan la escritura de los datos del usuario (no escribe en un archivo con XMP nunca leído) y el procesador (en la primera lectura, suma las palabras clave asignadas antes); ver `core/userdata/LEEME.md`.
+
 **Miniaturas "pendientes"** (de un tipo con origen registrado): `thumbnail_status = 0`, o `thumbnail_version` menor que `THUMBNAIL_VERSION`, o `thumbnail_mtime_ns` distinto de `file_mtime_ns`. Estados: 0 pendiente, 1 lista, 2 error (con su fila en `scan_errors`, fase `thumbnail`; no se reintenta hasta que el archivo cambie, suba la versión o se pida regenerar). `add_folder` deja en 0 los archivos modificados. Detalle en las [FLUJOS.md §5](FLUJOS.md) y [MINIATURAS.md](MINIATURAS.md).

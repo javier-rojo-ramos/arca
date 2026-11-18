@@ -36,6 +36,9 @@ Metadatos descriptivos editables (título, pie, ubicación...; ver
 formatos sin XMP, lo editado está en el '.arca.json' de la carpeta y manda siempre sobre lo
 leído. Sin título en el archivo, 'title' vale el nombre del archivo sin extensión.
 
+2.5.0 En la primera lectura de un archivo con XMP ('last_scanned_at' vacío antes de
+      leerlo), las palabras clave asignadas antes se suman a las del archivo
+      ('apply_file_keywords(first_read=True)'; docs/PENDIENTE.md, GEN 20, paso 1).
 2.4.0 Campos editables de la tabla de detalles del tipo (la actividad de un track): lo
       pendiente de escribir no se pisa ('upsert_sql') y, en los formatos sin XMP, manda
       lo editado en el '.arca.json'.
@@ -57,7 +60,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.metadata.processor
 """
 
-__version__ = "2.4.0"
+__version__ = "2.5.0"
 __all__ = [
     "DEFAULT_BATCH_SIZE",
     "SCAN_STAGE_METADATA",
@@ -568,6 +571,14 @@ def _write_success(
         for column in values
     ]
     assignments += ["scan_version = ?", "last_scanned_at = CURRENT_TIMESTAMP"]
+    # ¿Es la primera lectura del archivo? Se mira ANTES de apuntar 'last_scanned_at' (aquí
+    # abajo): en la primera, las palabras clave asignadas antes de leerlo se suman a las
+    # suyas ('apply_file_keywords')
+    first_read = uses_xmp(outcome.extension) and bool(
+        conn.execute(
+            "SELECT last_scanned_at IS NULL FROM media_items WHERE id = ?", (outcome.media_id,)
+        ).fetchone()[0]
+    )
     conn.execute(
         f"UPDATE media_items SET {', '.join(assignments)} WHERE id = ?",
         (*values.values(), extractor.version, outcome.media_id),
@@ -580,9 +591,14 @@ def _write_success(
         apply_file_user_data(
             conn, outcome.media_id, result.user_data, expected_state=outcome.state
         )
-        # Palabras clave (solo las imágenes las leen): las del archivo, exactamente
+        # Palabras clave (solo las imágenes las leen): las del archivo, exactamente (en la
+        # primera lectura, más las que se asignaron antes de leerlo)
         apply_file_keywords(
-            conn, outcome.media_id, result.user_data.get("keywords"), expected_state=outcome.state
+            conn,
+            outcome.media_id,
+            result.user_data.get("keywords"),
+            expected_state=outcome.state,
+            first_read=first_read,
         )
 
     # Tabla de detalles del tipo (1:1): se crea la fila o se actualiza la existente. Un

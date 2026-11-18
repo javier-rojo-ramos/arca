@@ -71,6 +71,14 @@ Reconstruir / reescanear:
   del usuario es más nuevo). Un campo que el XMP no trae (etiqueta ausente) no toca el
   catálogo; por eso la aplicación escribe el 0 explícito (`xmp:Rating = 0`,
   `xmpDM:Pick = 0`) en lugar de borrar la etiqueta.
+- **La primera lectura no borra nada del archivo** (18/11/2026, `GEN 20`): un archivo con
+  XMP que no se ha leído nunca (`last_scanned_at` vacío: solo lo pone la lectura de
+  metadatos, también si falla) **no se escribe**; lo pendiente espera a esa lectura. En
+  ella, las palabras clave asignadas antes **se suman** a las del archivo (el usuario aún
+  no las había visto: no ha podido quitar ninguna); la valoración, la marca, el color y
+  los metadatos editados, como siempre, mandan los pendientes. Antes, asignar una palabra
+  a una foto sin leer (mientras se leían los metadatos, o con la lectura cancelada)
+  dejaba en el archivo solo esa.
 - **Nada a medias**: si la lectura se cancela o un sidecar no se puede leer, el extractor
   no entrega datos del usuario y el catálogo no se toca. Una carpeta sin `.arca.json`, o
   con un `.arca.json` dañado (y su copia también), tampoco.
