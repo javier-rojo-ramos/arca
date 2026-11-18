@@ -1907,6 +1907,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # Puede llegar un aviso rezagado de un trabajo que ya terminó o se canceló
         if self.job_manager is None or not self.job_manager.is_running(name):
             return
+        # La lectura de metadatos muestra su avance en su propia ventana (GEN 20.2,
+        # 'controllers/metadata_progress.py'): aquí no se repite
+        if name == JOB_METADATA:
+            return
 
         # Mientras se generan miniaturas, las tarjetas que estaban vacías se reintentan cada
         # poco: así van apareciendo sin esperar a que termine toda la pasada
