@@ -10,7 +10,9 @@ unas fotos inventadas, y recorre lo que conecta el controlador:
     3. valorar una foto: se guarda y, tras la espera, se escribe en su XMP (con ExifTool);
     4. regenerar miniaturas;
     5. eliminar una foto del catálogo (la ventana de eliminar responde «del catálogo»);
-    6. cerrar.
+    6. borrar otra del disco y sincronizar la carpeta: el resumen ofrece quitarla y se quita
+       (y la eliminada en el paso 5, que sigue en el disco, vuelve a entrar);
+    7. cerrar.
 
 Falla si algo no llega a tiempo, si sale un aviso de error («critical») o si una excepción
 llega a 'sys.excepthook' (en la aplicación, una excepción en un slot de Qt solo se apunta en
@@ -18,8 +20,9 @@ el registro). Los cuadros de mensaje no se abren: se apuntan y se responde lo pr
 
 Es la comprobación de fondo de las refactorizaciones del controlador (docs/PENDIENTE.md,
 GEN 15): se lanza antes y después, además de 'run_selftests.py'. Usa partes internas de la
-ventana ('_start_add_folder', '_on_remove_requested') y sustituye en su módulo
-'MessageBoxHelper' y 'RemoveDialog': si un paso de GEN 15 los mueve a otro módulo, hay que
+ventana ('folder_import.start', 'remove_actions.request_remove') y sustituye
+'MessageBoxHelper' en el módulo del controlador y 'RemoveDialog' en el de
+'remove_actions.py': si una refactorización los mueve a otro módulo, hay que
 cambiar aquí dónde se sustituyen.
 
 Nunca toca los datos del autor: antes de crear la ventana comprueba que 'settings.json' está
@@ -31,10 +34,13 @@ Uso (desde la raíz del proyecto, con el Python de .venv; necesita ExifTool para
 
 Termina con código 0 si todo va bien y 1 si algo falla.
 
+1.1.0 Paso nuevo: sincronizar con una foto borrada fuera (resumen y quitar la ausente).
+1.0.2 Eliminar con 'remove_actions' y su ventana sustituida en ese módulo (GEN 15.3).
+1.0.1 Añadir la carpeta con 'folder_import' (GEN 15.2: ya no está en la ventana).
 1.0.0 Primera versión (18/11/2026), con GEN 15.1.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["main", "run"]
 
 # Librerías estándar
@@ -112,6 +118,7 @@ def run(work_dir: Path) -> None:
         raise SmokeError(f"settings.json no quedó en la carpeta temporal: {app_paths.CONFIG_FILE}")
 
     import controllers.main_window_controller as mwc
+    from controllers import remove_actions
     from core.catalog.catalog_builder import CatalogBuilder
     from core.metadata.exiftool_runner import ExifToolRunner
 
@@ -149,7 +156,7 @@ def run(work_dir: Path) -> None:
             return False
 
     mwc.MessageBoxHelper = QuietMessageBox  # la ventana crea el suyo con esta clase
-    mwc.RemoveDialog = CatalogOnlyRemoveDialog
+    remove_actions.RemoveDialog = CatalogOnlyRemoveDialog  # (antes de crear la ventana)
 
     def run_until(condition: Callable[[], bool], seconds: float, label: str) -> None:
         """Deja correr el bucle de eventos hasta que se cumpla 'condition'."""
@@ -191,7 +198,7 @@ def run(work_dir: Path) -> None:
     jobs = window.job_coordinator
 
     def idle() -> bool:
-        return window._add_folder_cancel is None and jobs.busy_reason() is None
+        return not window.folder_import.is_running and jobs.busy_reason() is None
 
     # 1. Abrir el catálogo
     if not window._open_catalog(catalog_dir) or not jobs.is_attached:
@@ -199,8 +206,10 @@ def run(work_dir: Path) -> None:
     print("1. Catálogo abierto")
 
     # 2. Añadir la carpeta: recorrido -> lectura -> miniaturas (-> escritura: nada pendiente)
-    window._start_add_folder(str(library), sync=False, content="auto")
-    run_until(lambda: window._add_folder_cancel is None, TIMEOUT_ADD_FOLDER, "añadir la carpeta")
+    window.folder_import.start(str(library), sync=False, content="auto")
+    run_until(
+        lambda: not window.folder_import.is_running, TIMEOUT_ADD_FOLDER, "añadir la carpeta"
+    )
     run_until(idle, TIMEOUT_JOBS, "lectura de metadatos y miniaturas")
     run_until(
         lambda: window.mosaico_model.rowCount() == PHOTO_COUNT, TIMEOUT_SHORT, "cuadrícula llena"
@@ -239,7 +248,7 @@ def run(work_dir: Path) -> None:
 
     # 5. Eliminar una foto del catálogo
     victim = window.mosaico_model.media_ids_in_rows(5, 5)[0]
-    window._on_remove_requested([victim])
+    window.remove_actions.request_remove([victim])
     run_until(
         lambda: not query(f"SELECT 1 FROM media_items WHERE id = {victim}"),
         TIMEOUT_SHORT,
@@ -253,7 +262,34 @@ def run(work_dir: Path) -> None:
     )
     print("5. Eliminar del catálogo")
 
-    # 6. Cerrar
+    # 6. Sincronizar la carpeta tras borrar una foto fuera de la aplicación: el resumen
+    #    ofrece quitar la ausente (se responde «Quitar del catálogo», el primer botón). La
+    #    eliminada en el paso 5 sigue en el disco: al sincronizar, vuelve a entrar
+    (gone,) = query(
+        f"SELECT relative_path FROM media_items WHERE id != {first_id} ORDER BY id DESC LIMIT 1"
+    )[0]
+    (library / gone).unlink()
+    questions_before = sum(kind == "question" for kind, _ in shown)
+    window.folder_import.request_sync(str(library))
+    run_until(
+        lambda: not query(f"SELECT 1 FROM media_items WHERE relative_path = '{gone}'"),
+        TIMEOUT_ADD_FOLDER,
+        "sincronizar y quitar la ausente",
+    )
+    run_until(idle, TIMEOUT_JOBS, "fin de sincronizar")
+    if sum(kind == "question" for kind, _ in shown) != questions_before + 1:
+        raise SmokeError("Al sincronizar, el resumen no ofreció quitar la foto ausente")
+    (total, missing) = query("SELECT COUNT(*), SUM(is_missing) FROM media_items")[0]
+    if (total, missing) != (PHOTO_COUNT - 1, 0):  # la eliminada vuelve; la borrada, no
+        raise SmokeError(f"Tras sincronizar: {total} elementos y {missing} ausentes")
+    run_until(
+        lambda: window.mosaico_model.rowCount() == PHOTO_COUNT - 1,
+        TIMEOUT_SHORT,
+        "cuadrícula tras sincronizar",
+    )
+    print(f"6. Sincronizar: {gone} (borrada fuera), quitada; la eliminada en 5 vuelve a entrar")
+
+    # 7. Cerrar
     window.close()
     app.processEvents()
     if jobs.is_attached:
@@ -261,7 +297,7 @@ def run(work_dir: Path) -> None:
     errors = [text for kind, text in shown if kind == "critical"]
     if errors or exceptions:
         raise SmokeError(f"Errores: {errors or exceptions}")
-    print(f"6. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
+    print(f"7. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
     window.deleteLater()
     app.processEvents()
 

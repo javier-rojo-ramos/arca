@@ -93,8 +93,8 @@ Acordado con el autor el 16/11/2026, tras analizar el código ([DECISIONES.md](D
 `main_window_controller.py` tiene 2 036 líneas y 81 métodos (18/11/2026); la cadena metadatos → miniaturas → escritura, con sus esperas, vive ahí. Antes de `VID 7` (descargas). Plan aprobado por el autor el 18/11/2026 (refactorización: nada cambia en la aplicación; el código se mueve tal cual y lo movido pasa a nombres en inglés):
 
 - ~~**GEN 15.1** El encadenado de los trabajos, a `controllers/job_coordinator.py` (`JobCoordinator`)~~ (hecho el 18/11/2026: el controlador, de 2 036 a 1 668 líneas; con una autoprueba de las reglas).
-- **GEN 15.2** Añadir y sincronizar carpetas (con el resumen y «Quitar archivos ausentes»), a su módulo o junto a `folder_actions.py`.
-- **GEN 15.3** Eliminar, a su módulo.
+- ~~**GEN 15.2** Añadir y sincronizar carpetas~~ (hecho el 18/11/2026: `controllers/folder_import.py`; «Mostrar en el Explorador», a `folder_actions.py`).
+- ~~**GEN 15.3** Eliminar~~ (hecho el 18/11/2026: `controllers/remove_actions.py`; el controlador, en 1 270 líneas).
 - **GEN 15.4** (opcional) El grupo de hilos propio para los trabajos (de `GEN 10`): sí cambia cuántas cosas corren a la vez; medir antes.
 
 ### Fase GEN 16 — Perfil de tarjeta

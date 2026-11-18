@@ -1,12 +1,15 @@
 """Operaciones sobre una carpeta entera pedidas desde la barra lateral (sección Carpetas).
 
-Está aparte de 'main_window_controller.py' para no seguir engordándolo. De momento,
-"Quitar del catálogo..." del menú contextual de una carpeta o de una ubicación (como en
-Lightroom Classic):
+Está aparte de 'main_window_controller.py' para no seguir engordándolo. Del menú contextual
+de una carpeta o de una ubicación, "Quitar del catálogo..." (como en Lightroom Classic) y
+"Mostrar en el Explorador" (el Finder en macOS). «Sincronizar carpeta» y «Quitar archivos
+ausentes» los atiende 'controllers/folder_import.py', con «Añadir carpeta».
 
     CatalogSidebar.remove_folder_requested(ubicación, carpeta, nombre)
         └─► FolderActions: ¿algo en marcha? → cuenta sus archivos (segundo plano)
                 → pregunta → start_removal(remove_folder_from_catalog, ubicación, carpeta)
+    CatalogSidebar.reveal_folder_requested(carpeta)
+        └─► FolderActions: si existe, la abre en el explorador de archivos del sistema
 
 Lo que hace el trabajo está en 'core/catalog/folder_removal.py' (nunca toca el disco). El
 trabajo lo lanza el controlador principal ('start_removal') con el mismo nombre que
@@ -20,15 +23,18 @@ El controlador principal solo tiene que crearlo, pasándole tres funciones:
     - busy_reason(): por qué ahora no se puede quitar nada (o None);
     - start_removal(trabajo, *args): lanza el trabajo de quitar.
 
+1.1.0 "Mostrar en el Explorador", movido tal cual desde 'main_window_controller.py'
+      (docs/PENDIENTE.md, GEN 15.2).
 1.0.1 Autoprueba al día con el texto del aviso («con sus subcarpetas si existen»).
 1.0.0 Primera versión: "Quitar del catálogo..." de una carpeta.
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = ["FolderActions", "confirmation_text"]
 
 # Librerías estándar
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 # Librerías de terceros (Qt)
@@ -37,6 +43,7 @@ from qtpy.QtWidgets import QWidget
 
 # Módulos del proyecto
 from core.catalog.folder_removal import count_folder_items, remove_folder_from_catalog
+from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME, reveal_in_file_manager
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.sidebars.catalog_sidebar import CatalogSidebar
 
@@ -88,6 +95,19 @@ class FolderActions(QObject):
         self._busy_reason = busy_reason
         self._start_removal = start_removal
         sidebar.remove_folder_requested.connect(self._on_remove_folder_requested)
+        sidebar.reveal_folder_requested.connect(self._on_reveal_folder)
+
+    def _on_reveal_folder(self, folder: str) -> None:
+        """Menú de una carpeta > "Mostrar en el Explorador" (el Finder en macOS)."""
+        if not Path(folder).is_dir():
+            self._message_box.warning(
+                f"La carpeta no existe (¿se ha movido, renombrado o borrado?):\n{folder}\n\n"
+                "Si se ha borrado fuera de la aplicación, «Sincronizar carpeta» en su carpeta "
+                "padre marcará sus archivos como ausentes."
+            )
+            return
+        if not reveal_in_file_manager(folder):
+            self._message_box.warning(f"No se pudo abrir {FILE_MANAGER_NAME}:\n{folder}")
 
     def _on_remove_folder_requested(
         self, location_id: int, folder: str, name: str

@@ -1,6 +1,4 @@
 # Librerías estándar
-import threading
-from collections.abc import Callable
 from pathlib import Path
 
 # Librerías de terceros
@@ -14,7 +12,6 @@ from qtpy.QtCore import (
     QSize,
     Qt,
     QTimer,
-    Signal,
 )
 from qtpy.QtGui import (
     QAction,
@@ -29,7 +26,6 @@ from config import app_paths
 from config.app_config import config
 from config.app_constants import (
     SETTING_GPU_RENDERING,
-    SETTING_LAST_ADD_FOLDER_PARENT,
     SETTING_MAIN_SPLITTER_STATE,
     SETTING_WRITE_USER_DATA_TO_FILES,
     SIDEBAR_CATALOG_DEFAULT_WIDTH,
@@ -47,22 +43,20 @@ from controllers.center_view_controller import CenterViewController
 from controllers.filter_controller import FilterController
 from controllers.filter_preset_controller import FilterPresetController
 from controllers.folder_actions import FolderActions
+from controllers.folder_import import FolderImport
 from controllers.inspector_controller import InspectorController
 from controllers.job_coordinator import JobCoordinator
 from controllers.map_controller import MapController
 from controllers.metadata_filter_controller import MetadataFilterController
+from controllers.remove_actions import RemoveActions
 from controllers.sidebar_visibility import SidebarVisibility
 from controllers.undo_history import UndoHistory
 from core.catalog.availability import AvailabilityCheck, check_availability
 from core.catalog.catalog_builder import CatalogBuilder, CatalogError
 from core.catalog.catalog_opener import open_catalog
-from core.catalog.folder_importer import AddFolderProgress, AddFolderResult, add_folder
-from core.catalog.folder_scanner import ScanError
 from core.catalog.grid_source import ALL_ITEMS, SourceKind
 from core.catalog.libraries import (
-    FOLDER_AUTO,
     classify_pending_videos,
-    folder_content_for,
     set_library,
 )
 from core.catalog.media_queries import (
@@ -70,31 +64,18 @@ from core.catalog.media_queries import (
     set_quick_selection,
     update_user_field,
 )
-from core.catalog.media_removal import RemovalPlan, plan_removal, remove_media_items
-from core.catalog.missing_items import (
-    RemovedItems,
-    count_missing_items,
-    remove_missing_items,
-)
-from core.catalog.storage_locations import StorageLocationError, refresh_location_status
+from core.catalog.storage_locations import refresh_location_status
 from core.database.db_manager import CatalogDatabaseManager
 
 # UI generada, helpers, mixins
 from ui.main_window import Ui_MainWindow
 from ui_helpers.delegates.thumbnails_delegate import ThumbnailsDelegate
-from ui_helpers.dialogs.folder_content_dialog import FolderContentDialog
-from ui_helpers.dialogs.remove_dialog import RemoveDialog
 from ui_helpers.dialogs.settings_dialog import SettingsDialog
 from ui_helpers.helpers.app_icon import build_app_icon
 from ui_helpers.helpers.gpu_composition import enable_gpu_composition, gpu_allowed
 from ui_helpers.helpers.grid_actions import GridActions
 from ui_helpers.helpers.mode_toolbar import toolbar_accent_color
 from ui_helpers.helpers.ui_file_dialogs import select_folder
-from ui_helpers.helpers.ui_file_manager import (
-    FILE_MANAGER_NAME,
-    move_to_trash,
-    reveal_in_file_manager,
-)
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.helpers.ui_status import message_bar
@@ -110,10 +91,9 @@ from ui_helpers.widgets.metadata_filter_panel import MetadataFilterPanel
 from ui_helpers.widgets.text_filter_row import TextFilterRow
 
 # Los trabajos en segundo plano (nombres, títulos, encadenado, escritura diferida...) están
-# en 'controllers/job_coordinator.py' (GEN 15.1)
-
-# Archivos que, como mucho, se enumeran en el aviso de los que no se pudieron eliminar
-REMOVE_FAILED_LIST_MAX = 10
+# en 'controllers/job_coordinator.py' (GEN 15.1); añadir y sincronizar carpetas, en
+# 'controllers/folder_import.py' (GEN 15.2), y eliminar, en 'controllers/remove_actions.py'
+# (GEN 15.3)
 
 # Cada cuánto se comprueba, con el catálogo abierto, si se ha desconectado un disco o si
 # falta algún archivo de los que se ven (ver core/catalog/availability.py). También se
@@ -132,10 +112,6 @@ SIDEBAR_REFRESH_DELAY_MS = 400
 
 class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
     """Controlador principal de la ventana de Arca Media."""
-
-    # Avance de 'add_folder'. Se emite desde un hilo secundario (por eso es una
-    # señal): Qt la entrega en el hilo principal, donde sí se puede tocar la interfaz.
-    scan_progress = Signal(object)
 
     def __init__(self) -> None:
         super().__init__()
@@ -162,11 +138,6 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.db: CatalogDatabaseManager | None = None
         # Carpeta del catálogo activo (la que contiene 'catalogo.db')
         self.catalog_dir: Path | None = None
-        # Distinto de None mientras se está añadiendo una carpeta: es el evento que
-        # cancela el proceso (add_folder lo consulta desde su hilo)
-        self._add_folder_cancel: threading.Event | None = None
-        # True si lo que está en marcha es "Sincronizar carpeta" (solo cambian los textos)
-        self._add_folder_is_sync = False
         # Trabajos en segundo plano del catálogo activo (metadatos, miniaturas, escritura en
         # los archivos, eliminar): qué se lanza, cuándo y qué espera a qué. Lo que toca la
         # cuadrícula lo pide con señales (ver 'controllers/job_coordinator.py')
@@ -174,8 +145,31 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.job_coordinator.thumbnails_progressed.connect(self.mosaico_model.retry_missing)
         self.job_coordinator.thumbnails_generated.connect(self._on_thumbnails_generated)
         self.job_coordinator.metadata_read.connect(self._on_metadata_read)
-        self.job_coordinator.removal_finished.connect(self._on_removal_finished)
-        self.job_coordinator.removal_failed.connect(self._on_removal_failed)
+        # Añadir y sincronizar carpetas, con su resumen y «Quitar archivos ausentes» (ver
+        # 'controllers/folder_import.py'; las acciones y la barra lateral, en '_conectar_senales')
+        self.folder_import = FolderImport(
+            self,
+            self.message_box,
+            self.config,
+            action=self.action_add_folder,
+            get_db=lambda: self.db,
+            get_catalog_dir=lambda: self.catalog_dir,
+            start_metadata=self.job_coordinator.start_metadata,
+            reload_grid=self.mosaico_model.reload,
+            parent=self,
+        )
+        # «Eliminar...» y lo que se hace al terminar cualquier trabajo de quitar (ver
+        # 'controllers/remove_actions.py'; la cuadrícula lo pide en '_configurar_grid_mosaico')
+        self.remove_actions = RemoveActions(
+            self,
+            self.message_box,
+            self.job_coordinator,
+            get_db=lambda: self.db,
+            is_adding_folder=lambda: self.folder_import.is_running,
+            reload_grid=self.mosaico_model.reload,
+            refresh_counts=self._refresh_sidebar_counts,
+            parent=self,
+        )
 
         # Comprobación periódica de discos desconectados y archivos que faltan (solo los
         # visibles). Nunca hay dos comprobaciones a la vez
@@ -351,13 +345,12 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
     def _conectar_senales(self) -> None:
         """Conexión centralizada de señales a slots."""
         # "Cargar carpeta" del menú: ahora añade la carpeta al catálogo (la cuadrícula lee del catálogo)
-        self.action_load_folder.triggered.connect(self._on_add_folder)
+        self.action_load_folder.triggered.connect(self.folder_import.request_add)
 
         # Acciones del menú relacionadas con el catálogo
         self.action_new_catalog.triggered.connect(self._on_new_catalog)
         self.action_open_catalog.triggered.connect(self._on_new_catalog)
-        self.action_add_folder.triggered.connect(self._on_add_folder)
-        self.scan_progress.connect(self._on_add_folder_progress)
+        self.action_add_folder.triggered.connect(self.folder_import.request_add)
 
         # "Salir" (Ctrl+Q): cierra la ventana por el mismo camino que la X, así que pasa por
         # 'closeEvent' (cancela los trabajos, guarda el estado y libera el catálogo)
@@ -387,22 +380,22 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # desde ella (lo que se elige en la barra lo atiende su módulo: ver
         # '_configurar_modulos' y 'controllers/app_modules/catalog_module.py')
         # Botón "+" de la sección Carpetas: lo mismo que "Añadir carpeta al catálogo"
-        self.widget_catalog_sidebar.add_folder_requested.connect(self._on_add_folder)
+        self.widget_catalog_sidebar.add_folder_requested.connect(self.folder_import.request_add)
         # Menú contextual de las carpetas
-        self.widget_catalog_sidebar.sync_folder_requested.connect(self._on_sync_folder)
-        self.widget_catalog_sidebar.reveal_folder_requested.connect(self._on_reveal_folder)
+        self.widget_catalog_sidebar.sync_folder_requested.connect(self.folder_import.request_sync)
         self.widget_catalog_sidebar.remove_missing_requested.connect(
-            self._on_remove_missing_requested
+            self.folder_import.request_remove_missing
         )
-        # "Quitar del catálogo..." de una carpeta: lo atiende 'controllers/folder_actions.py'
-        # y el trabajo se lanza aquí, como el de "Eliminar" ('_start_removal_job')
+        # "Quitar del catálogo..." y "Mostrar en el Explorador" de una carpeta: los atiende
+        # 'controllers/folder_actions.py'; el trabajo de quitar va por el mismo camino que
+        # "Eliminar" ('RemoveActions.start_removal_job')
         self._folder_actions = FolderActions(
             self,
             self.widget_catalog_sidebar,
             self.message_box,
             get_db=lambda: self.db,
-            busy_reason=self._busy_reason,
-            start_removal=self._start_removal_job,
+            busy_reason=self.remove_actions.busy_reason,
+            start_removal=self.remove_actions.start_removal_job,
         )
         # Menú de la fila «Selección rápida»: vaciarla
         self.widget_catalog_sidebar.clear_quick_selection_requested.connect(
@@ -447,7 +440,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # Menú "Biblioteca": clasificar vídeos a mano (clip personal o película)
         self.grid_actions.library_change_requested.connect(self._on_library_change_requested)
         # "Eliminar..." (menú de la tarjeta y Supr fuera de las colecciones estáticas)
-        self.grid_actions.remove_requested.connect(self._on_remove_requested)
+        self.grid_actions.remove_requested.connect(self.remove_actions.request_remove)
 
         # Barra inferior: marca, valoración, color y selección rápida de lo seleccionado
         # (widget promocionado del .ui). Escribe por el modelo, como la tarjeta y el teclado
@@ -987,7 +980,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         Si la carpeta ya contiene un catálogo, se ofrece abrirlo: así este mismo
         diálogo sirve también para abrir catálogos que ya existen.
         """
-        if self._add_folder_cancel is not None:
+        if self.folder_import.is_running:
             self.message_box.info(
                 "Se está añadiendo una carpeta al catálogo actual.\n\n"
                 "Espera a que termine antes de cambiar de catálogo."
@@ -1202,9 +1195,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
 
     def _close_catalog(self) -> None:
         """Cierra el catálogo activo, si lo hay, cancelando lo que esté en marcha."""
-        if self._add_folder_cancel is not None:
-            # add_folder se detiene en cuanto puede: lo ya guardado se conserva
-            self._add_folder_cancel.set()
+        # Añadir una carpeta se detiene en cuanto puede: lo ya guardado se conserva
+        self.folder_import.cancel()
 
         # Los trabajos paran en cuanto pueden ('db.shutdown()', más abajo, espera a que
         # acaben); lo que quede sin escribir sigue pendiente en el catálogo
@@ -1247,398 +1239,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             self.db = None
 
         # Sus callbacks ya no se ejecutarán, así que el estado se restablece aquí
-        self._finish_add_folder()
+        self.folder_import.finish()
         self.catalog_dir = None
-
-    # -------------------------------------------------------------------------
-    # Añadir una carpeta al catálogo
-    # -------------------------------------------------------------------------
-
-    def _on_add_folder(self) -> None:
-        """Pide una carpeta y qué contiene, y la añade al catálogo activo en segundo plano.
-
-        Pasos: elegir la carpeta -> mirar en segundo plano qué contiene según el catálogo
-        (si está dentro de una carpeta ya declarada, hereda lo suyo) -> preguntar "¿Qué
-        contiene esta carpeta?" con eso ya elegido -> añadirla (ver '_ask_folder_content').
-        """
-        if self.db is None:
-            self.message_box.warning(
-                "Primero hay que crear o abrir un catálogo.\n\n"
-                "Usa «Nuevo catálogo» del menú Archivo."
-            )
-            return
-
-        # Se abre donde estaba la última carpeta añadida (si ya no existe, 'select_folder'
-        # abre la carpeta personal)
-        folder = select_folder(
-            parent=self,
-            title="Seleccionar la carpeta que se añadirá al catálogo",
-            initial_path=self.config.get(SETTING_LAST_ADD_FOLDER_PARENT, "") or None,
-            force_dialog=True,
-        )
-        if not folder:
-            return
-        # 'folder_content_for(conn, carpeta)' solo lee: es rápido, pero toca la BD, así que
-        # va en segundo plano. Si falla, se pregunta igual con "Detectar automáticamente"
-        self.db.execute_async(
-            folder_content_for,
-            folder,
-            on_result=lambda current: self._ask_folder_content(folder, current),
-            on_error=lambda _error: self._ask_folder_content(folder, FOLDER_AUTO),
-        )
-
-    def _ask_folder_content(self, folder: str, current: str) -> None:
-        """Pregunta qué contiene la carpeta y, si se acepta, la añade (hilo principal).
-
-        Args:
-            folder: Carpeta elegida.
-            current: Tipo de contenido que ya tiene (declarado o heredado), para
-                preseleccionarlo.
-        """
-        if self.db is None:
-            return  # el catálogo se cerró mientras se consultaba
-        if self._add_folder_cancel is not None:
-            self.message_box.info(
-                "Ya se está añadiendo o sincronizando una carpeta.\n\n"
-                "Espera a que termine antes de añadir otra."
-            )
-            return
-        content = FolderContentDialog.ask(self, folder, current=current)
-        if content is None:
-            return  # cancelado
-        # La próxima vez, «Añadir carpeta» se abre en la carpeta que contiene esta
-        self.config.set(SETTING_LAST_ADD_FOLDER_PARENT, Path(folder).parent.as_posix())
-        self._start_add_folder(folder, sync=False, content=content)
-
-    def _on_sync_folder(self, folder: str) -> None:
-        """Menú de una carpeta > "Sincronizar carpeta": la vuelve a recorrer.
-
-        Es la misma operación que añadirla (ver 'add_folder'): incorpora los archivos
-        nuevos, relee los cambiados y marca los que han desaparecido. Como "Sincronizar
-        carpeta" de Lightroom.
-        """
-        if self.db is None:
-            return
-        if self._add_folder_cancel is not None:
-            self.message_box.info(
-                "Ya se está añadiendo o sincronizando una carpeta.\n\n"
-                "Espera a que termine antes de sincronizar otra."
-            )
-            return
-        self._start_add_folder(folder, sync=True)
-
-    def _on_reveal_folder(self, folder: str) -> None:
-        """Menú de una carpeta > "Mostrar en el Explorador" (el Finder en macOS)."""
-        if not Path(folder).is_dir():
-            self.message_box.warning(
-                f"La carpeta no existe (¿se ha movido, renombrado o borrado?):\n{folder}\n\n"
-                "Si se ha borrado fuera de la aplicación, «Sincronizar carpeta» en su carpeta "
-                "padre marcará sus archivos como ausentes."
-            )
-            return
-        if not reveal_in_file_manager(folder):
-            self.message_box.warning(f"No se pudo abrir {FILE_MANAGER_NAME}:\n{folder}")
-
-    def _start_add_folder(
-        self, folder: str | Path, *, sync: bool, content: str | None = None
-    ) -> None:
-        """Añade (o sincroniza) una carpeta del catálogo en un hilo secundario.
-
-        Args:
-            folder: Carpeta a añadir o sincronizar.
-            sync: True si viene de "Sincronizar carpeta" (solo cambian los textos).
-            content: Qué contiene la carpeta ('auto' o una biblioteca), elegido en
-                "¿Qué contiene esta carpeta?". None = no cambiar lo declarado (al
-                sincronizar).
-        """
-        if self.db is None:
-            return
-
-        # Mientras dure, la acción queda desactivada: solo una importación a la vez
-        self._add_folder_cancel = threading.Event()
-        self._add_folder_is_sync = sync
-        self.action_add_folder.setEnabled(False)
-        verb = "Sincronizando carpeta" if sync else "Añadiendo carpeta al catálogo"
-        message_bar(self, f"{verb}...", duracion=0)
-
-        # 'add_folder' recibe la conexión como primer parámetro (la pone el gestor)
-        self.db.execute_async(
-            add_folder,
-            folder,
-            content=content,
-            cancel_event=self._add_folder_cancel,
-            progress=self.scan_progress.emit,
-            on_result=self._on_add_folder_result,
-            on_error=self._on_add_folder_error,
-            on_finished=self._finish_add_folder,
-        )
-
-    def _on_add_folder_progress(self, progress: AddFolderProgress) -> None:
-        """Actualiza la barra de estado con el avance (hilo principal)."""
-        # Puede llegar una señal rezagada cuando el proceso ya terminó o se canceló
-        if self._add_folder_cancel is None:
-            return
-        verb = (
-            "Sincronizando carpeta" if self._add_folder_is_sync else "Añadiendo carpeta al catálogo"
-        )
-        message_bar(
-            self,
-            f"{verb}... {progress.saved_items} archivos procesados",
-            duracion=0,
-        )
-
-    def _on_add_folder_result(self, result: AddFolderResult) -> None:
-        """Muestra el resultado de añadir la carpeta (hilo principal)."""
-        logger.info(f"Carpeta añadida al catálogo:\n{result.summary()}")
-
-        # Lo recién añadido queda pendiente de leer: se empieza ya, mientras el usuario
-        # lee el resumen (el cuadro de aviso no detiene el trabajo en segundo plano)
-        if not result.cancelled:
-            self.job_coordinator.start_metadata()
-
-        # Los archivos nuevos ya están en el catálogo: aparecen en la cuadrícula
-        self.mosaico_model.reload()
-
-        sync = self._add_folder_is_sync
-        title = "Carpeta sincronizada" if sync else "Carpeta añadida"
-
-        # Al SINCRONIZAR, si el recorrido fue completo y fiable, se mira cuántos archivos
-        # de la carpeta están ausentes (los de ahora y los que ya lo estaban) para ofrecer
-        # quitarlos del catálogo, como Lightroom
-        reliable = not result.cancelled and result.missing_check_skipped is None
-        if sync and reliable and self.db is not None:
-            self.db.execute_async(
-                count_missing_items,
-                result.location.id,
-                result.relative_folder,
-                on_result=lambda count: self._show_add_folder_summary(result, title, count),
-                on_error=lambda _error: self._show_add_folder_summary(result, title),
-            )
-            return
-        self._show_add_folder_summary(result, title)
-
-    def _show_add_folder_summary(
-        self, result: AddFolderResult, title: str, missing_to_remove: int = 0
-    ) -> None:
-        """Muestra el resumen de añadir o sincronizar una carpeta.
-
-        Si hay archivos ausentes que se pueden quitar, el resumen se convierte en una
-        pregunta: quitarlos del catálogo o mantenerlos como ausentes.
-        """
-        needs_attention = bool(
-            result.cancelled or result.stats.issues or result.missing_check_skipped
-        )
-        if needs_attention:
-            message_bar(self, f"{title}, con avisos.", AppIcons.WARNING)
-        else:
-            message_bar(
-                self,
-                f"{title}: {result.new_items} archivos nuevos.",
-                AppIcons.CHECK_CIRCLE,
-            )
-
-        if missing_to_remove > 0:
-            answer = self.message_box.question(
-                f"{result.summary()}\n\n"
-                f"Hay {missing_to_remove} archivos que ya no están en la carpeta. "
-                "¿Quitarlos del catálogo?\n\n"
-                "Los archivos del disco no se tocan. Si alguno solo se ha movido o "
-                "renombrado, se perderán su valoración y sus datos en el catálogo (salvo "
-                "lo que ya esté escrito en el propio archivo).",
-                title=title,
-                buttons=["Quitar del catálogo", "Mantener como ausentes"],
-            )
-            if answer == "Quitar del catálogo":
-                self._remove_missing(result.location.id, result.relative_folder)
-        elif needs_attention:
-            self.message_box.warning(result.summary(), title=title)
-        else:
-            self.message_box.info(result.summary(), title=title)
-
-    # -------------------------------------------------------------------------
-    # Quitar del catálogo los archivos ausentes
-    # -------------------------------------------------------------------------
-
-    def _on_remove_missing_requested(self, location_id: int, folder: str) -> None:
-        """Menú de una carpeta > "Quitar archivos ausentes del catálogo...": cuenta y pregunta."""
-        if self.db is None:
-            return
-        if self._add_folder_cancel is not None:
-            self.message_box.info(
-                "Se está añadiendo o sincronizando una carpeta.\n\n"
-                "Espera a que termine antes de quitar archivos del catálogo."
-            )
-            return
-        self.db.execute_async(
-            count_missing_items,
-            location_id,
-            folder,
-            on_result=lambda count: self._confirm_remove_missing(location_id, folder, count),
-            on_error=lambda error: self.message_box.critical(
-                f"No se pudieron contar los archivos ausentes.\n\nDetalle: {error}"
-            ),
-        )
-
-    def _confirm_remove_missing(self, location_id: int, folder: str, count: int) -> None:
-        """Pregunta antes de quitar del catálogo los ausentes de una carpeta."""
-        if count == 0:
-            self.message_box.info("En esta carpeta no hay archivos ausentes.")
-            return
-        answer = self.message_box.question(
-            f"Hay {count} archivos de esta carpeta que ya no están en el disco.\n\n"
-            "¿Quitarlos del catálogo? Los archivos del disco no se tocan. Si alguno solo se "
-            "ha movido o renombrado, se perderán su valoración y sus datos en el catálogo "
-            "(salvo lo que ya esté escrito en el propio archivo).",
-            buttons=["Quitar del catálogo", "Cancelar"],
-        )
-        if answer == "Quitar del catálogo":
-            self._remove_missing(location_id, folder)
-
-    def _remove_missing(self, location_id: int, folder: str) -> None:
-        """Quita del catálogo (en segundo plano) los ausentes de una carpeta."""
-        if self.db is None:
-            return
-        self.db.execute_async(
-            remove_missing_items,
-            location_id,
-            folder,
-            catalog_dir=self.catalog_dir,
-            on_result=self._on_missing_removed,
-            on_error=lambda error: self.message_box.critical(
-                f"No se pudieron quitar los archivos ausentes.\n\nDetalle: {error}"
-            ),
-        )
-
-    def _on_missing_removed(self, result: RemovedItems) -> None:
-        """Los ausentes ya no están en el catálogo: se recargan la cuadrícula y la barra lateral."""
-        message_bar(
-            self, f"Quitados del catálogo: {result.count} archivos ausentes.", AppIcons.CHECK_CIRCLE
-        )
-        # Al recargar, la barra lateral actualiza sola sus contadores y su árbol
-        self.mosaico_model.reload()
-
-    def _on_add_folder_error(self, error: Exception) -> None:
-        """Informa de que no se pudo añadir la carpeta (hilo principal)."""
-        message_bar(self, "No se pudo añadir la carpeta.", AppIcons.ERROR)
-
-        if isinstance(error, (StorageLocationError, ScanError)):
-            # Carpeta no válida, solapada con otra del catálogo...: el mensaje ya
-            # está redactado para el usuario
-            self.message_box.warning(str(error))
-        else:
-            self.message_box.critical(
-                f"No se pudo añadir la carpeta al catálogo.\n\nDetalle: {error}"
-            )
-
-    def _finish_add_folder(self) -> None:
-        """Restablece el estado tras añadir una carpeta (con éxito, error o cancelación)."""
-        self._add_folder_cancel = None
-        self.action_add_folder.setEnabled(True)
-
-    # -------------------------------------------------------------------------
-    # Eliminar (quitar del catálogo o enviar a la papelera)
-    # -------------------------------------------------------------------------
-
-    def _busy_reason(self) -> str | None:
-        """Por qué ahora no se puede eliminar (algo en marcha), o None si se puede.
-
-        Eliminar mientras se añade una carpeta o corre un trabajo podría dejar miniaturas
-        de elementos ya quitados o escribir en un archivo que va a la papelera.
-        """
-        if self._add_folder_cancel is not None:
-            return "Se está añadiendo una carpeta al catálogo."
-        return self.job_coordinator.busy_reason()
-
-    def _on_remove_requested(self, media_ids: list[int]) -> None:
-        """«Eliminar...» de la cuadrícula: primero se calcula qué puede ir a la papelera."""
-        if self.db is None or not self.job_coordinator.is_attached or not media_ids:
-            return
-        busy = self._busy_reason()
-        if busy:
-            self.message_box.info(f"{busy}\n\nEspera a que termine para eliminar archivos.")
-            return
-        ids = list(media_ids)
-        self.db.execute_async(
-            plan_removal,
-            ids,
-            on_result=lambda plan: self._on_removal_planned(ids, plan),
-            on_error=lambda error: (
-                logger.error(f"No se pudo preparar la eliminación: {error}"),
-                message_bar(self, "No se pudo preparar la eliminación.", AppIcons.ERROR),
-            ),
-        )
-
-    def _on_removal_planned(self, media_ids: list[int], plan: RemovalPlan) -> None:
-        """Pregunta qué hacer (quitar del catálogo o papelera) y lanza el trabajo."""
-        if self.db is None or not self.job_coordinator.is_attached or plan.total == 0:
-            return  # el catálogo se cerró mientras tanto, o ya no existen
-        # Mientras la ventana está abierta no debe arrancar la escritura diferida (su
-        # temporizador sigue corriendo durante un diálogo modal): se para y, si no se
-        # elimina, se vuelve a programar
-        self.job_coordinator.stop_scheduled_write()
-        to_trash = RemoveDialog.ask(self, plan)
-        busy = self._busy_reason() if to_trash is not None else None
-        if to_trash is None or busy or not self.job_coordinator.is_attached:
-            if busy:
-                self.message_box.info(f"{busy}\n\nNo se ha eliminado nada; inténtalo al terminar.")
-            self.job_coordinator.schedule_write()
-            return
-
-        # Con la papelera no se escribe antes lo pendiente: el archivo se va
-        self.job_coordinator.start_removal(
-            remove_media_items,
-            media_ids,
-            to_trash=to_trash,
-            trash=move_to_trash if to_trash else None,
-            write_pending=None if to_trash else self.job_coordinator.pending_writer(),
-        )
-
-    def _start_removal_job(self, job: Callable[..., object], *args: object) -> None:
-        """Lanza un trabajo de quitar del catálogo (p. ej. una carpeta) como "Eliminar".
-
-        Con el mismo nombre que «Eliminar»: misma barra de progreso y, al terminar, lo mismo
-        que tras eliminar ('_on_removal_finished'). Se vuelve a comprobar que no haya nada
-        en marcha: puede haber empezado algo mientras se preguntaba al usuario.
-        """
-        if not self.job_coordinator.is_attached:
-            return
-        busy = self._busy_reason()
-        if busy:
-            self.message_box.info(f"{busy}\n\nNo se ha quitado nada; inténtalo al terminar.")
-            return
-        self.job_coordinator.start_removal(
-            job, *args, write_pending=self.job_coordinator.pending_writer()
-        )
-
-    def _on_removal_finished(self, result: object) -> None:
-        """Terminó de eliminar: cuadrícula, contadores y aviso de fallos.
-
-        Lo que esperaba a que terminara lo lanza después 'JobCoordinator'.
-        """
-        # Lo quitado desaparece de la cuadrícula (queda seleccionado el que ocupa su lugar:
-        # 'CenterViewController')
-        self.mosaico_model.reload()
-        self._refresh_sidebar_counts()
-
-        failed = list(getattr(result, "failed", ()))
-        if failed:
-            shown = "\n".join(Path(path).name for path, _message in failed[:REMOVE_FAILED_LIST_MAX])
-            more = len(failed) - REMOVE_FAILED_LIST_MAX
-            if more > 0:
-                shown += f"\n... y {more} más"
-            head = (
-                "No se pudo enviar a la papelera 1 archivo (sigue en el catálogo y en su "
-                "carpeta; quizá esté abierto en otro programa):"
-                if len(failed) == 1
-                else f"No se pudieron enviar a la papelera {len(failed)} archivos (siguen en "
-                "el catálogo y en su carpeta; quizá estén abiertos en otro programa):"
-            )
-            self.message_box.warning(f"{head}\n\n{shown}\n\nEl detalle está en el registro.")
-
-    def _on_removal_failed(self) -> None:
-        """Eliminar falló: lo que se llegó a quitar está confirmado por lotes; se muestra."""
-        self.mosaico_model.reload()
-        self._refresh_sidebar_counts()
 
     # -------------------------------------------------------------------------
     # Avisos de los trabajos en segundo plano ('controllers/job_coordinator.py')
