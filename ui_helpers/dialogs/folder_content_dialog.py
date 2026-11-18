@@ -23,6 +23,8 @@ Prueba suelta (sin el resto de la aplicación):
 Los nombres de las bibliotecas salen de 'core/catalog/libraries.LIBRARY_NAMES'. Si alguno
 lleva '&', en los botones y menús de Qt hay que escribirlo doble: 'qt_text()' lo hace.
 
+1.2.1 «Detectar automáticamente», de 'FOLDER_AUTO_NAME' (lo usa también el resumen de
+      «Carpeta añadida»). Sin cambio a la vista.
 1.2.0 Pulsar la explicación de una opción también la elige (antes solo el círculo y el
       título); la explicación sigue en gris, pero ya no es un texto desactivado.
 1.1.0 Nombres de las bibliotecas desde 'LIBRARY_NAMES' y 'qt_text()' para mostrarlos en
@@ -34,7 +36,7 @@ Uso:
         ...  # 'auto', 'image', 'video', 'audio', 'ebook' o 'tracks'
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["FOLDER_CONTENT_TEXTS", "FolderContentDialog", "qt_text"]
 
 # Librerías estándar
@@ -54,12 +56,18 @@ from qtpy.QtWidgets import (
 )
 
 # Módulos del proyecto
-from core.catalog.libraries import FOLDER_AUTO, FOLDER_CONTENTS, LIBRARY_NAMES, Library
+from core.catalog.libraries import (
+    FOLDER_AUTO,
+    FOLDER_AUTO_NAME,
+    FOLDER_CONTENTS,
+    LIBRARY_NAMES,
+    Library,
+)
 
 # Texto de cada opción: (título, explicación). Las claves son las de 'FOLDER_CONTENTS'
 FOLDER_CONTENT_TEXTS: dict[str, tuple[str, str]] = {
     FOLDER_AUTO: (
-        "Detectar automáticamente",
+        FOLDER_AUTO_NAME,
         (
             "Se cataloga todo lo soportado. Fotos, música, libros y tracks van a su "
             "biblioteca; los vídeos quedan sin clasificar (pueden ser clips o películas)."

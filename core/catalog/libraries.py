@@ -48,6 +48,9 @@ el menú de la cuadrícula ('set_library'), la apertura del catálogo y el final
 lectura de metadatos ('classify_pending_videos': aplica la detección, por el nombre y por
 los metadatos, a los vídeos que siguen sin clasificar).
 
+1.4.0 'FOLDER_AUTO_NAME' y 'folder_content_name' (el nombre de un tipo de contenido de
+      carpeta, también «Detectar automáticamente») y 'count_by_library' (los elementos de
+      una carpeta por biblioteca): para el resumen de «Carpeta añadida».
 1.3.1 Nombres más cortos, como las bibliotecas de Windows: «Imágenes», «Vídeos», «Música».
 1.3.0 'LIBRARY_NAMES': el nombre de cada biblioteca para el usuario, en un solo sitio
       (diálogo de la carpeta, submenú «Biblioteca», colecciones inteligentes, inspector).
@@ -58,12 +61,13 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.libraries
 """
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 __all__ = [
     "ALLOWED_MEDIA_TYPES",
     "AUTO_LIBRARY_BY_MEDIA_TYPE",
     "CLASSIFIABLE_MEDIA_TYPES",
     "FOLDER_AUTO",
+    "FOLDER_AUTO_NAME",
     "FOLDER_CONTENTS",
     "LIBRARY_NAMES",
     "MOVIE_MIN_DURATION_S",
@@ -71,8 +75,10 @@ __all__ = [
     "Library",
     "classify_pending_videos",
     "classify_video",
+    "count_by_library",
     "count_unclassified",
     "folder_content_for",
+    "folder_content_name",
     "guess_video_library",
     "is_allowed",
     "library_for",
@@ -121,9 +127,18 @@ LIBRARY_NAMES: dict[str, str] = {
 
 # Tipo de contenido "Detectar automáticamente" (lo que vale una carpeta sin declaración)
 FOLDER_AUTO = "auto"
+# Su nombre para el usuario (el de la opción de «¿Qué contiene esta carpeta?» y el resumen)
+FOLDER_AUTO_NAME = "Detectar automáticamente"
 
 # Todos los tipos de contenido que se pueden declarar en una carpeta, en el orden del diálogo
 FOLDER_CONTENTS: tuple[str, ...] = (FOLDER_AUTO, *(library.value for library in Library))
+
+
+def folder_content_name(content: str) -> str:
+    """Nombre para el usuario de un tipo de contenido de carpeta ('auto' o una biblioteca)."""
+    if content == FOLDER_AUTO:
+        return FOLDER_AUTO_NAME
+    return LIBRARY_NAMES.get(content, content)
 
 # Qué tipos de archivo se catalogan en una carpeta declarada de cada biblioteca.
 # En una carpeta "auto" se cataloga todo lo soportado.
@@ -522,6 +537,29 @@ def count_unclassified(conn: sqlite3.Connection, location_id: int, folder: str) 
     return int(row[0])
 
 
+def count_by_library(
+    conn: sqlite3.Connection, location_id: int, folder: str
+) -> dict[str | None, int]:
+    """Elementos de una carpeta (y sus subcarpetas) por biblioteca, como 'count_unclassified'.
+
+    Args:
+        conn: Conexión sqlite3.
+        location_id: Ubicación.
+        folder: Carpeta relativa a la ubicación ('' = toda la ubicación).
+
+    Returns:
+        {biblioteca: elementos}; la clave None son los que están sin clasificar. Solo las
+        bibliotecas que tienen alguno.
+    """
+    sql = "SELECT library, COUNT(*) FROM media_items WHERE storage_location_id = ?"
+    params: list[object] = [location_id]
+    if folder:
+        # Rango en lugar de LIKE (ver 'catalog_writer._under_prefix'): '0' sigue a '/'
+        sql += " AND relative_path >= ? AND relative_path < ?"
+        params += [folder + "/", folder + "0"]
+    return {library: int(count) for library, count in conn.execute(sql + " GROUP BY library", params)}
+
+
 if __name__ == "__main__":
     # Autoprueba con una base de datos en memoria y carpetas temporales.
     # Ejecutar desde la raíz del proyecto:  python -m core.catalog.libraries
@@ -652,6 +690,12 @@ if __name__ == "__main__":
 
         assert count_unclassified(db, 1, "") == 2 and count_unclassified(db, 1, "Viajes") == 2
         assert count_unclassified(db, 1, "Pelis") == 0
+        # Por biblioteca (para el resumen de «Carpeta añadida»), con los mismos criterios
+        assert count_by_library(db, 1, "") == {None: 2, "image": 1, "video": 1}
+        assert count_by_library(db, 1, "Viajes") == {None: 2, "image": 1}
+        assert count_by_library(db, 1, "Pel") == {}  # «Pelis» no es «Pel»
+        assert folder_content_name(FOLDER_AUTO) == "Detectar automáticamente"
+        assert folder_content_name("tracks") == "Tracks GPS"
         # Al abrir: se clasifica el que lo dice su nombre; el otro sigue sin clasificar
         assert classify_pending_videos(db) == 1
         assert library_of("Viajes/IMG_1.MOV") == ("image", 0)

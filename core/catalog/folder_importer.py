@@ -49,6 +49,11 @@ desaparecidos). Si ya estaban catalogados (p. ej. la carpeta se añadió antes c
 "auto" y ahora se declara "Música"), se quedan como estaban: quitarlos del catálogo
 será una acción aparte (paso 2b).
 
+1.6.0 El resumen empieza por el contenido de la carpeta («Contenido de la carpeta: ...») y,
+      en automático (o si en la carpeta hay más de una biblioteca), cuántos elementos tiene
+      cada biblioteca, con los vídeos sin clasificar al final (antes, en una línea aparte),
+      y una línea en blanco antes de los recuentos. Nuevo 'AddFolderResult.library_counts'
+      (pedido por el autor, 18/11/2026).
 1.5.1 Comentarios con el nombre nuevo del archivo de carpeta ('.arca.json').
 1.5.0 Vídeos de carpetas automáticas por el nombre; vídeos sin clasificar en el resumen.
 1.4.0 Tipo de contenido de las carpetas y biblioteca de cada archivo ('content').
@@ -57,7 +62,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.folder_importer
 """
 
-__version__ = "1.5.1"
+__version__ = "1.6.0"
 __all__ = [
     "DEFAULT_BATCH_SIZE",
     "AddFolderProgress",
@@ -94,8 +99,12 @@ from core.catalog.folder_scanner import (
     ScanStats,
 )
 from core.catalog.libraries import (
+    FOLDER_AUTO,
+    LIBRARY_NAMES,
     FolderContentResolver,
-    count_unclassified,
+    Library,
+    count_by_library,
+    folder_content_name,
     is_allowed,
     library_for,
     parent_folder,
@@ -159,6 +168,8 @@ class AddFolderResult:
         reclassified_items: Elementos que ya existían y han cambiado de biblioteca.
         unclassified_items: Elementos de la carpeta que siguen sin biblioteca (vídeos de
             carpetas automáticas cuyo nombre no lo dice), contando los que ya había.
+        library_counts: Elementos de la carpeta (y sus subcarpetas) que hay en el catálogo
+            al terminar, por biblioteca (None = sin clasificar); ver 'count_by_library'.
     """
 
     location: StorageLocation
@@ -178,14 +189,38 @@ class AddFolderResult:
     excluded_extensions: Counter[str] = field(default_factory=Counter)
     reclassified_items: int = 0
     unclassified_items: int = 0
+    library_counts: dict[str | None, int] = field(default_factory=dict)
+
+    def _content_lines(self) -> list[str]:
+        """El contenido de la carpeta y, si procede, lo que hay de cada biblioteca.
+
+        El reparto sale en automático (cada archivo va a su biblioteca) o si en la
+        carpeta hay más de una (p. ej. una subcarpeta declarada con otro contenido); con
+        un contenido elegido y todo en su biblioteca, basta con la primera línea.
+        """
+        lines = [f"Contenido de la carpeta: {folder_content_name(self.folder_content)}"]
+        counts = {library: count for library, count in self.library_counts.items() if count}
+        if self.folder_content != FOLDER_AUTO and len(counts) <= 1:
+            return lines
+        lines += [
+            f"    {LIBRARY_NAMES[library]}: {counts[library]}" for library in Library if counts.get(library)
+        ]
+        if counts.get(None):
+            lines.append(
+                f"    Sin clasificar: {counts[None]} (vídeos: se revisan en «Sin clasificar», "
+                "en la sección Catálogo; clic derecho > Biblioteca)"
+            )
+        return lines
 
     def summary(self) -> str:
         """Resumen en texto (varias líneas), pensado para mostrar al usuario al terminar.
 
-        Solo incluye las líneas que aportan algo: lo que vale cero se omite, salvo
-        los archivos nuevos y los que no han cambiado.
+        Empieza por el contenido de la carpeta. Solo incluye las líneas que aportan algo:
+        lo que vale cero se omite, salvo los archivos nuevos y los que no han cambiado.
         """
         lines = [
+            *self._content_lines(),
+            "",  # una línea en blanco separa el contenido de los recuentos
             f"Archivos nuevos: {self.new_items}",
             f"Archivos modificados: {self.changed_items}",
             f"Sin cambios: {self.unchanged_items}",
@@ -220,7 +255,8 @@ class AddFolderResult:
             )
         if self.reclassified_items:
             lines.append(f"Cambiados de biblioteca: {self.reclassified_items}")
-        if self.unclassified_items:
+        if self.unclassified_items and not self.library_counts.get(None):
+            # (Lo normal es que salgan en el reparto del contenido, arriba)
             lines.append(
                 f"Vídeos sin clasificar: {self.unclassified_items} (se revisan en «Sin "
                 "clasificar», en la sección Catálogo; clic derecho > Biblioteca)"
@@ -391,6 +427,8 @@ def add_folder(
         scan_iterator.close()
         _drop_seen_paths(conn)
 
+    # Lo que hay de cada biblioteca en la carpeta, ya con todo guardado (para el resumen)
+    library_counts = count_by_library(conn, location.id, relative_folder)
     result = AddFolderResult(
         location=location,
         relative_folder=relative_folder,
@@ -408,7 +446,8 @@ def add_folder(
         excluded_items=sum(excluded_extensions.values()),
         excluded_extensions=excluded_extensions,
         reclassified_items=totals.reclassified,
-        unclassified_items=count_unclassified(conn, location.id, relative_folder),
+        unclassified_items=library_counts.get(None, 0),
+        library_counts=library_counts,
     )
     logger.info(
         f"Carpeta procesada: {result.new_items} nuevos, {result.changed_items} "
@@ -684,6 +723,8 @@ if __name__ == "__main__":
             assert result.folder_content == "audio" and result.new_items == 1
             assert result.excluded_items == 2 and result.excluded_extensions == {"jpg": 1, "mp4": 1}
             assert "Ignorados por no encajar" in result.summary()
+            # El resumen empieza por el contenido elegido; todo en Música: sin reparto
+            assert result.summary().startswith("Contenido de la carpeta: Música\n\nArchivos nuevos: 1")
             assert libraries_in(conn, "") == {"Rock/cancion.mp3": "audio"}
             location_id = result.location.id
 
@@ -702,7 +743,15 @@ if __name__ == "__main__":
             (discos / "Mezcla" / "IMG_0001.MOV").write_bytes(b"x" * 10)
             result = add_folder(conn, discos / "Mezcla")
             assert result.folder_content == "auto" and result.new_items == 5
-            assert result.unclassified_items == 1 and "Vídeos sin clasificar: 1" in result.summary()
+            assert result.unclassified_items == 1
+            # En automático, el reparto por biblioteca, con los sin clasificar al final (y no
+            # en la línea aparte de antes)
+            assert result.summary().startswith(
+                "Contenido de la carpeta: Detectar automáticamente\n"
+                "    Imágenes: 2\n    Música: 1\n    Tracks GPS: 1\n"
+                "    Sin clasificar: 1 (vídeos: se revisan en «Sin clasificar»"
+            ), result.summary()
+            assert "Vídeos sin clasificar" not in result.summary()
             assert libraries_in(conn, "IMG_0001") == {"IMG_0001.MOV": "image"}  # por el nombre
             assert libraries_in(conn, "").items() >= {
                 "c.jpg": "image", "d.mp4": None, "e.mp3": "audio", "ruta.gpx": "tracks"
@@ -714,6 +763,12 @@ if __name__ == "__main__":
             # (IMG_0001.MOV y d.mp4 pasan a 'video'; c.jpg, e.mp3 y ruta.gpx no encajan)
             assert result.reclassified_items == 2 and result.excluded_items == 3
             assert result.unclassified_items == 0
+            # Declarada «Vídeos», pero con lo de antes de otras bibliotecas: con reparto
+            assert result.summary().startswith(
+                "Contenido de la carpeta: Vídeos\n"
+                "    Imágenes: 1\n    Vídeos: 2\n    Música: 1\n    Tracks GPS: 1\n\n"
+                "Archivos nuevos: 0"
+            ), result.summary()
             assert result.missing_items == 0 and result.missing_check_skipped is None
             assert libraries_in(conn, "d.mp4") == {"d.mp4": "video"}
             assert rows(conn, "SELECT COUNT(*) FROM media_items WHERE is_missing = 1") == [(0,)]
