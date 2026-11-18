@@ -51,6 +51,7 @@ from controllers.folder_actions import FolderActions
 from controllers.inspector_controller import InspectorController
 from controllers.map_controller import MapController
 from controllers.metadata_filter_controller import MetadataFilterController
+from controllers.metadata_progress import MetadataProgress
 from controllers.sidebar_visibility import SidebarVisibility
 from controllers.undo_history import UndoHistory
 from core.catalog.availability import AvailabilityCheck, check_availability
@@ -200,6 +201,9 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.job_manager: JobManager | None = None
         # Widget de progreso (en la barra de estado) de cada trabajo en curso
         self._job_widgets: dict[str, JobProgressWidget] = {}
+        # Mientras se leen los metadatos, una ventana con el avance bloquea la aplicación
+        # (GEN 20.2; recibe cada gestor de trabajos en '_open_catalog')
+        self.metadata_progress = MetadataProgress(self, job_name=JOB_METADATA, parent=self)
         # True si se pidió generar miniaturas mientras ya había una pasada en curso: al terminar
         # esa se hace otra (p. ej. una regeneración pedida a mitad de la pasada)
         self._thumbnail_rerun_requested = False
@@ -1210,6 +1214,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
 
         # Trabajos en segundo plano: sus señales llegan al hilo principal
         self.job_manager = JobManager(self.db, parent=self)
+        # Antes que lo demás: al terminar la lectura, su ventana se cierra antes de otro aviso
+        self.metadata_progress.attach(self.job_manager)
         self.job_manager.job_progress.connect(self._on_job_progress)
         self.job_manager.job_finished.connect(self._on_job_finished)
         self.job_manager.job_failed.connect(self._on_job_failed)

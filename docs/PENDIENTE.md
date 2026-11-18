@@ -21,7 +21,6 @@
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
 - **Preparar el crecimiento** (16/11/2026): hechos `GEN 11` (el guion de autopruebas), `GEN 13` (una sola barra de biblioteca) , `GEN 12` (una ficha por módulo) y `GEN 14` (los escritores); lo siguiente, `GEN 15` (trabajos fuera del controlador), antes de `VID 7`. `MUS 1` a `MUS 3` y `VID 1` a `VID 4` no dependen de nada de esto.
-- **Nada se modifica mientras se leen los metadatos** (18/11/2026): hecho `GEN 20.1` (la primera lectura no borra nada del archivo); lo siguiente, `GEN 20.2` (la ventana de progreso).
 
 ---
 
@@ -113,13 +112,6 @@ Las columnas de cada módulo, en su fase (`MUS 5`, `EBK 5.3`).
 ### Fase GEN 19 — Base común de los servicios web
 
 Vídeo, Ebooks y Música descargarán datos, cada uno de su proveedor, y los tres necesitan lo mismo: identificarse, limitar las peticiones, guardar en caché, la clave en Opciones y un trabajo cancelable. Antes del primero (`VID 7`).
-
-### Fase GEN 20 — Nada se modifica mientras se leen los metadatos
-
-Acordado con el autor el 18/11/2026, tras crear un catálogo de 22 000 fotos ([DECISIONES.md](DECISIONES.md)): se podía valorar y asignar palabras a fotos aún sin leer, y una palabra asignada así dejaba en el archivo solo esa.
-
-- ~~**GEN 20.1** La primera lectura no borra nada del archivo~~ (hecho el 18/11/2026): no se escribe en un archivo con XMP nunca leído, y en su primera lectura las palabras asignadas antes se suman a las suyas (`core/userdata/LEEME.md`).
-- **GEN 20.2** Ventana de progreso que bloquea la aplicación mientras se leen los metadatos (solo si dura más de un par de segundos): título «Leyendo metadatos», el texto del autor («Se van a leer metadatos y crear miniaturas de X archivos, la operación puede tardar varios minutos. Durante el proceso la edición está deshabilitada.»), la barra («1 234 de 22 012») y «Cancelar». Tras «Añadir carpeta», primero su resumen y, al cerrarlo, la ventana. El recorrido de la carpeta y las miniaturas no bloquean.
 
 ### Mejoras menores (GENERAL)
 

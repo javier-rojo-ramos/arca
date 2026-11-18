@@ -130,6 +130,7 @@ python -m controllers.undo_history                             (el historial de 
 python -m controllers.track_profile_controller                 (la banda del perfil: ninguno, varios, uno, el que llega, el mismo otra vez, el que falla y por qué, de la memoria, el botón, no disponible, el alto y lo guardado; la sincronización con un mapa de mentira: punto ámbar en los dos sentidos, no con el contorno, el tramo, Esc; con la página de verdad y un lector de mentira; sin ventana)
 python -m controllers.track_detail_controller                  (recorrido completo del track activo: lectura, memoria, respuestas tardías, catálogo cerrado; con un gestor de mentira; sin ventana)
 python -m controllers.map_framing                              (el encuadre del mapa de cada módulo: recordar, otro origen, JSON; sin Qt)
+python -m controllers.metadata_progress                        (ventana «Leyendo metadatos»: lectura corta sin ventana, larga tras el tiempo y tras otra modal, avance, cancelar, fallo, cambio de gestor y gestor destruido; con gestor y ventana de mentira; sin ventana)
 python -m controllers.metadata_filter_controller               (columnas de partida, qué se recuenta, respuestas tardías, alto guardado, con host, modelo y BD de mentira; sin ventana)
 
 # ui_helpers
@@ -184,7 +185,7 @@ python -m ui_helpers.widgets.text_filter_row                   (opciones, pausa 
 python -m ui_helpers.widgets.view_buttons                      (lógica de los botones de vista; sin ventana)
 ```
 
-El modelo, el delegado, `GridActions`, la barra lateral, `MediaGridView` y los módulos (`controllers/app_modules/`) (UI) no tienen autoprueba: se prueban a mano en la aplicación (qué falta por ver, en [ESTADO.md](ESTADO.md)). La ventana de opciones se puede abrir sola, sin el resto de la aplicación ni tocar `settings.json`: `python -m ui_helpers.dialogs.settings_dialog`. Lo mismo «¿Qué contiene esta carpeta?»: `python -m ui_helpers.dialogs.folder_content_dialog`. Y la ventana «Eliminar» (con una selección mixta inventada): `python -m ui_helpers.dialogs.remove_dialog`.
+El modelo, el delegado, `GridActions`, la barra lateral, `MediaGridView` y los módulos (`controllers/app_modules/`) (UI) no tienen autoprueba: se prueban a mano en la aplicación (qué falta por ver, en [ESTADO.md](ESTADO.md)). La ventana de opciones se puede abrir sola, sin el resto de la aplicación ni tocar `settings.json`: `python -m ui_helpers.dialogs.settings_dialog`. Lo mismo «¿Qué contiene esta carpeta?»: `python -m ui_helpers.dialogs.folder_content_dialog`. Y la ventana «Eliminar» (con una selección mixta inventada): `python -m ui_helpers.dialogs.remove_dialog`. La de «Leyendo metadatos», con un avance simulado (se cierra sola al llegar al final, o con «Cancelar»): `python -m ui_helpers.dialogs.metadata_progress_dialog --ventana` (sin `--ventana`, su autoprueba, sin ventana).
 
 **Diagnóstico de metadatos** (solo lectura):
 
