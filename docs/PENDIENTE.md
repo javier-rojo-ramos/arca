@@ -90,7 +90,12 @@ Acordado con el autor el 16/11/2026, tras analizar el código ([DECISIONES.md](D
 
 ### Fase GEN 15 — Los trabajos, fuera del controlador principal
 
-`main_window_controller.py` tiene 2 026 líneas y 80 métodos; la cadena metadatos → miniaturas → escritura, con sus esperas, vive ahí. Sacarla a su módulo (nombres, títulos, encadenado, progreso) y, en pasos aparte, lo de añadir carpeta, quitar ausentes y eliminar. Con ello, el grupo de hilos propio para los trabajos (de `GEN 10`) y, al mover cada bloque, sus nombres en inglés. Antes de `VID 7` (descargas).
+`main_window_controller.py` tiene 2 036 líneas y 81 métodos (18/11/2026); la cadena metadatos → miniaturas → escritura, con sus esperas, vive ahí. Antes de `VID 7` (descargas). Plan aprobado por el autor el 18/11/2026 (refactorización: nada cambia en la aplicación; el código se mueve tal cual y lo movido pasa a nombres en inglés):
+
+- **GEN 15.1** El encadenado de los trabajos, a `controllers/job_coordinator.py` (`JobCoordinator`): nombres y títulos, el gestor de cada catálogo, la ventana «Leyendo metadatos», las barras de la barra de estado, las reglas (metadatos → miniaturas → escritura; escritura y lectura por turnos; eliminar para lo demás y lo relanza; la pregunta de los pendientes), la escritura diferida y «Regenerar miniaturas». Lo que toca la cuadrícula se queda en el controlador y se pide con señales. Con una autoprueba de las reglas (hoy sin ninguna).
+- **GEN 15.2** Añadir y sincronizar carpetas (con el resumen y «Quitar archivos ausentes»), a su módulo o junto a `folder_actions.py`.
+- **GEN 15.3** Eliminar, a su módulo.
+- **GEN 15.4** (opcional) El grupo de hilos propio para los trabajos (de `GEN 10`): sí cambia cuántas cosas corren a la vez; medir antes.
 
 ### Fase GEN 16 — Perfil de tarjeta
 

@@ -5,8 +5,9 @@ autor): esta ventana es MODAL respecto a la ventana principal, así que la bloqu
 sin vigilar cada acción. La abre y la cierra 'controllers/metadata_progress.py'.
 
     ┌ [icono] Leyendo metadatos ─────────────────────────────────────── [x] ┐
-    │ Se van a leer metadatos de 22.012 archivos, la operación puede tardar  │
-    │ varios minutos. Durante el proceso la edición está deshabilitada.      │
+    │ Se van a leer los metadatos de 22.012 archivos, la operación puede     │
+    │ tardar varios minutos. Durante el proceso la edición está              │
+    │ deshabilitada.                                                         │
     │                                                                        │
     │ [██████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] │
     │ 1.234 de 22.012                                           [Cancelar]   │
@@ -25,12 +26,13 @@ Reglas:
 Prueba (sin ventana; con '--ventana', la muestra con un avance simulado):
     python -m ui_helpers.dialogs.metadata_progress_dialog
 
+1.1.1 Texto: «Se van a leer LOS metadatos de...» (cambiado por el autor); autoprueba al día.
 1.1.0 Con el icono de la aplicación en la barra de título (el botón de cerrar, en gris) y
       sin la mención a las miniaturas en el texto (pedidos por el autor).
 1.0.0 Primera versión (GEN 20.2). El texto es del autor.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __all__ = ["MetadataProgressDialog", "message_text"]
 
 # Librerías de terceros (Qt)
@@ -61,7 +63,7 @@ def message_text(total: int) -> str:
     """
     files = "1 archivo" if total == 1 else f"{format_count(total)} archivos"
     return (
-        f"Se van a leer metadatos de {files}, la operación puede tardar varios minutos. "
+        f"Se van a leer los metadatos de {files}, la operación puede tardar varios minutos. "
         "Durante el proceso la edición está deshabilitada."
     )
 
@@ -177,7 +179,7 @@ if __name__ == "__main__":
 
     # 1. Textos (con el punto de miles del resto de la aplicación)
     assert message_text(22012).startswith(
-        "Se van a leer metadatos de 22.012 archivos, la operación puede tardar"
+        "Se van a leer los metadatos de 22.012 archivos, la operación puede tardar"
     ), message_text(22012)
     assert "miniaturas" not in message_text(22012)  # se generan después, sin bloquear
     assert message_text(22012).endswith("Durante el proceso la edición está deshabilitada.")
