@@ -155,7 +155,7 @@ Acordado con el autor el 19/11/2026 (cambia la regla de los originales: [DECISIO
 - **CAT 4.1** El núcleo, sin interfaz (`core/file_ops/`), con autoprueba:
   - ~~**4.1a** Validar los nombres (Windows, macOS y Linux) y renombrar sin la extensión (`naming.py`)~~ (hecho el 19/11/2026).
   - ~~**4.1b** El registro de operaciones (migración 5) y su revisión al abrir el catálogo; el plan y la ejecución de mover o renombrar archivos (archivo, `.xmp`, entrada del `.arca.json` y catálogo)~~ (hecho el 19/11/2026). El estado de la barra (rutas en `settings.json`) va con la interfaz (`CAT 4.2` y `4.3`).
-- **CAT 4.2** Renombrar un archivo («Cambiar nombre…», F2).
+- ~~**CAT 4.2** Renombrar un archivo («Cambiar nombre…», F2)~~ (hecho el 19/11/2026).
 - **CAT 4.3** Renombrar una carpeta (la raíz de una ubicación, en un paso aparte).
 - **CAT 4.4** «Nueva carpeta…» y mover archivos en el mismo disco (arrastrar a «Carpetas» y «Mover a…»).
 - **CAT 4.5** Mover entre discos (copiar, comprobar y borrar el original).

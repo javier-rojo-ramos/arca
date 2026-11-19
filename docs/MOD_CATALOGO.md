@@ -108,6 +108,7 @@ Son los comunes a todos los módulos:
 
 | Orden | Qué hace | Dónde |
 |---|---|---|
+| «Cambiar nombre…» (F2) | Cambia el nombre de un archivo en el disco (con su `.xmp` y su entrada del `.arca.json`) y en el catálogo, que conserva todo lo suyo; la extensión no cambia (`CAT 4.2`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Eliminar del catálogo» | Quita los archivos del catálogo; siguen en su carpeta y vuelven al sincronizar | `media_removal.py` |
 | «Eliminar del disco» | Además, los envía a la Papelera (con el sidecar de un RAW). Los ausentes, los de una ubicación desconectada y los de una unidad de red solo se quitan del catálogo. La carpeta que se queda vacía (y sin nada en el catálogo) se elimina también del disco, con su línea en la ventana (`CAT 3.3`, como Lightroom) | `media_removal.py`, `empty_folders.py`; la papelera se le pasa como función desde la interfaz |
 | «Quitar del catálogo…» (carpeta o ubicación) | Quita esa carpeta entera, también desconectada; los archivos del disco no se tocan. Las carpetas que ya no tienen archivos en el disco se eliminan también del disco, con su aviso (`CAT 3.2`, como Lightroom) | `folder_removal.py`, `empty_folders.py` |

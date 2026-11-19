@@ -17,7 +17,9 @@ unas fotos inventadas, y recorre lo que conecta el controlador:
        simulada, nunca a la del sistema);
     8. «Eliminar del disco» la única foto de otra subcarpeta (CAT 3.3): la foto, a la
        papelera simulada, y la carpeta, eliminada;
-    9. cerrar.
+    9. «Cambiar nombre...» de una foto (CAT 4.2; la ventana responde sola): el archivo en
+       el disco y su ruta y su título en el catálogo;
+    10. cerrar.
 
 Falla si algo no llega a tiempo, si sale un aviso de error («critical») o si una excepción
 llega a 'sys.excepthook' (en la aplicación, una excepción en un slot de Qt solo se apunta en
@@ -27,8 +29,9 @@ Es la comprobación de fondo de las refactorizaciones del controlador (docs/PEND
 GEN 15): se lanza antes y después, además de 'run_selftests.py'. Usa partes internas de la
 ventana ('folder_import.start', 'remove_actions.request_remove') y sustituye
 'MessageBoxHelper' en el módulo del controlador, 'RemoveDialog' y 'move_to_trash' en el de
-'remove_actions.py' y 'move_to_trash' en el de 'folder_actions.py': si una refactorización
-los mueve a otro módulo, hay que cambiar aquí dónde se sustituyen.
+'remove_actions.py', 'move_to_trash' en el de 'folder_actions.py' y 'RenameDialog' en el de
+'file_actions.py': si una refactorización los mueve a otro módulo, hay que cambiar aquí
+dónde se sustituyen.
 
 Nunca toca los datos del autor: antes de crear la ventana comprueba que 'settings.json' está
 dentro de la carpeta temporal (si no, se detiene). La carpeta se borra al terminar.
@@ -39,6 +42,7 @@ Uso (desde la raíz del proyecto, con el Python de .venv; necesita ExifTool para
 
 Termina con código 0 si todo va bien y 1 si algo falla.
 
+1.4.0 Paso nuevo: «Cambiar nombre...» de una foto (CAT 4.2), con su ventana sustituida.
 1.3.0 Paso nuevo: «Eliminar del disco» la única foto de una carpeta (CAT 3.3), con la
       papelera de 'remove_actions' también simulada.
 1.2.0 Paso nuevo: quitar del catálogo una carpeta vacía en el disco (CAT 3.2), con la
@@ -49,7 +53,7 @@ Termina con código 0 si todo va bien y 1 si algo falla.
 1.0.0 Primera versión (18/11/2026), con GEN 15.1.
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["main", "run"]
 
 # Librerías estándar
@@ -127,7 +131,7 @@ def run(work_dir: Path) -> None:
         raise SmokeError(f"settings.json no quedó en la carpeta temporal: {app_paths.CONFIG_FILE}")
 
     import controllers.main_window_controller as mwc
-    from controllers import folder_actions, remove_actions
+    from controllers import file_actions, folder_actions, remove_actions
     from core.catalog.catalog_builder import CatalogBuilder
     from core.metadata.exiftool_runner import ExifToolRunner
 
@@ -179,6 +183,15 @@ def run(work_dir: Path) -> None:
     remove_actions.RemoveDialog = CatalogOnlyRemoveDialog  # (antes de crear la ventana)
     remove_actions.move_to_trash = fake_trash
     folder_actions.move_to_trash = fake_trash
+
+    class AnsweringRenameDialog:
+        """La ventana «Cambiar nombre», que responde siempre «Renombrada»."""
+
+        @staticmethod
+        def ask(_parent: object, _file_name: str, _initial: str | None = None) -> str:
+            return "Renombrada"
+
+    file_actions.RenameDialog = AnsweringRenameDialog
 
     def run_until(condition: Callable[[], bool], seconds: float, label: str) -> None:
         """Deja correr el bucle de eventos hasta que se cumpla 'condition'."""
@@ -356,7 +369,23 @@ def run(work_dir: Path) -> None:
         raise SmokeError(f"A la papelera simulada fue {trashed}")
     print("8. Eliminar del disco la única foto de una carpeta: la foto y la carpeta")
 
-    # 9. Cerrar
+    # 9. «Cambiar nombre...» de una foto: en el disco y en el catálogo (ruta y título)
+    ((renamed_id, old_name),) = query(
+        "SELECT id, relative_path FROM media_items WHERE relative_path = 'foto_01.jpg'"
+    )
+    window.file_actions.request_rename([renamed_id])
+    run_until(
+        lambda: (library / "Renombrada.jpg").exists(), TIMEOUT_SHORT, "cambiar el nombre en el disco"
+    )
+    run_until(idle, TIMEOUT_SHORT, "fin de cambiar el nombre")
+    row = query(f"SELECT relative_path, title FROM media_items WHERE id = {renamed_id}")
+    if row != [("Renombrada.jpg", "Renombrada")] or (library / old_name).exists():
+        raise SmokeError(f"Tras cambiar el nombre: {row}")
+    if query("SELECT COUNT(*) FROM file_operations") != [(0,)]:
+        raise SmokeError("El registro de operaciones no quedó vacío")
+    print(f"9. Cambiar nombre: {old_name} → Renombrada.jpg (disco y catálogo)")
+
+    # 10. Cerrar
     window.close()
     app.processEvents()
     if jobs.is_attached:
@@ -364,7 +393,7 @@ def run(work_dir: Path) -> None:
     errors = [text for kind, text in shown if kind == "critical"]
     if errors or exceptions:
         raise SmokeError(f"Errores: {errors or exceptions}")
-    print(f"9. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
+    print(f"10. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
     window.deleteLater()
     app.processEvents()
 

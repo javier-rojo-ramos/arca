@@ -41,6 +41,7 @@ from controllers.app_modules.center_views import CenterView
 from controllers.app_modules.module_host import ModuleHost
 from controllers.app_modules.registry import create_modules
 from controllers.center_view_controller import CenterViewController
+from controllers.file_actions import FileActions
 from controllers.filter_controller import FilterController
 from controllers.filter_preset_controller import FilterPresetController
 from controllers.folder_actions import FolderActions
@@ -167,6 +168,18 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             self.job_coordinator,
             get_db=lambda: self.db,
             is_adding_folder=lambda: self.folder_import.is_running,
+            reload_grid=self.mosaico_model.reload,
+            refresh_counts=self._refresh_sidebar_counts,
+            parent=self,
+        )
+        # «Cambiar nombre...» de un archivo (ver 'controllers/file_actions.py'; la cuadrícula
+        # lo pide en '_configurar_grid_mosaico')
+        self.file_actions = FileActions(
+            self,
+            self.message_box,
+            self.job_coordinator,
+            get_db=lambda: self.db,
+            busy_reason=self.remove_actions.busy_reason,
             reload_grid=self.mosaico_model.reload,
             refresh_counts=self._refresh_sidebar_counts,
             parent=self,
@@ -442,6 +455,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.grid_actions.library_change_requested.connect(self._on_library_change_requested)
         # "Eliminar..." (menú de la tarjeta y Supr fuera de las colecciones estáticas)
         self.grid_actions.remove_requested.connect(self.remove_actions.request_remove)
+        # "Cambiar nombre..." (menú de la tarjeta y F2)
+        self.grid_actions.rename_requested.connect(self.file_actions.request_rename)
 
         # Barra inferior: marca, valoración, color y selección rápida de lo seleccionado
         # (widget promocionado del .ui). Escribe por el modelo, como la tarjeta y el teclado

@@ -44,13 +44,15 @@ Uso:
     result = execute_file_moves(conn, plan, progress=..., cancel_event=...)   # el trabajo
     reconcile_file_operations(conn)                               # al abrir el catálogo
 
+1.1.0 'plan_rename': la petición y el plan de renombrar un archivo, de una vez (para
+      'execute_async'; CAT 4.2).
 1.0.0 Primera versión (CAT 4.1b).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.file_ops.moves
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "FileMoveRequest",
     "FileMoveResult",
@@ -61,6 +63,7 @@ __all__ = [
     "execute_file_moves",
     "move_requests",
     "plan_file_moves",
+    "plan_rename",
     "reconcile_file_operations",
     "rename_request",
 ]
@@ -475,6 +478,14 @@ def plan_file_moves(
             )
         )
     return MovePlan(tuple(moves), tuple(skipped))
+
+
+def plan_rename(conn: sqlite3.Connection, media_id: int, new_stem: str) -> MovePlan:
+    """El plan de renombrar un archivo (en su carpeta, con su extensión). Ver 'plan_file_moves'."""
+    request = rename_request(conn, media_id, new_stem)
+    if request is None:
+        return MovePlan(skipped=((str(media_id), SKIP_GONE),))
+    return plan_file_moves(conn, [request])
 
 
 # -----------------------------------------------------------------------------
@@ -894,6 +905,7 @@ if __name__ == "__main__":
         loose = add("suelta.jpg")
         assert rename_request(db, loose, "Otra") == FileMoveRequest(loose, 1, "Otra.jpg")
         assert rename_request(db, 999, "x") is None
+        assert plan_rename(db, 999, "x").skipped == (("999", SKIP_GONE),)
         assert move_requests(db, [photo, loose, photo], 1, "Destino") == [
             FileMoveRequest(photo, 1, "Destino/IMG_1.jpg"),
             FileMoveRequest(loose, 1, "Destino/suelta.jpg"),

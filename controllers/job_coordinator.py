@@ -9,6 +9,8 @@ Trabajos (su nombre en el 'JobManager' y el título de su barra en la barra de e
     thumbnails  «Generando miniaturas»       'generate_pending_thumbnails'
     userdata    «Guardando en los archivos»  'write_pending_user_data'
     remove      «Eliminando»                 lo que pida quien elimina ('start_removal')
+    files       «Moviendo archivos»          renombrar o mover archivos ('start_file_job';
+                                             'core/file_ops/moves.execute_file_moves')
 
 Reglas del encadenado:
     - Al abrir un catálogo, al añadir o sincronizar una carpeta y al volver archivos que
@@ -18,7 +20,8 @@ Reglas del encadenado:
     - La lectura y la escritura nunca van a la vez (una podría leer un archivo mientras la
       otra lo escribe): lo que se pide mientras corre la otra se lanza al terminar. Si la
       escritura ve archivos cambiados fuera (p. ej. en Lightroom), se releen.
-    - Mientras se elimina no se lanza nada más: lo pedido se lanza al terminar.
+    - Mientras se elimina, o se renombran o mueven archivos, no se lanza nada más (los
+      otros trabajos usan las rutas): lo pedido se lanza al terminar.
     - Un cambio del usuario se escribe tras USERDATA_WRITE_DELAY_MS sin más cambios
       ('schedule_write'); si llega uno mientras escribe, se repite al terminar.
     - La primera escritura de cada catálogo cuenta lo pendiente: con
@@ -38,14 +41,17 @@ Uso (en el controlador principal, que solo lo crea, lo conecta y le pasa cada ca
     self.job_coordinator.start_metadata()
     self.job_coordinator.detach()             # al cerrarlo (cancela lo que haya en marcha)
 
+1.1.0 Trabajo 'files' («Moviendo archivos», CAT 4.2): renombrar o mover archivos, con las
+      mismas reglas que eliminar ('start_file_job', 'files_finished', 'files_failed').
 1.0.0 Primera versión (GEN 15.1): el código de 'main_window_controller.py', movido.
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.job_coordinator
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
+    "JOB_FILES",
     "JOB_METADATA",
     "JOB_REMOVE",
     "JOB_THUMBNAILS",
@@ -86,12 +92,16 @@ JOB_METADATA = "metadata"
 JOB_THUMBNAILS = "thumbnails"
 JOB_USERDATA = "userdata"
 JOB_REMOVE = "remove"
+JOB_FILES = "files"
 JOB_TITLES: dict[str, str] = {
     JOB_METADATA: "Leyendo metadatos",
     JOB_THUMBNAILS: "Generando miniaturas",
     JOB_USERDATA: "Guardando en los archivos",
     JOB_REMOVE: "Eliminando",
+    JOB_FILES: "Moviendo archivos",
 }
+# Trabajos durante los que no se lanza ningún otro (cambian qué archivos hay y dónde)
+_EXCLUSIVE_JOBS = (JOB_REMOVE, JOB_FILES)
 
 # Segundos que se espera tras el último cambio del usuario (estrellas, marca, color) antes
 # de escribirlo en los archivos: así una ráfaga de clics se escribe de una vez
@@ -126,6 +136,9 @@ class JobCoordinator(QObject):
             atenderla se lanza lo que esperaba.
         removal_failed(): eliminar falló con una excepción: la ventana muestra lo que hay
             (lo quitado está confirmado por lotes); después se lanza lo que esperaba.
+        files_finished(object): terminó de renombrar o mover archivos (el resultado),
+            como 'removal_finished'.
+        files_failed(): renombrar o mover falló con una excepción, como 'removal_failed'.
     """
 
     thumbnails_progressed = Signal()
@@ -133,6 +146,8 @@ class JobCoordinator(QObject):
     metadata_read = Signal()
     removal_finished = Signal(object)
     removal_failed = Signal()
+    files_finished = Signal(object)
+    files_failed = Signal()
 
     def __init__(
         self,
@@ -323,7 +338,7 @@ class JobCoordinator(QObject):
             return
         if self._userdata_backlog_state != "ok":
             return  # preguntando, o el usuario lo aplazó en esta sesión
-        if self._jobs.is_running(JOB_REMOVE):
+        if self._exclusive_job_running():
             self._userdata_rerun_requested = True  # se lanza al terminar de eliminar
             return
         if self._jobs.is_running(JOB_METADATA):
@@ -377,7 +392,7 @@ class JobCoordinator(QObject):
         if self._jobs.is_running(JOB_USERDATA):
             self._metadata_after_userdata = True  # se lanza al terminar la escritura
             return
-        if self._jobs.is_running(JOB_REMOVE):
+        if self._exclusive_job_running():
             self._metadata_after_removal = True  # se lanza al terminar de eliminar
             return
         self._jobs.start(JOB_METADATA, process_pending_metadata)
@@ -386,7 +401,7 @@ class JobCoordinator(QObject):
         """Lanza la generación de miniaturas de los archivos pendientes, si no está ya en curso."""
         if self._jobs is None:
             return
-        if self._jobs.is_running(JOB_REMOVE):
+        if self._exclusive_job_running():
             # Generar a la vez dejaría miniaturas de elementos ya quitados del catálogo
             self._thumbnails_after_removal = True
             return
@@ -405,8 +420,25 @@ class JobCoordinator(QObject):
         if self._jobs is not None:
             self._jobs.start(JOB_REMOVE, job, *args, **kwargs)
 
+    def start_file_job(self, job: Callable[..., object], *args: object, **kwargs: object) -> None:
+        """Lanza un trabajo de renombrar o mover archivos ('execute_file_moves').
+
+        Con el nombre JOB_FILES y las mismas reglas que eliminar: mientras dura, lo demás
+        espera, y al terminar se avisa con 'files_finished' y se lanza lo que esperaba.
+        Quien lo pide comprueba antes que no haya nada en marcha ('busy_reason').
+        """
+        if self._jobs is not None:
+            self._jobs.start(JOB_FILES, job, *args, **kwargs)
+
+    def _exclusive_job_running(self) -> bool:
+        """True mientras se elimina o se renombran o mueven archivos (lo demás espera)."""
+        return self._jobs is not None and any(
+            self._jobs.is_running(name) for name in _EXCLUSIVE_JOBS
+        )
+
     def _resume_after_removal(self) -> None:
-        """Lanza lo que se pidió mientras se eliminaba (metadatos, miniaturas, escritura)."""
+        """Lanza lo que se pidió mientras se eliminaba o se movían archivos (metadatos,
+        miniaturas, escritura)."""
         if self._metadata_after_removal:
             self._metadata_after_removal = False
             self.start_metadata()
@@ -498,9 +530,10 @@ class JobCoordinator(QObject):
         if widget is None:
             if progress.total == 0:
                 return  # no hay nada que hacer: no se muestra la barra
-            if name in (JOB_USERDATA, JOB_REMOVE) and progress.total < USERDATA_PROGRESS_MIN_ITEMS:
-                # Escritura breve tras unos clics, o eliminar unos pocos archivos: sin barra
-                # que aparezca y desaparezca en un instante
+            brief = progress.total < USERDATA_PROGRESS_MIN_ITEMS
+            if name in (JOB_USERDATA, *_EXCLUSIVE_JOBS) and brief:
+                # Escritura breve tras unos clics, o eliminar o mover unos pocos archivos:
+                # sin barra que aparezca y desaparezca en un instante
                 return
             widget = JobProgressWidget(JOB_TITLES.get(name, name))
             widget.cancel_requested.connect(lambda: self._on_job_cancel_requested(name))
@@ -528,6 +561,10 @@ class JobCoordinator(QObject):
         # esperaba se lanza
         if name == JOB_REMOVE:
             self.removal_finished.emit(result)
+            self._resume_after_removal()
+            return
+        if name == JOB_FILES:
+            self.files_finished.emit(result)
             self._resume_after_removal()
             return
 
@@ -576,6 +613,10 @@ class JobCoordinator(QObject):
         if name == JOB_REMOVE:
             # Lo que se llegó a quitar está confirmado por lotes: la ventana muestra lo que hay
             self.removal_failed.emit()
+            self._resume_after_removal()
+        elif name == JOB_FILES:
+            # Cada archivo se confirma por separado: la ventana muestra lo que hay
+            self.files_failed.emit()
             self._resume_after_removal()
         # Las miniaturas no dependen de los metadatos: se generan igualmente (antes del cuadro
         # modal), y lo pendiente de escribir en los archivos, también
@@ -820,6 +861,24 @@ if __name__ == "__main__":
     assert box.criticals[-1].startswith("Ha fallado el trabajo «Eliminando»")
     jobs.finish("thumbnails")
     print("8. Eliminar falla: la ventana, el aviso y lo que esperaba")
+
+    # 8b. Renombrar o mover archivos: como eliminar (lo demás espera y se relanza después)
+    coordinator.files_finished.connect(lambda _result: events.append(("files", len(jobs.started))))
+    coordinator.files_failed.connect(lambda: events.append(("files_failed",)))
+    coordinator.start_file_job(fake_removal, "plan")
+    assert jobs.started[-1] == ("files", fake_removal, ("plan",), {})
+    assert coordinator.busy_reason() == "Hay un trabajo en marcha: «Moviendo archivos»."
+    waiting_from = len(jobs.started)
+    coordinator.start_thumbnails()
+    assert len(jobs.started) == waiting_from
+    jobs.finish("files")
+    assert ("files", waiting_from) in events and jobs.names()[-1] == "thumbnails"
+    jobs.finish("thumbnails")
+    coordinator.start_file_job(fake_removal, "plan")
+    jobs.fail("files")
+    assert ("files_failed",) in events
+    assert box.criticals[-1].startswith("Ha fallado el trabajo «Moviendo archivos»")
+    print("8b. Renombrar o mover: espera lo demás; al terminar o fallar, la ventana")
 
     # 9. La lectura falla: miniaturas y escritura igualmente, y el aviso
     coordinator.start_metadata()

@@ -11,6 +11,7 @@ vista individual; sin Ctrl/Alt/Mayús):
     B     selección rápida: mete la selección; si TODA ya estaba dentro, la saca (como Lightroom)
     Supr  dentro de una colección estática, quitar de la colección; en cualquier otra vista,
           "Eliminar..." (como Lightroom)
+    F2    "Cambiar nombre..." (con un solo archivo elegido)
 
 Colecciones (paso 1d): el menú contextual tiene "Añadir a la colección" (con las
 colecciones estáticas del catálogo y "Nueva colección...") y, si se está viendo una
@@ -28,6 +29,12 @@ Eliminar: "Eliminar..." al final del menú y la tecla Supr fuera de las coleccio
 estáticas. Solo emite 'remove_requested' con los 'id'; la ventana (quitar del catálogo o
 enviar a la papelera) y el trabajo los pone el controlador.
 
+Cambiar nombre (CAT 4.2): "Cambiar nombre..." justo antes de "Eliminar..." (los dos tocan el
+disco) y la tecla F2. Solo emite 'rename_requested' con los 'id'; con más de uno, el menú
+la ofrece desactivada (el renombrado múltiple llegará después) y quien la atiende
+('controllers/file_actions.py') avisa.
+
+1.6.0 "Cambiar nombre..." en el menú y la tecla F2 ('rename_requested', CAT 4.2).
 1.5.0 'watch': los atajos también con otra vista enfocada (la vista individual, paso A.1).
 1.4.0 "Eliminar..." en el menú y tecla Supr fuera de las colecciones estáticas.
 1.3.1 Los nombres de las bibliotecas pasan por 'qt_text' (por si alguno lleva '&', que en
@@ -37,7 +44,7 @@ enviar a la papelera) y el trabajo los pone el controlador.
 1.1.0 Colecciones: añadir a una colección, quitar de la colección (menú y tecla Supr).
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = ["GridActions"]
 
 # Librerías de terceros (Qt)
@@ -66,6 +73,8 @@ _COLOR_KEYS = {_KEY.Key_6: "red", _KEY.Key_7: "yellow", _KEY.Key_8: "green", _KE
 _REMOVE_KEYS = {_KEY.Key_Delete, _KEY.Key_Backspace}
 # Meter o sacar de la selección rápida
 _QUICK_SELECTION_KEY = _KEY.Key_B
+# Cambiar el nombre del archivo (como el Explorador y Lightroom)
+_RENAME_KEY = _KEY.Key_F2
 
 
 class GridActions(QObject):
@@ -79,6 +88,8 @@ class GridActions(QObject):
         library_change_requested(list, object): poner esos 'id' en una biblioteca
             ('image', 'video'...) o, con None, volver a la detección automática.
         remove_requested(list): "Eliminar..." esos 'id' (quitar del catálogo o papelera).
+        rename_requested(list): "Cambiar nombre..." de esos 'id' (uno, si se ofrece en el
+            menú; con F2 puede llegar más de uno y quien la atiende avisa).
     """
 
     regenerate_requested = Signal(list)
@@ -87,6 +98,7 @@ class GridActions(QObject):
     remove_from_collection_requested = Signal(int, list)
     new_collection_requested = Signal()
     remove_requested = Signal(list)
+    rename_requested = Signal(list)
 
     def __init__(self, view: QListView, model: MediaGridModel) -> None:
         super().__init__(view)
@@ -182,6 +194,8 @@ class GridActions(QObject):
             self._toggle_color(rows, _COLOR_KEYS[key])
         elif key == _QUICK_SELECTION_KEY:
             self._toggle_quick_selection(rows)
+        elif key == _RENAME_KEY:
+            self.rename_requested.emit(self._model.media_ids(rows))
         elif key in _REMOVE_KEYS:
             # Dentro de una colección estática, Supr solo la saca de la colección (como
             # Lightroom); en cualquier otra vista, abre "Eliminar..."
@@ -262,8 +276,13 @@ class GridActions(QObject):
         label = "Regenerar miniatura" if count == 1 else f"Regenerar {count} miniaturas"
         menu.addAction(label, lambda: self.regenerate_requested.emit(self._model.media_ids(rows)))
 
-        # --- Eliminar (al final, separado: es lo más delicado) ---
+        # --- Lo que toca el disco (al final, separado: es lo más delicado) ---
         menu.addSeparator()
+        rename = menu.addAction(
+            "Cambiar nombre...\tF2",
+            lambda: self.rename_requested.emit(self._model.media_ids(rows)),
+        )
+        rename.setEnabled(count == 1)  # varios a la vez, más adelante (CAT 4.6)
         text = "Eliminar..." if count == 1 else f"Eliminar {count} archivos..."
         # El atajo solo vale fuera de las colecciones (dentro, Supr quita de la colección)
         shortcut = "" if self._current_collection is not None else "\tSupr"

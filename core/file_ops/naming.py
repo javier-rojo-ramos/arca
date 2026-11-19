@@ -21,13 +21,15 @@ Uso:
     problem = name_problem(name)                          # None si vale
     new_file_name = rename_keeping_extension("IMG_1.CR3", name)   # 'Boda.CR3'
 
+1.0.1 El motivo de un nombre reservado cita solo la parte reservada («con»): todos los
+      motivos son cortos y caben en una línea.
 1.0.0 Primera versión (CAT 4.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.file_ops.naming
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = [
     "FORBIDDEN_CHARACTERS",
     "MAX_NAME_BYTES",
@@ -80,8 +82,11 @@ def name_problem(name: str) -> str | None:
         return "El nombre no puede llevar caracteres de control."
     if name.endswith((" ", ".")):
         return "El nombre no puede acabar en un espacio ni en un punto."
-    if name.split(".", 1)[0].rstrip(" ").casefold() in _RESERVED_NAMES:
-        return f"«{name}» es un nombre reservado de Windows."
+    reserved = name.split(".", 1)[0].rstrip(" ")
+    if reserved.casefold() in _RESERVED_NAMES:
+        # Solo la parte reservada ('con', no 'con.algo larguísimo.txt'): todos los motivos
+        # caben en una línea de la ventana «Cambiar nombre»
+        return f"«{reserved}» es un nombre reservado de Windows."
     if len(name.encode("utf-8")) > MAX_NAME_BYTES:
         return "El nombre es demasiado largo."
     return None
