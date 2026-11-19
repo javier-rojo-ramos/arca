@@ -73,6 +73,7 @@ python -m core.catalog.timeline                                (cada fila muestr
 python -m core.catalog.user_collections
 
 # core.file_ops
+python -m core.file_ops.moves
 python -m core.file_ops.naming
 
 # core.metadata

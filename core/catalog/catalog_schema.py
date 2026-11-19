@@ -25,6 +25,8 @@ de una canción...) van en tablas 1:1 con 'media_items' (photo_details,
 video_details, audio_details...), no en la tabla general. Las que falten se
 añadirán como migraciones nuevas, una por una.
 
+2.5.0 Migración 5: tabla 'file_operations', el registro de las operaciones con archivos
+      (renombrar y mover; docs/PENDIENTE.md, CAT 4).
 2.4.0 Migración 4: 'track_details.overview' (contorno simplificado de cada track, para el
       mapa).
 2.3.0 Migración 3: 'gps_direction' pasa de 'photo_details' a 'media_items' (dato de
@@ -54,7 +56,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.catalog_schema
 """
 
-__version__ = "2.4.0"
+__version__ = "2.5.0"
 __all__ = [
     "APPLICATION_ID",
     "BUSY_TIMEOUT_SECONDS",
@@ -541,6 +543,32 @@ _MIGRATION_004_TRACK_OVERVIEW = """
 ALTER TABLE track_details ADD COLUMN overview TEXT;
 """
 
+# Migración 5 (19/11/2026): el registro de las operaciones con archivos (renombrar y mover
+# desde la aplicación; docs/DECISIONES.md, 19/11/2026). Cada fila es un movimiento en el disco
+# que está a punto de hacerse; se apunta ANTES de tocar el disco y se borra en la misma
+# transacción que pone el catálogo al día. Si la aplicación se cierra a mitad, al abrir el
+# catálogo se mira el disco y se termina o se descarta ('core/file_ops/moves.py').
+_MIGRATION_005_FILE_OPERATIONS = """
+CREATE TABLE file_operations (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- La acción del usuario a la que pertenece (renombrar un archivo, mover 200)
+    batch_id            INTEGER NOT NULL,
+    -- 'file': un archivo del catálogo; 'sidecar' / 'sidecar_copy': su '.xmp', que se mueve
+    -- o se copia (si lo comparte con otro RAW del mismo nombre); 'folder': una carpeta
+    kind                TEXT NOT NULL
+                        CHECK(kind IN ('file', 'sidecar', 'sidecar_copy', 'folder')),
+    -- El elemento del catálogo (en 'file' y en los '.xmp': el del RAW)
+    media_id            INTEGER REFERENCES media_items(id) ON DELETE CASCADE,
+    -- Rutas relativas a su ubicación, con '/'
+    source_location_id  INTEGER NOT NULL REFERENCES storage_locations(id) ON DELETE CASCADE,
+    source_path         TEXT NOT NULL,
+    target_location_id  INTEGER NOT NULL REFERENCES storage_locations(id) ON DELETE CASCADE,
+    target_path         TEXT NOT NULL,
+    created_at          TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_file_operations_media ON file_operations(media_id);
+"""
+
 # Lista ORDENADA de migraciones: la posición (empezando en 1) es la versión a la
 # que lleva cada una. Para evolucionar el esquema, añadir elementos AL FINAL.
 MIGRATIONS: tuple[str, ...] = (
@@ -548,6 +576,7 @@ MIGRATIONS: tuple[str, ...] = (
     _MIGRATION_002_METADATA_EDIT_PENDING,
     _MIGRATION_003_GPS_DIRECTION,
     _MIGRATION_004_TRACK_OVERVIEW,
+    _MIGRATION_005_FILE_OPERATIONS,
 )
 
 # Versión actual del esquema: se deduce sola del número de migraciones, así no
@@ -696,7 +725,7 @@ if __name__ == "__main__":
 
     # 1. Un catálogo vacío pasa de la versión 0 a la actual, con la marca de la aplicación
     assert db.execute("PRAGMA user_version").fetchone()[0] == 0
-    assert apply_migrations(db) == SCHEMA_VERSION == 4
+    assert apply_migrations(db) == SCHEMA_VERSION == 5
     assert db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert db.execute("PRAGMA application_id").fetchone()[0] == APPLICATION_ID
     print(f"Esquema creado: v{SCHEMA_VERSION}, application_id = {APPLICATION_ID:#x}")
@@ -720,7 +749,7 @@ if __name__ == "__main__":
     expected_tables = {
         "storage_locations", "media_items", "scan_errors", "folder_libraries",
         "photo_details", "video_details", "track_details", "keywords",
-        "media_keywords", "collections", "collection_items",
+        "media_keywords", "collections", "collection_items", "file_operations",
     }  # fmt: skip
     assert tables_of(db) == expected_tables, tables_of(db) ^ expected_tables
     print("Tablas:", ", ".join(sorted(expected_tables)))
@@ -838,7 +867,7 @@ if __name__ == "__main__":
     )
     old.execute("INSERT INTO track_details(media_id, distance_m) VALUES (1, 9876.5)")
     assert "overview" not in columns_of(old, "track_details")
-    assert apply_migrations(old) == 4
+    assert apply_migrations(old) == SCHEMA_VERSION
     assert old.execute("SELECT distance_m, overview FROM track_details").fetchone() == (9876.5, None)
     old.close()
     print("Migración de la v3 a la v4: los tracks se conservan, sin contorno hasta releerlos")
@@ -911,5 +940,32 @@ if __name__ == "__main__":
     assert details.fetchall() == [(1, "Df"), (2, "Z6")]
     old.close()
     print("Migración 3: catálogo v2 al día, con la dirección en 'media_items'")
+
+    # 16. Un catálogo v4 pasa a la v5: el registro de operaciones, vacío; sus filas se van
+    #     con su elemento o con su ubicación
+    old = sqlite3.connect(":memory:")
+    configure_connection(old)
+    for number, script in enumerate(MIGRATIONS[:4], start=1):
+        mark = f"PRAGMA application_id = {APPLICATION_ID};\n" if number == 1 else ""
+        old.executescript(f"BEGIN;\n{script}\n{mark}PRAGMA user_version = {number};\nCOMMIT;")
+    old.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('P', '/p')")
+    old.execute(
+        """INSERT INTO media_items(storage_location_id, relative_path, file_name, media_type,
+               mime_type, file_size, file_mtime_ns, title)
+           VALUES (1, 'a.jpg', 'a.jpg', 'photo', 'image/jpeg', 1, 0, 'a')"""
+    )
+    old.commit()
+    assert apply_migrations(old) == SCHEMA_VERSION == 5
+    assert old.execute("SELECT COUNT(*) FROM file_operations").fetchone()[0] == 0
+    insert = (
+        "INSERT INTO file_operations(batch_id, kind, media_id, source_location_id, source_path,"
+        " target_location_id, target_path) VALUES (1, ?, 1, 1, 'a.jpg', 1, 'b.jpg')"
+    )
+    old.execute(insert, ("file",))
+    assert rejected(old, insert, ("otra",))  # tipo desconocido
+    old.execute("DELETE FROM media_items WHERE id = 1")
+    assert old.execute("SELECT COUNT(*) FROM file_operations").fetchone()[0] == 0
+    old.close()
+    print("Migración 5: catálogo v4 al día, con el registro de operaciones (en cascada)")
 
     print("Autoprueba finalizada correctamente.")

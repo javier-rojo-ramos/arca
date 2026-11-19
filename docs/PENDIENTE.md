@@ -154,7 +154,7 @@ Acordado con el autor el 19/11/2026 (cambia la regla de los originales: [DECISIO
 
 - **CAT 4.1** El núcleo, sin interfaz (`core/file_ops/`), con autoprueba:
   - ~~**4.1a** Validar los nombres (Windows, macOS y Linux) y renombrar sin la extensión (`naming.py`)~~ (hecho el 19/11/2026).
-  - **4.1b** El registro de operaciones (una migración) y su revisión al abrir el catálogo; el plan y la ejecución de mover o renombrar archivos (archivo, `.xmp`, entrada del `.arca.json` y catálogo). El estado de la barra (rutas en `settings.json`), con la interfaz (`CAT 4.2` y `4.3`).
+  - ~~**4.1b** El registro de operaciones (migración 5) y su revisión al abrir el catálogo; el plan y la ejecución de mover o renombrar archivos (archivo, `.xmp`, entrada del `.arca.json` y catálogo)~~ (hecho el 19/11/2026). El estado de la barra (rutas en `settings.json`) va con la interfaz (`CAT 4.2` y `4.3`).
 - **CAT 4.2** Renombrar un archivo («Cambiar nombre…», F2).
 - **CAT 4.3** Renombrar una carpeta (la raíz de una ubicación, en un paso aparte).
 - **CAT 4.4** «Nueva carpeta…» y mover archivos en el mismo disco (arrastrar a «Carpetas» y «Mover a…»).
@@ -196,7 +196,7 @@ Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso (a
 ### Fase MUS 1 — Leer las etiquetas
 
 - **MUS 1.1** Base de audio: mutagen (la instala el autor), la tabla campo ↔ etiqueta y la lectura, en `core/audio/`.
-- **MUS 1.2** La tabla `audio_details` (migración 5).
+- **MUS 1.2** La tabla `audio_details` (la siguiente migración libre; la 5 es el registro de operaciones de `CAT 4`).
 - **MUS 1.3** El extractor (`core/metadata/audio/`, `AUDIO_FIELDS_VERSION`): las canciones se leen solas al abrir el catálogo.
 - **MUS 1.4** Recuento de las canciones con varios géneros o artistas (decide si las listas van en tablas).
 

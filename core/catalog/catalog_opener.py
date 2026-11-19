@@ -21,10 +21,14 @@ Qué comprueba, en este orden:
        mensaje propio: no se puede migrar.
     4. Que no es de una versión más NUEVA de la aplicación (se rechaza sin tocarlo).
     5. Si es de una versión más antigua, aplica las migraciones pendientes.
+    6. Termina o descarta las operaciones con archivos (renombrar, mover) que quedaron a
+       medias si la aplicación se cerró ('core/file_ops/moves.reconcile_file_operations').
+       Un fallo aquí no impide abrir el catálogo: se apunta en el registro.
 
 Todos los fallos se lanzan como 'CatalogOpenError' (un 'CatalogError'), con un
 mensaje en español pensado para mostrarlo tal cual al usuario.
 
+1.2.0 Paso 6: el registro de operaciones con archivos (CAT 4), al abrir.
 1.1.0 Rechaza los catálogos sin la marca 'APPLICATION_ID' (los de antes de consolidar el
       esquema en la v1).
 
@@ -32,7 +36,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.catalog_opener
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["CatalogOpenError", "open_catalog"]
 
 # Librerías estándar
@@ -52,6 +56,7 @@ from core.catalog.catalog_schema import (
     apply_migrations,
     configure_connection,
 )
+from core.file_ops.moves import reconcile_file_operations
 
 
 class CatalogOpenError(CatalogError):
@@ -88,6 +93,9 @@ def open_catalog(catalog_directory: str | Path) -> Path:
             # 4 y 5. Versión del esquema: se rechaza la más nueva y se migra la antigua
             apply_migrations(conn)
 
+            # 6. Lo que quedó a medias al renombrar o mover archivos
+            _finish_file_operations(conn)
+
     except SchemaVersionError as exc:
         # El texto de la excepción ya está redactado para el usuario
         raise CatalogOpenError(f"{exc}\n\nCatálogo: {catalog_path}") from exc
@@ -100,6 +108,26 @@ def open_catalog(catalog_directory: str | Path) -> Path:
 
     logger.info(f"Catálogo listo: {db_path}")
     return db_path
+
+
+def _finish_file_operations(conn: sqlite3.Connection) -> None:
+    """Termina o descarta las operaciones con archivos que quedaron a medias.
+
+    Nunca impide abrir el catálogo: si falla, se apunta y se sigue (las notas se quedan
+    para la próxima vez).
+    """
+    try:
+        outcome = reconcile_file_operations(conn)
+    except Exception:  # noqa: BLE001 - abrir el catálogo es más importante
+        if conn.in_transaction:
+            conn.rollback()
+        logger.opt(exception=True).error("No se pudo revisar el registro de operaciones")
+        return
+    if outcome.completed or outcome.discarded or outcome.kept:
+        logger.info(
+            f"Registro de operaciones al abrir: {outcome.completed} terminadas, "
+            f"{outcome.discarded} descartadas, {outcome.kept} para otra vez"
+        )
 
 
 def _check_is_our_catalog(conn: sqlite3.Connection, catalog_path: Path) -> None:
@@ -247,5 +275,34 @@ if __name__ == "__main__":
         finally:
             catalog_schema.MIGRATIONS = original_migrations
             catalog_schema.SCHEMA_VERSION = len(original_migrations)
+
+        # 8. Al abrir, se termina lo que quedó a medias al renombrar (el archivo ya tiene su
+        #    nombre nuevo en el disco y el catálogo aún no lo sabía)
+        photos = base / "Fotos"
+        photos.mkdir()
+        (photos / "Hecho.jpg").write_bytes(b"x")
+        half = CatalogBuilder(base / "Medias").build()
+        with closing(sqlite3.connect(half)) as conn:
+            conn.execute(
+                "INSERT INTO storage_locations(id, name, absolute_path) VALUES (1, 'F', ?)",
+                (str(photos),),
+            )
+            conn.execute(
+                """INSERT INTO media_items(id, storage_location_id, relative_path, file_name,
+                       media_type, mime_type, file_size, file_mtime_ns, title)
+                   VALUES (1, 1, 'Antes.jpg', 'Antes.jpg', 'photo', 'x', 1, 0, 'Antes')"""
+            )
+            conn.execute(
+                """INSERT INTO file_operations(batch_id, kind, media_id, source_location_id,
+                       source_path, target_location_id, target_path)
+                   VALUES (1, 'file', 1, 1, 'Antes.jpg', 1, 'Hecho.jpg')"""
+            )
+            conn.commit()
+        open_catalog(base / "Medias")
+        with closing(sqlite3.connect(half)) as conn:
+            row = conn.execute("SELECT relative_path, title FROM media_items").fetchone()
+            assert row == ("Hecho.jpg", "Hecho"), row
+            assert conn.execute("SELECT COUNT(*) FROM file_operations").fetchone()[0] == 0
+        print("Al abrir: terminado un renombrado que quedó a medias")
 
     print("Autoprueba finalizada correctamente.")

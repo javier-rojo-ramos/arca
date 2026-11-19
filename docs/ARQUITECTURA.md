@@ -254,6 +254,7 @@ core/
     sync.py                            write_pending_user_data (trabajo: qué hay pendiente, lo reparte entre los escritores de writers.py y anota el resultado) y la lectura al importar (apply_file_user_data, apply_folder_files)
   file_ops/                          ── Operaciones con archivos en el disco: renombrar y mover con el catálogo al día (CAT 4; reglas en docs/DECISIONES.md, 19/11/2026) ──
     naming.py                          Nombres válidos en Windows, macOS y Linux (name_problem, clean_name) y renombrar sin la extensión (rename_keeping_extension)
+    moves.py                           Mover y renombrar archivos: rename_request / move_requests → plan_file_moves (qué se hará y qué se omite) → execute_file_moves (trabajo: archivo, su .xmp, su entrada del .arca.json y el catálogo, con el registro file_operations) y reconcile_file_operations (al abrir el catálogo, lo que quedó a medias)
   thumbnails/                        ── Generar y guardar las miniaturas ── (ver core/thumbnails/LEEME.md)
     sizes.py                           ThumbnailSize: 160 / 480 / 1200 / 2560 px (lado largo) y calidad JPEG
     cache.py                           ThumbnailCache: ruta derivada del id, escritura atómica, resolve(), read() (lee los bytes reintentando si el archivo está bloqueado); ThumbnailStorageError
