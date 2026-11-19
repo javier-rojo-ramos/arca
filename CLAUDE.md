@@ -88,6 +88,7 @@ Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto e
 | El autor confirma que algo funciona | Pásalo a «Verificado» en `ESTADO.md` |
 | Cambia el esquema | [docs/MODELO_DE_DATOS.md](docs/MODELO_DE_DATOS.md) y la tabla de versiones de [docs/INDEX.md](docs/INDEX.md) |
 | Cambia una versión (campos, miniaturas, GPX) | La tabla de versiones de `INDEX.md` |
+| Cambia qué formatos se catalogan, tienen miniatura, se leen o dónde se guardan sus datos | [docs/FORMATOS.md](docs/FORMATOS.md) (su última tabla dice dónde se decide cada columna) |
 | Cambia cómo funciona una operación | [docs/FLUJOS.md](docs/FLUJOS.md) |
 | Archivo o módulo nuevo | El mapa de [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) y, si es un punto de ampliación, [docs/COMO_AMPLIAR.md](docs/COMO_AMPLIAR.md) |
 | Se decide algo de diseño | [docs/DECISIONES.md](docs/DECISIONES.md): al final, con fecha y el porqué; si sustituye a otra, borra o reescribe la antigua (solo queda lo vigente) |

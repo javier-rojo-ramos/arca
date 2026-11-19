@@ -24,6 +24,10 @@ La detección se hace en dos capas, de la más barata a la más cara:
 Dependencia externa:
     pip install puremagic
 
+1.4.0 Por la extensión, todos los formatos que tratan como foto las miniaturas y los datos
+      del usuario: '.hif' (HEIF de Canon y Fujifilm), '.jfif' y los RAW que solo se
+      catalogaban si Windows los conocía ('.srf', que Windows toma por texto, no se
+      catalogaba). La autoprueba lo comprueba.
 1.3.0 '.psd' y '.psb' (Photoshop) como foto, con MIME 'image/vnd.adobe.photoshop' (antes
       entraban leyendo su cabecera, porque 'mimetypes' no los conoce en Windows).
 1.2.1 La autoprueba termina con «Autoprueba finalizada correctamente.», como las demás.
@@ -36,7 +40,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_detector
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["DetectionResult", "MediaTypeDetector"]
 
 # Librerías estándar
@@ -84,7 +88,28 @@ DEFAULT_EXTENSION_TO_TYPE: dict[str, MediaType] = {
     ".rw2": MediaType.PHOTO,  # Panasonic
     ".pef": MediaType.PHOTO,  # Pentax
     ".raf": MediaType.PHOTO,  # Fujifilm
+    # Más RAW: en Windows los conoce 'mimetypes' solo si hay un programa que los registre
+    # (la extensión RAW de Microsoft), y en macOS y Linux, no. Son los mismos que tratan como
+    # foto las miniaturas y los datos del usuario (lo comprueba la autoprueba)
+    ".nrw": MediaType.PHOTO,  # Nikon (compactas)
+    ".crw": MediaType.PHOTO,  # Canon (antiguo)
+    ".srf": MediaType.PHOTO,  # Sony (antiguo; Windows lo toma por texto)
+    ".sr2": MediaType.PHOTO,  # Sony (antiguo)
+    ".srw": MediaType.PHOTO,  # Samsung
+    ".x3f": MediaType.PHOTO,  # Sigma
+    ".3fr": MediaType.PHOTO,  # Hasselblad
+    ".fff": MediaType.PHOTO,  # Hasselblad
+    ".iiq": MediaType.PHOTO,  # Phase One
+    ".rwl": MediaType.PHOTO,  # Leica
+    ".raw": MediaType.PHOTO,  # Panasonic / Leica (antiguo)
+    ".mrw": MediaType.PHOTO,  # Minolta
+    ".erf": MediaType.PHOTO,  # Epson
+    ".kdc": MediaType.PHOTO,  # Kodak
+    ".dcr": MediaType.PHOTO,  # Kodak
+    ".mos": MediaType.PHOTO,  # Leaf
     ".heic": MediaType.PHOTO,  # High Efficiency Image Format (Apple)
+    ".hif": MediaType.PHOTO,  # HEIF de las cámaras Canon y Fujifilm
+    ".jfif": MediaType.PHOTO,  # JPEG (la tabla de Python no lo conoce; Windows, sí)
     ".webp": MediaType.PHOTO,  # Google WebP
     # Photoshop: en Windows 'mimetypes' no los conoce y se leía la cabecera (CAPA 2)
     ".psd": MediaType.PHOTO,
@@ -120,6 +145,9 @@ DEFAULT_EXTENSION_MIME: dict[str, str] = {
     ".m2ts": "video/mp2t",
     ".psd": "image/vnd.adobe.photoshop",  # el que daba 'puremagic' por la cabecera
     ".psb": "image/vnd.adobe.photoshop",
+    ".hif": "image/heif",
+    ".jfif": "image/jpeg",
+    ".srf": "image/x-sony-srf",  # en Windows, 'mimetypes' dice "text/plain"
 }
 
 
@@ -337,6 +365,30 @@ if __name__ == "__main__":
         assert track.is_supported and track.mime_type == "application/gpx+xml"
         psd = detector.detect_with_mime(base / "montaje.PSD")
         assert psd.is_supported and psd.mime_type == "image/vnd.adobe.photoshop", psd
+
+        # Lo que las miniaturas y los datos del usuario tratan como foto se cataloga en
+        # cualquier sistema: por la tabla propia o por la tabla interna de 'mimetypes' (la
+        # de Python, sin el registro de Windows ni los archivos del sistema)
+        from core.thumbnails.registry import default_registry
+        from core.userdata.policy import xmp_extensions
+
+        builtin = mimetypes.MimeTypes()
+        photo_extensions = set(xmp_extensions())
+        # Un ExifTool de mentira: solo se miran las extensiones de los orígenes, sin leer nada
+        for source in default_registry(runner=object()):
+            if source.media_type == MediaType.PHOTO and source.extensions:
+                photo_extensions |= source.extensions
+        missing = sorted(
+            ext
+            for ext in photo_extensions
+            if f".{ext}" not in DEFAULT_EXTENSION_TO_TYPE
+            and not (builtin.guess_type(f"a.{ext}")[0] or "").startswith("image/")
+        )
+        assert not missing, f"Formatos de foto que el detector no conoce por la extensión: {missing}"
+        (base / "sony.SRF").write_bytes(b"")
+        srf = detector.detect_with_mime(base / "sony.SRF")
+        assert srf.media_type == MediaType.PHOTO and srf.mime_type == "image/x-sony-srf", srf
+        print(f"{len(photo_extensions)} formatos de foto, todos conocidos por la extensión")
         assert MediaType.TRACK in CACHEABLE_MEDIA_TYPES
 
         print("Autoprueba finalizada correctamente.")

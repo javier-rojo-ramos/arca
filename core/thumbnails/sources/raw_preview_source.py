@@ -26,9 +26,12 @@ con una vista previa de 1024 px se generan los tamaños de 160 y 480, y uno de 1
 lugar del de 1200. Si algún día esto no basta, se añadirá un segundo origen que revele
 el RAW con LibRaw (rawpy) y se probará solo cuando falle este o la vista previa sea
 pequeña.
+
+1.1.0 RAW, FFF, KDC, DCR y MOS, que ya se catalogaban como fotos (y guardan sus datos en
+      el sidecar) pero no tenían origen de miniaturas.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["RAW_EXTENSIONS", "RawPreviewSource"]
 
 # Librerías estándar
@@ -60,12 +63,15 @@ from core.thumbnails.sources.base import (
 )
 from core.thumbnails.sources.pillow_source import load_pillow_image
 
-# Extensiones de RAW. Para que un archivo llegue al catálogo, 'media_detector.py' también
-# tiene que conocer su extensión (DEFAULT_EXTENSION_TO_TYPE); aquí hay alguna más por si se añade.
+# Extensiones de RAW: las mismas que 'core/userdata/policy.py' (DNG y los RAW con sidecar).
+# Para que un archivo llegue al catálogo, 'media_detector.py' también tiene que conocer su
+# extensión (DEFAULT_EXTENSION_TO_TYPE); su autoprueba comprueba que no falta ninguna. Si un
+# RAW no trae ninguna vista previa, su miniatura falla con un mensaje que lo dice.
 RAW_EXTENSIONS: frozenset[str] = frozenset(
     {
         "dng", "nef", "nrw", "cr2", "cr3", "crw", "arw", "srf", "sr2", "orf",
         "rw2", "pef", "raf", "srw", "rwl", "3fr", "erf", "mrw", "x3f", "iiq",
+        "raw", "fff", "kdc", "dcr", "mos",  # Panasonic / Leica, Hasselblad, Kodak, Leaf
     }
 )  # fmt: skip
 

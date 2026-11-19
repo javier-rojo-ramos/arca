@@ -1,4 +1,4 @@
-"""Origen de miniaturas basado en Pillow: JPEG, PNG, WebP, GIF, BMP y TIFF.
+"""Origen de miniaturas basado en Pillow: JPEG, PNG, WebP, GIF, BMP, TIFF, AVIF y JPEG 2000.
 
 Este módulo NO depende de Qt. Contiene además 'load_pillow_image', la función que
 abre, decodifica y endereza una imagen con Pillow, y que reutilizan los otros
@@ -11,10 +11,16 @@ que la completa.
 
 Limitaciones conocidas de Pillow: no abre los TIFF de 16 bits por canal en color, y
 rechaza las imágenes de más de ~179 megapíxeles (protección contra "bombas de
-descompresión"). En ambos casos el archivo se anota como error de miniatura.
+descompresión"). En ambos casos el archivo se anota como error de miniatura. AVIF y
+JPEG 2000 dependen de las librerías con que se compiló Pillow (las ruedas oficiales de
+Pillow 12 las traen: 'PIL.features.check("avif")'); sin ellas, el archivo da el error
+«formato no reconocido».
+
+1.1.0 AVIF y JPEG 2000 ('.jp2'), que ya se catalogaban como fotos. Comprobado el
+      19/11/2026 con Pillow 12.3: los dos se leen, y el AVIF con su orientación.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["PillowSource", "load_pillow_image"]
 
 # Librerías estándar
@@ -112,7 +118,7 @@ class PillowSource(ThumbnailSource):
     name: ClassVar[str] = "pillow"
     media_type: ClassVar[MediaType] = MediaType.PHOTO
     extensions: ClassVar[frozenset[str] | None] = frozenset(
-        {"jpg", "jpeg", "jpe", "jfif", "png", "gif", "bmp", "tif", "tiff", "webp"}
+        {"jpg", "jpeg", "jpe", "jfif", "png", "gif", "bmp", "tif", "tiff", "webp", "avif", "jp2"}
     )
 
     def _ensure_ready(self) -> None:

@@ -92,6 +92,7 @@
 - En una carpeta **automática** sí se catalogan las carátulas y pósters sueltos (`cover.jpg`) como fotos: para música y películas hay que declarar la carpeta.
 - Los vídeos de las carpetas automáticas cuyo nombre no dice nada y cuyos metadatos tampoco (sin cámara ni GPS, y más cortos que una película) quedan **sin clasificar** (`library` NULL) hasta clasificarlos a mano. La detección por el nombre puede equivocarse con nombres raros (p. ej. un vídeo personal llamado «Concierto (2019).mp4» va a Vídeo): se corrige con el submenú «Biblioteca».
 - Algunas cámaras escriben la hora LOCAL en `QuickTime:CreateDate` (contra la especificación, que dice UTC): sus vídeos saldrían desplazados lo que valga la zona horaria. Pendiente de comprobar con vídeos reales y corregir por marca si pasa.
+- **Qué se cataloga puede depender del equipo**: `media_detector` mira su tabla de extensiones y después `mimetypes`, que en Windows lee el registro (lo que registran los programas instalados). Así, en Windows `.ts` es TypeScript (no se cataloga), `.srf` era texto (hoy está en la tabla) y `.jxl` o `.wma` solo entran si algún programa los registró. Un formato que deba entrar siempre va en `DEFAULT_EXTENSION_TO_TYPE`: la autoprueba lo exige para los de foto. Lista completa en [FORMATOS.md](FORMATOS.md).
 - Las etiquetas de vídeo (`video/fields.py`) salen de la documentación de ExifTool; comprobadas con iPhone (31/10/2026), pero hasta probar otras marcas alguna puede no dar cámara o fecha.
 
 ## Cuadrícula y miniaturas

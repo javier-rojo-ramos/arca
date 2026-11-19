@@ -17,7 +17,7 @@ core/thumbnails/
 ├── registry.py          ► AQUÍ se registra qué origen lee cada tipo de medio y extensión
 ├── sources/
 │   ├── base.py            Contrato de un origen + ThumbnailRequest, LoadedImage, errores
-│   ├── pillow_source.py   JPG, PNG, WebP, GIF, BMP, TIFF   (+ load_pillow_image, compartido)
+│   ├── pillow_source.py   JPG, PNG, WebP, GIF, BMP, TIFF, AVIF, JPEG 2000   (+ load_pillow_image, compartido)
 │   ├── heif_source.py     HEIC / HEIF   (necesita pillow-heif o pi-heif)
 │   ├── psd_source.py      PSD de Photoshop (su imagen combinada, con Pillow; ni PSB ni 16 bits)
 │   └── raw_preview_source.py  DNG, NEF, CR2, CR3, ARW... (vista previa incrustada, vía ExifTool)

@@ -32,11 +32,13 @@ leerían del destino nuevo (vacío). Si algún día hiciera falta, habría que m
 Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.policy
 
+1.2.0 '.jfif' (un JPEG con otra extensión) con el XMP dentro, como los demás JPEG (antes
+      iba al '.arca.json'); comprobado con ExifTool el 19/11/2026.
 1.1.0 'xmp_extensions': las extensiones cuyos datos van en XMP (para filtrar en SQL; la
       usa la escritura para no escribir en un archivo que aún no se ha leído).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "UserDataDestination",
     "destination_for",
@@ -66,7 +68,7 @@ class UserDataDestination(StrEnum):
 # el XMP dentro, sin sidecar).
 _EMBEDDED_EXTENSIONS: frozenset[str] = frozenset(
     {
-        "jpg", "jpeg", "jpe",           # JPEG
+        "jpg", "jpeg", "jpe", "jfif",   # JPEG
         "tif", "tiff",                  # TIFF
         "png",
         "webp",
