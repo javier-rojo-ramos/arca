@@ -24,6 +24,8 @@ La detección se hace en dos capas, de la más barata a la más cara:
 Dependencia externa:
     pip install puremagic
 
+1.3.0 '.psd' y '.psb' (Photoshop) como foto, con MIME 'image/vnd.adobe.photoshop' (antes
+      entraban leyendo su cabecera, porque 'mimetypes' no los conoce en Windows).
 1.2.1 La autoprueba termina con «Autoprueba finalizada correctamente.», como las demás.
 1.2.0 '.mts' y '.m2ts' (vídeo AVCHD de videocámara) como vídeo, con MIME 'video/mp2t'.
 1.1.0 Tracks GPS: '.gpx' -> MediaType.TRACK. MIME propio por extensión
@@ -34,7 +36,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_detector
 """
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 __all__ = ["DetectionResult", "MediaTypeDetector"]
 
 # Librerías estándar
@@ -84,6 +86,9 @@ DEFAULT_EXTENSION_TO_TYPE: dict[str, MediaType] = {
     ".raf": MediaType.PHOTO,  # Fujifilm
     ".heic": MediaType.PHOTO,  # High Efficiency Image Format (Apple)
     ".webp": MediaType.PHOTO,  # Google WebP
+    # Photoshop: en Windows 'mimetypes' no los conoce y se leía la cabecera (CAPA 2)
+    ".psd": MediaType.PHOTO,
+    ".psb": MediaType.PHOTO,  # documento grande de Photoshop
     # --- Vídeo ---
     ".mkv": MediaType.VIDEO,
     # AVCHD de videocámara: según el sistema, 'mimetypes' no los conoce o los toma por
@@ -113,6 +118,8 @@ DEFAULT_EXTENSION_MIME: dict[str, str] = {
     ".gpx": "application/gpx+xml",
     ".mts": "video/mp2t",  # AVCHD: flujo de transporte MPEG-2
     ".m2ts": "video/mp2t",
+    ".psd": "image/vnd.adobe.photoshop",  # el que daba 'puremagic' por la cabecera
+    ".psb": "image/vnd.adobe.photoshop",
 }
 
 
@@ -285,6 +292,7 @@ if __name__ == "__main__":
         casos: dict[str, tuple[bytes, MediaType]] = {
             "foto.jpg": (b"", MediaType.PHOTO),  # CAPA 1b: mimetypes
             "raw.CR2": (b"", MediaType.PHOTO),  # CAPA 1a: tabla propia (mayúsculas)
+            "montaje.PSD": (b"", MediaType.PHOTO),  # CAPA 1a: sin leer la cabecera
             "cancion.mp3": (b"", MediaType.AUDIO),
             "pelicula.mkv": (b"", MediaType.VIDEO),
             "00001.MTS": (b"", MediaType.VIDEO),  # videocámara AVCHD (en mayúsculas)
@@ -327,6 +335,8 @@ if __name__ == "__main__":
         track = detector.detect_with_mime(base / "ruta.gpx")
         print(f"ruta.gpx -> {track}")
         assert track.is_supported and track.mime_type == "application/gpx+xml"
+        psd = detector.detect_with_mime(base / "montaje.PSD")
+        assert psd.is_supported and psd.mime_type == "image/vnd.adobe.photoshop", psd
         assert MediaType.TRACK in CACHEABLE_MEDIA_TYPES
 
         print("Autoprueba finalizada correctamente.")

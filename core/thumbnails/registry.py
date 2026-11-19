@@ -2,16 +2,18 @@
 
 >>> AQUÍ SE REGISTRA LA LECTURA DE UN FORMATO O TIPO DE MEDIO NUEVO. <<<
 
-Este módulo NO depende de Qt. Para soportar un formato nuevo (PSD, AVIF...) o un tipo
+Este módulo NO depende de Qt. Para soportar un formato nuevo (AVIF, JPEG XL...) o un tipo
 de medio nuevo (carátulas de audio, pósters de vídeo) basta con escribir su origen en
 'core/thumbnails/sources/' y registrarlo en 'default_registry()'. Ver 'LEEME.md'.
 
 Para cada archivo se obtiene una CADENA de orígenes (los que coinciden en tipo de medio
 y extensión, en el orden en que se registraron) y se prueban uno tras otro hasta que
 uno entrega la imagen. Así un formato puede tener un origen rápido y otro de respaldo.
+
+1.1.0 Los PSD de Photoshop ('PsdSource').
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["SourceRegistry", "default_registry"]
 
 # Librerías estándar
@@ -26,6 +28,7 @@ from core.metadata.exiftool_runner import ExifToolError, ExifToolRunner
 from core.thumbnails.sources.base import ThumbnailSource
 from core.thumbnails.sources.heif_source import HeifSource
 from core.thumbnails.sources.pillow_source import PillowSource
+from core.thumbnails.sources.psd_source import PsdSource
 from core.thumbnails.sources.raw_preview_source import RawPreviewSource
 
 
@@ -83,6 +86,7 @@ def default_registry(runner: ExifToolRunner | None = None) -> SourceRegistry:
     # --- Imágenes ---
     registry.register(PillowSource())  # JPG, PNG, WebP, GIF, BMP, TIFF
     registry.register(HeifSource())  # HEIC / HEIF (necesita pillow-heif o pi-heif)
+    registry.register(PsdSource())  # PSD de Photoshop (su imagen combinada; no los PSB)
 
     if runner is None:
         try:

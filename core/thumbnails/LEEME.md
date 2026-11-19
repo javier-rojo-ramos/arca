@@ -19,6 +19,7 @@ core/thumbnails/
 │   ├── base.py            Contrato de un origen + ThumbnailRequest, LoadedImage, errores
 │   ├── pillow_source.py   JPG, PNG, WebP, GIF, BMP, TIFF   (+ load_pillow_image, compartido)
 │   ├── heif_source.py     HEIC / HEIF   (necesita pillow-heif o pi-heif)
+│   ├── psd_source.py      PSD de Photoshop (su imagen combinada, con Pillow; ni PSB ni 16 bits)
 │   └── raw_preview_source.py  DNG, NEF, CR2, CR3, ARW... (vista previa incrustada, vía ExifTool)
 ├── inspect_cli.py         Diagnóstico: genera miniaturas de archivos reales y las cuenta
 └── _testing.py            Solo para las autopruebas
@@ -95,7 +96,11 @@ autoprueba de `job.py` falla si se cambian tamaños, calidad o formato sin subir
 - **Un fallo de la caché sí detiene el trabajo**: `ThumbnailStorageError` (disco lleno, sin permisos) no es culpa del
   archivo, así que el trabajo se aborta sin marcar nada como fallido.
 
-## Receta 1: soportar un formato de imagen nuevo (p. ej. PSD, AVIF)
+## Receta 1: soportar un formato de imagen nuevo (p. ej. AVIF, JPEG XL)
+
+Ejemplo hecho: `sources/psd_source.py` (comprueba la cabecera antes de abrir con Pillow, para
+dar el motivo de lo que Pillow no lee).
+
 
 1. Escribir su origen en `sources/`: una clase que herede de `ThumbnailSource` (o de `PillowSource`
    si Pillow ya puede abrirlo) con `name`, `media_type`, `extensions` y `load()`. `load()` solo

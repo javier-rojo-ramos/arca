@@ -28,6 +28,7 @@ Reglas:
 |---|---|---|
 | `pillow` | jpg, jpeg, png, gif, bmp, tif, tiff, webp | Pillow |
 | `heif` | heic, heif, hif | Pillow + `pillow-heif` o `pi-heif`; sin ellas, error con instrucciones. La rotación la aplica la librería (en un HEIC vive en `irot`) |
+| `psd` | psd, psb | Pillow: la **imagen combinada** que guarda Photoshop (con «Maximizar compatibilidad», activada de fábrica); las capas no se leen. Antes de abrirlo se mira la cabecera: los PSB, los de 16 y 32 bits y los guardados sin esa opción (recurso 1057) fallan con el motivo, sin miniatura. Un cuarto canal que no es transparencia (una selección guardada: capas no en negativo) se descarta |
 | `raw_preview` | dng, nef, nrw, cr2, cr3, crw, arw, orf, rw2, pef, raf... | La mayor vista previa JPEG incrustada, con **una** llamada a ExifTool por archivo (`-b -JpgFromRaw -PreviewImage -OtherImage -ThumbnailImage -Orientation`; en JSON salen en base64). Orientación: la del RAW, salvo que la vista previa traiga la suya |
 
 **Estado y trabajo**: columnas en [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md); flujo y regeneración en [FLUJOS.md §5](FLUJOS.md). `THUMBNAIL_VERSION` (en `generator.py`) se sube cuando cambia el RESULTADO (tamaños, calidad, formato, color, elección de la imagen de partida); la autoprueba de `job.py` avisa si se cambian tamaños, calidad o formato sin subirla.

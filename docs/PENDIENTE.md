@@ -52,7 +52,6 @@ El mecanismo está hecho (título, pie, creador, copyright y ubicación desde el
 
 Las de vídeo y las carátulas de audio, en `VID 4` y `MUS 3`.
 
-- **GEN 4.1** PSD.
 - **GEN 4.2** `rawpy`: RAW sin vista previa o con una pequeña; también para el 1:1 de la vista individual, que hoy en un RAW es su mayor vista previa (en un DNG de Lightroom, a veces de solo 1024 px).
 - **GEN 4.3** Limpiar los huérfanos de la caché y comprobar que los archivos existen.
 - **GEN 4.4** Insignia «editada en Lightroom» a partir de `XMP-crs:HasCrop` / `HasSettings` (y, opcional, aplicar solo el recorte cuando `CropAngle` sea 0).

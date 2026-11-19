@@ -104,7 +104,7 @@ Solo se escribe lo cambiado, en segundo plano, comprobando lo escrito; al releer
 
 ## 8. Miniaturas (`core/thumbnails/`)
 
-Cuatro tamaños (160, 480, 1200 y 2560 px de lado largo), en la caché del catálogo; orígenes por formato (`sources/`: Pillow, HEIF y la vista previa incrustada de los RAW, con ExifTool); `THUMBNAIL_VERSION` 2. Se generan en segundo plano tras leer los metadatos. Detalle: [MINIATURAS.md](MINIATURAS.md) y [core/thumbnails/LEEME.md](../core/thumbnails/LEEME.md). Los vídeos no tienen miniatura todavía: la tarjeta dibuja el marcador con la duración.
+Cuatro tamaños (160, 480, 1200 y 2560 px de lado largo), en la caché del catálogo; orígenes por formato (`sources/`: Pillow, HEIF, PSD (su imagen combinada; desde el 19/11/2026) y la vista previa incrustada de los RAW, con ExifTool); `THUMBNAIL_VERSION` 2. Se generan en segundo plano tras leer los metadatos. Detalle: [MINIATURAS.md](MINIATURAS.md) y [core/thumbnails/LEEME.md](../core/thumbnails/LEEME.md). Los vídeos no tienen miniatura todavía: la tarjeta dibuja el marcador con la duración.
 
 ## 9. Lo verificado y lo que no
 
@@ -134,7 +134,7 @@ Lo que falta del módulo, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí
 |---|---|
 | `GEN 1` | Deshacer en toda la aplicación (hoy, solo lo hecho en el mapa) |
 | `GEN 2` | Más metadatos editables: la fecha (en su ventana), el estado del copyright, el género y la escena |
-| `GEN 4` | Miniaturas, extras: PSD, `rawpy` (también para el 1:1 de los RAW), insignia «editada en Lightroom» |
+| `GEN 4` | Miniaturas, extras: `rawpy` (también para el 1:1 de los RAW), insignia «editada en Lightroom» |
 | `GEN 7` | Guardar el filtro activo como colección inteligente |
 | `GEN 16` | Perfil de tarjeta, común a todos los módulos |
 | `GEN 8` | Sección «Ubicación» del inspector con el mapa; el rumbo de la foto en el mapa |
