@@ -54,6 +54,9 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.14.0 Menú de las carpetas: «Cambiar nombre...» ('rename_folder_requested'; no en la raíz
+       de una ubicación ni desconectada) y 'folder_renamed' (lo desplegado y lo elegido,
+       con la ruta nueva; CAT 4.3).
 1.13.1 El menú de las secciones, también con el clic derecho en el hueco vacío de la barra.
 1.13.0 Las secciones, en una 'SectionStack' colocada por el modelo de colocación
        ('bind_layout'): lo plegado de cada sección deja de guardarse por catálogo
@@ -95,7 +98,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.13.1"
+__version__ = "1.14.0"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -146,6 +149,7 @@ from core.catalog.grid_source import (
 from core.catalog.smart_rules import describe_rules
 from core.catalog.system_collections import SYSTEM_COLLECTIONS, SystemCollection
 from core.catalog.user_collections import KIND_SET, KIND_SMART, KIND_STATIC, CollectionNode
+from core.file_ops.moves import renamed_folder_path
 from ui_helpers.helpers.sidebar_icons import load_sidebar_icons
 from ui_helpers.helpers.ui_color_labels import label_icon
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME
@@ -210,6 +214,8 @@ class CatalogSidebar(QWidget):
         reveal_folder_requested(str): "Mostrar en el Explorador" en el menú de una carpeta.
         remove_missing_requested(int, str): "Quitar archivos ausentes del catálogo" en el
             menú de una carpeta (id de la ubicación y carpeta relativa; '' = toda).
+        rename_folder_requested(int, str, str): "Cambiar nombre..." en el menú de una
+            carpeta (ubicación, carpeta relativa y nombre).
         remove_folder_requested(int, str, str): "Quitar del catálogo" en el menú de una
             carpeta o ubicación (id de la ubicación, carpeta relativa, '' = la ubicación, y
             el nombre que se ve en el árbol).
@@ -231,6 +237,7 @@ class CatalogSidebar(QWidget):
     reveal_folder_requested = Signal(str)  # ruta absoluta de la carpeta
     remove_missing_requested = Signal(int, str)  # ubicación y carpeta relativa
     remove_folder_requested = Signal(int, str, str)  # ubicación, carpeta relativa y nombre
+    rename_folder_requested = Signal(int, str, str)  # ubicación, carpeta relativa y nombre
     create_collection_requested = Signal(str, object)  # tipo y conjunto (o None)
     rename_collection_requested = Signal(int, str)  # id y nombre actual
     delete_collection_requested = Signal(int, str, str)  # id, nombre y tipo
@@ -965,6 +972,10 @@ class CatalogSidebar(QWidget):
         menu = QMenu(view)
         sync_action = menu.addAction("Sincronizar carpeta")
         reveal_action = menu.addAction(f"Mostrar en {FILE_MANAGER_NAME}")
+        # Cambia el nombre en el disco: con la ubicación conectada y no en su raíz (renombrar
+        # la raíz cambiaría la ubicación: más adelante)
+        rename_action = menu.addAction("Cambiar nombre...")
+        rename_action.setEnabled(online and bool(source.folder))
         menu.addSeparator()
         remove_action = menu.addAction("Quitar archivos ausentes del catálogo...")
         # Siempre activa, también con el disco desconectado: no toca el disco (sirve, p. ej.,
@@ -986,9 +997,32 @@ class CatalogSidebar(QWidget):
             self.reveal_folder_requested.emit(path)
         elif chosen is remove_action and source.location_id is not None:
             self.remove_missing_requested.emit(source.location_id, source.folder)
+        elif chosen is rename_action and source.location_id is not None:
+            name = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+            self.rename_folder_requested.emit(source.location_id, source.folder, name)
         elif chosen is remove_folder_action and source.location_id is not None:
             name = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
             self.remove_folder_requested.emit(source.location_id, source.folder, name)
+
+    def folder_renamed(self, location_id: int, old: str, new: str) -> None:
+        """Se ha renombrado una carpeta (CAT 4.3): lo desplegado y lo elegido, con la ruta nueva.
+
+        Si lo elegido estaba dentro, se emite 'source_selected' con la ruta nueva (la
+        cuadrícula vuelve a cargar). El árbol se pone al día con el siguiente
+        'set_folder_tree', que vuelve a marcar lo elegido.
+        """
+
+        def moved(source: GridSource) -> GridSource:
+            if source.kind != SourceKind.FOLDER or source.location_id != location_id:
+                return source
+            path = renamed_folder_path(source.folder, old, new)
+            return source if path is None else replace(source, folder=path)
+
+        self._expanded = {moved(source) for source in self._expanded}
+        current = moved(self._current)
+        if current != self._current:
+            self._current = current
+            self.source_selected.emit(current)
 
     def _on_folder_expanded(self, index: QModelIndex) -> None:
         source = index.data(ROLE_SOURCE)

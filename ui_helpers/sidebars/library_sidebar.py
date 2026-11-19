@@ -43,18 +43,20 @@ Uso:
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
 'scroll_library_sidebar' y 'widget_library_sidebar_content' (y los de cada sección).
 
+1.2.0 'folder_renamed': lo desplegado y lo elegido, con la ruta nueva de una carpeta
+      renombrada (CAT 4.3).
 1.1.0 Secciones de más ('ExtraSection', 'set_section_data', 'hides_rows'): es también la
       barra de Imagen, con su «Lista de palabras clave» (docs/PENDIENTE.md, GEN 13; sustituye
       a 'image_sidebar.py', de la que salió). Tracks, Vídeo y Audio, igual que antes.
 1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.2): para el módulo Tracks.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["ExtraSection", "LibrarySidebar", "LibraryTexts"]
 
 # Librerías estándar
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 # Librerías de terceros (Qt)
@@ -73,6 +75,7 @@ from core.catalog.grid_source import (
     source_to_dict,
 )
 from core.catalog.metadata_values import MetadataValue
+from core.file_ops.moves import renamed_folder_path
 from ui_helpers.helpers.sidebar_icons import load_sidebar_icons
 from ui_helpers.helpers.signal_blocker import blocked_signals as _blocked
 from ui_helpers.layout.section_layout_model import SectionLayoutModel
@@ -331,6 +334,18 @@ class LibrarySidebar(QWidget):
     # -------------------------------------------------------------------------
     # Estado (por catálogo)
     # -------------------------------------------------------------------------
+
+    def folder_renamed(self, location_id: int, old: str, new: str) -> None:
+        """Se ha renombrado una carpeta (CAT 4.3): lo desplegado de «Carpetas» y lo elegido,
+        con la ruta nueva. Si lo elegido estaba dentro, emite 'source_selected'."""
+        self._folders.folder_renamed(location_id, old, new)
+        current = self._current
+        if current.kind != SourceKind.FOLDER or current.location_id != location_id:
+            return
+        path = renamed_folder_path(current.folder, old, new)
+        if path is not None:
+            self._current = replace(current, folder=path)
+            self.source_selected.emit(self._current)
 
     def save_state(self) -> dict:
         """Lo de cada sección (lo desplegado) y la fila elegida (para JSON). Claves:

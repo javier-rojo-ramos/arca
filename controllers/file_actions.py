@@ -1,4 +1,4 @@
-"""«Cambiar nombre...» de un archivo: la ventana, el plan y el trabajo (CAT 4.2).
+"""«Cambiar nombre...» de un archivo o de una carpeta: la ventana, el plan y el trabajo.
 
 Está aparte de 'main_window_controller.py' para no seguir engordándolo: el controlador solo
 lo crea y lo conecta. Lo que se hace en el disco y en el catálogo está en
@@ -10,9 +10,16 @@ lo crea y lo conecta. Lo que se hace en el disco y en el catálogo está en
                 → el plan ('plan_rename', segundo plano) → si se omite (ya existe otro con
                 ese nombre...), el motivo y otra vez la ventana con lo escrito
                 → el trabajo ('execute_file_moves', «Moviendo archivos»)
+    CatalogSidebar.rename_folder_requested(ubicación, carpeta, nombre)  (CAT 4.3)
+        └─► request_folder_rename: ¿algo en marcha? → ¿se puede? ('plan_folder_rename' con
+                el nombre que tiene: conectada, no la raíz, en el disco; cuántos archivos)
+                → la ventana, en modo carpeta → el plan con el nombre nuevo → si no se
+                puede, el motivo y otra vez la ventana → el trabajo ('execute_folder_rename')
     JobCoordinator.files_finished / files_failed
-        └─► la cuadrícula y los contadores, al día; aviso de lo que no se pudo
-            (lo que esperaba a que terminara lo relanza después el coordinador)
+        └─► si se renombró una carpeta, los módulos ponen al día lo que recuerdan por la
+            ruta ('folder_renamed': lo desplegado y lo elegido); después, la cuadrícula y
+            los contadores; aviso de lo que no se pudo (lo que esperaba a que terminara lo
+            relanza después el coordinador)
 
 Mientras la ventana está abierta, la escritura diferida no arranca (como en «Eliminar»):
 se para al abrirla y se vuelve a programar si no se renombra; si se renombra, la programa
@@ -22,17 +29,23 @@ Uso (en el controlador principal, que solo lo crea y lo conecta):
     self.file_actions = FileActions(
         self, self.message_box, self.job_coordinator, get_db=lambda: self.db,
         busy_reason=self.remove_actions.busy_reason, reload_grid=self.mosaico_model.reload,
-        refresh_counts=self._refresh_sidebar_counts, parent=self,
+        refresh_counts=self._refresh_sidebar_counts,
+        folder_renamed=lambda *args: self.module_host.folder_renamed(*args), parent=self,
     )
     self.grid_actions.rename_requested.connect(self.file_actions.request_rename)
+    self.widget_catalog_sidebar.rename_folder_requested.connect(
+        self.file_actions.request_folder_rename
+    )
 
+1.1.0 También el nombre de una carpeta (CAT 4.3): 'request_folder_rename' y, al terminar,
+      'folder_renamed' para que los módulos pongan al día sus barras.
 1.0.0 Primera versión (CAT 4.2): cambiar el nombre de un archivo.
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.file_actions
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["FileActions", "failed_rename_text", "skipped_rename_text"]
 
 # Librerías estándar
@@ -50,26 +63,42 @@ from qtpy.QtWidgets import QWidget
 # Módulos del proyecto
 from config.app_constants import AppIcons
 from core.catalog.media_queries import AVAILABLE, OFFLINE, MediaFile, fetch_media_file
-from core.file_ops.moves import SKIP_SAME, MovePlan, execute_file_moves, plan_rename
+from core.file_ops.moves import (
+    SKIP_SAME,
+    FolderRenamePlan,
+    MovePlan,
+    execute_file_moves,
+    execute_folder_rename,
+    plan_folder_rename,
+    plan_rename,
+)
 from core.file_ops.naming import rename_keeping_extension
 from ui_helpers.dialogs.rename_dialog import RenameDialog
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.helpers.ui_status import message_bar
 
-# Se pregunta el nombre nuevo: (ventana, nombre actual, lo escrito antes) -> nombre o None
-AskName = Callable[[QWidget, str, str | None], str | None]
+# Se pregunta el nombre nuevo: (ventana, nombre actual, lo escrito antes[, folder_files=N])
+# -> nombre o None ('RenameDialog.ask'; con 'folder_files', en modo carpeta)
+AskName = Callable[..., str | None]
 
 
-def skipped_rename_text(new_name: str, reason: str) -> str:
+def skipped_rename_text(new_name: str, reason: str, *, folder: bool = False) -> str:
     """Aviso cuando el nombre nuevo no se puede usar (lo dice el plan: ya existe...)."""
-    return f"No se puede cambiar el nombre a «{new_name}»: {reason}."
+    what = "de la carpeta " if folder else ""
+    return f"No se puede cambiar el nombre {what}a «{new_name}»: {reason}."
 
 
-def failed_rename_text(failed: Sequence[tuple[str, str]]) -> str:
+def failed_rename_text(failed: Sequence[tuple[str, str]], *, folder: bool = False) -> str:
     """Aviso cuando el sistema no dejó cambiar el nombre ((ruta, motivo)...)."""
     names = ", ".join(f"«{Path(path).name}»" for path, _reason in failed)
+    why = (
+        "quizá haya un archivo suyo abierto en otro programa"
+        if folder
+        else "quizá esté abierto en otro programa"
+    )
+    what = "de la carpeta " if folder else "de "
     return (
-        f"No se pudo cambiar el nombre de {names} (quizá esté abierto en otro programa).\n\n"
+        f"No se pudo cambiar el nombre {what}{names} ({why}).\n\n"
         "El detalle está en el registro."
     )
 
@@ -88,6 +117,7 @@ class FileActions(QObject):
         reload_grid: Callable[[], None],
         refresh_counts: Callable[[], None],
         ask_name: AskName | None = None,
+        folder_renamed: Callable[[int, str, str], None] | None = None,
         parent: QObject | None = None,
     ) -> None:
         """Conecta los avisos del coordinador de los trabajos.
@@ -102,6 +132,8 @@ class FileActions(QObject):
             reload_grid: Vuelve a leer la cuadrícula.
             refresh_counts: Pone al día los contadores de la barra lateral.
             ask_name: La ventana (None = 'RenameDialog.ask'; para las pruebas).
+            folder_renamed: Se llama tras renombrar una carpeta (ubicación, ruta vieja,
+                ruta nueva): los módulos ponen al día sus barras ('ModuleHost').
             parent: Objeto padre.
         """
         super().__init__(parent)
@@ -113,6 +145,8 @@ class FileActions(QObject):
         self._reload_grid = reload_grid
         self._refresh_counts = refresh_counts
         self._ask_name: AskName = ask_name or RenameDialog.ask
+        self._folder_renamed = folder_renamed
+        self._folder_job = False  # el trabajo en marcha es de una carpeta (para el aviso)
         jobs.files_finished.connect(self._on_files_finished)
         jobs.files_failed.connect(self._on_files_failed)
 
@@ -196,18 +230,90 @@ class FileActions(QObject):
         if not self._ready():
             self._jobs.schedule_write()
             return
+        self._folder_job = False
         self._jobs.start_file_job(execute_file_moves, plan)
+
+    # -------------------------------------------------------------------------
+    # Carpetas (CAT 4.3)
+    # -------------------------------------------------------------------------
+
+    def request_folder_rename(self, location_id: int, folder: str, name: str) -> None:
+        """«Cambiar nombre...» de una carpeta: primero, si se puede (segundo plano)."""
+        if not self._ready():
+            return
+        self._get_db().execute_async(
+            plan_folder_rename,
+            location_id,
+            folder,
+            name,  # con el nombre que tiene: dice si se puede y cuántos archivos tiene
+            on_result=lambda plan: self._on_folder_checked(name, plan),
+            on_error=lambda error: logger.error(f"No se pudo mirar la carpeta {folder}: {error}"),
+        )
+
+    def _on_folder_checked(self, name: str, plan: FolderRenamePlan) -> None:
+        """Si la carpeta se puede renombrar, la ventana; si no, por qué."""
+        if self._get_db() is None:
+            return
+        if plan.problem not in (None, SKIP_SAME):
+            self._message_box.info(
+                f"No se puede cambiar el nombre de la carpeta «{name}»: {plan.problem}."
+            )
+            return
+        self._ask_folder(plan, name, None)
+
+    def _ask_folder(self, plan: FolderRenamePlan, name: str, initial: str | None) -> None:
+        """La ventana en modo carpeta; con el nombre escrito, el plan (segundo plano)."""
+        self._jobs.stop_scheduled_write()
+        new_name = self._ask_name(self._window, name, initial, folder_files=plan.count)
+        if new_name is None or not self._ready():
+            self._jobs.schedule_write()
+            return
+        self._get_db().execute_async(
+            plan_folder_rename,
+            plan.location_id,
+            plan.source_path,
+            new_name,
+            on_result=lambda new_plan: self._on_folder_planned(plan, name, new_name, new_plan),
+            on_error=lambda error: (
+                logger.error(f"No se pudo preparar el cambio de nombre: {error}"),
+                self._jobs.schedule_write(),
+            ),
+        )
+
+    def _on_folder_planned(
+        self, checked: FolderRenamePlan, name: str, new_name: str, plan: FolderRenamePlan
+    ) -> None:
+        """Si el nombre se puede usar, el trabajo; si no, el motivo y otra vez la ventana."""
+        if self._get_db() is None:
+            return
+        if plan.problem is not None:
+            if plan.problem == SKIP_SAME:
+                self._jobs.schedule_write()
+                return
+            self._message_box.warning(skipped_rename_text(new_name, plan.problem, folder=True))
+            self._ask_folder(checked, name, new_name)
+            return
+        if not self._ready():
+            self._jobs.schedule_write()
+            return
+        self._folder_job = True
+        self._jobs.start_file_job(execute_folder_rename, plan)
 
     def _on_files_finished(self, result: object) -> None:
         """Terminó de renombrar: cuadrícula, contadores y aviso de lo que falló.
 
-        Lo que esperaba a que terminara lo lanza después 'JobCoordinator'.
+        Lo que esperaba a que terminara lo lanza después 'JobCoordinator'. Si se renombró
+        una carpeta, ANTES los módulos ponen al día lo que recuerdan por la ruta: así la
+        carpeta elegida sigue elegida con su nombre nuevo.
         """
+        folder = getattr(result, "folder", None)
+        if folder is not None and self._folder_renamed is not None:
+            self._folder_renamed(*folder)
         self._reload_grid()
         self._refresh_counts()
         failed = list(getattr(result, "failed", ()))
         if failed:
-            self._message_box.warning(failed_rename_text(failed))
+            self._message_box.warning(failed_rename_text(failed, folder=self._folder_job))
 
     def _on_files_failed(self) -> None:
         """Renombrar falló: cada archivo se confirma por separado; se muestra lo que hay."""
@@ -287,8 +393,10 @@ if __name__ == "__main__":
     asked: list[tuple[str, str | None]] = []
     events: list[str] = []
 
-    def fake_ask(_window: QWidget, file_name: str, initial: str | None) -> str | None:
-        asked.append((file_name, initial))
+    def fake_ask(
+        _window: QWidget, file_name: str, initial: str | None, **kwargs: object
+    ) -> str | None:
+        asked.append((file_name, initial, *kwargs.values()))
         return answers.pop(0)
 
     actions = FileActions(
@@ -300,6 +408,7 @@ if __name__ == "__main__":
         reload_grid=lambda: events.append("reload"),
         refresh_counts=lambda: events.append("counts"),
         ask_name=fake_ask,
+        folder_renamed=lambda *args: events.append(("folder", *args)),
     )
     db.media_file = MediaFile(7, Path("C:/Fotos/IMG_1.CR3"), None, AVAILABLE)
     move = PlannedMove(7, 1, Path("C:/Fotos"), "IMG_1.CR3", 1, Path("C:/Fotos"), "Boda.CR3")
@@ -343,6 +452,28 @@ if __name__ == "__main__":
     assert events == ["reload", "counts", "reload", "counts"]
     assert box.log[0][0] == "warning" and "«IMG_1.CR3»" in box.log[0][1]
     print("5. Al terminar o fallar: la cuadrícula al día")
+
+    # 6. Una carpeta: se mira si se puede, la ventana (modo carpeta), el plan y el trabajo;
+    #    al terminar, primero los módulos (lo elegido) y después la cuadrícula
+    asked.clear()
+    events.clear()
+    jobs.log.clear()
+    checked = FolderRenamePlan(1, "2024/Viaje", "2024/Viaje", Path("C:/F"), 12, SKIP_SAME)
+    ready = FolderRenamePlan(1, "2024/Viaje", "2024/Ordesa", Path("C:/F"), 12, None)
+    db.plans.extend([checked, ready])
+    answers.append("Ordesa")
+    actions.request_folder_rename(1, "2024/Viaje", "Viaje")
+    assert asked == [("Viaje", None, 12)], asked
+    assert jobs.log[-1] == ("start", execute_folder_rename, (ready,))
+    jobs.files_finished.emit(SimpleNamespace(folder=(1, "2024/Viaje", "2024/Ordesa"), failed=[]))
+    assert events == [("folder", 1, "2024/Viaje", "2024/Ordesa"), "reload", "counts"], events
+    # Una carpeta de un disco desconectado: el motivo, sin ventana
+    asked.clear()
+    db.plans.append(FolderRenamePlan(1, "X", "X", None, 0, "su disco no está conectado"))
+    actions.request_folder_rename(1, "X", "X")
+    assert asked == [] and box.log[-1][1].endswith("su disco no está conectado.")
+    assert "carpeta" in failed_rename_text([("C:/F/Viaje", "x")], folder=True)
+    print("6. Una carpeta: se mira, ventana, plan y trabajo; al terminar, los módulos primero")
 
     window.deleteLater()
     app.processEvents()

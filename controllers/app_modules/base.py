@@ -38,6 +38,7 @@ Qué aporta cada módulo (sobrescribiendo los métodos de 'AppModule'):
 Quién los coordina: 'module_host.ModuleHost' (toolbar, barras laterales, cuadrícula y
 estado guardado). Dónde se da de alta un módulo nuevo: 'registry.py'.
 
+1.9.0 'folder_renamed': una carpeta renombrada (CAT 4.3), para poner al día la barra.
 1.8.0 'ModuleContext.section_layout': el modelo de colocación de las secciones de las
       barras (cada módulo une a él su barra, con su clave como modo).
 1.7.0 'map_options': qué permite su mapa (de momento, ubicar fotos; docs/MOD_TRACKS.md, paso 3.2).
@@ -53,7 +54,7 @@ Los módulos son la capa que une la interfaz de su barra lateral con 'core/' (co
 sincronizar una carpeta, trabajos en segundo plano...) siguen en el controlador principal.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 __all__ = ["AppModule", "ModuleContext"]
 
 # Librerías estándar
@@ -200,6 +201,12 @@ class AppModule(QObject):
         """Mostrar un origen pedido desde fuera de la barra (p. ej. la flecha «ver sus
         fotos» del inspector). Lo normal es elegirlo en la barra, que emite
         'source_selected'. Por defecto, nada."""
+
+    def folder_renamed(self, location_id: int, old: str, new: str) -> None:
+        """Se ha renombrado una carpeta (CAT 4.3): la barra pone al día lo que recuerda por la
+        ruta (lo desplegado y lo elegido). Si lo elegido estaba dentro, emite
+        'source_selected' con la ruta nueva (solo el módulo activo cambia la cuadrícula).
+        Por defecto, nada."""
 
     # -------------------------------------------------------------------------
     # Ciclo de vida del catálogo (el 'ModuleHost' llama a todos los módulos)

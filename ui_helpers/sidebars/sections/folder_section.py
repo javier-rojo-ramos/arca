@@ -20,11 +20,12 @@ Uso (lo hace la barra, 'LibrarySidebar'; ver 'tree_section.py'):
 Estado por catálogo ('save_state'): 'expanded_folders' (lo desplegado, [ubicación, ruta]) y
 'known_locations' (las ubicaciones ya vistas).
 
+1.1.0 'folder_renamed': lo desplegado, con la ruta nueva de una carpeta renombrada (CAT 4.3).
 1.0.0 Primera versión: sale de 'image_sidebar.py' (1.7.3) al dividirla en un archivo por
       sección (12/11/2026); hace lo mismo que antes.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["FolderSection"]
 
 # Librerías estándar
@@ -39,6 +40,7 @@ from qtpy.QtWidgets import QMenu, QVBoxLayout, QWidget
 # Módulos del proyecto
 from core.catalog.folder_tree import FolderNode, LocationNode
 from core.catalog.grid_source import GridSource, SourceKind, folder_source
+from core.file_ops.moves import renamed_folder_path
 from ui_helpers.helpers.signal_blocker import blocked_signals as _blocked
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME
 from ui_helpers.sidebars.sections.tree_section import TreeSection, make_item
@@ -145,6 +147,17 @@ class FolderSection(TreeSection):
 
     def owns(self, source: GridSource) -> bool:
         return source.kind == SourceKind.FOLDER and source.library == self._library
+
+    def folder_renamed(self, location_id: int, old: str, new: str) -> None:
+        """Lo desplegado, con la ruta nueva de una carpeta renombrada (CAT 4.3).
+
+        El árbol se pone al día con el siguiente 'set_tree'.
+        """
+        updated: set[tuple[int, str]] = set()
+        for location, folder in self._expanded:
+            path = renamed_folder_path(folder, old, new) if location == location_id else None
+            updated.add((location, folder if path is None else path))
+        self._expanded = updated
 
     def save_state(self) -> dict:
         return {

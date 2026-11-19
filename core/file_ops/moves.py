@@ -38,12 +38,24 @@ Reglas (las comprueba el plan y, justo antes de cada archivo, otra vez):
     - Quien lo lanza comprueba antes que no haya trabajos que usen rutas (lectura,
       miniaturas, escritura de datos del usuario, añadir carpeta).
 
+RENOMBRAR UNA CARPETA (CAT 4.3) es otra operación: un solo 'os.rename' de la carpeta (sus
+archivos, sus '.xmp' y su '.arca.json' van dentro: no se tocan uno a uno) y, en una
+transacción, las rutas de todo lo que tiene debajo en el catálogo, lo que se dijo en
+«¿Qué contiene esta carpeta?» y sus errores de lectura. También se apunta antes en el
+registro (tipo 'folder') y, si el catálogo falla, se deshace. La raíz de una ubicación,
+todavía no (cambiaría la ubicación).
+
+    plan = plan_folder_rename(conn, location_id, "2024/Viaje", "Ordesa")    # para el aviso
+    result = execute_folder_rename(conn, plan)                              # el trabajo
+
 Uso:
     request = rename_request(conn, media_id, "Boda")              # o move_requests(...)
     plan = plan_file_moves(conn, [request])                       # para el aviso
     result = execute_file_moves(conn, plan, progress=..., cancel_event=...)   # el trabajo
     reconcile_file_operations(conn)                               # al abrir el catálogo
 
+1.2.0 Renombrar una carpeta (CAT 4.3): 'plan_folder_rename', 'execute_folder_rename',
+      'renamed_folder_path' y su revisión al abrir; 'FileMoveResult.folder'.
 1.1.0 'plan_rename': la petición y el plan de renombrar un archivo, de una vez (para
       'execute_async'; CAT 4.2).
 1.0.0 Primera versión (CAT 4.1b).
@@ -52,20 +64,24 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.file_ops.moves
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "FileMoveRequest",
     "FileMoveResult",
+    "FolderRenamePlan",
     "MovePlan",
     "PlannedMove",
     "ReconcileResult",
     "SidecarMove",
     "execute_file_moves",
+    "execute_folder_rename",
     "move_requests",
     "plan_file_moves",
+    "plan_folder_rename",
     "plan_rename",
     "reconcile_file_operations",
     "rename_request",
+    "renamed_folder_path",
 ]
 
 # Librerías estándar
@@ -107,6 +123,10 @@ SKIP_EXISTS = "ya existe un archivo con ese nombre"
 SKIP_IN_CATALOG = "ya hay un archivo con ese nombre en el catálogo"
 SKIP_DUPLICATE = "otro archivo de la lista va al mismo nombre"
 SKIP_SIDECAR_EXISTS = "ya existe un .xmp con ese nombre"
+SKIP_ROOT = "la carpeta raíz de una ubicación aún no se puede renombrar"
+SKIP_FOLDER_MISSING = "la carpeta no está en el disco"
+SKIP_FOLDER_EXISTS = "ya existe una carpeta con ese nombre"
+SKIP_FOLDER_IN_CATALOG = "ya hay archivos del catálogo con esa ruta"
 
 _IGNORE_CASE = sys.platform in ("win32", "darwin")  # sistemas sin distinguir mayúsculas
 
@@ -193,6 +213,8 @@ class FileMoveResult:
         failed: Los que el sistema no dejó mover (abiertos en otro programa...): (ruta, motivo).
         warnings: Problemas menores (un '.xmp' o un '.arca.json' que no se pudo tocar).
         cancelled: Si se paró antes de terminar.
+        folder: Al renombrar una carpeta, si se hizo: (ubicación, ruta vieja, ruta nueva).
+            La interfaz lo usa para poner al día lo que recuerda por la ruta.
     """
 
     renamed: bool = False
@@ -202,12 +224,16 @@ class FileMoveResult:
     failed: list[tuple[str, str]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     cancelled: bool = False
+    folder: tuple[int, str, str] | None = None
 
     @property
     def has_warnings(self) -> bool:
         return bool(self.skipped or self.failed or self.warnings or self.cancelled)
 
     def status_text(self) -> str:
+        if self.folder is not None:
+            old, new = PurePosixPath(self.folder[1]).name, PurePosixPath(self.folder[2]).name
+            return f"Carpeta renombrada: «{old}» → «{new}»"
         text = f"{'Renombrados' if self.renamed else 'Movidos'}: {self.moved}"
         if self.skipped:
             text += f" · omitidos: {len(self.skipped)}"
@@ -754,6 +780,203 @@ def execute_file_moves(
 
 
 # -----------------------------------------------------------------------------
+# Renombrar una carpeta
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class FolderRenamePlan:
+    """Lo que hay que saber antes de renombrar una carpeta (lo calcula 'plan_folder_rename').
+
+    Attributes:
+        location_id: Su ubicación.
+        source_path: La carpeta, relativa a la ubicación, con '/'.
+        target_path: La carpeta con el nombre nuevo.
+        root: Raíz de la ubicación (None si no está conectada).
+        count: Elementos del catálogo dentro de ella (con sus subcarpetas), para el aviso.
+        problem: Por qué no se puede (None si se puede).
+    """
+
+    location_id: int
+    source_path: str
+    target_path: str
+    root: Path | None = None
+    count: int = 0
+    problem: str | None = None
+
+
+def renamed_folder_path(path: str, old: str, new: str) -> str | None:
+    """La ruta 'path' después de renombrar la carpeta 'old' a 'new' (None si no está dentro).
+
+    'old' misma o algo de debajo: '2024/Viaje' → '2024/Ordesa', '2024/Viaje/Día 1' →
+    '2024/Ordesa/Día 1'; '2024/Viajes' no está dentro de '2024/Viaje'.
+    """
+    if path == old:
+        return new
+    if old and path.startswith(old + "/"):
+        return new + path[len(old) :]
+    return None
+
+
+def _items_under(conn: sqlite3.Connection, location_id: int, folder: str) -> int:
+    """Elementos del catálogo dentro de una carpeta (con sus subcarpetas)."""
+    row = conn.execute(
+        "SELECT COUNT(*) FROM media_items WHERE storage_location_id = ? "
+        "AND relative_path >= ? AND relative_path < ?",
+        (location_id, f"{folder}/", f"{folder}0"),
+    ).fetchone()
+    return int(row[0])
+
+
+def plan_folder_rename(
+    conn: sqlite3.Connection, location_id: int, folder: str, new_name: str
+) -> FolderRenamePlan:
+    """Decide si una carpeta se puede renombrar y cuántos elementos tiene. No cambia nada.
+
+    Los motivos van en este orden, así que con el nombre que ya tiene ('SKIP_SAME') sirve
+    también para saber, antes de preguntar el nombre nuevo, si se podrá renombrar.
+    """
+    source = _normalize(folder)
+    parent = str(PurePosixPath(source).parent) if source else ""
+    target = _join("" if parent == "." else parent, new_name)
+
+    def plan(problem: str | None, root: Path | None = None, count: int = 0) -> FolderRenamePlan:
+        return FolderRenamePlan(location_id, source, target, root, count, problem)
+
+    if not source:
+        return plan(SKIP_ROOT)
+    root = _location(conn, location_id)
+    if root is None:
+        return plan(SKIP_OFFLINE)
+    count = _items_under(conn, location_id, source)
+    if not (root / source).is_dir() or not _exists_exactly(root / source):
+        return plan(SKIP_FOLDER_MISSING, root, count)
+    if target == source:
+        return plan(SKIP_SAME, root, count)
+    problem = name_problem(new_name)
+    if problem:
+        return plan(problem, root, count)
+    source_dir, target_dir = root / source, root / target
+    if _exists_exactly(target_dir) or (
+        target_dir.exists() and not _same_file(source_dir, target_dir)
+    ):
+        return plan(SKIP_FOLDER_EXISTS, root, count)
+    if _items_under(conn, location_id, target):
+        return plan(SKIP_FOLDER_IN_CATALOG, root, count)
+    return plan(None, root, count)
+
+
+def _update_catalog_folder(
+    conn: sqlite3.Connection, location_id: int, source: str, target: str, operation_id: int | None
+) -> None:
+    """Cambia la carpeta en el catálogo (rutas, «¿Qué contiene...?», errores) y borra la nota.
+
+    En UNA transacción. Lo que hubiera ya con la ruta nueva en «¿Qué contiene...?» y en los
+    errores es de una carpeta que ya no existe (se ha comprobado que no hay elementos): se
+    borra antes, para que no choque.
+    """
+    shift = len(source) + 1  # 'substr' empieza a contar en 1: desde la '/' que sigue
+    under_source = (location_id, source, f"{source}/", f"{source}0")
+    under_target = (location_id, target, f"{target}/", f"{target}0")
+    _begin(conn)
+    try:
+        conn.execute(
+            """UPDATE media_items SET relative_path = ? || substr(relative_path, ?)
+                WHERE storage_location_id = ? AND relative_path >= ? AND relative_path < ?""",
+            (target, shift, location_id, f"{source}/", f"{source}0"),
+        )
+        for table, column in (("folder_libraries", "folder"), ("scan_errors", "relative_path")):
+            where = (
+                f"storage_location_id = ? AND ({column} = ? OR ({column} >= ? AND {column} < ?))"
+            )
+            conn.execute(f"DELETE FROM {table} WHERE {where}", under_target)
+            conn.execute(
+                f"UPDATE {table} SET {column} = ? || substr({column}, ?) WHERE {where}",
+                (target, shift, *under_source),
+            )
+        if operation_id is not None:
+            conn.execute("DELETE FROM file_operations WHERE id = ?", (operation_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def execute_folder_rename(
+    conn: sqlite3.Connection,
+    plan: FolderRenamePlan,
+    *,
+    progress: Callable[[JobProgress], None] | None = None,
+    cancel_event: threading.Event | None = None,
+) -> FileMoveResult:
+    """Renombra una carpeta en el disco y en el catálogo (un trabajo para 'JobManager.start').
+
+    Ver la cabecera del módulo. No lanza excepciones: lo que falla va en el resultado.
+    'cancel_event' no se usa (es un solo paso), pero el trabajo lo recibe como los demás.
+    """
+    result = FileMoveResult(renamed=True)
+    if plan.problem is not None or plan.root is None:
+        result.skipped.append((plan.source_path, plan.problem or SKIP_OFFLINE))
+        return result
+    if progress:
+        progress(JobProgress(0, 1))
+    source, target = plan.root / plan.source_path, plan.root / plan.target_path
+
+    batch = conn.execute("SELECT COALESCE(MAX(batch_id), 0) + 1 FROM file_operations")
+    batch_id = int(batch.fetchone()[0])
+    _begin(conn)
+    cursor = conn.execute(
+        """INSERT INTO file_operations(batch_id, kind, source_location_id, source_path,
+               target_location_id, target_path)
+           VALUES (?, 'folder', ?, ?, ?, ?)""",
+        (batch_id, plan.location_id, plan.source_path, plan.location_id, plan.target_path),
+    )
+    operation_id = int(cursor.lastrowid)
+    conn.commit()
+
+    def forget() -> None:
+        conn.execute("DELETE FROM file_operations WHERE id = ?", (operation_id,))
+        conn.commit()
+
+    # Otra vez justo antes: el disco puede haber cambiado desde el plan
+    if not _exists_exactly(source):
+        result.skipped.append((plan.source_path, SKIP_FOLDER_MISSING))
+        forget()
+        return result
+    if _exists_exactly(target) or (target.exists() and not _same_file(source, target)):
+        result.skipped.append((plan.source_path, SKIP_FOLDER_EXISTS))
+        forget()
+        return result
+    try:
+        os.rename(source, target)
+    except OSError as exc:
+        result.failed.append((str(source), str(exc) or exc.__class__.__name__))
+        forget()
+        return result
+    try:
+        _update_catalog_folder(
+            conn, plan.location_id, plan.source_path, plan.target_path, operation_id
+        )
+    except sqlite3.Error as exc:
+        logger.error(f"No se pudo poner al día el catálogo tras renombrar {source}: {exc}")
+        try:
+            os.rename(target, source)
+        except OSError as undo_error:
+            # La nota se queda: al abrir el catálogo se terminará
+            result.failed.append((str(source), f"{exc}; no se pudo deshacer: {undo_error}"))
+            return result
+        forget()
+        result.failed.append((str(source), str(exc)))
+        return result
+    result.moved = plan.count
+    result.folder = (plan.location_id, plan.source_path, plan.target_path)
+    if progress:
+        progress(JobProgress(1, 1))
+    logger.info(f"Carpeta renombrada: {source} → {target} ({plan.count} elementos)")
+    return result
+
+
+# -----------------------------------------------------------------------------
 # Al abrir el catálogo: terminar o descartar lo que quedó a medias
 # -----------------------------------------------------------------------------
 
@@ -784,9 +1007,12 @@ def reconcile_file_operations(conn: sqlite3.Connection) -> ReconcileResult:
         groups.setdefault((row[1], row[3]), []).append(row)
 
     for (batch_id, media_id), group in groups.items():
+        if media_id is None:
+            for row in group:
+                _reconcile_folder(conn, row, result)
+            continue
         files = [row for row in group if row[2] == "file"]
-        if media_id is None or len(files) != 1:
-            # Un tipo que esta versión no sabe terminar ('folder', CAT 4.3) o una nota rota
+        if len(files) != 1:
             logger.warning(f"Registro de operaciones: nota que no se sabe terminar: {group}")
             result.kept += len(group)
             continue
@@ -845,6 +1071,35 @@ def reconcile_file_operations(conn: sqlite3.Connection) -> ReconcileResult:
         logger.info(f"Registro de operaciones: terminado {source} → {target}")
     return result
 
+
+
+def _reconcile_folder(conn: sqlite3.Connection, row: tuple, result: ReconcileResult) -> None:
+    """Termina o descarta un renombrado de carpeta que quedó a medias (ver la de arriba)."""
+    operation_id, kind, location_id, source_path, target_path = (
+        row[0], row[2], row[4], row[5], row[7]
+    )  # fmt: skip
+    if kind != "folder":
+        logger.warning(f"Registro de operaciones: nota que no se sabe terminar: {row}")
+        result.kept += 1
+        return
+    root = _location(conn, location_id)
+    if root is None:
+        result.kept += 1
+        return
+    source, target = root / source_path, root / target_path
+    if _exists_exactly(target) and not _exists_exactly(source):
+        _update_catalog_folder(conn, location_id, source_path, target_path, operation_id)
+        result.completed += 1
+        logger.info(f"Registro de operaciones: terminado {source} → {target}")
+        return
+    if not (_exists_exactly(source) and not _exists_exactly(target)):
+        logger.warning(
+            f"Registro de operaciones: no se puede saber si la carpeta {source} se renombró a "
+            f"{target} (están las dos, o ninguna): se deja como está"
+        )
+    conn.execute("DELETE FROM file_operations WHERE id = ?", (operation_id,))
+    conn.commit()
+    result.discarded += 1
 
 if __name__ == "__main__":
     # Autoprueba con carpetas temporales y un catálogo en memoria (sin ExifTool ni Qt).
@@ -1077,6 +1332,76 @@ if __name__ == "__main__":
         assert item(idle)[0] == "quieto.jpg" and item(both)[0] == "uno.jpg"
         assert journal() == 1  # la del disco desconectado
         print("10. Al abrir: terminado lo que se movió (con su .xmp), descartado lo demás")
+
+        # ---- 11. Renombrar una carpeta ----
+        assert renamed_folder_path("2024/Viaje", "2024/Viaje", "2024/Ordesa") == "2024/Ordesa"
+        assert renamed_folder_path("2024/Viaje/Día 1", "2024/Viaje", "2024/Ordesa") == (
+            "2024/Ordesa/Día 1"
+        )
+        assert renamed_folder_path("2024/Viajes", "2024/Viaje", "2024/Ordesa") is None
+        trip = [add("Viaje/a.jpg"), add("Viaje/Día 1/b.jpg")]
+        other = add("Viajes/c.jpg")  # empieza igual, pero no está dentro
+        write_folder_file(FolderData(root / "Viaje/Día 1", items={"clip.mov": {"rating": 2}}))
+        db.executemany(
+            "INSERT INTO folder_libraries(storage_location_id, folder, content) VALUES (1, ?, ?)",
+            [("Viaje", "image"), ("Viaje/Día 1", "auto"), ("Ordesa", "audio")],  # 'Ordesa', viejo
+        )
+        db.execute(
+            "INSERT INTO scan_errors(storage_location_id, relative_path, stage, message) "
+            "VALUES (1, 'Viaje/Día 1/roto.jpg', 'metadata', 'x')"
+        )
+        db.commit()
+        (root / "Ocupada").mkdir()
+        add("Fantasma/x.jpg", missing=1, create=False)  # en el catálogo, no en el disco
+        problems = {
+            "": SKIP_ROOT,
+            "Viaje:Viaje": SKIP_SAME,
+            "Viaje:Ocupada": SKIP_FOLDER_EXISTS,
+            "Viaje:Fantasma": SKIP_FOLDER_IN_CATALOG,
+            "Viaje:mal?": "caracteres",
+            "NoEsta:Otra": SKIP_FOLDER_MISSING,
+        }
+        for case, reason in problems.items():
+            folder, _, name = case.partition(":")
+            plan = plan_folder_rename(db, 1, folder, name or "x")
+            assert plan.problem is not None and reason in plan.problem, (case, plan)
+        assert plan_folder_rename(db, 2, "d", "e").problem == SKIP_OFFLINE
+        plan = plan_folder_rename(db, 1, "Viaje", "Ordesa")
+        assert plan.problem is None and plan.count == 2 and plan.target_path == "Ordesa", plan
+        result = execute_folder_rename(db, plan)
+        assert result.moved == 2 and result.folder == (1, "Viaje", "Ordesa"), result
+        assert result.status_text() == "Carpeta renombrada: «Viaje» → «Ordesa»"
+        assert (root / "Ordesa/Día 1/b.jpg").is_file() and not (root / "Viaje").exists()
+        assert item(trip[1])[0] == "Ordesa/Día 1/b.jpg" and item(other)[0] == "Viajes/c.jpg"
+        assert read_folder_file(root / "Ordesa/Día 1").items == {"clip.mov": {"rating": 2}}
+        libraries = dict(db.execute("SELECT folder, content FROM folder_libraries"))
+        assert libraries == {"Ordesa": "image", "Ordesa/Día 1": "auto"}, libraries
+        errors = {row[0] for row in db.execute("SELECT relative_path FROM scan_errors")}
+        assert "Ordesa/Día 1/roto.jpg" in errors
+        assert not any(error.startswith("Viaje/") for error in errors)
+        assert journal() == 1  # solo la del disco desconectado (paso 10)
+        print("11. Renombrar una carpeta: disco, rutas de dentro, «¿Qué contiene?» y errores")
+
+        # ---- 12. Carpeta: el catálogo falla (se deshace) y la revisión al abrir ----
+        db.execute(
+            """CREATE TEMP TRIGGER no_update BEFORE UPDATE ON media_items
+               BEGIN SELECT RAISE(ABORT, 'catálogo bloqueado'); END"""
+        )
+        result = execute_folder_rename(db, plan_folder_rename(db, 1, "Ordesa", "Nunca"))
+        assert result.folder is None and "catálogo bloqueado" in result.failed[0][1], result
+        assert (root / "Ordesa").is_dir() and not (root / "Nunca").exists()
+        db.execute("DROP TRIGGER no_update")
+        os.rename(root / "Ordesa", root / "Pirineo")  # se renombró y el catálogo no lo supo
+        db.execute(
+            """INSERT INTO file_operations(batch_id, kind, source_location_id, source_path,
+                   target_location_id, target_path)
+               VALUES (60, 'folder', 1, 'Ordesa', 1, 'Pirineo')"""
+        )
+        db.commit()
+        outcome = reconcile_file_operations(db)
+        assert outcome.completed == 1, outcome
+        assert item(trip[0])[0] == "Pirineo/a.jpg" and journal() == 1
+        print("12. Carpeta: si el catálogo falla, se deshace; al abrir, se termina")
 
     db.close()
     print("Autoprueba finalizada correctamente.")

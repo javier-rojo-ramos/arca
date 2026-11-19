@@ -26,6 +26,7 @@ Uso (una subclase por módulo):
         extra_sections = (ExtraSection("keywords", "Lista de palabras clave", ...),)  # si las tiene
         def views(self): ...          # y el orden, los filtros, el mapa...
 
+1.2.0 'folder_renamed': la barra, al día tras renombrar una carpeta (CAT 4.3).
 1.1.0 Secciones de más en la barra ('extra_sections'), leídas con lo demás; no se vuelve
       a «Todos» mientras una sección oculte filas. Con ello, Imagen pasa a ser un módulo
       más de esta base (docs/PENDIENTE.md, GEN 13). Tracks, Vídeo y Audio, igual.
@@ -36,7 +37,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana, con un catálogo en me
     python -m controllers.app_modules.library_module
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["LibraryModule", "fetch_library_sidebar_data"]
 
 # Librerías estándar
@@ -140,6 +141,10 @@ class LibraryModule(AppModule):
     def current_source(self) -> GridSource | None:
         """Lo elegido en la barra («Todos los …», una carpeta, una fecha...)."""
         return self.sidebar.current_source()
+
+    def folder_renamed(self, location_id: int, old: str, new: str) -> None:
+        """Ver 'AppModule.folder_renamed'."""
+        self.sidebar.folder_renamed(location_id, old, new)
 
     def show_source(self, source: GridSource) -> None:
         """Lo pide otro (p. ej. el inspector): se elige en la barra, si tiene fila."""

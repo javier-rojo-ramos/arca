@@ -21,6 +21,7 @@ el controlador principal, que conecta esas señales de 'CatalogSidebar' directam
 Orden de la cuadrícula: todos los campos de 'grid_orders.py'; parte de «Nombre» (con tipos
 mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 
+1.7.0 'folder_renamed': la barra, al día tras renombrar una carpeta (CAT 4.3).
 1.6.2 Su clave, título e icono, de 'config/app_modules.py' (docs/PENDIENTE.md, GEN 12).
 1.6.1 Ordena por los campos comunes ('COMMON_SORT_FIELDS': los mismos seis de antes; los
       de los tracks son de su módulo).
@@ -36,7 +37,7 @@ mezclados, la hora de captura dejaría al final todo lo que no la tiene).
 1.1.0 'sort_fields' y 'default_order' (orden de partida: «Nombre»).
 """
 
-__version__ = "1.6.2"
+__version__ = "1.7.0"
 __all__ = ["CatalogModule"]
 
 # Librerías estándar
@@ -143,6 +144,10 @@ class CatalogModule(AppModule):
         if source.kind == SourceKind.SMART and source.rules is None:
             return None
         return source
+
+    def folder_renamed(self, location_id: int, old: str, new: str) -> None:
+        """Ver 'AppModule.folder_renamed'."""
+        self.sidebar.folder_renamed(location_id, old, new)
 
     def show_source(self, source: GridSource) -> None:
         """Lo pide el inspector (flecha «ver sus fotos»): la cuadrícula lo muestra; si la

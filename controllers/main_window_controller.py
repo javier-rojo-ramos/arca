@@ -182,6 +182,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             busy_reason=self.remove_actions.busy_reason,
             reload_grid=self.mosaico_model.reload,
             refresh_counts=self._refresh_sidebar_counts,
+            # Tras renombrar una carpeta, cada módulo pone al día su barra (lo elegido)
+            folder_renamed=lambda *args: (
+                self.module_host.folder_renamed(*args) if self.module_host is not None else None
+            ),
             parent=self,
         )
 
@@ -410,6 +414,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             get_db=lambda: self.db,
             busy_reason=self.remove_actions.busy_reason,
             start_removal=self.remove_actions.start_removal_job,
+        )
+        # "Cambiar nombre..." de una carpeta: lo atiende 'controllers/file_actions.py'
+        self.widget_catalog_sidebar.rename_folder_requested.connect(
+            self.file_actions.request_folder_rename
         )
         # Menú de la fila «Selección rápida»: vaciarla
         self.widget_catalog_sidebar.clear_quick_selection_requested.connect(

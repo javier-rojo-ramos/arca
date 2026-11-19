@@ -56,7 +56,7 @@ Tres secciones plegables; cada fila lleva un `GridSource` (qué mostrar) y su re
 | Sección | Filas | Notas |
 |---|---|---|
 | «Catálogo» | «Todos los archivos», «Selección rápida» y «Sin clasificar» | «Sin clasificar» solo se ve si hay algo sin biblioteca |
-| «Carpetas» | Una raíz por ubicación y su árbol, con recuentos | Botón «+»: añadir carpeta. Menú: «Sincronizar carpeta», «Mostrar en el Explorador», «Quitar archivos ausentes del catálogo», «Quitar del catálogo…». La opción «Mostrar los elementos de las subcarpetas» (Opciones > Catálogo) decide qué se ve al elegir una |
+| «Carpetas» | Una raíz por ubicación y su árbol, con recuentos | Botón «+»: añadir carpeta. Menú: «Sincronizar carpeta», «Mostrar en el Explorador», «Cambiar nombre…» (`CAT 4.3`), «Quitar archivos ausentes del catálogo», «Quitar del catálogo…». La opción «Mostrar los elementos de las subcarpetas» (Opciones > Catálogo) decide qué se ve al elegir una |
 | «Colecciones» | Las del sistema (Clasificación, Etiqueta, Marcadas, Rechazadas) y las del usuario | Botón «+» y menú: crear conjunto, colección o colección inteligente; renombrar; borrar; soltar tarjetas sobre una colección |
 
 ## 4. Carpetas, ubicaciones y bibliotecas
@@ -108,6 +108,7 @@ Son los comunes a todos los módulos:
 
 | Orden | Qué hace | Dónde |
 |---|---|---|
+| «Cambiar nombre…» de una carpeta | Cambia su nombre en el disco y, en el catálogo, la ruta de todo lo de dentro (que conserva todo lo suyo); las barras de los módulos siguen con lo desplegado y lo elegido. No en la raíz de una ubicación (`CAT 4.3`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» (F2) | Cambia el nombre de un archivo en el disco (con su `.xmp` y su entrada del `.arca.json`) y en el catálogo, que conserva todo lo suyo; la extensión no cambia (`CAT 4.2`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Eliminar del catálogo» | Quita los archivos del catálogo; siguen en su carpeta y vuelven al sincronizar | `media_removal.py` |
 | «Eliminar del disco» | Además, los envía a la Papelera (con el sidecar de un RAW). Los ausentes, los de una ubicación desconectada y los de una unidad de red solo se quitan del catálogo. La carpeta que se queda vacía (y sin nada en el catálogo) se elimina también del disco, con su línea en la ventana (`CAT 3.3`, como Lightroom) | `media_removal.py`, `empty_folders.py`; la papelera se le pasa como función desde la interfaz |

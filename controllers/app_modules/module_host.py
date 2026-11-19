@@ -42,6 +42,8 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.11.0 'folder_renamed': cada módulo pone al día su barra tras renombrar una carpeta
+       (CAT 4.3); el activo, si lo elegido estaba dentro, recarga la cuadrícula.
 1.10.0 El archivo actual de cada módulo: 'set_current_media', 'active_current_media'; se
        guarda por catálogo ('current').
 1.9.0 Señal 'source_chosen': el usuario ha elegido otra cosa en la barra del módulo activo
@@ -73,7 +75,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -407,6 +409,13 @@ class ModuleHost(QObject):
         self._dirty = set(self._modules)
         self._dirty.discard(self._active.key)
         self._active.refresh()
+
+    def folder_renamed(self, location_id: int, old: str, new: str) -> None:
+        """Se ha renombrado una carpeta: cada módulo pone al día su barra (lo desplegado y lo
+        elegido); el activo, si lo elegido estaba dentro, vuelve a cargar la cuadrícula
+        (los demás, al activarlos: 'source_selected' de un módulo inactivo no carga nada)."""
+        for module in self._modules.values():
+            module.folder_renamed(location_id, old, new)
 
     def apply_settings(self, changed: set[str]) -> None:
         """Pasa a todos los módulos las opciones que han cambiado."""

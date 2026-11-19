@@ -19,7 +19,9 @@ unas fotos inventadas, y recorre lo que conecta el controlador:
        papelera simulada, y la carpeta, eliminada;
     9. «Cambiar nombre...» de una foto (CAT 4.2; la ventana responde sola): el archivo en
        el disco y su ruta y su título en el catálogo;
-    10. cerrar.
+    10. «Cambiar nombre...» de una subcarpeta elegida en la barra (CAT 4.3): la carpeta en el
+       disco, las rutas en el catálogo y la barra y la cuadrícula con el nombre nuevo;
+    11. cerrar.
 
 Falla si algo no llega a tiempo, si sale un aviso de error («critical») o si una excepción
 llega a 'sys.excepthook' (en la aplicación, una excepción en un slot de Qt solo se apunta en
@@ -42,6 +44,7 @@ Uso (desde la raíz del proyecto, con el Python de .venv; necesita ExifTool para
 
 Termina con código 0 si todo va bien y 1 si algo falla.
 
+1.5.0 Paso nuevo: «Cambiar nombre...» de una carpeta elegida (CAT 4.3).
 1.4.0 Paso nuevo: «Cambiar nombre...» de una foto (CAT 4.2), con su ventana sustituida.
 1.3.0 Paso nuevo: «Eliminar del disco» la única foto de una carpeta (CAT 3.3), con la
       papelera de 'remove_actions' también simulada.
@@ -53,7 +56,7 @@ Termina con código 0 si todo va bien y 1 si algo falla.
 1.0.0 Primera versión (18/11/2026), con GEN 15.1.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["main", "run"]
 
 # Librerías estándar
@@ -185,11 +188,13 @@ def run(work_dir: Path) -> None:
     folder_actions.move_to_trash = fake_trash
 
     class AnsweringRenameDialog:
-        """La ventana «Cambiar nombre», que responde siempre «Renombrada»."""
+        """La ventana «Cambiar nombre»: «Renombrada» a un archivo y «Carpeta nueva» a una carpeta."""
 
         @staticmethod
-        def ask(_parent: object, _file_name: str, _initial: str | None = None) -> str:
-            return "Renombrada"
+        def ask(
+            _parent: object, _file_name: str, _initial: str | None = None, **kwargs: object
+        ) -> str:
+            return "Carpeta nueva" if kwargs.get("folder_files") is not None else "Renombrada"
 
     file_actions.RenameDialog = AnsweringRenameDialog
 
@@ -332,6 +337,9 @@ def run(work_dir: Path) -> None:
     alone = library / "Sola"  # para el paso 8
     alone.mkdir()
     Image.new("RGB", (64, 48), (40, 200, 90)).save(alone / "unica.jpg")
+    trip = library / "Viaje" / "Dia 1"  # para el paso 10
+    trip.mkdir(parents=True)
+    Image.new("RGB", (64, 48), (90, 40, 200)).save(trip / "playa.jpg")
     window.folder_import.request_sync(str(library))
     run_until(
         lambda: query("SELECT 1 FROM media_items WHERE relative_path = 'Vacia/suelta.jpg'"),
@@ -385,7 +393,36 @@ def run(work_dir: Path) -> None:
         raise SmokeError("El registro de operaciones no quedó vacío")
     print(f"9. Cambiar nombre: {old_name} → Renombrada.jpg (disco y catálogo)")
 
-    # 10. Cerrar
+    # 10. «Cambiar nombre...» de la carpeta «Viaje», con su subcarpeta elegida en la barra:
+    #     la carpeta en el disco, las rutas en el catálogo y lo elegido, con el nombre nuevo
+    sidebar = window.widget_catalog_sidebar
+    # (partes internas de la barra: el origen tal como lo hace ella y sus filas de carpetas)
+    chosen = sidebar._source_for(location_id, "Viaje/Dia 1")
+    run_until(
+        lambda: chosen in sidebar._folder_items, TIMEOUT_SHORT, "la subcarpeta en la barra"
+    )
+    sidebar.select_source(chosen)
+    run_until(
+        lambda: window.mosaico_model.rowCount() == 1, TIMEOUT_SHORT, "la subcarpeta elegida"
+    )
+    sidebar.rename_folder_requested.emit(location_id, "Viaje", "Viaje")
+    run_until(lambda: (library / "Carpeta nueva").is_dir(), TIMEOUT_SHORT, "renombrar la carpeta")
+    run_until(idle, TIMEOUT_SHORT, "fin de renombrar la carpeta")
+    if query("SELECT relative_path FROM media_items WHERE relative_path LIKE 'Viaje/%'"):
+        raise SmokeError("Quedan rutas con el nombre viejo de la carpeta")
+    if query("SELECT 1 FROM media_items WHERE relative_path = 'Carpeta nueva/Dia 1/playa.jpg'") != [
+        (1,)
+    ]:
+        raise SmokeError("La foto de la carpeta no tiene la ruta nueva")
+    now = sidebar.current_source()
+    if now.folder != "Carpeta nueva/Dia 1" or window.mosaico_model.source.folder != now.folder:
+        raise SmokeError(f"Lo elegido no siguió a la carpeta: {now}, {window.mosaico_model.source}")
+    run_until(
+        lambda: window.mosaico_model.rowCount() == 1, TIMEOUT_SHORT, "la cuadrícula, con su foto"
+    )
+    print("10. Cambiar nombre de una carpeta: disco, catálogo y lo elegido en la barra")
+
+    # 11. Cerrar
     window.close()
     app.processEvents()
     if jobs.is_attached:
@@ -393,7 +430,7 @@ def run(work_dir: Path) -> None:
     errors = [text for kind, text in shown if kind == "critical"]
     if errors or exceptions:
         raise SmokeError(f"Errores: {errors or exceptions}")
-    print(f"10. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
+    print(f"11. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
     window.deleteLater()
     app.processEvents()
 

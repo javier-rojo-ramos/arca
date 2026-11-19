@@ -1,4 +1,4 @@
-"""Ventana «Cambiar nombre» de un archivo (menú de la tarjeta y tecla F2; CAT 4.2).
+"""Ventana «Cambiar nombre» de un archivo (menú de la tarjeta y F2; CAT 4.2) o de una carpeta.
 
     ┌ Cambiar nombre ──────────────────────────────────────────────┐
     │ Cambiar el nombre de «IMG_0001.CR3»                           │
@@ -27,9 +27,15 @@ Reglas:
       ('initial_stem').
     - «Cambiar nombre» es el botón por defecto (Intro); Esc = «Cancelar».
 
+Carpetas (CAT 4.3; menú de una carpeta del Catálogo): con 'folder_files' (cuántos archivos
+del catálogo tiene). El título dice «la carpeta», el nombre se edita entero (una carpeta no
+tiene extensión: «Viaje.2024» es todo nombre) y el aviso cuenta sus archivos.
+
 Uso:
     stem = RenameDialog.ask(parent, "IMG_0001.CR3")       # None si se cancela
+    name = RenameDialog.ask(parent, "Viaje", folder_files=12)
 
+1.1.0 También para carpetas ('folder_files', 'folder_explanation_text'; CAT 4.3).
 1.0.1 La línea del motivo está siempre, vacía si el nombre vale: al aparecer el motivo, la
       explicación y los botones ya no se mueven (lo pidió el autor al probarla).
 1.0.0 Primera versión (CAT 4.2).
@@ -38,8 +44,8 @@ Prueba rápida (sin abrir ninguna ventana; desde la raíz del proyecto):
     python -m ui_helpers.dialogs.rename_dialog
 """
 
-__version__ = "1.0.1"
-__all__ = ["RenameDialog", "explanation_text"]
+__version__ = "1.1.0"
+__all__ = ["RenameDialog", "explanation_text", "folder_explanation_text"]
 
 # Librerías de terceros (Qt)
 from qtpy.QtWidgets import (
@@ -80,30 +86,51 @@ def explanation_text(file_name: str) -> str:
     return f"{disk} La valoración, las palabras clave y las colecciones se conservan."
 
 
+def folder_explanation_text(count: int) -> str:
+    """El aviso al renombrar una carpeta: cambia también en el disco; sus archivos, igual."""
+    disk = "La carpeta cambia de nombre también en el disco."
+    if count == 0:
+        return disk
+    files = "Su archivo conserva" if count == 1 else f"Sus {count} archivos conservan"
+    return f"{disk} {files} la valoración, las palabras clave y las colecciones."
+
+
 class RenameDialog(QDialog):
     """Ventana para escribir el nombre nuevo de un archivo (sin su extensión)."""
 
     def __init__(
-        self, file_name: str, *, initial_stem: str | None = None, parent: QWidget | None = None
+        self,
+        file_name: str,
+        *,
+        initial_stem: str | None = None,
+        folder_files: int | None = None,
+        parent: QWidget | None = None,
     ) -> None:
         """Crea la ventana.
 
         Args:
-            file_name: Nombre actual del archivo, con su extensión.
+            file_name: Nombre actual del archivo, con su extensión (o de la carpeta).
             initial_stem: Lo que aparece escrito al abrirla (None = el nombre actual): al
                 volver a abrirla tras un problema, lo que el usuario había escrito.
+            folder_files: Si es una carpeta, cuántos archivos del catálogo tiene (None = es
+                un archivo).
             parent: Ventana padre.
         """
         super().__init__(parent)
         self.setWindowTitle(RENAME_BUTTON_TEXT)
         self.setModal(True)
         self.setMinimumWidth(460)
-        self._stem, self._extension = split_extension(file_name)
+        is_folder = folder_files is not None
+        if is_folder:
+            self._stem, self._extension = file_name, ""  # una carpeta no tiene extensión
+        else:
+            self._stem, self._extension = split_extension(file_name)
 
         layout = QVBoxLayout(self)
 
         # --- Título: "Cambiar el nombre de «...»", más grande y en color de acento ---
-        title = QLabel(f"Cambiar el nombre de «{file_name}»")
+        what = "la carpeta " if is_folder else ""
+        title = QLabel(f"Cambiar el nombre de {what}«{file_name}»")
         title.setWordWrap(True)
         font = title.font()
         font.setPointSize(font.pointSize() + _TITLE_EXTRA_POINTS)
@@ -134,7 +161,9 @@ class RenameDialog(QDialog):
         layout.addSpacing(6)
 
         # --- El aviso: lo que pasa en el disco ---
-        explanation = QLabel(explanation_text(file_name))
+        explanation = QLabel(
+            folder_explanation_text(folder_files) if is_folder else explanation_text(file_name)
+        )
         explanation.setWordWrap(True)
         layout.addWidget(explanation)
         layout.addSpacing(12)
@@ -170,10 +199,17 @@ class RenameDialog(QDialog):
 
     @classmethod
     def ask(
-        cls, parent: QWidget | None, file_name: str, initial_stem: str | None = None
+        cls,
+        parent: QWidget | None,
+        file_name: str,
+        initial_stem: str | None = None,
+        *,
+        folder_files: int | None = None,
     ) -> str | None:
         """Abre la ventana. Devuelve el nombre nuevo sin la extensión, o None si se cancela."""
-        dialog = cls(file_name, initial_stem=initial_stem, parent=parent)
+        dialog = cls(
+            file_name, initial_stem=initial_stem, folder_files=folder_files, parent=parent
+        )
         try:
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 return None
@@ -223,5 +259,18 @@ if __name__ == "__main__":
     assert again._edit.text() == "Lo que escribí" and again._rename_button.isEnabled()
     again.deleteLater()
     print("2. La caja: el nombre seleccionado, el motivo si no vale y el botón")
+
+    # 3. Una carpeta: el nombre entero (sin extensión), «la carpeta» y sus archivos
+    assert folder_explanation_text(0) == "La carpeta cambia de nombre también en el disco."
+    assert "Su archivo conserva la valoración" in folder_explanation_text(1)
+    assert "Sus 12 archivos conservan la valoración" in folder_explanation_text(12)
+    folder = RenameDialog("Viaje.2024", folder_files=12)
+    assert folder._edit.text() == "Viaje.2024" and folder._extension == ""
+    titles = [label.text() for label in folder.findChildren(QLabel)]
+    assert "Cambiar el nombre de la carpeta «Viaje.2024»" in titles, titles
+    folder._edit.setText("final.")  # sin extensión, el punto final cuenta
+    assert not folder._rename_button.isEnabled() and "acabar" in folder._problem.text()
+    folder.deleteLater()
+    print("3. Una carpeta: el nombre entero, el título y el aviso con sus archivos")
     app.processEvents()
     print("Autoprueba finalizada correctamente.")
