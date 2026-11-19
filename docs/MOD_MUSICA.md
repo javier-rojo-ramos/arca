@@ -29,7 +29,7 @@
 ## 1. Punto de partida (lo que ya existe)
 
 - **Catalogación**: las canciones se catalogan como `MediaType.AUDIO` y van a la biblioteca Música (`library = 'audio'`). El detector (`core/catalog/media_detector.py`) reconoce MP3, M4A, FLAC, Ogg y Opus. En el catálogo del autor hay 20 canciones, todas MP3 (16/11/2026).
-- **Módulo**: `controllers/app_modules/audio_module.py` (`AudioModule`, sobre `LibraryModule`), con la barra común (`ui_helpers/sidebars/library_sidebar.py`: biblioteca, carpetas y fechas). Solo la vista de cuadrícula. Orden: `VIDEO_AUDIO_SORT_FIELDS` (`core/catalog/grid_orders.py`). Filtros: su tipo y, en «Metadatos», fecha y palabras clave.
+- **Módulo**: `controllers/app_modules/audio_module.py` (`AudioModule`, sobre `LibraryModule`), con la barra común (`ui_helpers/sidebars/library_sidebar.py`: biblioteca, carpetas y fechas). La cuadrícula y la vista individual (desde el 19/11/2026, pedida por el autor para entrar y salir como en los demás módulos; hoy, la corchea y el nombre; la carátula en grande, cuando se lea en `MUS 3`). Orden: `VIDEO_AUDIO_SORT_FIELDS` (`core/catalog/grid_orders.py`). Filtros: su tipo y, en «Metadatos», fecha y palabras clave.
 - **Sin etiquetas**: no hay extractor de audio (`core/metadata/registry.py` ignora los tipos sin extractor). De cada canción solo se sabe lo del archivo (nombre, tamaño, fechas).
 - **Sin miniatura**: la tarjeta dibuja el marcador. El registro de orígenes (`core/thumbnails/registry.py`) tiene anotado el hueco para las carátulas.
 - **Datos del usuario**: valoración, marca, color y palabras clave, en el `.arca.json` de la carpeta (destino `FOLDER_FILE` de `core/userdata/policy.py`).

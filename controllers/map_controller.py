@@ -20,7 +20,9 @@ Qué hace (decidido por el autor el 13/11/2026):
       mapa (en la tira, siempre). Al pulsarla, en la cuadrícula o en la tira, queda
       seleccionado solo ese archivo, se pasa al mapa (si no se está viendo) y se
       encuadra como con «Encuadrar». Si lo que se pinta hay que pedirlo, el encuadre
-      espera a que llegue y sustituye al de todo.
+      espera a que llegue y sustituye al de todo. En un módulo sin vista individual
+      (Tracks), el doble clic, Intro y «adelante» en la cuadrícula hacen lo mismo
+      (19/11/2026; «atrás» vuelve a la cuadrícula).
     - Selección: la MISMA que la cuadrícula (su 'selectionModel'), en los dos sentidos.
       Clic en una foto o en un grupo: solo eso; Ctrl+clic: se añade o se quita; clic en
       el mapa vacío: nada seleccionado. Clic en un track: solo ese track. El track
@@ -81,6 +83,8 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     extra = controlador.save_state()     # al cerrarlo, con lo de los módulos
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.11.0 En un módulo sin vista individual (Tracks), doble clic, Intro y «adelante» en la
+       cuadrícula hacen lo mismo que la chincheta ('CenterViewController.map_requested').
 1.10.0 Cada módulo vuelve a su encuadre del mapa (al arrancar, al volver de otro módulo)
        si tiene elegido lo mismo ('map_framing.MapFraming'); se guarda por catálogo
        ('save_state' / 'restore_state'). Si se encuadra al pintar, el track elegido no
@@ -114,7 +118,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 2.3).
 """
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -349,6 +353,9 @@ class MapController(QObject):
             location_clicked = getattr(delegate, "location_clicked", None)
             if location_clicked is not None:
                 location_clicked.connect(self._on_location_clicked)
+        # Doble clic, Intro o «adelante» en la cuadrícula de un módulo sin vista individual
+        # (Tracks): ese archivo, en el mapa, como con la chincheta
+        center_views.map_requested.connect(self._on_map_requested)
         page.filmstrip_resized.connect(lambda _height: self._filmstrip_save_timer.start())
         grid.selectionModel().currentChanged.connect(self._on_current_changed)
         self._restore_filmstrip()
@@ -650,6 +657,12 @@ class MapController(QObject):
             self._fit_pending()  # la tira: ya se ve el mapa
         else:
             self._host.set_view(CenterView.MAP)  # al verse, '_on_view_changed'
+
+    def _on_map_requested(self, row: int) -> None:
+        """Doble clic, Intro o «adelante» en la cuadrícula de un módulo sin vista individual
+        pero con mapa (Tracks; decidido por el autor el 19/11/2026): lo mismo que la
+        chincheta de esa tarjeta. «Atrás» (o G) vuelve a la cuadrícula."""
+        self._on_location_clicked(self._model.index(row, 0))
 
     def _fit_pending(self) -> None:
         """Encuadra lo pulsado con la chincheta, como el botón «Encuadrar» (animado)."""

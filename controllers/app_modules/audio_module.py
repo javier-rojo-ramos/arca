@@ -6,18 +6,22 @@ navegación propia (artistas, álbumes y géneros) y la vista de lista estilo Mp
 con los pasos A.6 y A.5 de docs/PENDIENTE.md.
 
 Decidido por el autor el 15/11/2026:
-    - Vistas: solo la cuadrícula (la vista individual de una canción no tendría qué
-      enseñar; la de lista, más adelante).
+    - Vistas: la cuadrícula y, desde el 19/11/2026, la vista individual, para entrar y
+      salir como en los demás módulos (doble clic o «adelante»; G, Esc o «atrás»). Hoy
+      enseña el icono de música y el nombre; la carátula, cuando se lea (docs/MOD_MUSICA.md).
+      La de lista, más adelante.
     - Orden: los campos de siempre más «Duración»; de partida, por nombre.
     - Filtros: el tipo «audio» en «Atributos»; en «Metadatos», fecha y palabras clave.
     - Textos de la barra, provisionales hasta que se decidan los nombres ('_TEXTS').
 
+1.1.0 También la vista individual: se entra y se sale como en los demás módulos (lo pidió
+      el autor; antes, solo la cuadrícula).
 1.0.1 Su clave, título, icono y biblioteca, de 'config/app_modules.py' (docs/PENDIENTE.md,
       GEN 12).
 1.0.0 Primera versión (15/11/2026): sustituye al módulo provisional.
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = ["AudioModule"]
 
 # Módulos del proyecto
@@ -51,8 +55,8 @@ class AudioModule(LibraryModule):
     texts = _TEXTS
 
     def views(self) -> tuple[CenterView, ...]:
-        """Solo la cuadrícula."""
-        return (CenterView.GRID,)
+        """Cuadrícula y vista individual, como los demás módulos (el autor, 19/11/2026)."""
+        return (CenterView.GRID, CenterView.SINGLE)
 
     def filter_media_types(self) -> tuple[str, ...]:
         """Solo hay audio."""

@@ -13,7 +13,9 @@ Flujo: pulsar un botón -> 'ModuleHost.set_view' (lo recuerda por módulo y por 
 módulo o al abrir y cerrar un catálogo (el host emite 'view_changed').
 
 Teclado y ratón (sin Ctrl, Alt ni Mayús; decidido por el autor el 08/11 y el 13/11/2026):
-    cuadrícula         doble clic o Intro -> vista individual del archivo pulsado / actual
+    cuadrícula         doble clic o Intro -> vista individual del archivo pulsado / actual;
+                       en un módulo sin ella pero con mapa (Tracks), ese archivo en el
+                       mapa, como con la chincheta ('map_requested'; el autor, 19/11/2026)
                        M -> mapa (si el módulo lo ofrece)
     mapa y su tira     G -> cuadrícula. Intro, o doble clic en una foto -> vista
                        individual (el doble clic lo pide el controlador del mapa con
@@ -28,7 +30,8 @@ Teclado y ratón (sin Ctrl, Alt ni Mayús; decidido por el autor el 08/11 y el 1
 Botones laterales del ratón (decidido por el autor el 19/11/2026), al soltarlos:
     «atrás»            vista individual -> como Esc; mapa -> la cuadrícula, como G
     «adelante»         cuadrícula y mapa -> la vista individual del archivo actual, como
-                       Intro (con «atrás» se sale y con «adelante» se vuelve a entrar)
+                       Intro (con «atrás» se sale y con «adelante» se vuelve a entrar);
+                       en la cuadrícula de Tracks, el mapa con ese archivo, como Intro
     Llegan desde cualquier punto de la vista: la cuadrícula y la tira no los usan y los
     dejan subir ('MediaGridView'), y la vista web del mapa los reenvía hacia su página
     ('web_backend._WebView'). La pulsación no selecciona nada.
@@ -65,6 +68,9 @@ Uso (en el controlador principal, que solo lo crea):
         map_page=pagina_del_mapa, parent=window,
     )
 
+1.9.0 En un módulo sin vista individual pero con mapa (Tracks), doble clic, Intro y
+      «adelante» en la cuadrícula llevan ese archivo al mapa ('map_requested'; antes no
+      hacían nada). Lo pidió el autor: entrar al mapa con doble clic y volver con «atrás».
 1.8.0 Botones laterales del ratón: «atrás» sale de la vista individual (como Esc) y del
       mapa a la cuadrícula; «adelante» abre la vista individual (lo pidió el autor).
 1.7.2 Autoprueba: con una sola vista, su botón se ve ('ViewButtons' 1.3.0).
@@ -87,7 +93,7 @@ Uso (en el controlador principal, que solo lo crea):
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -98,7 +104,15 @@ from typing import Any
 from loguru import logger
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QEvent, QItemSelection, QItemSelectionModel, QModelIndex, QObject, Qt
+from qtpy.QtCore import (
+    QEvent,
+    QItemSelection,
+    QItemSelectionModel,
+    QModelIndex,
+    QObject,
+    Qt,
+    Signal,
+)
 from qtpy.QtWidgets import QAbstractItemView, QListView, QStackedWidget, QWidget
 
 # Módulos del proyecto
@@ -133,7 +147,15 @@ _BUTTON_EVENTS = (
 
 class CenterViewController(QObject):
     """Pone en pantalla la vista del centro del módulo activo y la navegación entre
-    archivos (ver el docstring del archivo)."""
+    archivos (ver el docstring del archivo).
+
+    Signals:
+        map_requested(int): doble clic, Intro o «adelante» en la cuadrícula de un módulo
+            sin vista individual pero con mapa (Tracks): la fila del archivo, para verlo en
+            el mapa (lo atiende 'MapController', como la chincheta).
+    """
+
+    map_requested = Signal(int)
 
     def __init__(
         self,
@@ -192,7 +214,7 @@ class CenterViewController(QObject):
         source_chosen = getattr(host, "source_chosen", None)
         if source_chosen is not None:
             source_chosen.connect(self._on_source_chosen)
-        grid.doubleClicked.connect(lambda index: self.open_single(index.row()))
+        grid.doubleClicked.connect(lambda index: self._open_from_grid(index.row()))
         grid.installEventFilter(self)
         single.installEventFilter(self)
         if map_page is not None:
@@ -232,6 +254,18 @@ class CenterViewController(QObject):
         if target >= 0:
             self._select_only(target)
         self._host.set_view(CenterView.SINGLE)
+
+    def _open_from_grid(self, row: int | None = None) -> None:
+        """Doble clic, Intro o «adelante» en la cuadrícula: la vista individual con el archivo
+        de esa fila (o el actual); en un módulo sin ella pero con mapa (Tracks), ese archivo
+        en el mapa ('map_requested'; decidido por el autor el 19/11/2026)."""
+        views = self._host.active_views()
+        if CenterView.SINGLE in views:
+            self.open_single(row)
+        elif CenterView.MAP in views:
+            target = self._current_row() if row is None else row
+            if target >= 0:
+                self.map_requested.emit(target)
 
     # -------------------------------------------------------------------------
     # Vista en pantalla
@@ -289,7 +323,7 @@ class CenterViewController(QObject):
         key = event.key()
         if watched is self._grid:
             if key in _OPEN_KEYS:
-                self.open_single()
+                self._open_from_grid()
                 return True
             return key == _MAP_KEY and self._show_view(CenterView.MAP)
         if (watched is self._map_page and self._map_page is not None) or watched in self._map_widgets:
@@ -334,7 +368,9 @@ class CenterViewController(QObject):
                 self._leave_single()
             elif view == CenterView.MAP:
                 self._show_view(CenterView.GRID)
-        elif view in (CenterView.GRID, CenterView.MAP):
+        elif view == CenterView.GRID:
+            self._open_from_grid()
+        elif view == CenterView.MAP:
             self.open_single()
         return True
 
@@ -497,7 +533,6 @@ if __name__ == "__main__":
     import os
 
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    from qtpy.QtCore import Signal
     from qtpy.QtGui import QKeyEvent, QStandardItem, QStandardItemModel
     from qtpy.QtWidgets import QApplication, QSlider
 
@@ -675,6 +710,21 @@ if __name__ == "__main__":
     # (su único botón, el de la cuadrícula, se ve marcado: desde el 15/11/2026)
     assert host.view is CenterView.GRID and not buttons.isHidden()
     assert buttons.keys() == ["grid"] and buttons.current == "grid"
+    # Sin vista individual pero con mapa (Tracks): doble clic e Intro piden ese archivo en
+    # el mapa ('map_requested'; lo atiende el controlador del mapa, como la chincheta)
+    asked_map: list[int] = []
+    controller.map_requested.connect(asked_map.append)
+    host.views = (CenterView.GRID, CenterView.MAP)
+    grid.doubleClicked.emit(model.index(2, 0))
+    grid.selectionModel().setCurrentIndex(
+        model.index(1, 0), QItemSelectionModel.SelectionFlag.ClearAndSelect
+    )
+    press(grid, _KEY.Key_Return)
+    assert asked_map == [2, 1] and host.view is CenterView.GRID, asked_map
+    controller.map_requested.disconnect(asked_map.append)
+    host.views = (CenterView.GRID,)
+    grid.doubleClicked.emit(model.index(2, 0))  # sin mapa tampoco: nada
+    assert asked_map == [2, 1] and host.view is CenterView.GRID
 
     # En la cuadrícula, una recarga con el mismo origen conserva TODA la selección que siga
     # en la lista, con la misma actual (otro orden)
@@ -858,6 +908,18 @@ if __name__ == "__main__":
     mouse_click(filmstrip.viewport(), _BACK_BUTTON, card)
     assert host.view is CenterView.GRID and selected_rows() == [0], selected_rows()
     filmstrip.hide()
+    # En Tracks (cuadrícula y mapa): «adelante» en la cuadrícula pide el mapa con el archivo
+    # actual y «atrás» en el mapa vuelve a la cuadrícula
+    asked_map.clear()
+    map_controller.map_requested.connect(asked_map.append)
+    host.views = (CenterView.GRID, CenterView.MAP)
+    mouse_click(grid, _FORWARD_BUTTON)
+    assert asked_map == [0] and host.view is CenterView.GRID, asked_map
+    host.set_view(CenterView.MAP)  # lo hace el controlador del mapa al recibirlo
+    mouse_click(page_map, _FORWARD_BUTTON)  # en el mapa, sin vista individual: nada
+    assert host.view is CenterView.MAP and asked_map == [0]
+    mouse_click(page_map, _BACK_BUTTON)
+    assert host.view is CenterView.GRID
     print("Botones laterales del ratón: «adelante» entra y «atrás» vuelve; no seleccionan")
 
     window.deleteLater()
