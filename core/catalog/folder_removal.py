@@ -11,16 +11,19 @@ Qué se quita (desde el menú de una carpeta de la barra lateral > "Quitar del c
       colecciones, sus errores de lectura y sus miniaturas. Antes se escribe en los
       archivos lo pendiente (si quien llama pasa 'write_pending').
     - Lo que dijo el usuario en "¿Qué contiene esta carpeta?" para esa carpeta y las de
-      debajo ('folder_libraries') y los errores de lectura que queden bajo ella.
+      debajo ('folder_libraries'), los errores de lectura que queden bajo ella y las propias
+      carpetas ('folders', CAT 5: también las que no tienen archivos).
     - Si es la RAÍZ de una ubicación (carpeta ''), también la ubicación
       ('storage_locations'; lo que cuelga de ella se borra en cascada): desaparece del
       árbol y para volver hay que "Añadir carpeta".
     - Ningún archivo del usuario se toca. Por eso se permite también con la ubicación
       desconectada (p. ej. un disco que ya no existe).
-    - Las CARPETAS que se han quedado vacías en el disco (sus archivos ya no están: se
-      borraron o se movieron fuera de la aplicación) se borran también del disco, como en
-      Lightroom Classic (CAT 3.2; reglas en 'empty_folders.py'): lo que sobra (el
-      '.arca.json', 'Thumbs.db'...) va a la Papelera y la carpeta se borra con 'os.rmdir'.
+    - Las CARPETAS que están vacías en el disco (nunca tuvieron archivos, o se vaciaron
+      dentro o fuera de la aplicación) se borran también del disco, como en Lightroom
+      Classic (CAT 3.2; reglas en 'empty_folders.py'): lo que sobra (el '.arca.json',
+      'Thumbs.db'...) va a la Papelera y la carpeta se borra con 'os.rmdir'. Cuentan las de
+      los archivos y las apuntadas en el catálogo (CAT 5); una con cualquier otro archivo
+      (un documento) se queda en el disco y vuelve a aparecer al sincronizar la de encima.
       Solo las que se anunciaron en el aviso ('plan_folder_removal'), nunca la raíz de una
       ubicación, y nada con la ubicación desconectada o en una unidad de red.
 
@@ -40,13 +43,15 @@ Uso desde la interfaz:
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.folder_removal
 
+1.2.0 Las carpetas del catálogo (CAT 5): las apuntadas cuentan para borrar las vacías del
+      disco y se quitan con la carpeta.
 1.1.0 Carpetas vacías (CAT 3.2): 'plan_folder_removal' (el recuento y las carpetas que se
       borrarían del disco, para el aviso) y, en 'remove_folder_from_catalog', su borrado
       al terminar ('empty_folders' y 'trash').
 1.0.0 Primera versión.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "FolderRemovalPlan",
     "count_folder_items",
@@ -66,6 +71,7 @@ from typing import Any
 from loguru import logger
 
 # Módulos del proyecto
+from core.catalog.catalog_folders import folders_under, remove_folders
 from core.catalog.empty_folders import (
     EmptyFolderPlan,
     candidate_folders,
@@ -174,7 +180,11 @@ def plan_folder_removal(
     root = Path(location[0])
     if not root.is_dir() or is_network_path(root):
         return FolderRemovalPlan(folder, len(paths))  # sin Papelera, o no está
-    plan = plan_empty_folders(root, candidate_folders(paths, within=folder))
+    # Las de los archivos y las apuntadas en el catálogo (las que no tienen archivos)
+    candidates = candidate_folders(paths, within=folder) | set(
+        folders_under(conn, location_id, folder)
+    )
+    plan = plan_empty_folders(root, candidates)
     for relative_path, reason in plan.kept:
         logger.debug(f"Carpeta que no se borraría del disco: {relative_path}: {reason}")
     return FolderRemovalPlan(folder, len(paths), plan)
@@ -251,7 +261,8 @@ def remove_folder_from_catalog(
         if remaining:
             logger.warning(f"La carpeta '{folder}' aún tiene {remaining} elementos: se conserva")
         elif not folder:
-            # La ubicación entera: 'folder_libraries' y 'scan_errors' se borran en cascada
+            # La ubicación entera: 'folder_libraries', 'scan_errors' y 'folders' se borran en
+            # cascada
             conn.execute("DELETE FROM storage_locations WHERE id = ?", (location_id,))
         else:
             under = (location_id, folder, folder + "/", folder + "0")
@@ -265,6 +276,7 @@ def remove_folder_from_catalog(
                 "AND (relative_path = ? OR (relative_path >= ? AND relative_path < ?))",
                 under,
             )
+            remove_folders(conn, location_id, folder)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -449,6 +461,32 @@ if __name__ == "__main__":
         assert result.cancelled and result.folders_deleted == [] and (root / "Tarde").is_dir()
         print("6c. Cancelado con elementos aún en el catálogo: la carpeta se queda en el disco")
 
+        # Carpetas sin archivos del catálogo (CAT 5): una vacía, apuntada, se borra del disco
+        # al quitarla (con su subcarpeta); una con un documento se queda en el disco; las dos
+        # salen del catálogo
+        (root / "Nada/Sub").mkdir(parents=True)
+        (root / "Docs").mkdir()
+        (root / "Docs/notas.txt").write_text("x")
+        db.executemany(
+            "INSERT INTO folders(storage_location_id, relative_path) VALUES (?, ?)",
+            [(location, "Nada"), (location, "Nada/Sub"), (location, "Docs")],
+        )
+        db.commit()
+        nothing = plan_folder_removal(db, location, "Nada")
+        assert nothing.count == 0 and nothing.deletes_folder, nothing
+        result = remove_folder_from_catalog(
+            db, location, "Nada", empty_folders=nothing.empty_folders, trash=fake_trash
+        )
+        assert result.folders_deleted == ["Nada/Sub", "Nada"], result
+        assert not (root / "Nada").exists()
+        docs = plan_folder_removal(db, location, "Docs")
+        assert docs.count == 0 and not docs.deletes_folder, docs
+        remove_folder_from_catalog(
+            db, location, "Docs", empty_folders=docs.empty_folders, trash=fake_trash
+        )
+        assert (root / "Docs/notas.txt").exists() and folders_under(db, location) == []
+        print("6d. Sin archivos del catálogo: la vacía, también del disco; con un documento, no")
+
         # Desconectada o inexistente: no se mira el disco
         db.execute("UPDATE storage_locations SET is_online = 0 WHERE id = ?", (location,))
         assert plan_folder_removal(db, location, "Tarde").empty_folders is None
@@ -457,7 +495,7 @@ if __name__ == "__main__":
             (str(root / "no_existe"), location),
         )
         assert plan_folder_removal(db, location, "Tarde").empty_folders is None
-        print("6d. Ubicación desconectada o que no existe: el disco no se mira")
+        print("6e. Ubicación desconectada o que no existe: el disco no se mira")
 
     db.close()
     print("Autoprueba finalizada correctamente.")

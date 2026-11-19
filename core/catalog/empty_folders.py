@@ -4,16 +4,15 @@ Este módulo NO depende de Qt ni de la base de datos: solo mira y toca el disco.
 papelera se recibe como función ('trash'), que la interfaz construye con Qt
 ('ui_file_manager.move_to_trash'), como en 'media_removal.py'.
 
-Para qué (docs/PENDIENTE.md, CAT 3; reglas en docs/DECISIONES.md, 19/11/2026): el árbol de
-«Carpetas» sale de los archivos del catálogo, así que una carpeta nunca se ve vacía; como en
-Lightroom Classic, la que se queda vacía en el disco se borra también del disco, en dos
-momentos: al quitar del catálogo una carpeta cuyos archivos ya no están (CAT 3.2) y al
-enviar a la Papelera los últimos archivos de una carpeta (CAT 3.3).
+Para qué (CAT 3; reglas en docs/DECISIONES.md, 19/11/2026): como en Lightroom Classic, al
+quitar del catálogo una carpeta ('folder_removal.py'), la que está vacía en el disco se borra
+también del disco. Desde CAT 5 es el único momento: una carpeta que se vacía al mover o al
+eliminar sus archivos se queda, y el árbol la muestra con 0 (antes se borraba, CAT 3.3).
 
 Cuándo una carpeta se puede borrar:
-    - Es una carpeta que el catálogo CONOCÍA ('candidate_folders': la de algún archivo del
-      catálogo o una de sus carpetas padre). Una carpeta vacía que el usuario preparó a
-      mano, sin nada catalogado, no se toca nunca.
+    - Es una carpeta que el catálogo CONOCÍA: la de algún archivo del catálogo o una de sus
+      carpetas padre ('candidate_folders') o una apuntada en sus carpetas (CAT 5; las junta
+      quien llama). Una carpeta del disco que el catálogo no conoce no se toca nunca.
     - No contiene NINGÚN archivo, salvo los que sobran ('LEFTOVER_FILE_NAMES'): el archivo
       de carpeta '.arca.json' y su copia '.arca.json.bak', y los del sistema que el escáner
       ya ignora ('Thumbs.db', 'desktop.ini', '.DS_Store', los '._*' de macOS). Cualquier
@@ -41,16 +40,18 @@ Uso:
     plan = plan_empty_folders(raiz_de_la_ubicacion, candidates)     # para el aviso
     result = remove_empty_folders(plan, move_to_trash)               # en el trabajo
 
-    # Antes de enviar archivos a la Papelera (CAT 3.3): cómo quedarían las carpetas
+    # Cómo quedarían las carpetas si se fueran unos archivos (hoy no lo usa nadie: era
+    # para borrar las que se vaciaban al eliminar o mover, CAT 3.3 y 4.4b)
     plan = plan_empty_folders(raiz, candidates, ignore_files=rutas_que_se_van)
 
+1.0.1 Cabecera al día: desde CAT 5 solo la usa «Quitar del catálogo» una carpeta.
 1.0.0 Primera versión (CAT 3.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.empty_folders
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = [
     "LEFTOVER_FILE_NAMES",
     "EmptyFolder",

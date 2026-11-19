@@ -29,12 +29,9 @@ Dos modos (los elige el usuario en el diálogo "Eliminar"):
           el archivo para siempre; ver 'is_network_path').
         - Si un archivo no se puede enviar a la papelera (abierto en otro programa, sin
           permisos...), NO se quita del catálogo: se informa y se queda como estaba.
-        - Las CARPETAS que se quedan vacías (CAT 3.3, como en Lightroom; reglas en
-          'empty_folders.py'): el plan ('plan_removal') calcula cuáles quedarían vacías si
-          sus archivos se van (con sus '.xmp') y no les queda nada en el catálogo, para que
-          la ventana lo diga; al terminar, el trabajo las borra del disco (lo que sobra, a la
-          papelera; la carpeta, con 'os.rmdir'), mirándolas otra vez justo antes. Nunca la
-          raíz de una ubicación, ni con la ubicación desconectada o en una unidad de red.
+        - La CARPETA que se queda vacía se queda en el disco: el árbol de «Carpetas» la
+          muestra con 0, como Lightroom (CAT 5, decisión del autor del 19/11/2026). Para
+          borrarla, «Quitar del catálogo...» sobre ella ('folder_removal.py').
 
 Cambios aún sin escribir: con "Quitar del catálogo", si quien llama pasa 'write_pending'
 (la función que escribe en los archivos los datos del usuario pendientes,
@@ -55,6 +52,11 @@ Uso desde la interfaz:
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_removal
 
+1.3.0 Las carpetas que se quedan vacías al enviar a la papelera ya no se borran del disco
+      (CAT 5: se ven en el árbol con 0, como en Lightroom): fuera 'RemovalPlan.empty_folders',
+      'empty_folder_names', 'empty_folder_items', 'folders_keeping_items' y
+      'remove_media_items(..., empty_folders=)'. 'RemovalResult.folders_deleted' y
+      'folders_kept' siguen: los usa «Quitar del catálogo» una carpeta ('folder_removal.py').
 1.2.1 'folders_keeping_items', pública (antes '_folders_with_other_items'): la usa también
       mover archivos ('core/file_ops/moves.py', CAT 4.4b).
 1.2.0 Carpetas que se quedan vacías al enviar a la papelera (CAT 3.3):
@@ -65,7 +67,7 @@ Prueba rápida (desde la raíz del proyecto):
       la barra de estado.
 """
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 __all__ = [
     "CATALOG_ONLY_REASONS",
     "REASON_MISSING",
@@ -74,7 +76,6 @@ __all__ = [
     "RemovalPlan",
     "RemovalResult",
     "TrashFunction",
-    "folders_keeping_items",
     "is_network_path",
     "plan_removal",
     "remove_media_items",
@@ -96,12 +97,6 @@ from typing import Any
 from loguru import logger
 
 # Módulos del proyecto
-from core.catalog.empty_folders import (
-    EmptyFolderPlan,
-    candidate_folders,
-    plan_empty_folders,
-    remove_empty_folders,
-)
 from core.jobs.progress import JobProgress
 from core.metadata.exiftool_runner import find_sidecars
 from core.userdata.folder_file import (
@@ -250,14 +245,11 @@ class RemovalPlan:
         trashable: Cuántos se pueden enviar a la papelera.
         catalog_only: Motivo -> cuántos solo se pueden quitar del catálogo (ver
             'CATALOG_ONLY_REASONS').
-        empty_folders: Con la papelera, las carpetas que se quedarían vacías (una por
-            ubicación; CAT 3.3). Se pasan tal cual al trabajo.
     """
 
     total: int = 0
     trashable: int = 0
     catalog_only: dict[str, int] = field(default_factory=dict)
-    empty_folders: tuple[EmptyFolderPlan, ...] = ()
 
     @property
     def can_trash(self) -> bool:
@@ -370,89 +362,13 @@ def plan_removal(
     remote_cache: dict[int, bool] = {}
     catalog_only: dict[str, int] = {}
     trashable = 0
-    reasons: list[str | None] = []
     for row in rows:
         reason = _catalog_only_reason(row, is_remote, remote_cache)
-        reasons.append(reason)
         if reason is None:
             trashable += 1
         else:
             catalog_only[reason] = catalog_only.get(reason, 0) + 1
-    return RemovalPlan(
-        total=len(rows),
-        trashable=trashable,
-        catalog_only=catalog_only,
-        empty_folders=_empty_folder_plans(conn, rows, reasons) if trashable else (),
-    )
-
-
-def _empty_folder_plans(
-    conn: sqlite3.Connection, rows: Sequence[sqlite3.Row], reasons: Sequence[str | None]
-) -> tuple[EmptyFolderPlan, ...]:
-    """Las carpetas que se quedarían vacías si los archivos elegidos van a la papelera.
-
-    Por ubicación (conectada y que no sea de red). Candidatas: las carpetas de los archivos
-    que salen del catálogo (los que van a la papelera y los ausentes) y las de encima,
-    salvo las que conservan algún elemento del catálogo (aunque esté ausente: la carpeta
-    sigue siendo del catálogo). Los archivos que se van, y sus posibles '.xmp' (los nombres
-    que busca 'find_sidecars'), se cuentan como si ya no estuvieran.
-    """
-    by_location: dict[int, list[tuple[sqlite3.Row, str | None]]] = {}
-    for row, reason in zip(rows, reasons, strict=True):
-        if reason not in (REASON_OFFLINE, REASON_NETWORK):
-            by_location.setdefault(row["location_id"], []).append((row, reason))
-
-    plans: list[EmptyFolderPlan] = []
-    for location_id, entries in by_location.items():
-        if all(reason is not None for _row, reason in entries):
-            continue  # de esta ubicación no va nada a la papelera
-        root = Path(entries[0][0]["root"])
-        leaving = {row["relative_path"] for row, _reason in entries}
-        candidates = candidate_folders(leaving)
-        candidates -= folders_keeping_items(conn, location_id, candidates, leaving)
-        if not candidates or not root.is_dir():
-            continue
-        going: list[str] = []
-        for row, reason in entries:
-            if reason is not None:
-                continue
-            relative = PurePosixPath(row["relative_path"])
-            going.append(str(relative))
-            destination = destination_for(row["file_extension"] or relative.suffix)
-            if destination == UserDataDestination.XMP_SIDECAR:
-                going += [
-                    str(relative.with_suffix(".xmp")),
-                    str(relative.with_suffix(".XMP")),
-                    f"{relative}.xmp",
-                    f"{relative}.XMP",
-                ]
-        plan = plan_empty_folders(root, candidates, ignore_files=going)
-        if plan.folders:
-            plans.append(plan)
-    return tuple(plans)
-
-
-def folders_keeping_items(
-    conn: sqlite3.Connection, location_id: int, candidates: set[str], leaving: set[str]
-) -> set[str]:
-    """De las carpetas candidatas, las que conservan algún elemento del catálogo que no sale.
-
-    Se mira solo bajo las candidatas de más arriba (las demás están dentro).
-    """
-    tops = {
-        folder
-        for folder in candidates
-        if not any(folder.startswith(f"{other}/") for other in candidates)
-    }
-    staying: list[str] = []
-    for top in tops:
-        rows = conn.execute(
-            "SELECT relative_path FROM media_items WHERE storage_location_id = ? "
-            "AND relative_path >= ? AND relative_path < ?",
-            (location_id, f"{top}/", f"{top}0"),
-        )
-        staying += [path for (path,) in rows if path not in leaving]
-    return candidate_folders(staying) & candidates
+    return RemovalPlan(total=len(rows), trashable=trashable, catalog_only=catalog_only)
 
 
 # -----------------------------------------------------------------------------
@@ -477,7 +393,8 @@ class RemovalResult:
         removed_ids: 'id' quitados (para que la interfaz actualice la cuadrícula).
         thumbnails_deleted: Archivos de miniatura borrados de la caché.
         cancelled: Si el usuario lo canceló (lo ya hecho se conserva).
-        folders_deleted: Carpetas vacías borradas del disco (rutas relativas; CAT 3).
+        folders_deleted: Carpetas vacías borradas del disco (rutas relativas; solo al
+            quitar una carpeta del catálogo, 'folder_removal.py').
         folders_kept: Carpetas vacías anunciadas que se quedaron en el disco: (ruta, motivo).
     """
 
@@ -528,7 +445,6 @@ def remove_media_items(
     catalog_dir: str | Path | None = None,
     is_remote: Callable[[str], bool] = is_network_path,
     write_pending: Callable[[sqlite3.Connection], Any] | None = None,
-    empty_folders: Sequence[EmptyFolderPlan] = (),
     progress: Callable[[JobProgress], None] | None = None,
     cancel_event: threading.Event | None = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
@@ -550,9 +466,6 @@ def remove_media_items(
             archivos los datos del usuario pendientes (recibe la conexión). None = no se
             escribe nada (p. ej. si la opción "Escribir los cambios en los archivos" está
             desactivada).
-        empty_folders: Solo con la papelera: las carpetas que el plan dijo que se quedarían
-            vacías ('RemovalPlan.empty_folders'). Al terminar (si no se canceló), se borran
-            del disco, mirándolas otra vez justo antes.
         progress: Función a la que se avisa del avance.
         cancel_event: Si se activa, se termina el lote en curso y se para.
         batch_size: Elementos por lote.
@@ -610,17 +523,6 @@ def remove_media_items(
         if cancel_event is not None and cancel_event.is_set():
             result.cancelled = done < total
             break
-
-    # 4. Las carpetas que se han quedado vacías (CAT 3.3): una carpeta con un archivo que no
-    # pudo ir a la papelera se queda, porque ese archivo sigue en ella
-    if to_trash and trash is not None and not result.cancelled:
-        for plan in empty_folders:
-            outcome = remove_empty_folders(plan, trash, cancel_event=cancel_event)
-            result.folders_deleted.extend(outcome.removed)
-            result.folders_kept.extend(outcome.kept)
-            if outcome.cancelled:
-                result.cancelled = True
-                break
 
     logger.info(
         f"Eliminar ({'papelera' if to_trash else 'solo catálogo'}): {result.status_text()}; "
@@ -894,7 +796,6 @@ if __name__ == "__main__":
         plan = plan_removal(conn, list(ids.values()), is_remote=fake_remote)
         assert plan.total == 8 and plan.trashable == 5, plan
         assert plan.catalog_only == {REASON_MISSING: 1, REASON_NETWORK: 1, REASON_OFFLINE: 1}
-        assert plan.empty_folders == ()  # en «Viaje» queda IMG_1.CR3, que no es del catálogo
         print("3. Plan: 5 a la papelera; 3 solo del catálogo (red, ausente, desconectado)")
 
         # 4. Sin función de papelera no se puede pedir la papelera
@@ -978,47 +879,23 @@ if __name__ == "__main__":
         assert conn.row_factory is None  # la conexión conserva su 'row_factory'
         print("7. Cancelar: nada queda a medias")
 
-        # 8. Carpetas que se quedan vacías (CAT 3.3). «Vacia»: una foto, un RAW con su .xmp,
-        # un vídeo con su entrada en el .arca.json y una subcarpeta; «Album/2024» se queda
-        # vacía, pero «Album» conserva una foto ausente que no se elimina
+        # 8. La carpeta que se queda vacía, en el disco (CAT 5: se ve en el árbol con 0, como
+        #    en Lightroom); la entrada del vídeo sale de su .arca.json (que, vacío, se borra)
         emptied = [
             add(1, "Vacia/c.jpg", "photo"),
             add(1, "Vacia/R.NEF", "photo"),
             add(1, "Vacia/v.mp4", "video"),
-            add(1, "Vacia/sub/d.jpg", "photo"),
-            add(1, "Album/2024/x.jpg", "photo"),
         ]
         (local / "Vacia" / "R.xmp").write_text("x")
         write_folder_file(FolderData(local / "Vacia", items={"v.mp4": {"rating": 3}}))
-        add(1, "Album/y.jpg", "photo", missing=1, create=False)
         conn.commit()
-        plan = plan_removal(conn, emptied, is_remote=fake_remote)
-        assert plan.empty_folder_names == ("2024", "Vacia"), plan.empty_folder_names
-        assert plan.empty_folder_items == 0  # la entrada del vídeo se va con él
         result = remove_media_items(
-            conn, emptied, to_trash=True, trash=fake_trash, is_remote=fake_remote,
-            empty_folders=plan.empty_folders,
-        )  # fmt: skip
-        assert result.removed == 5 and not result.failed, result
-        assert sorted(result.folders_deleted) == ["Album/2024", "Vacia", "Vacia/sub"], result
-        assert not (local / "Vacia").exists() and not (local / "Album" / "2024").exists()
-        assert (local / "Album").is_dir()  # sigue en el catálogo (con su ausente)
-        assert "carpetas eliminadas del disco: 3" in result.status_text(), result.status_text()
-        # Con un archivo que no puede ir a la papelera, su carpeta se queda
-        stuck = [add(1, "Atasco/bloqueado.jpg", "photo"), add(1, "Atasco/e.jpg", "photo")]
-        conn.commit()
-        plan = plan_removal(conn, stuck, is_remote=fake_remote)
-        assert plan.empty_folder_names == ("Atasco",)
-        result = remove_media_items(
-            conn, stuck, to_trash=True, trash=fake_trash, is_remote=fake_remote,
-            empty_folders=plan.empty_folders,
-        )  # fmt: skip
-        assert result.folders_deleted == [] and result.folders_kept[0][0] == "Atasco", result
-        assert "carpetas que siguen en el disco: 1" in result.status_text()
-        # Solo del catálogo: el plan las calcula, pero sin papelera no se toca el disco
-        plan = plan_removal(conn, [stuck[0]], is_remote=fake_remote)
-        result = remove_media_items(conn, [stuck[0]], empty_folders=plan.empty_folders)
-        assert result.folders_deleted == [] and (local / "Atasco").is_dir()
+            conn, emptied, to_trash=True, trash=fake_trash, is_remote=fake_remote
+        )
+        assert result.removed == 3 and not result.failed, result
+        left = sorted(path.name for path in (local / "Vacia").iterdir())
+        assert left == [], left
+        assert result.folders_deleted == [] and "carpetas" not in result.status_text()
         conn.close()
-        print("8. Carpetas vacías: se borran; con algo en el catálogo o un atasco, se quedan")
+        print("8. La carpeta que se queda vacía sigue en el disco")
     print("Autoprueba finalizada correctamente.")

@@ -42,13 +42,15 @@ Un archivo ignorado NO es un error. Lo que sí se anota en 'stats.issues' son lo
 problemas reales de lectura (carpeta sin permisos, archivo que desaparece mientras
 se escanea...), con el formato de la tabla 'scan_errors' (fase 'walk').
 
+1.4.0 'ScanStats.folders': las subcarpetas recorridas (rutas relativas a la ubicación),
+      para que el árbol replique las del disco (CAT 5; las apunta 'add_folder').
 1.3.0 'ScanCandidate.library': biblioteca del archivo (la pone 'add_folder').
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.folder_scanner
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "SCAN_STAGE_WALK",
     "FolderScanner",
@@ -169,6 +171,9 @@ class ScanStats:
             avisar al usuario de qué se ha quedado fuera.
         issues: Problemas reales de lectura (ver 'ScanIssue').
         cancelled: True si el recorrido se interrumpió antes de terminar.
+        folders: Subcarpetas en las que se ha entrado (o se iba a entrar), relativas a la
+            ubicación y con '/' (sin la carpeta recorrida). Las descartadas por el filtro
+            (ocultas, del sistema, la del catálogo) no están.
     """
 
     directories_visited: int = 0
@@ -179,6 +184,7 @@ class ScanStats:
     ignored_extensions: Counter[str] = field(default_factory=Counter)
     issues: list[ScanIssue] = field(default_factory=list)
     cancelled: bool = False
+    folders: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         """Resumen en texto, útil para el log o para mostrar al terminar."""
@@ -393,6 +399,10 @@ class FolderScanner:
         if reason is not None:
             self.stats.skipped[reason] += 1
             return None
+        try:
+            self.stats.folders.append(make_relative_path(self._location_path, directory))
+        except ValueError:
+            pass  # fuera de la ubicación (no debería pasar): no se apunta
         return directory
 
     @staticmethod

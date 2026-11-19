@@ -44,7 +44,7 @@ Como en Tracks: lo que no necesita ni Qt ni la base de datos, en un paquete de `
 |---|---|---|
 | Tabla campo ↔ etiqueta de cada formato; leer y escribir etiquetas y carátulas con mutagen | `core/audio/` (nuevo; sin Qt ni BD) | **Una sola tabla** para el extractor y para el escritor: los dos entienden lo mismo |
 | Extractor | `core/metadata/audio/` (nuevo): `extractor.py`, `fields.py`, `inspect_cli.py` | `MetadataExtractor` con `details_table = "audio_details"`, como `TrackExtractor`; se registra en `core/metadata/registry.py` |
-| Tabla de detalles | `core/catalog/catalog_schema.py`, la siguiente migración libre (la 5 fue el registro de operaciones de `CAT 4`) | `audio_details` (§3) |
+| Tabla de detalles | `core/catalog/catalog_schema.py`, la siguiente migración libre (la 5 fue el registro de operaciones de `CAT 4` y la 6, las carpetas de `CAT 5`) | `audio_details` (§3) |
 | Consultas | `core/catalog/` | Datos de la sección del inspector (como `track_stats.py`), valores de las secciones de la barra, filas de la vista de lista |
 | Origen de la miniatura | `core/thumbnails/sources/audio_cover_source.py` (nuevo) | Se registra en `core/thumbnails/registry.py` |
 | Campos editables | `core/userdata/editable_fields.py` | Una línea por campo, con `table="audio_details"` y `media_types` de audio |
@@ -169,7 +169,7 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|
 | **MUS 1.1** Base de audio | mutagen instalada (el autor); la tabla campo ↔ etiqueta y `read_tags(path)` (campos y datos técnicos), sin BD | Nuevo: `core/audio/` | Autoprueba con archivos generados; `inspect_cli` con canciones del autor, comparado con Mp3tag |
-| **MUS 1.2** Tabla de detalles | `audio_details` (la siguiente migración libre) | `catalog_schema.py`; [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md), [INDEX.md](INDEX.md) | Un catálogo existente pasa solo al esquema v5 |
+| **MUS 1.2** Tabla de detalles | `audio_details` (la siguiente migración libre) | `catalog_schema.py`; [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md), [INDEX.md](INDEX.md) | Un catálogo existente pasa solo al esquema siguiente (hoy, v7) |
 | **MUS 1.3** Extractor | `AudioExtractor` con `AUDIO_FIELDS_VERSION`, registrado | Nuevo: `core/metadata/audio/`; `registry.py` | Al abrir el catálogo, las canciones se leen solas; título, artista y duración, en el catálogo |
 | **MUS 1.4** Recuento | Cuántas canciones traen varios géneros o artistas, y qué tipos de etiqueta hay | Un guion de solo lectura | Decide §3.4 |
 

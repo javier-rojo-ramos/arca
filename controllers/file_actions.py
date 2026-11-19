@@ -17,17 +17,17 @@ lo crea y lo conecta. Lo que se hace en el disco y en el catálogo está en
                 puede, el motivo y otra vez la ventana → el trabajo ('execute_folder_rename')
     CatalogSidebar.media_dropped_on_folder(ubicación, carpeta, nombre, tarjetas)  (CAT 4.4b)
         └─► request_move: ¿del mismo catálogo? ¿algo en marcha? → el plan ('plan_move',
-                segundo plano: qué se omite y por qué, y las carpetas de origen que se
-                quedarían vacías) → nada que mover: por qué → la confirmación («Mover» /
-                «Cancelar»: todo lo que toca el disco lleva aviso) → el trabajo
-                ('execute_file_moves' con la papelera, para las carpetas que se vacían)
-    CatalogSidebar.new_folder_requested(ubicación, carpeta, nombre)  (CAT 4.4a)
-        └─► request_new_folder: ¿algo en marcha? ¿algo elegido? (una carpeta vacía no se
-                vería en el árbol: siempre con lo elegido dentro) → la ventana → el plan
+                segundo plano: qué se omite y por qué) → nada que mover: por qué → la
+                confirmación («Mover» / «Cancelar»: todo lo que toca el disco lleva aviso)
+                → el trabajo ('execute_file_moves'). La carpeta de origen, aunque se quede
+                vacía, sigue en el árbol con 0 (CAT 5)
+    CatalogSidebar.new_folder_requested(ubicación, carpeta, nombre)  (CAT 4.4a, CAT 5)
+        └─► request_new_folder: ¿algo en marcha? → la ventana («Incluir los N archivos
+                seleccionados», marcada si hay algo elegido; sin ella, vacía) → el plan
                 ('plan_new_folder', segundo plano) → si no se puede, el motivo y otra vez
                 la ventana; si lo elegido no se puede mover entero, la confirmación → el
-                trabajo ('execute_new_folder', con la papelera); al terminar, la carpeta
-                padre, desplegada ('folder_created')
+                trabajo ('execute_new_folder'); al terminar, la carpeta padre, desplegada
+                ('folder_created')
     JobCoordinator.files_finished / files_failed
         └─► si se renombró una carpeta, los módulos ponen al día lo que recuerdan por la
             ruta ('folder_renamed': lo desplegado y lo elegido); después, la cuadrícula y
@@ -54,6 +54,10 @@ Uso (en el controlador principal, que solo lo crea y lo conecta):
         self.file_actions.request_new_folder
     )
 
+1.4.0 Carpetas en el catálogo (CAT 5): «Nueva carpeta…» también vacía, con la casilla
+      «Incluir los N archivos seleccionados» (marcada si hay algo elegido; fuera
+      'NO_SELECTION_TEXT'); las carpetas que se vacían al mover ya no se borran (sin la
+      papelera ni su párrafo en la confirmación).
 1.3.1 «Nueva carpeta…», siempre con lo elegido: sin nada elegido, un aviso y no se abre la
       ventana (una carpeta vacía no se vería en el árbol; regla del autor).
 1.3.0 «Nueva carpeta…» (CAT 4.4a): 'request_new_folder', con lo elegido dentro si se pide
@@ -69,7 +73,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.file_actions
 """
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 __all__ = [
     "FileActions",
     "failed_rename_text",
@@ -81,7 +85,7 @@ __all__ = [
 
 # Librerías estándar
 from collections.abc import Callable, Sequence
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 # Librerías de terceros
@@ -110,7 +114,6 @@ from core.file_ops.moves import (
 from core.file_ops.naming import rename_keeping_extension
 from ui_helpers.dialogs.new_folder_dialog import NewFolderDialog
 from ui_helpers.dialogs.rename_dialog import RenameDialog
-from ui_helpers.helpers.ui_file_manager import move_to_trash
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.helpers.ui_status import message_bar
 
@@ -169,7 +172,7 @@ def nothing_to_move_text(folder_name: str, plan: MovePlan) -> str:
 
 
 def move_confirmation_text(folder_name: str, plan: MovePlan) -> str:
-    """La confirmación antes de mover: cuántos, lo que se omite y las carpetas que se vacían."""
+    """La confirmación antes de mover: cuántos y lo que se omite."""
     count = len(plan.moves)
     if count == 1:
         head = (
@@ -185,7 +188,7 @@ def move_confirmation_text(folder_name: str, plan: MovePlan) -> str:
 
 
 def new_folder_confirmation_text(folder_name: str, parent_name: str, plan: MovePlan) -> str:
-    """La confirmación de «Nueva carpeta» si hay algo que avisar (lo omitido, lo que se vacía)."""
+    """La confirmación de «Nueva carpeta» si hay algo que avisar (lo que no se moverá)."""
     count = len(plan.moves)
     head = (
         f"Se va a crear la carpeta «{folder_name}» dentro de «{parent_name}» y mover a ella "
@@ -195,41 +198,11 @@ def new_folder_confirmation_text(folder_name: str, parent_name: str, plan: MoveP
 
 
 def _move_details(plan: MovePlan) -> list[str]:
-    """Los párrafos de lo que no se moverá y de las carpetas que se quedarán vacías."""
-    paragraphs: list[str] = []
-    if plan.skipped:
-        verb = "no se moverá" if len(plan.skipped) == 1 else "no se moverán"
-        paragraphs.append(
-            f"{_files(len(plan.skipped))} {verb}: {_reasons_text(plan.skipped)}."
-        )
-    names = sorted(
-        (PurePosixPath(top).name for empty in plan.empty_folders for top in empty.top_folders),
-        key=str.casefold,
-    )
-    if len(names) == 1:
-        paragraphs.append(
-            f"La carpeta «{names[0]}» se quedará vacía y también se eliminará del disco."
-        )
-    elif names:
-        listed = ", ".join(f"«{name}»" for name in names[:-1]) + f" y «{names[-1]}»"
-        paragraphs.append(
-            f"{len(names)} carpetas se quedarán vacías y también se eliminarán del disco: "
-            f"{listed}."
-        )
-    items = sum(empty.folder_file_items for empty in plan.empty_folders)
-    if items:
-        paragraphs.append(
-            f"Su archivo .arca.json, con los datos de {_files(items)} que ya no "
-            f"{'está' if items == 1 else 'están'} en el disco, irá a la Papelera."
-        )
-    return paragraphs
-
-
-# Sin nada elegido no se crea una carpeta: vacía no se vería en el árbol
-NO_SELECTION_TEXT = (
-    "Para crear una carpeta, elige antes en la cuadrícula los archivos que irán dentro: "
-    "una carpeta vacía no se vería en «Carpetas»."
-)
+    """El párrafo de lo que no se moverá (ninguno si se mueve todo)."""
+    if not plan.skipped:
+        return []
+    verb = "no se moverá" if len(plan.skipped) == 1 else "no se moverán"
+    return [f"{_files(len(plan.skipped))} {verb}: {_reasons_text(plan.skipped)}."]
 
 
 class FileActions(QObject):
@@ -250,7 +223,7 @@ class FileActions(QObject):
         get_catalog_key: Callable[[], str] | None = None,
         get_selected_ids: Callable[[], list[int]] | None = None,
         folder_created: Callable[[int, str], None] | None = None,
-        ask_new_folder: Callable[..., str | None] | None = None,
+        ask_new_folder: Callable[..., tuple[str, bool] | None] | None = None,
         parent: QObject | None = None,
     ) -> None:
         """Conecta los avisos del coordinador de los trabajos.
@@ -269,8 +242,8 @@ class FileActions(QObject):
                 ruta nueva): los módulos ponen al día sus barras ('ModuleHost').
             get_catalog_key: La carpeta del catálogo abierto, en texto: las tarjetas
                 soltadas de otro catálogo (otra ventana) no se mueven. None = no se mira.
-            get_selected_ids: Lo elegido en la cuadrícula (para «Nueva carpeta» con lo
-                elegido dentro). None = nada.
+            get_selected_ids: Lo elegido en la cuadrícula (para «Nueva carpeta», que lo
+                puede incluir). None = nada.
             folder_created: Se llama tras crear una carpeta (ubicación, ruta): la barra
                 despliega la de encima, para que se vea.
             ask_new_folder: La ventana «Nueva carpeta» (None = 'NewFolderDialog.ask').
@@ -291,7 +264,7 @@ class FileActions(QObject):
         self._folder_created = folder_created
         self._ask_new_folder = ask_new_folder or NewFolderDialog.ask
         # Qué hace el trabajo en marcha, para el aviso si algo falla: 'rename' (un archivo),
-        # 'folder' (una carpeta) o 'move' (mover a una carpeta)
+        # 'folder' (una carpeta), 'move' (mover a una carpeta) o 'new_folder' (crear una)
         self._job_kind = "rename"
         jobs.files_finished.connect(self._on_files_finished)
         jobs.files_failed.connect(self._on_files_failed)
@@ -486,22 +459,18 @@ class FileActions(QObject):
             self._jobs.schedule_write()
             return
         self._job_kind = "move"
-        self._jobs.start_file_job(execute_file_moves, plan, trash=move_to_trash)
+        self._jobs.start_file_job(execute_file_moves, plan)
 
     # -------------------------------------------------------------------------
     # Nueva carpeta (CAT 4.4a)
     # -------------------------------------------------------------------------
 
     def request_new_folder(self, location_id: int, folder: str, name: str) -> None:
-        """«Nueva carpeta...» del menú de una carpeta: la ventana, con lo elegido dentro."""
+        """«Nueva carpeta...» del menú de una carpeta: la ventana (con lo elegido, si hay)."""
         if not self._ready():
             return
         selected = list(self._get_selected_ids()) if self._get_selected_ids else []
-        if not selected:
-            # Vacía no se vería en «Carpetas» (el árbol sale de los archivos del catálogo)
-            self._message_box.info(NO_SELECTION_TEXT)
-            return
-        self._ask_folder_name(location_id, folder, name, selected, None)
+        self._ask_folder_name(location_id, folder, name, selected, None, True)
 
     def _ask_folder_name(
         self,
@@ -510,20 +479,22 @@ class FileActions(QObject):
         parent_name: str,
         selected: list[int],
         initial: str | None,
+        include: bool,
     ) -> None:
         """La ventana; con el nombre, el plan (segundo plano)."""
         self._jobs.stop_scheduled_write()
-        new_name = self._ask_new_folder(self._window, parent_name, len(selected), initial)
-        if new_name is None or not self._ready():
+        answer = self._ask_new_folder(self._window, parent_name, len(selected), initial, include)
+        if answer is None or not self._ready():
             self._jobs.schedule_write()
             return
-        retry = (location_id, parent, parent_name, selected, new_name)
+        new_name, include = answer
+        retry = (location_id, parent, parent_name, selected, new_name, include)
         self._get_db().execute_async(
             plan_new_folder,
             location_id,
             parent,
             new_name,
-            selected,
+            selected if include else [],
             on_result=lambda plan: self._on_new_folder_planned(retry, plan),
             on_error=lambda error: (
                 logger.error(f"No se pudo preparar la carpeta nueva: {error}"),
@@ -535,22 +506,23 @@ class FileActions(QObject):
         """Si se puede, el trabajo (antes, la confirmación si hay algo que avisar)."""
         if self._get_db() is None:
             return
-        location_id, parent, parent_name, selected, new_name = retry
+        location_id, parent, parent_name, selected, new_name, include = retry
         if plan.problem is not None:
             self._message_box.warning(
                 f"No se puede crear la carpeta «{new_name}»: {plan.problem}."
             )
-            self._ask_folder_name(location_id, parent, parent_name, selected, new_name)
+            self._ask_folder_name(location_id, parent, parent_name, selected, new_name, include)
             return
         moves = plan.moves
-        if not moves.moves:
-            # No se puede mover nada de lo elegido: vacía no se vería
+        if include and selected and not moves.moves:
+            # Se pidió con lo elegido y no se puede mover nada: mejor no crearla (la idea era
+            # llevar allí esos archivos)
             self._message_box.info(
                 f"No se crea la carpeta «{new_name}»: {nothing_to_move_text(new_name, moves)}"
             )
             self._jobs.schedule_write()
             return
-        if moves.skipped or moves.empty_folders:
+        if moves.skipped:
             answer = self._message_box.question(
                 new_folder_confirmation_text(new_name, parent_name, moves),
                 title="Nueva carpeta",
@@ -563,7 +535,7 @@ class FileActions(QObject):
             self._jobs.schedule_write()
             return
         self._job_kind = "new_folder"
-        self._jobs.start_file_job(execute_new_folder, plan, trash=move_to_trash)
+        self._jobs.start_file_job(execute_new_folder, plan)
 
     def _on_files_finished(self, result: object) -> None:
         """Terminó de renombrar: cuadrícula, contadores y aviso de lo que falló.
@@ -752,19 +724,14 @@ if __name__ == "__main__":
     assert "carpeta" in failed_rename_text([("C:/F/Viaje", "x")], folder=True)
     print("6. Una carpeta: se mira, ventana, plan y trabajo; al terminar, los módulos primero")
 
-    # 7. Mover a una carpeta: los textos, la confirmación y el trabajo con la papelera
-    from core.catalog.empty_folders import EmptyFolder, EmptyFolderPlan
+    # 7. Mover a una carpeta: los textos, la confirmación y el trabajo
     from ui_helpers.models.media_mime import MediaDrag
 
-    two = MovePlan(
-        moves=(move, move),
-        skipped=(("x.jpg", SKIP_SAME), ("y.jpg", SKIP_EXISTS)),
-        empty_folders=(EmptyFolderPlan(Path("C:/F"), (EmptyFolder("2024/Viaje"),)),),
-    )
+    two = MovePlan(moves=(move, move), skipped=(("x.jpg", SKIP_SAME), ("y.jpg", SKIP_EXISTS)))
     text = move_confirmation_text("Ordesa", two)
     assert text.startswith("Se van a mover 2 archivos a «Ordesa», también en el disco"), text
     assert "2 archivos no se moverán: 1 porque ya está en esa carpeta, 1 porque ya existe" in text
-    assert "La carpeta «Viaje» se quedará vacía y también se eliminará del disco." in text
+    assert "vacía" not in text  # la carpeta de origen se queda (CAT 5)
     assert nothing_to_move_text("Ordesa", MovePlan(skipped=(("x", SKIP_SAME),))) == (
         "Ya está en «Ordesa»."
     )
@@ -784,13 +751,13 @@ if __name__ == "__main__":
     print("7. Mover a una carpeta: textos, confirmación y trabajo; otro catálogo, no")
 
     # 8. Nueva carpeta: la ventana con lo elegido, el plan y el trabajo; al terminar, la de
-    #    encima desplegada; si no se puede, el motivo y otra vez la ventana
+    #    encima desplegada; si no se puede, el motivo y otra vez la ventana (como estaba)
     from core.file_ops.moves import SKIP_FOLDER_EXISTS
 
     asked_folders: list[tuple] = []
-    folder_answers: list[str | None] = []
+    folder_answers: list[tuple[str, bool] | None] = []
 
-    def fake_new_folder(_window: QWidget, *args: object) -> str | None:
+    def fake_new_folder(_window: QWidget, *args: object) -> tuple[str, bool] | None:
         asked_folders.append(args)
         return folder_answers.pop(0)
 
@@ -803,22 +770,27 @@ if __name__ == "__main__":
     )
     taken = NewFolderPlan(1, "Viaje", "Viaje/Juntas", Path("C:/F"), SKIP_FOLDER_EXISTS)
     db.plans.extend([taken, ok_plan])
-    folder_answers.extend(["Juntas", "Elegidas"])
+    folder_answers.extend([("Juntas", True), ("Elegidas", True)])
     actions.request_new_folder(1, "Viaje", "Viaje")
-    assert asked_folders == [("Viaje", 2, None), ("Viaje", 2, "Juntas")], asked_folders
+    assert asked_folders == [("Viaje", 2, None, True), ("Viaje", 2, "Juntas", True)], asked_folders
     assert box.log[-1][1].startswith("No se puede crear la carpeta «Juntas»: ya existe")
     assert jobs.log[-1] == ("start", execute_new_folder, (ok_plan,))
     actions._folder_created = lambda *args: events.append(("created", *args))
     jobs.files_finished.emit(SimpleNamespace(created_folder=(1, "Viaje/Elegidas"), failed=[]))
     assert events == [("created", 1, "Viaje/Elegidas"), "reload", "counts"], events
-    # Sin nada elegido: el aviso, sin ventana
+    # Sin nada elegido (o sin incluirlo): la ventana igual, y se crea vacía (CAT 5)
     asked_folders.clear()
+    jobs.log.clear()
     actions._get_selected_ids = list  # nada elegido
+    empty_plan = NewFolderPlan(1, "Viaje", "Viaje/Vacía", Path("C:/F"), None)
+    db.plans.append(empty_plan)
+    folder_answers.append(("Vacía", False))
     actions.request_new_folder(1, "Viaje", "Viaje")
-    assert asked_folders == [] and box.log[-1] == ("info", NO_SELECTION_TEXT)
+    assert asked_folders == [("Viaje", 0, None, True)], asked_folders
+    assert jobs.log[-1] == ("start", execute_new_folder, (empty_plan,)), jobs.log
     text = new_folder_confirmation_text("Elegidas", "Viaje", two)
     assert text.startswith("Se va a crear la carpeta «Elegidas» dentro de «Viaje» y mover a ella")
-    print("8. Nueva carpeta: ventana con lo elegido, el motivo y otra vez, trabajo, la de encima")
+    print("8. Nueva carpeta: con lo elegido o vacía, el motivo y otra vez, trabajo, la de encima")
 
     window.deleteLater()
     app.processEvents()

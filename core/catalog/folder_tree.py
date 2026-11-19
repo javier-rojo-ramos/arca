@@ -3,11 +3,13 @@
 Este módulo NO depende de Qt. 'fetch_folder_tree' recibe la conexión como primer
 parámetro, así que se envía tal cual a 'CatalogDatabaseManager.execute_async'.
 
-Lo usa la sección "Carpetas" de la barra lateral del catálogo. El árbol es el del
-CATÁLOGO, no el del disco: solo aparecen las carpetas que contienen algún elemento del
-catálogo (directamente o en sus subcarpetas), y los contadores cuentan todo lo que hay
-en la base de datos, también los archivos ausentes o de discos desconectados (como en
-Lightroom). Una carpeta vacía en disco, o con solo archivos que no se catalogan, no sale.
+Lo usa la sección "Carpetas" de la barra lateral del catálogo. El árbol replica las
+carpetas del disco tal como estaban al sincronizar, como en Lightroom (CAT 5): las de los
+elementos del catálogo y las apuntadas en la tabla 'folders' (las vacías o con solo archivos
+que no se catalogan, con 0; ver 'catalog_folders.py'). Los contadores cuentan todo lo que
+hay en la base de datos, también los archivos ausentes o de discos desconectados (como en
+Lightroom). Con una biblioteca (las «Carpetas» del módulo Imagen) solo salen las carpetas
+con algo de ella.
 
 Estructura que devuelve:
 
@@ -24,6 +26,8 @@ Cada carpeta lleva dos contadores: 'count' INCLUYE las subcarpetas (como Lightro
 en memoria, la consulta agrupa por carpeta en SQLite y aquí solo se suman los totales
 de cada carpeta hacia sus carpetas padre.
 
+1.3.0 Las carpetas sin elementos también (CAT 5): las de la tabla 'folders', con 0
+      ('build_folder_tree(..., folders)'); no con una biblioteca.
 1.2.0 'fetch_folder_tree(conn, library)': el árbol de una sola biblioteca (las «Carpetas»
       del módulo Imagen): cuenta solo sus elementos y deja fuera las ubicaciones y
       carpetas sin ninguno (por su CONTENIDO, no por el tipo declarado al añadirlas;
@@ -34,15 +38,18 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.folder_tree
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["FolderNode", "LocationNode", "build_folder_tree", "fetch_folder_tree", "sort_key"]
 
 # Librerías estándar
 import re
 import sqlite3
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+
+# Módulos del proyecto
+from core.catalog.catalog_folders import folder_paths
 
 # Trozos de un nombre: números y texto por separado (para el orden natural)
 _NUMBER_PARTS = re.compile(r"(\d+)")
@@ -117,8 +124,8 @@ def fetch_folder_tree(conn: sqlite3.Connection, library: str | None = None) -> t
 
     Returns:
         Las ubicaciones ordenadas por nombre, cada una con su árbol de carpetas. Sin
-        biblioteca, las ubicaciones sin elementos también aparecen (con 0); con una
-        biblioteca, solo las que tienen algo de ella (y solo sus carpetas con algo).
+        biblioteca, las ubicaciones y las carpetas sin elementos también aparecen (con 0);
+        con una biblioteca, solo las que tienen algo de ella (y solo sus carpetas con algo).
     """
     # Carpeta de cada archivo, sin sacar las rutas a Python: 'rtrim(ruta, caracteres)'
     # quita del final todos los caracteres que estén en el conjunto dado. Si el conjunto
@@ -141,6 +148,10 @@ def fetch_folder_tree(conn: sqlite3.Connection, library: str | None = None) -> t
         # Sin la '/' final: 'Organizadas/2000/' -> 'Organizadas/2000'
         direct.setdefault(location_id, {})[folder.rstrip("/")] = int(count)
 
+    # Las carpetas sin elementos (vacías, o solo con lo que no se cataloga): solo en el
+    # árbol del Catálogo, que replica el disco
+    empty = folder_paths(conn) if library is None else {}
+
     locations = conn.execute(
         "SELECT id, name, absolute_path, is_online FROM storage_locations"
     ).fetchall()
@@ -150,7 +161,7 @@ def fetch_folder_tree(conn: sqlite3.Connection, library: str | None = None) -> t
             name=name,
             absolute_path=absolute_path,
             is_online=bool(is_online),
-            root=build_folder_tree(direct.get(location_id, {})),
+            root=build_folder_tree(direct.get(location_id, {}), empty.get(location_id, ())),
         )
         for location_id, name, absolute_path, is_online in locations
     ]
@@ -160,7 +171,9 @@ def fetch_folder_tree(conn: sqlite3.Connection, library: str | None = None) -> t
     return tuple(nodes)
 
 
-def build_folder_tree(direct_counts: Mapping[str, int]) -> FolderNode:
+def build_folder_tree(
+    direct_counts: Mapping[str, int], folders: Iterable[str] = ()
+) -> FolderNode:
     """Construye el árbol a partir de los elementos que hay DIRECTAMENTE en cada carpeta.
 
     Es la parte "pura" de 'fetch_folder_tree' (sin base de datos), para poder probarla.
@@ -168,6 +181,7 @@ def build_folder_tree(direct_counts: Mapping[str, int]) -> FolderNode:
     Args:
         direct_counts: Carpeta relativa ('' = raíz) -> elementos que están directamente
             en ella (sin contar sus subcarpetas).
+        folders: Más carpetas, aunque no tengan elementos (salen con 0).
 
     Returns:
         La carpeta raíz, con los totales ya sumados hacia arriba y las carpetas
@@ -182,6 +196,10 @@ def build_folder_tree(direct_counts: Mapping[str, int]) -> FolderNode:
         for depth in range(len(parts) + 1):
             prefix = "/".join(parts[:depth])
             totals[prefix] = totals.get(prefix, 0) + count
+    for folder in folders:  # las que no tienen elementos (y las de encima), con 0
+        parts = folder.split("/") if folder else []
+        for depth in range(1, len(parts) + 1):
+            totals.setdefault("/".join(parts[:depth]), 0)
 
     # 2. Hijos de cada carpeta (las carpetas intermedias ya están en 'totals')
     children: dict[str, list[str]] = {}
@@ -222,6 +240,10 @@ if __name__ == "__main__":
     assert names == ["Álbumes", "Organizadas", "Viaje 2", "Viaje 10", "zeta"], names
     # Comparables: dos árboles iguales son '==' (la barra lateral se ahorra reconstruir)
     assert build_folder_tree({"x": 1}) == build_folder_tree({"x": 1})
+    # Carpetas sin elementos (CAT 5): con 0, y las de encima; una con elementos no cambia
+    tree = build_folder_tree({"b/2000": 4}, ["Vacía/Sub", "b", "b/2000"])
+    assert [(c.name, c.count) for c in tree.children] == [("b", 4), ("Vacía", 0)], tree
+    assert tree.children[1].children == (FolderNode("Sub", "Vacía/Sub", 0),)
 
     # 2. Con la base de datos
     db = sqlite3.connect(":memory:")
@@ -230,6 +252,7 @@ if __name__ == "__main__":
     db.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('IMAGENES', 'D:/IMAGENES')")
     db.execute("INSERT INTO storage_locations(name, absolute_path, is_online) VALUES ('Tracks', 'E:/T', 0)")
     db.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('Vacía', 'F:/V')")
+    db.execute("INSERT INTO folders(storage_location_id, relative_path) VALUES (1, 'Sin fotos')")
     for path, missing in (("raiz.jpg", 0), ("Organizadas/2000/a.jpg", 0), ("Organizadas/2000/b.jpg", 1),
                           ("Organizadas/2001/c.jpg", 0), ("Álbumes/d.jpg", 0)):  # fmt: skip
         db.execute(
@@ -248,7 +271,8 @@ if __name__ == "__main__":
     assert [loc.name for loc in locations] == ["IMAGENES", "Tracks", "Vacía"]
     images = locations[0]
     assert images.root.count == 5  # el ausente también cuenta (como en Lightroom)
-    assert [c.name for c in images.root.children] == ["Álbumes", "Organizadas"]
+    assert [c.name for c in images.root.children] == ["Álbumes", "Organizadas", "Sin fotos"]
+    assert images.root.children[2].count == 0  # sin elementos: con 0 (CAT 5)
     organized = images.root.children[1]
     assert organized.count == 3 and [(c.name, c.count) for c in organized.children] == [
         ("2000", 2), ("2001", 1)

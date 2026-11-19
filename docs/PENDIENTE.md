@@ -17,7 +17,7 @@
 
 ## En curso
 
-- **CATÁLOGO** (19/11/2026): hecha y verificada `CAT 3` (carpetas vacías, como en Lightroom); lo siguiente, `CAT 4` (renombrar y mover archivos y carpetas, con registro de operaciones).
+- **CATÁLOGO** (19/11/2026): hechas `CAT 3` (carpetas vacías), `CAT 4.1` a `4.4` (renombrar y mover en el mismo disco, nueva carpeta) y `CAT 5` (el árbol replica las carpetas del disco, también las vacías; no estaba en el plan: pedida por el autor y hecha en un paso, detalle en [HISTORIAL.md](HISTORIAL.md)). Lo que queda de `CAT 4`: `4.5` (mover entre discos) y `4.6` (renombrado múltiple).
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
@@ -158,7 +158,7 @@ Acordado con el autor el 19/11/2026 (cambia la regla de los originales: [DECISIO
 - ~~**CAT 4.2** Renombrar un archivo («Cambiar nombre…», F2)~~ (hecho el 19/11/2026).
 - ~~**CAT 4.3** Renombrar una carpeta~~ (hecho el 19/11/2026). La raíz de una ubicación (cambia la ubicación: `storage_locations`), en un paso aparte, sin número todavía.
 - **CAT 4.4** Mover archivos en el mismo disco y crear carpetas:
-  - ~~**4.4a** «Nueva carpeta…» en el menú de una carpeta, con «Incluir los archivos seleccionados» (como Lightroom)~~ (hecho el 19/11/2026).
+  - ~~**4.4a** «Nueva carpeta…» en el menú de una carpeta, con «Incluir los archivos seleccionados» (como Lightroom)~~ (hecho el 19/11/2026; vacía, desde `CAT 5`).
   - ~~**4.4b** Arrastrar tarjetas a una carpeta del árbol del Catálogo~~ (hecho el 19/11/2026).
   - «Mover a…» desde el menú de la tarjeta (sin ratón, o con muchas carpetas): más adelante, si hace falta.
 - **CAT 4.5** Mover entre discos (copiar, comprobar y borrar el original).
@@ -199,7 +199,7 @@ Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso (a
 ### Fase MUS 1 — Leer las etiquetas
 
 - **MUS 1.1** Base de audio: mutagen (la instala el autor), la tabla campo ↔ etiqueta y la lectura, en `core/audio/`.
-- **MUS 1.2** La tabla `audio_details` (la siguiente migración libre; la 5 es el registro de operaciones de `CAT 4`).
+- **MUS 1.2** La tabla `audio_details` (la siguiente migración libre; la 5 es el registro de operaciones de `CAT 4` y la 6, las carpetas de `CAT 5`).
 - **MUS 1.3** El extractor (`core/metadata/audio/`, `AUDIO_FIELDS_VERSION`): las canciones se leen solas al abrir el catálogo.
 - **MUS 1.4** Recuento de las canciones con varios géneros o artistas (decide si las listas van en tablas).
 

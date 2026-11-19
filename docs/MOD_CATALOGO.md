@@ -16,7 +16,7 @@
 | Archivos ausentes y ubicaciones desconectadas | Hecho y verificado; la detección con el catálogo abierto, por comprobar |
 | Barra: Catálogo, Carpetas y Colecciones | Hecho y verificado |
 | Colecciones: del sistema, conjuntos, estáticas e inteligentes (con grupos de reglas) | Hecho y verificado |
-| Quitar del catálogo y eliminar del disco (papelera) | Hecho y verificado; unidades de red y la papelera real, sin probar. Las carpetas que se quedan vacías se eliminan también del disco (`CAT 3`, 19/11/2026), verificado |
+| Quitar del catálogo y eliminar del disco (papelera) | Hecho y verificado; unidades de red y la papelera real, sin probar. Al quitar una carpeta, las vacías se eliminan también del disco (`CAT 3`, 19/11/2026), verificado; las que se vacían al eliminar o mover, se quedan con 0 (`CAT 5`) |
 | Vista de mapa (ver y seleccionar) | Hecho y verificado |
 | Archivos sueltos, fusión de ubicaciones, duplicados (hashes) | Pendiente (`CAT 1`, `CAT 2`) |
 
@@ -56,7 +56,7 @@ Tres secciones plegables; cada fila lleva un `GridSource` (qué mostrar) y su re
 | Sección | Filas | Notas |
 |---|---|---|
 | «Catálogo» | «Todos los archivos», «Selección rápida» y «Sin clasificar» | «Sin clasificar» solo se ve si hay algo sin biblioteca |
-| «Carpetas» | Una raíz por ubicación y su árbol, con recuentos | Botón «+»: añadir carpeta. Menú: «Sincronizar carpeta», «Mostrar en el Explorador», «Nueva carpeta…» (`CAT 4.4a`), «Cambiar nombre…» (`CAT 4.3`), «Quitar archivos ausentes del catálogo», «Quitar del catálogo…». La opción «Mostrar los elementos de las subcarpetas» (Opciones > Catálogo) decide qué se ve al elegir una |
+| «Carpetas» | Una raíz por ubicación y su árbol, con recuentos: replica las carpetas del disco tal como estaban al sincronizar, también las vacías o sin nada que se catalogue, con 0 (`CAT 5`, tabla `folders`) | Botón «+»: añadir carpeta. Menú: «Sincronizar carpeta», «Mostrar en el Explorador», «Nueva carpeta…» (`CAT 4.4a`), «Cambiar nombre…» (`CAT 4.3`), «Quitar archivos ausentes del catálogo», «Quitar del catálogo…». La opción «Mostrar los elementos de las subcarpetas» (Opciones > Catálogo) decide qué se ve al elegir una |
 | «Colecciones» | Las del sistema (Clasificación, Etiqueta, Marcadas, Rechazadas) y las del usuario | Botón «+» y menú: crear conjunto, colección o colección inteligente; renombrar; borrar; soltar tarjetas sobre una colección |
 
 ## 4. Carpetas, ubicaciones y bibliotecas
@@ -108,12 +108,12 @@ Son los comunes a todos los módulos:
 
 | Orden | Qué hace | Dónde |
 |---|---|---|
-| «Nueva carpeta…» | Crea una carpeta dentro de otra (o de la raíz de una ubicación), en el disco, y mueve a ella lo elegido: siempre con archivos, porque vacía no se vería en «Carpetas» (`CAT 4.4a`, como Lightroom) | `core/file_ops/moves.py`, `controllers/file_actions.py`, `ui_helpers/dialogs/new_folder_dialog.py` |
+| «Nueva carpeta…» | Crea una carpeta dentro de otra (o de la raíz de una ubicación), en el disco y en el catálogo; con «Incluir los N archivos seleccionados» (marcada si hay algo elegido), mueve a ella lo elegido; sin ella, vacía, con 0 en el árbol (`CAT 4.4a` y `CAT 5`, como Lightroom) | `core/file_ops/moves.py`, `controllers/file_actions.py`, `ui_helpers/dialogs/new_folder_dialog.py` |
 | Mover arrastrando a una carpeta | Soltar tarjetas sobre una carpeta (o ubicación) conectada de «Carpetas»: con su confirmación, se mueven también en el disco (con su `.xmp` y su `.arca.json`) y conservan todo lo suyo; no a una carpeta declarada de otra biblioteca; las carpetas de origen que se quedan vacías, eliminadas (`CAT 4.4b`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» de una carpeta | Cambia su nombre en el disco y, en el catálogo, la ruta de todo lo de dentro (que conserva todo lo suyo); las barras de los módulos siguen con lo desplegado y lo elegido. No en la raíz de una ubicación (`CAT 4.3`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» (F2) | Cambia el nombre de un archivo en el disco (con su `.xmp` y su entrada del `.arca.json`) y en el catálogo, que conserva todo lo suyo; la extensión no cambia (`CAT 4.2`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Eliminar del catálogo» | Quita los archivos del catálogo; siguen en su carpeta y vuelven al sincronizar | `media_removal.py` |
-| «Eliminar del disco» | Además, los envía a la Papelera (con el sidecar de un RAW). Los ausentes, los de una ubicación desconectada y los de una unidad de red solo se quitan del catálogo. La carpeta que se queda vacía (y sin nada en el catálogo) se elimina también del disco, con su línea en la ventana (`CAT 3.3`, como Lightroom) | `media_removal.py`, `empty_folders.py`; la papelera se le pasa como función desde la interfaz |
+| «Eliminar del disco» | Además, los envía a la Papelera (con el sidecar de un RAW). Los ausentes, los de una ubicación desconectada y los de una unidad de red solo se quitan del catálogo. La carpeta que se queda vacía se queda, con 0 en el árbol (`CAT 5`, como Lightroom; para borrarla, «Quitar del catálogo…») | `media_removal.py`, `empty_folders.py`; la papelera se le pasa como función desde la interfaz |
 | «Quitar del catálogo…» (carpeta o ubicación) | Quita esa carpeta entera, también desconectada; los archivos del disco no se tocan. Las carpetas que ya no tienen archivos en el disco se eliminan también del disco, con su aviso (`CAT 3.2`, como Lightroom) | `folder_removal.py`, `empty_folders.py` |
 | «Quitar archivos ausentes del catálogo» | Borra del catálogo los ausentes de una carpeta | `missing_items.py` |
 
@@ -130,6 +130,7 @@ Paso a paso y la ventana (`RemoveDialog`): [FLUJOS.md](FLUJOS.md) §13.
 | Colecciones y reglas | `system_collections.py`, `user_collections.py`, `smart_fields.py`, `smart_rules.py` |
 | Qué muestra la cuadrícula | `grid_source.py`, `media_queries.py`, `grid_orders.py`, `grid_filter.py` |
 | Quitar y eliminar | `media_removal.py`, `folder_removal.py`, `empty_folders.py` (carpetas vacías, `CAT 3`) |
+| Carpetas del catálogo | `catalog_folders.py` (tabla `folders`, `CAT 5`); el árbol, `folder_tree.py` |
 | Módulo y barra | `controllers/app_modules/catalog_module.py`, `ui_helpers/sidebars/catalog_sidebar.py`, `controllers/collection_actions.py`, `controllers/folder_actions.py` |
 | Base de datos y trabajos | `core/database/db_manager.py`, `core/workers/job_manager.py` |
 

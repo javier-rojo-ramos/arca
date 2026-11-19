@@ -32,8 +32,10 @@ Qué hace 'add_folder', en este orden:
        apply_folder_files() En el mismo lote, recupera la valoración, la marca y el
                             color de los archivos sin XMP (vídeo, audio...) desde el
                             archivo '.arca.json' de su carpeta (ver core/userdata/).
-    4. Al terminar          Marca como desaparecido lo que ya no está, y guarda en
-                            'scan_errors' los problemas de lectura.
+    4. Al terminar          Marca como desaparecido lo que ya no está, guarda en
+                            'scan_errors' los problemas de lectura y pone al día las
+                            carpetas del catálogo con las recorridas ('sync_folders': el
+                            árbol replica las del disco, también las vacías; CAT 5).
 
 Añadir una carpeta y reescanearla son LA MISMA operación: si la carpeta ya está en
 el catálogo, 'add_folder' la recorre otra vez y solo aplica las diferencias. Se
@@ -49,6 +51,9 @@ desaparecidos). Si ya estaban catalogados (p. ej. la carpeta se añadió antes c
 "auto" y ahora se declara "Música"), se quedan como estaban: quitarlos del catálogo
 será una acción aparte (paso 2b).
 
+1.7.0 Las carpetas recorridas, en el catálogo ('catalog_folders.sync_folders', CAT 5): las
+      nuevas se apuntan y las que ya no están en el disco se quitan (solo si el recorrido
+      fue completo, como los desaparecidos).
 1.6.0 El resumen empieza por el contenido de la carpeta («Contenido de la carpeta: ...») y,
       en automático (o si en la carpeta hay más de una biblioteca), cuántos elementos tiene
       cada biblioteca, con los vídeos sin clasificar al final (antes, en una línea aparte),
@@ -62,7 +67,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.folder_importer
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = [
     "DEFAULT_BATCH_SIZE",
     "AddFolderProgress",
@@ -83,6 +88,7 @@ from pathlib import Path
 from loguru import logger
 
 # Módulos del proyecto
+from core.catalog.catalog_folders import sync_folders
 from core.catalog.catalog_writer import (
     BatchResult,
     count_active_items,
@@ -417,6 +423,16 @@ def add_folder(
                 stats.issues,
                 clear_previous=not stats.cancelled,
             )
+            # Las carpetas (CAT 5): las vistas, siempre; quitar las que ya no están, solo
+            # con un recorrido fiable (lo mismo que para marcar desaparecidos)
+            sync_folders(
+                conn,
+                location.id,
+                relative_folder,
+                stats.folders,
+                unreadable=(issue.relative_path for issue in stats.issues),
+                complete=skip_reason is None,
+            )
             conn.commit()
         except Exception:
             conn.rollback()
@@ -629,6 +645,18 @@ if __name__ == "__main__":
             result = add_folder(conn, library)
             assert result.changed_items == 1 and result.missing_items == 0
             assert rows(conn, "SELECT is_missing FROM media_items WHERE relative_path = '2024/d.mp4'") == [(0,)]
+
+            # 4b. Las carpetas (CAT 5): todas las recorridas, también las vacías; nunca la del
+            #     catálogo; la que se borra del disco sale al sincronizar
+            (library / "Vacia" / "Honda").mkdir(parents=True)
+            add_folder(conn, library)
+            folders = {r[0] for r in rows(conn, "SELECT relative_path FROM folders")}
+            assert folders == {"2024", "musica", "Vacia", "Vacia/Honda"}, folders
+            (library / "Vacia" / "Honda").rmdir()
+            add_folder(conn, library / "Vacia")
+            folders = {r[0] for r in rows(conn, "SELECT relative_path FROM folders")}
+            assert folders == {"2024", "musica", "Vacia"}, folders
+            print("Carpetas: las recorridas (también vacías); fuera las que ya no están")
 
             # 5. Añadir una subcarpeta: misma ubicación, solo se escanea esa subcarpeta
             result = add_folder(conn, library / "2024")

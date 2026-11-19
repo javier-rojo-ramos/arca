@@ -25,6 +25,8 @@ de una canción...) van en tablas 1:1 con 'media_items' (photo_details,
 video_details, audio_details...), no en la tabla general. Las que falten se
 añadirán como migraciones nuevas, una por una.
 
+2.6.0 Migración 6: tabla 'folders', las carpetas del catálogo (también las que no tienen
+      archivos que se catalogan; CAT 5), rellenada con las de los archivos que ya había.
 2.5.0 Migración 5: tabla 'file_operations', el registro de las operaciones con archivos
       (renombrar y mover; docs/PENDIENTE.md, CAT 4).
 2.4.0 Migración 4: 'track_details.overview' (contorno simplificado de cada track, para el
@@ -56,7 +58,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.catalog_schema
 """
 
-__version__ = "2.5.0"
+__version__ = "2.6.0"
 __all__ = [
     "APPLICATION_ID",
     "BUSY_TIMEOUT_SECONDS",
@@ -569,6 +571,47 @@ CREATE TABLE file_operations (
 CREATE INDEX idx_file_operations_media ON file_operations(media_id);
 """
 
+# =============================================================================
+# Migración 6: las carpetas del catálogo (CAT 5, 19/11/2026)
+# =============================================================================
+# El árbol de «Carpetas» replica las carpetas del disco, como Lightroom Classic: también las
+# que no tienen archivos que se catalogan (vacías, o solo con documentos). El escáner apunta
+# aquí todas las que recorre; crear, renombrar y quitar carpetas desde la aplicación la ponen
+# al día (ver 'core/catalog/catalog_folders.py'). La raíz de cada ubicación no se guarda: es
+# la propia ubicación.
+#
+# Se rellena con las carpetas de los archivos que ya hay en el catálogo y todas las de
+# encima: así una carpeta que se quede sin archivos (al mover los suyos a otra) sigue en el
+# árbol aunque el catálogo no se haya sincronizado desde esta migración. 'rtrim' corta la
+# ruta en su última '/' (como en 'folder_tree.py'): 'a/b/foto.jpg' -> 'a/b/' -> 'a/' -> ''.
+_FOLDERS_FROM_ITEMS_SQL = """
+INSERT OR IGNORE INTO folders(storage_location_id, relative_path)
+WITH RECURSIVE item_folders(location_id, path) AS (
+    SELECT DISTINCT storage_location_id, rtrim(relative_path, replace(relative_path, '/', ''))
+      FROM media_items
+    UNION
+    SELECT location_id, rtrim(substr(path, 1, length(path) - 1),
+                              replace(substr(path, 1, length(path) - 1), '/', ''))
+      FROM item_folders
+     WHERE path <> ''
+)
+SELECT location_id, substr(path, 1, length(path) - 1) FROM item_folders WHERE path <> '';
+"""
+
+_MIGRATION_006_FOLDERS = (
+    """
+CREATE TABLE folders (
+    storage_location_id  INTEGER NOT NULL,
+    -- Relativa a la ubicación, con '/' y como se escribe en el disco (nunca '': la raíz)
+    relative_path        TEXT NOT NULL CHECK(relative_path <> ''),
+
+    PRIMARY KEY (storage_location_id, relative_path),
+    FOREIGN KEY (storage_location_id) REFERENCES storage_locations(id) ON DELETE CASCADE
+) WITHOUT ROWID;
+"""
+    + _FOLDERS_FROM_ITEMS_SQL
+)
+
 # Lista ORDENADA de migraciones: la posición (empezando en 1) es la versión a la
 # que lleva cada una. Para evolucionar el esquema, añadir elementos AL FINAL.
 MIGRATIONS: tuple[str, ...] = (
@@ -577,6 +620,7 @@ MIGRATIONS: tuple[str, ...] = (
     _MIGRATION_003_GPS_DIRECTION,
     _MIGRATION_004_TRACK_OVERVIEW,
     _MIGRATION_005_FILE_OPERATIONS,
+    _MIGRATION_006_FOLDERS,
 )
 
 # Versión actual del esquema: se deduce sola del número de migraciones, así no
@@ -725,7 +769,7 @@ if __name__ == "__main__":
 
     # 1. Un catálogo vacío pasa de la versión 0 a la actual, con la marca de la aplicación
     assert db.execute("PRAGMA user_version").fetchone()[0] == 0
-    assert apply_migrations(db) == SCHEMA_VERSION == 5
+    assert apply_migrations(db) == SCHEMA_VERSION == 6
     assert db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert db.execute("PRAGMA application_id").fetchone()[0] == APPLICATION_ID
     print(f"Esquema creado: v{SCHEMA_VERSION}, application_id = {APPLICATION_ID:#x}")
@@ -749,7 +793,7 @@ if __name__ == "__main__":
     expected_tables = {
         "storage_locations", "media_items", "scan_errors", "folder_libraries",
         "photo_details", "video_details", "track_details", "keywords",
-        "media_keywords", "collections", "collection_items", "file_operations",
+        "media_keywords", "collections", "collection_items", "file_operations", "folders",
     }  # fmt: skip
     assert tables_of(db) == expected_tables, tables_of(db) ^ expected_tables
     print("Tablas:", ", ".join(sorted(expected_tables)))
@@ -955,7 +999,7 @@ if __name__ == "__main__":
            VALUES (1, 'a.jpg', 'a.jpg', 'photo', 'image/jpeg', 1, 0, 'a')"""
     )
     old.commit()
-    assert apply_migrations(old) == SCHEMA_VERSION == 5
+    assert apply_migrations(old) == SCHEMA_VERSION
     assert old.execute("SELECT COUNT(*) FROM file_operations").fetchone()[0] == 0
     insert = (
         "INSERT INTO file_operations(batch_id, kind, media_id, source_location_id, source_path,"
@@ -967,5 +1011,34 @@ if __name__ == "__main__":
     assert old.execute("SELECT COUNT(*) FROM file_operations").fetchone()[0] == 0
     old.close()
     print("Migración 5: catálogo v4 al día, con el registro de operaciones (en cascada)")
+
+    # 17. Un catálogo v5 pasa a la v6: las carpetas de sus archivos y las de encima (nunca la
+    #     raíz), una vez cada una; se van con su ubicación
+    old = sqlite3.connect(":memory:")
+    configure_connection(old)
+    for number, script in enumerate(MIGRATIONS[:5], start=1):
+        mark = f"PRAGMA application_id = {APPLICATION_ID};\n" if number == 1 else ""
+        old.executescript(f"BEGIN;\n{script}\n{mark}PRAGMA user_version = {number};\nCOMMIT;")
+    old.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('P', '/p')")
+    old.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('Q', '/q')")
+    for location, path in ((1, "raiz.jpg"), (1, "2024/Viaje/Día 1/a.jpg"), (1, "2024/Viaje/b.jpg"),
+                           (1, "2024b/c.jpg"), (2, "Pirineo/ruta.gpx")):  # fmt: skip
+        old.execute(
+            """INSERT INTO media_items(storage_location_id, relative_path, file_name, media_type,
+                   mime_type, file_size, file_mtime_ns, title)
+               VALUES (?, ?, 'x', 'photo', 'image/jpeg', 1, 0, 'x')""",
+            (location, path),
+        )
+    old.commit()
+    assert apply_migrations(old) == SCHEMA_VERSION == 6
+    folders = set(old.execute("SELECT storage_location_id, relative_path FROM folders"))
+    assert folders == {(1, "2024"), (1, "2024/Viaje"), (1, "2024/Viaje/Día 1"), (1, "2024b"),
+                       (2, "Pirineo")}, folders  # fmt: skip
+    assert rejected(old, "INSERT INTO folders(storage_location_id, relative_path) VALUES (1, '')")
+    assert rejected(old, "INSERT INTO folders(storage_location_id, relative_path) VALUES (1, '2024')")
+    old.execute("DELETE FROM storage_locations WHERE id = 2")
+    assert old.execute("SELECT COUNT(*) FROM folders WHERE storage_location_id = 2").fetchone()[0] == 0
+    old.close()
+    print("Migración 6: catálogo v5 al día, con las carpetas de sus archivos")
 
     print("Autoprueba finalizada correctamente.")
