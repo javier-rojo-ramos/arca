@@ -16,7 +16,7 @@
 | Archivos ausentes y ubicaciones desconectadas | Hecho y verificado; la detección con el catálogo abierto, por comprobar |
 | Barra: Catálogo, Carpetas y Colecciones | Hecho y verificado |
 | Colecciones: del sistema, conjuntos, estáticas e inteligentes (con grupos de reglas) | Hecho y verificado |
-| Quitar del catálogo y eliminar del disco (papelera) | Hecho y verificado; unidades de red y la papelera real, sin probar. Las carpetas que se quedan vacías se eliminan también del disco (`CAT 3`, 19/11/2026): a verificar |
+| Quitar del catálogo y eliminar del disco (papelera) | Hecho y verificado; unidades de red y la papelera real, sin probar. Las carpetas que se quedan vacías se eliminan también del disco (`CAT 3`, 19/11/2026), verificado |
 | Vista de mapa (ver y seleccionar) | Hecho y verificado |
 | Archivos sueltos, fusión de ubicaciones, duplicados (hashes) | Pendiente (`CAT 1`, `CAT 2`) |
 

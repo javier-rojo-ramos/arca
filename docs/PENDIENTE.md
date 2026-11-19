@@ -17,7 +17,7 @@
 
 ## En curso
 
-- **CATÁLOGO** (19/11/2026): hecha `CAT 3` (carpetas vacías, como en Lightroom; a verificar); lo siguiente, `CAT 4` (renombrar y mover archivos y carpetas, con registro de operaciones).
+- **CATÁLOGO** (19/11/2026): hecha y verificada `CAT 3` (carpetas vacías, como en Lightroom); lo siguiente, `CAT 4` (renombrar y mover archivos y carpetas, con registro de operaciones).
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
@@ -152,7 +152,9 @@ Cómo funciona hoy y dónde está cada cosa: [MOD_CATALOGO.md](MOD_CATALOGO.md).
 
 Acordado con el autor el 19/11/2026 (cambia la regla de los originales: [DECISIONES.md](DECISIONES.md); `CAT 3`, las carpetas vacías, hecha el mismo día). Renombrar y mover desde la aplicación con el catálogo al día: el `id` no cambia, así que se conservan valoración, palabras clave, colecciones y miniaturas; con el archivo van su `.xmp` y su entrada del `.arca.json`. Con el patrón de «Eliminar» (plan, aviso, trabajo y refresco) y un **registro de operaciones** (una migración) para lo que quede a medias si la aplicación se cierra.
 
-- **CAT 4.1** El núcleo, sin interfaz (`core/file_ops/`): validar nombres (Windows, macOS y Linux), el plan y la ejecución (archivo, `.xmp`, entrada del `.arca.json`, catálogo y estado de la barra), el registro de operaciones y su revisión al abrir el catálogo; con autoprueba.
+- **CAT 4.1** El núcleo, sin interfaz (`core/file_ops/`), con autoprueba:
+  - ~~**4.1a** Validar los nombres (Windows, macOS y Linux) y renombrar sin la extensión (`naming.py`)~~ (hecho el 19/11/2026).
+  - **4.1b** El registro de operaciones (una migración) y su revisión al abrir el catálogo; el plan y la ejecución de mover o renombrar archivos (archivo, `.xmp`, entrada del `.arca.json` y catálogo). El estado de la barra (rutas en `settings.json`), con la interfaz (`CAT 4.2` y `4.3`).
 - **CAT 4.2** Renombrar un archivo («Cambiar nombre…», F2).
 - **CAT 4.3** Renombrar una carpeta (la raíz de una ubicación, en un paso aparte).
 - **CAT 4.4** «Nueva carpeta…» y mover archivos en el mismo disco (arrastrar a «Carpetas» y «Mover a…»).

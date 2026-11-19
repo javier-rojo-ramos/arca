@@ -72,6 +72,9 @@ python -m core.catalog.system_collections
 python -m core.catalog.timeline                                (cada fila muestra lo que cuenta)
 python -m core.catalog.user_collections
 
+# core.file_ops
+python -m core.file_ops.naming
+
 # core.metadata
 python -m core.metadata.exiftool_extractor
 python -m core.metadata.exiftool_runner

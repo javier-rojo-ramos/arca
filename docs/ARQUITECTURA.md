@@ -252,6 +252,8 @@ core/
     xmp_writer.py                      Escritura en XMP con ExifTool (solo los campos pendientes; comprueba releyendo); el GPS, también en el EXIF
     writers.py                         UserDataWriter (la interfaz de un escritor), WriteItem, FolderFileWriter (.arca.json) y XmpFileWriter (ExifTool); split_items (un archivo entre el escritor de su formato y el .arca.json) y default_writers. AQUÍ se añade un escritor nuevo
     sync.py                            write_pending_user_data (trabajo: qué hay pendiente, lo reparte entre los escritores de writers.py y anota el resultado) y la lectura al importar (apply_file_user_data, apply_folder_files)
+  file_ops/                          ── Operaciones con archivos en el disco: renombrar y mover con el catálogo al día (CAT 4; reglas en docs/DECISIONES.md, 19/11/2026) ──
+    naming.py                          Nombres válidos en Windows, macOS y Linux (name_problem, clean_name) y renombrar sin la extensión (rename_keeping_extension)
   thumbnails/                        ── Generar y guardar las miniaturas ── (ver core/thumbnails/LEEME.md)
     sizes.py                           ThumbnailSize: 160 / 480 / 1200 / 2560 px (lado largo) y calidad JPEG
     cache.py                           ThumbnailCache: ruta derivada del id, escritura atómica, resolve(), read() (lee los bytes reintentando si el archivo está bloqueado); ThumbnailStorageError
