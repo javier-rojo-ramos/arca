@@ -54,6 +54,9 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.16.0 Menú de las carpetas: «Nueva carpeta…» ('new_folder_requested'; también en la raíz
+       de una ubicación; no desconectada) y 'expand_to_folder' (para que se vea la nueva;
+       CAT 4.4a).
 1.15.0 Soltar tarjetas sobre una carpeta del árbol (de una ubicación conectada): se resalta
        y se emite 'media_dropped_on_folder' (mover; CAT 4.4b).
 1.14.0 Menú de las carpetas: «Cambiar nombre...» ('rename_folder_requested'; no en la raíz
@@ -100,7 +103,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.15.0"
+__version__ = "1.16.0"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -216,6 +219,8 @@ class CatalogSidebar(QWidget):
         reveal_folder_requested(str): "Mostrar en el Explorador" en el menú de una carpeta.
         remove_missing_requested(int, str): "Quitar archivos ausentes del catálogo" en el
             menú de una carpeta (id de la ubicación y carpeta relativa; '' = toda).
+        new_folder_requested(int, str, str): "Nueva carpeta..." en el menú de una carpeta o
+            una ubicación (ubicación, carpeta relativa y nombre): crear una dentro.
         rename_folder_requested(int, str, str): "Cambiar nombre..." en el menú de una
             carpeta (ubicación, carpeta relativa y nombre).
         remove_folder_requested(int, str, str): "Quitar del catálogo" en el menú de una
@@ -242,6 +247,7 @@ class CatalogSidebar(QWidget):
     remove_missing_requested = Signal(int, str)  # ubicación y carpeta relativa
     remove_folder_requested = Signal(int, str, str)  # ubicación, carpeta relativa y nombre
     rename_folder_requested = Signal(int, str, str)  # ubicación, carpeta relativa y nombre
+    new_folder_requested = Signal(int, str, str)  # ubicación, carpeta relativa y nombre
     create_collection_requested = Signal(str, object)  # tipo y conjunto (o None)
     rename_collection_requested = Signal(int, str)  # id y nombre actual
     delete_collection_requested = Signal(int, str, str)  # id, nombre y tipo
@@ -982,6 +988,10 @@ class CatalogSidebar(QWidget):
         menu = QMenu(view)
         sync_action = menu.addAction("Sincronizar carpeta")
         reveal_action = menu.addAction(f"Mostrar en {FILE_MANAGER_NAME}")
+        menu.addSeparator()
+        # Crea una carpeta dentro, en el disco (también en la raíz de una ubicación)
+        new_folder_action = menu.addAction("Nueva carpeta...")
+        new_folder_action.setEnabled(online)
         # Cambia el nombre en el disco: con la ubicación conectada y no en su raíz (renombrar
         # la raíz cambiaría la ubicación: más adelante)
         rename_action = menu.addAction("Cambiar nombre...")
@@ -1007,12 +1017,24 @@ class CatalogSidebar(QWidget):
             self.reveal_folder_requested.emit(path)
         elif chosen is remove_action and source.location_id is not None:
             self.remove_missing_requested.emit(source.location_id, source.folder)
+        elif chosen is new_folder_action and source.location_id is not None:
+            name = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+            self.new_folder_requested.emit(source.location_id, source.folder, name)
         elif chosen is rename_action and source.location_id is not None:
             name = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
             self.rename_folder_requested.emit(source.location_id, source.folder, name)
         elif chosen is remove_folder_action and source.location_id is not None:
             name = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
             self.remove_folder_requested.emit(source.location_id, source.folder, name)
+
+    def expand_to_folder(self, location_id: int, folder: str) -> None:
+        """Despliega las carpetas que contienen a 'folder' (p. ej. una recién creada, CAT 4.4a).
+
+        Se aplica con el siguiente 'set_folder_tree' (la carpeta nueva aún no está en el árbol).
+        """
+        parts = folder.split("/") if folder else []
+        for depth in range(len(parts)):
+            self._expanded.add(self._source_for(location_id, "/".join(parts[:depth])))
 
     def folder_renamed(self, location_id: int, old: str, new: str) -> None:
         """Se ha renombrado una carpeta (CAT 4.3): lo desplegado y lo elegido, con la ruta nueva.

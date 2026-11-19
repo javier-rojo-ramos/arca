@@ -56,7 +56,7 @@ Tres secciones plegables; cada fila lleva un `GridSource` (qué mostrar) y su re
 | Sección | Filas | Notas |
 |---|---|---|
 | «Catálogo» | «Todos los archivos», «Selección rápida» y «Sin clasificar» | «Sin clasificar» solo se ve si hay algo sin biblioteca |
-| «Carpetas» | Una raíz por ubicación y su árbol, con recuentos | Botón «+»: añadir carpeta. Menú: «Sincronizar carpeta», «Mostrar en el Explorador», «Cambiar nombre…» (`CAT 4.3`), «Quitar archivos ausentes del catálogo», «Quitar del catálogo…». La opción «Mostrar los elementos de las subcarpetas» (Opciones > Catálogo) decide qué se ve al elegir una |
+| «Carpetas» | Una raíz por ubicación y su árbol, con recuentos | Botón «+»: añadir carpeta. Menú: «Sincronizar carpeta», «Mostrar en el Explorador», «Nueva carpeta…» (`CAT 4.4a`), «Cambiar nombre…» (`CAT 4.3`), «Quitar archivos ausentes del catálogo», «Quitar del catálogo…». La opción «Mostrar los elementos de las subcarpetas» (Opciones > Catálogo) decide qué se ve al elegir una |
 | «Colecciones» | Las del sistema (Clasificación, Etiqueta, Marcadas, Rechazadas) y las del usuario | Botón «+» y menú: crear conjunto, colección o colección inteligente; renombrar; borrar; soltar tarjetas sobre una colección |
 
 ## 4. Carpetas, ubicaciones y bibliotecas
@@ -108,6 +108,7 @@ Son los comunes a todos los módulos:
 
 | Orden | Qué hace | Dónde |
 |---|---|---|
+| «Nueva carpeta…» | Crea una carpeta dentro de otra (o de la raíz de una ubicación), en el disco, y mueve a ella lo elegido: siempre con archivos, porque vacía no se vería en «Carpetas» (`CAT 4.4a`, como Lightroom) | `core/file_ops/moves.py`, `controllers/file_actions.py`, `ui_helpers/dialogs/new_folder_dialog.py` |
 | Mover arrastrando a una carpeta | Soltar tarjetas sobre una carpeta (o ubicación) conectada de «Carpetas»: con su confirmación, se mueven también en el disco (con su `.xmp` y su `.arca.json`) y conservan todo lo suyo; no a una carpeta declarada de otra biblioteca; las carpetas de origen que se quedan vacías, eliminadas (`CAT 4.4b`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» de una carpeta | Cambia su nombre en el disco y, en el catálogo, la ruta de todo lo de dentro (que conserva todo lo suyo); las barras de los módulos siguen con lo desplegado y lo elegido. No en la raíz de una ubicación (`CAT 4.3`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» (F2) | Cambia el nombre de un archivo en el disco (con su `.xmp` y su entrada del `.arca.json`) y en el catálogo, que conserva todo lo suyo; la extensión no cambia (`CAT 4.2`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |

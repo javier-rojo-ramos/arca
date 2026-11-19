@@ -34,6 +34,7 @@ disco) y la tecla F2. Solo emite 'rename_requested' con los 'id'; con más de un
 la ofrece desactivada (el renombrado múltiple llegará después) y quien la atiende
 ('controllers/file_actions.py') avisa.
 
+1.7.0 'selected_ids': los 'id' de lo elegido (para «Nueva carpeta…» con lo elegido, CAT 4.4a).
 1.6.0 "Cambiar nombre..." en el menú y la tecla F2 ('rename_requested', CAT 4.2).
 1.5.0 'watch': los atajos también con otra vista enfocada (la vista individual, paso A.1).
 1.4.0 "Eliminar..." en el menú y tecla Supr fuera de las colecciones estáticas.
@@ -44,7 +45,7 @@ la ofrece desactivada (el renombrado múltiple llegará después) y quien la ati
 1.1.0 Colecciones: añadir a una colección, quitar de la colección (menú y tecla Supr).
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["GridActions"]
 
 # Librerías de terceros (Qt)
@@ -142,6 +143,10 @@ class GridActions(QObject):
         if selection is None:
             return []
         return sorted({index.row() for index in selection.selectedIndexes()})
+
+    def selected_ids(self) -> list[int]:
+        """'id' de las tarjetas elegidas, en el orden de la cuadrícula."""
+        return self._model.media_ids(self._selected_rows())
 
     def _toggle_color(self, rows: list[int], color: str) -> None:
         """Pone la etiqueta; si TODAS las filas ya la tenían, la quita."""

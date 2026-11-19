@@ -23,7 +23,9 @@ unas fotos inventadas, y recorre lo que conecta el controlador:
        disco, las rutas en el catálogo y la barra y la cuadrícula con el nombre nuevo;
     11. soltar esa foto sobre la raíz de la ubicación (CAT 4.4b; la confirmación responde
        «Mover»): la foto, movida, y sus carpetas, que se quedan vacías, eliminadas;
-    12. cerrar.
+    12. «Nueva carpeta...» en la raíz con la foto elegida en la cuadrícula (CAT 4.4a; la
+       ventana responde sola): la carpeta, creada, con la foto dentro;
+    13. cerrar.
 
 Falla si algo no llega a tiempo, si sale un aviso de error («critical») o si una excepción
 llega a 'sys.excepthook' (en la aplicación, una excepción en un slot de Qt solo se apunta en
@@ -34,8 +36,8 @@ GEN 15): se lanza antes y después, además de 'run_selftests.py'. Usa partes in
 ventana ('folder_import.start', 'remove_actions.request_remove') y sustituye
 'MessageBoxHelper' en el módulo del controlador, 'RemoveDialog' y 'move_to_trash' en el de
 'remove_actions.py', 'move_to_trash' en el de 'folder_actions.py' y 'RenameDialog' y
-'move_to_trash' en el de 'file_actions.py': si una refactorización los mueve a otro módulo,
-hay que cambiar aquí dónde se sustituyen.
+'move_to_trash' y 'NewFolderDialog' en el de 'file_actions.py': si una refactorización los
+mueve a otro módulo, hay que cambiar aquí dónde se sustituyen.
 
 Nunca toca los datos del autor: antes de crear la ventana comprueba que 'settings.json' está
 dentro de la carpeta temporal (si no, se detiene). La carpeta se borra al terminar.
@@ -46,6 +48,8 @@ Uso (desde la raíz del proyecto, con el Python de .venv; necesita ExifTool para
 
 Termina con código 0 si todo va bien y 1 si algo falla.
 
+1.7.0 Paso nuevo: «Nueva carpeta...» con la foto elegida (CAT 4.4a), con su ventana
+      sustituida.
 1.6.0 Paso nuevo: soltar una foto sobre una carpeta del árbol para moverla (CAT 4.4b).
 1.5.1 Un error que no es de la prueba (p. ej. al crear la ventana) se enseña entero: antes
       terminaba con el código 1 sin decir nada.
@@ -61,7 +65,7 @@ Termina con código 0 si todo va bien y 1 si algo falla.
 1.0.0 Primera versión (18/11/2026), con GEN 15.1.
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["main", "run"]
 
 # Librerías estándar
@@ -203,6 +207,15 @@ def run(work_dir: Path) -> None:
 
     file_actions.RenameDialog = AnsweringRenameDialog
     file_actions.move_to_trash = fake_trash
+
+    class AnsweringNewFolderDialog:
+        """La ventana «Nueva carpeta», que responde «Seleccion» (lo elegido va dentro)."""
+
+        @staticmethod
+        def ask(*_args: object, **_kwargs: object) -> str:
+            return "Seleccion"
+
+    file_actions.NewFolderDialog = AnsweringNewFolderDialog
 
     def run_until(condition: Callable[[], bool], seconds: float, label: str) -> None:
         """Deja correr el bucle de eventos hasta que se cumpla 'condition'."""
@@ -449,7 +462,23 @@ def run(work_dir: Path) -> None:
         raise SmokeError("La carpeta que se quedó vacía sigue en el disco")
     print("11. Soltar una foto en una carpeta: movida; su carpeta, vacía, eliminada")
 
-    # 12. Cerrar
+    # 12. «Nueva carpeta...» en la raíz de la ubicación, con la primera tarjeta elegida
+    view = window.grid_actions._view  # (parte interna: la vista de la cuadrícula)
+    run_until(lambda: window.mosaico_model.rowCount() > 0, TIMEOUT_SHORT, "la cuadrícula")
+    view.setCurrentIndex(window.mosaico_model.index(0, 0))
+    (picked,) = window.grid_actions.selected_ids()
+    ((picked_name,),) = query(f"SELECT file_name FROM media_items WHERE id = {picked}")
+    sidebar.new_folder_requested.emit(location_id, "", "Biblioteca")
+    run_until(
+        lambda: (library / "Seleccion" / picked_name).exists(), TIMEOUT_SHORT, "la carpeta nueva"
+    )
+    run_until(idle, TIMEOUT_SHORT, "fin de crear la carpeta")
+    expected = [(f"Seleccion/{picked_name}",)]
+    if query(f"SELECT relative_path FROM media_items WHERE id = {picked}") != expected:
+        raise SmokeError("La foto de la carpeta nueva no tiene la ruta nueva en el catálogo")
+    print(f"12. Nueva carpeta «Seleccion» con {picked_name} dentro")
+
+    # 13. Cerrar
     window.close()
     app.processEvents()
     if jobs.is_attached:
@@ -457,7 +486,7 @@ def run(work_dir: Path) -> None:
     errors = [text for kind, text in shown if kind == "critical"]
     if errors or exceptions:
         raise SmokeError(f"Errores: {errors or exceptions}")
-    print(f"12. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
+    print(f"13. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
     window.deleteLater()
     app.processEvents()
 

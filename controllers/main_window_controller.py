@@ -188,6 +188,9 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             ),
             # Las tarjetas soltadas de otro catálogo (otra ventana) no se mueven
             get_catalog_key=lambda: str(self.catalog_dir) if self.catalog_dir else "",
+            # «Nueva carpeta» con lo elegido dentro; al crearla, se despliega la de encima
+            get_selected_ids=lambda: self.grid_actions.selected_ids(),
+            folder_created=lambda *args: self.widget_catalog_sidebar.expand_to_folder(*args),
             parent=self,
         )
 
@@ -423,6 +426,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         )
         # Tarjetas soltadas sobre una carpeta del árbol: moverlas a ella (CAT 4.4b)
         self.widget_catalog_sidebar.media_dropped_on_folder.connect(self.file_actions.request_move)
+        # "Nueva carpeta..." de una carpeta del árbol (CAT 4.4a)
+        self.widget_catalog_sidebar.new_folder_requested.connect(
+            self.file_actions.request_new_folder
+        )
         # Menú de la fila «Selección rápida»: vaciarla
         self.widget_catalog_sidebar.clear_quick_selection_requested.connect(
             self._on_clear_quick_selection

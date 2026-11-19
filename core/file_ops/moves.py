@@ -45,6 +45,14 @@ calcula las carpetas de ORIGEN que se quedarían vacías (como al eliminar del d
 'empty_folders.py'; nunca la de destino ni las de encima, que reciben archivos). Al
 terminar, 'execute_file_moves' las borra del disco si se le pasa la papelera.
 
+CREAR UNA CARPETA (CAT 4.4a; «Nueva carpeta…» del menú de una carpeta del árbol, como en
+Lightroom): 'plan_new_folder' comprueba el nombre y que no exista, y planea mover a ella lo
+elegido; 'execute_new_folder' la crea ('os.mkdir') y mueve. SIEMPRE con archivos dentro
+(regla del autor, 19/11/2026: lo que se hace en el disco desde la aplicación se ve en ella,
+y el árbol solo muestra carpetas con archivos): sin nada elegido no se puede, y si al final
+no se mueve nada, la carpeta se vuelve a borrar.
+Crearla no toca el catálogo (no se apunta en el registro); lo que se mueve, sí.
+
 RENOMBRAR UNA CARPETA (CAT 4.3) es otra operación: un solo 'os.rename' de la carpeta (sus
 archivos, sus '.xmp' y su '.arca.json' van dentro: no se tocan uno a uno) y, en una
 transacción, las rutas de todo lo que tiene debajo en el catálogo, lo que se dijo en
@@ -61,6 +69,11 @@ Uso:
     result = execute_file_moves(conn, plan, progress=..., cancel_event=...)   # el trabajo
     reconcile_file_operations(conn)                               # al abrir el catálogo
 
+1.4.1 Una carpeta nueva, siempre con archivos ('SKIP_NO_FILES'): una vacía no se vería
+      en el árbol (regla del autor).
+1.4.0 Crear una carpeta (CAT 4.4a): 'plan_new_folder', 'execute_new_folder',
+      'NewFolderPlan', 'FileMoveResult.created_folder'; 'plan_file_moves(..., new_folders=)'
+      (carpetas que se crean antes de mover).
 1.3.0 Mover a una carpeta (CAT 4.4b): 'plan_move' (con la biblioteca de destino y las
       carpetas de origen que se quedan vacías, 'MovePlan.empty_folders') y, en
       'execute_file_moves', su borrado con 'trash'; 'FileMoveResult.folders_deleted' y
@@ -75,21 +88,24 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.file_ops.moves
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.1"
 __all__ = [
     "FileMoveRequest",
     "FileMoveResult",
     "FolderRenamePlan",
     "MovePlan",
+    "NewFolderPlan",
     "PlannedMove",
     "ReconcileResult",
     "SidecarMove",
     "execute_file_moves",
     "execute_folder_rename",
+    "execute_new_folder",
     "move_requests",
     "plan_file_moves",
     "plan_folder_rename",
     "plan_move",
+    "plan_new_folder",
     "plan_rename",
     "reconcile_file_operations",
     "rename_request",
@@ -153,6 +169,7 @@ SKIP_ROOT = "la carpeta raíz de una ubicación aún no se puede renombrar"
 SKIP_FOLDER_MISSING = "la carpeta no está en el disco"
 SKIP_FOLDER_EXISTS = "ya existe una carpeta con ese nombre"
 SKIP_FOLDER_IN_CATALOG = "ya hay archivos del catálogo con esa ruta"
+SKIP_NO_FILES = "hay que elegir antes los archivos que irán dentro"
 
 _IGNORE_CASE = sys.platform in ("win32", "darwin")  # sistemas sin distinguir mayúsculas
 
@@ -246,6 +263,7 @@ class FileMoveResult:
             La interfaz lo usa para poner al día lo que recuerda por la ruta.
         folders_deleted: Carpetas de origen vacías borradas del disco (al mover).
         folders_kept: Las anunciadas que se quedaron en el disco: (ruta, motivo).
+        created_folder: Al crear una carpeta, si se creó: (ubicación, ruta).
     """
 
     renamed: bool = False
@@ -258,6 +276,7 @@ class FileMoveResult:
     folder: tuple[int, str, str] | None = None
     folders_deleted: list[str] = field(default_factory=list)
     folders_kept: list[tuple[str, str]] = field(default_factory=list)
+    created_folder: tuple[int, str] | None = None
 
     @property
     def has_warnings(self) -> bool:
@@ -269,7 +288,12 @@ class FileMoveResult:
         if self.folder is not None:
             old, new = PurePosixPath(self.folder[1]).name, PurePosixPath(self.folder[2]).name
             return f"Carpeta renombrada: «{old}» → «{new}»"
-        text = f"{'Renombrados' if self.renamed else 'Movidos'}: {self.moved}"
+        if self.created_folder is not None:
+            text = f"Carpeta creada: «{PurePosixPath(self.created_folder[1]).name}»"
+            if self.moved:
+                text += f" · movidos: {self.moved}"
+        else:
+            text = f"{'Renombrados' if self.renamed else 'Movidos'}: {self.moved}"
         if self.skipped:
             text += f" · omitidos: {len(self.skipped)}"
         if self.failed:
@@ -432,11 +456,20 @@ def _sidecar_moves(raw: Path, source_path: str, target_path: str) -> list[Sideca
 
 
 def plan_file_moves(
-    conn: sqlite3.Connection, requests: Sequence[FileMoveRequest]
+    conn: sqlite3.Connection,
+    requests: Sequence[FileMoveRequest],
+    *,
+    new_folders: frozenset[tuple[int, str]] = frozenset(),
 ) -> MovePlan:
     """Decide qué se moverá y qué se omite (y por qué). No cambia nada.
 
     Lee el catálogo y el disco (poco), así que se llama en segundo plano.
+
+    Args:
+        conn: Conexión.
+        requests: Las peticiones.
+        new_folders: Carpetas (ubicación, ruta) que se crearán antes de mover (CAT 4.4a):
+            cuentan como existentes si existe la de encima.
     """
     moves: list[PlannedMove] = []
     skipped: list[tuple[str, str]] = []
@@ -502,11 +535,14 @@ def plan_file_moves(
         if is_missing or not source.is_file():
             skip(SKIP_MISSING)
             continue
-        if not target.parent.is_dir():
+        creating = (request.target_location_id, target_folder) in new_folders
+        folder_dir = target.parent
+        if not (folder_dir.is_dir() or (creating and folder_dir.parent.is_dir())):
             skip(SKIP_NO_FOLDER)
             continue
         try:
-            other_disk = source.parent.stat().st_dev != target.parent.stat().st_dev
+            existing = folder_dir if folder_dir.is_dir() else folder_dir.parent
+            other_disk = source.parent.stat().st_dev != existing.stat().st_dev
         except OSError:
             other_disk = True
         if other_disk:
@@ -1098,6 +1134,128 @@ def execute_folder_rename(
 
 
 # -----------------------------------------------------------------------------
+# Crear una carpeta
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class NewFolderPlan:
+    """Lo que hay que saber antes de crear una carpeta (lo calcula 'plan_new_folder').
+
+    Attributes:
+        location_id: Su ubicación.
+        parent_path: La carpeta en la que se crea ('' = la raíz de la ubicación).
+        folder_path: La carpeta nueva, relativa a la ubicación.
+        root: Raíz de la ubicación (None si no está conectada).
+        problem: Por qué no se puede (None si se puede).
+        moves: Lo elegido que se moverá a ella (vacío si no se pidió).
+    """
+
+    location_id: int
+    parent_path: str
+    folder_path: str
+    root: Path | None = None
+    problem: str | None = None
+    moves: MovePlan = MovePlan()
+
+
+def plan_new_folder(
+    conn: sqlite3.Connection,
+    location_id: int,
+    parent: str,
+    name: str,
+    media_ids: Iterable[int] = (),
+) -> NewFolderPlan:
+    """Comprueba si se puede crear la carpeta y planea mover a ella lo elegido. No cambia nada.
+
+    Args:
+        conn: Conexión.
+        location_id: La ubicación.
+        parent: La carpeta en la que se crea ('' = la raíz).
+        name: El nombre de la carpeta nueva.
+        media_ids: Lo que se moverá a ella (sin nada, no se puede: 'SKIP_NO_FILES').
+    """
+    parent = _normalize(parent)
+    folder = _join(parent, name)
+
+    def plan(problem: str | None, root: Path | None = None) -> NewFolderPlan:
+        return NewFolderPlan(location_id, parent, folder, root, problem)
+
+    root = _location(conn, location_id)
+    if root is None:
+        return plan(SKIP_OFFLINE)
+    if not (root / parent).is_dir():
+        return plan(SKIP_FOLDER_MISSING, root)
+    problem = name_problem(name)
+    if problem:
+        return plan(problem, root)
+    target = root / folder
+    if target.exists():
+        return plan(SKIP_FOLDER_EXISTS, root)
+    if _items_under(conn, location_id, folder):
+        return plan(SKIP_FOLDER_IN_CATALOG, root)
+    ids = list(media_ids)
+    if not ids:
+        return plan(SKIP_NO_FILES, root)  # vacía no se vería en el árbol
+    moves = plan_file_moves(
+        conn,
+        move_requests(conn, ids, location_id, folder),
+        new_folders=frozenset({(location_id, folder)}),
+    )
+    moves = replace(moves, empty_folders=_empty_source_folders(conn, moves.moves))
+    return NewFolderPlan(location_id, parent, folder, root, None, moves)
+
+
+def execute_new_folder(
+    conn: sqlite3.Connection,
+    plan: NewFolderPlan,
+    *,
+    trash: Callable[[Path], None] | None = None,
+    progress: Callable[[JobProgress], None] | None = None,
+    cancel_event: threading.Event | None = None,
+) -> FileMoveResult:
+    """Crea la carpeta y mueve a ella lo elegido (un trabajo para 'JobManager.start').
+
+    Sin nada que mover no se crea; y si al final no se movió nada (todo falló), la carpeta,
+    que se ha quedado vacía y no se vería en el árbol, se vuelve a borrar. No lanza
+    excepciones.
+    """
+    if plan.problem is None and plan.root is not None and not plan.moves.moves:
+        result = FileMoveResult(skipped=list(plan.moves.skipped))
+        result.skipped.append((plan.folder_path, SKIP_NO_FILES))
+        return result
+    if plan.problem is not None or plan.root is None:
+        result = FileMoveResult()
+        result.skipped.append((plan.folder_path, plan.problem or SKIP_OFFLINE))
+        return result
+    folder = plan.root / plan.folder_path
+    try:
+        os.mkdir(folder)
+    except FileExistsError:
+        result = FileMoveResult()
+        result.skipped.append((plan.folder_path, SKIP_FOLDER_EXISTS))
+        return result
+    except OSError as exc:
+        result = FileMoveResult()
+        result.failed.append((str(folder), str(exc) or exc.__class__.__name__))
+        return result
+    logger.info(f"Carpeta creada: {folder}")
+
+    result = execute_file_moves(
+        conn, plan.moves, trash=trash, progress=progress, cancel_event=cancel_event
+    )
+    if not result.moved:
+        try:
+            os.rmdir(folder)  # vacía: no se vería en el árbol
+            logger.info(f"Carpeta vacía (no se movió nada) borrada: {folder}")
+            return result
+        except OSError:
+            pass
+    result.created_folder = (plan.location_id, plan.folder_path)
+    return result
+
+
+# -----------------------------------------------------------------------------
 # Al abrir el catálogo: terminar o descartar lo que quedó a medias
 # -----------------------------------------------------------------------------
 
@@ -1560,6 +1718,30 @@ if __name__ == "__main__":
         assert result.moved == 1 and result.folders_deleted == []
         assert (root / "Arriba/Abajo").is_dir()
         print("13. Mover a una carpeta: biblioteca de destino; la de origen vacía, eliminada")
+
+        # ---- 14. Crear una carpeta (con lo elegido dentro, o vacía) ----
+        loose_a, loose_b = add("Sueltas/p.jpg"), add("Sueltas/q.jpg")
+        assert plan_new_folder(db, 1, "Sueltas", "mal?").problem.startswith("El nombre")
+        assert plan_new_folder(db, 1, "NoExiste", "X").problem == SKIP_FOLDER_MISSING
+        assert plan_new_folder(db, 1, "", "Juntas").problem == SKIP_FOLDER_EXISTS
+        assert plan_new_folder(db, 2, "", "X").problem == SKIP_OFFLINE
+        plan = plan_new_folder(db, 1, "Sueltas", "Elegidas", [loose_a, loose_b])
+        assert plan.problem is None and plan.folder_path == "Sueltas/Elegidas", plan
+        assert len(plan.moves.moves) == 2 and plan.moves.empty_folders == ()  # la de encima
+        result = execute_new_folder(db, plan, trash=fake_trash)
+        assert result.created_folder == (1, "Sueltas/Elegidas") and result.moved == 2, result
+        assert result.status_text() == "Carpeta creada: «Elegidas» · movidos: 2"
+        assert item(loose_a)[0] == "Sueltas/Elegidas/p.jpg"
+        empty = plan_new_folder(db, 1, "", "Vacía")  # sin archivos: no se puede
+        assert empty.problem == SKIP_NO_FILES, empty
+        result = execute_new_folder(db, empty)
+        assert result.created_folder is None and not (root / "Vacía").exists()
+        # Si no se puede mover nada de lo elegido, la carpeta no se queda (no se vería)
+        gone = add("Fuera/ausente.jpg", missing=1, create=False)
+        (root / "Fuera").mkdir()
+        nothing = execute_new_folder(db, plan_new_folder(db, 1, "Fuera", "Nada", [gone]))
+        assert nothing.created_folder is None and not (root / "Fuera/Nada").exists(), nothing
+        print("14. Crear una carpeta: con lo elegido; vacía, no; sin quedarse si no se movió nada")
 
     db.close()
     print("Autoprueba finalizada correctamente.")
