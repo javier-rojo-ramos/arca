@@ -153,7 +153,7 @@ Cómo funciona hoy y dónde está cada cosa: [MOD_CATALOGO.md](MOD_CATALOGO.md).
 Acordado con el autor el 19/11/2026 (reglas en [DECISIONES.md](DECISIONES.md)): como en Lightroom Classic, una carpeta del catálogo que se queda vacía en el disco se borra también del disco (lo que sobra, a la Papelera; la carpeta, con `os.rmdir`).
 
 - ~~**CAT 3.1** El núcleo, sin interfaz: `core/catalog/empty_folders.py` (qué carpetas están vacías y borrarlas), con autoprueba~~ (hecho el 19/11/2026).
-- **CAT 3.2** «Quitar del catálogo…» de una carpeta cuyos archivos ya no están en el disco: también la carpeta, con un párrafo en el aviso.
+- ~~**CAT 3.2** «Quitar del catálogo…» de una carpeta cuyos archivos ya no están en el disco: también la carpeta, con un párrafo en el aviso~~ (hecho el 19/11/2026).
 - **CAT 3.3** «Eliminar del disco»: la carpeta que se queda vacía, también a la Papelera, con una línea en la ventana «Eliminar».
 
 ### Fase CAT 4 — Operaciones con archivos

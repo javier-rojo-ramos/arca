@@ -24,13 +24,15 @@ Uso (en el controlador principal, que solo lo crea y lo conecta):
     )
     self.grid_actions.remove_requested.connect(self.remove_actions.request_remove)
 
+1.1.0 'start_removal_job' pasa al trabajo los argumentos con nombre (las carpetas vacías
+      y la papelera de «Quitar del catálogo…», CAT 3.2).
 1.0.0 Primera versión (GEN 15.3): el código de 'main_window_controller.py', movido.
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.remove_actions
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["REMOVE_FAILED_LIST_MAX", "RemoveActions", "failed_trash_text"]
 
 # Librerías estándar
@@ -173,12 +175,15 @@ class RemoveActions(QObject):
             write_pending=None if to_trash else self._jobs.pending_writer(),
         )
 
-    def start_removal_job(self, job: Callable[..., object], *args: object) -> None:
+    def start_removal_job(
+        self, job: Callable[..., object], *args: object, **kwargs: object
+    ) -> None:
         """Lanza un trabajo de quitar del catálogo (p. ej. una carpeta) como "Eliminar".
 
         Con el mismo nombre que «Eliminar»: misma barra de progreso y, al terminar, lo mismo
         que tras eliminar ('_on_removal_finished'). Se vuelve a comprobar que no haya nada
-        en marcha: puede haber empezado algo mientras se preguntaba al usuario.
+        en marcha: puede haber empezado algo mientras se preguntaba al usuario. Los
+        argumentos con nombre pasan al trabajo (p. ej. las carpetas vacías y la papelera).
         """
         if not self._jobs.is_attached:
             return
@@ -186,7 +191,9 @@ class RemoveActions(QObject):
         if busy:
             self._message_box.info(f"{busy}\n\nNo se ha quitado nada; inténtalo al terminar.")
             return
-        self._jobs.start_removal(job, *args, write_pending=self._jobs.pending_writer())
+        self._jobs.start_removal(
+            job, *args, write_pending=self._jobs.pending_writer(), **kwargs
+        )
 
     def _on_removal_finished(self, result: object) -> None:
         """Terminó de eliminar: cuadrícula, contadores y aviso de fallos.
@@ -343,7 +350,10 @@ if __name__ == "__main__":
 
     actions.start_removal_job(remove_folder, 7, "Viajes")
     assert jobs.log == [("start", remove_folder, (7, "Viajes"), {"write_pending": "escribir-pendiente"})]
-    print("6. Quitar una carpeta")
+    jobs.log.clear()
+    actions.start_removal_job(remove_folder, 7, "Viajes", trash="papelera")  # con más argumentos
+    assert jobs.log[0][3] == {"write_pending": "escribir-pendiente", "trash": "papelera"}
+    print("6. Quitar una carpeta (con argumentos para el trabajo)")
 
     # 7. Al terminar: cuadrícula, contadores y el aviso si algo no fue a la papelera
     box.log.clear()

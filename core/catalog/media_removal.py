@@ -48,9 +48,13 @@ Uso desde la interfaz:
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_removal
+
+1.1.0 'RemovalResult.folders_deleted' y 'folders_kept': las carpetas vacías borradas del
+      disco y las que se quedaron (las rellena 'folder_removal.py', CAT 3.2), en la frase de
+      la barra de estado.
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = [
     "CATALOG_ONLY_REASONS",
     "REASON_MISSING",
@@ -365,6 +369,8 @@ class RemovalResult:
         removed_ids: 'id' quitados (para que la interfaz actualice la cuadrícula).
         thumbnails_deleted: Archivos de miniatura borrados de la caché.
         cancelled: Si el usuario lo canceló (lo ya hecho se conserva).
+        folders_deleted: Carpetas vacías borradas del disco (rutas relativas; CAT 3).
+        folders_kept: Carpetas vacías anunciadas que se quedaron en el disco: (ruta, motivo).
     """
 
     to_trash: bool = False
@@ -377,11 +383,13 @@ class RemovalResult:
     removed_ids: list[int] = field(default_factory=list)
     thumbnails_deleted: int = 0
     cancelled: bool = False
+    folders_deleted: list[str] = field(default_factory=list)
+    folders_kept: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def has_warnings(self) -> bool:
         """True si algo no salió como se pidió (fallos, avisos o cancelación)."""
-        return bool(self.failed or self.warnings or self.cancelled)
+        return bool(self.failed or self.warnings or self.cancelled or self.folders_kept)
 
     def status_text(self) -> str:
         """Frase corta para la barra de estado."""
@@ -394,6 +402,10 @@ class RemovalResult:
             text = f"Quitados del catálogo: {self.removed}"
         if self.failed:
             text += f" · no se pudieron eliminar: {len(self.failed)}"
+        if self.folders_deleted:
+            text += f" · carpetas eliminadas del disco: {len(self.folders_deleted)}"
+        if self.folders_kept:
+            text += f" · carpetas que siguen en el disco: {len(self.folders_kept)}"
         if self.cancelled:
             text += " (cancelado)"
         return text

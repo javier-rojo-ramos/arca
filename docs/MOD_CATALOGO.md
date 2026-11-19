@@ -110,7 +110,7 @@ Son los comunes a todos los módulos:
 |---|---|---|
 | «Eliminar del catálogo» | Quita los archivos del catálogo; siguen en su carpeta y vuelven al sincronizar | `media_removal.py` |
 | «Eliminar del disco» | Además, los envía a la Papelera (con el sidecar de un RAW). Los ausentes, los de una ubicación desconectada y los de una unidad de red solo se quitan del catálogo | `media_removal.py`; la papelera se le pasa como función desde la interfaz |
-| «Quitar del catálogo…» (carpeta o ubicación) | Quita esa carpeta entera, también desconectada; los archivos del disco no se tocan | `folder_removal.py` |
+| «Quitar del catálogo…» (carpeta o ubicación) | Quita esa carpeta entera, también desconectada; los archivos del disco no se tocan. Las carpetas que ya no tienen archivos en el disco se eliminan también del disco, con su aviso (`CAT 3.2`, como Lightroom) | `folder_removal.py`, `empty_folders.py` |
 | «Quitar archivos ausentes del catálogo» | Borra del catálogo los ausentes de una carpeta | `missing_items.py` |
 
 Paso a paso y la ventana (`RemoveDialog`): [FLUJOS.md](FLUJOS.md) §13.

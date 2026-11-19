@@ -12,7 +12,10 @@ unas fotos inventadas, y recorre lo que conecta el controlador:
     5. eliminar una foto del catálogo (la ventana de eliminar responde «del catálogo»);
     6. borrar otra del disco y sincronizar la carpeta: el resumen ofrece quitarla y se quita
        (y la eliminada en el paso 5, que sigue en el disco, vuelve a entrar);
-    7. cerrar.
+    7. quitar del catálogo una subcarpeta cuya foto se borró fuera (CAT 3.2): el aviso dice
+       que la carpeta se eliminará del disco y se elimina (lo que sobra, a una papelera
+       simulada, nunca a la del sistema);
+    8. cerrar.
 
 Falla si algo no llega a tiempo, si sale un aviso de error («critical») o si una excepción
 llega a 'sys.excepthook' (en la aplicación, una excepción en un slot de Qt solo se apunta en
@@ -21,9 +24,9 @@ el registro). Los cuadros de mensaje no se abren: se apuntan y se responde lo pr
 Es la comprobación de fondo de las refactorizaciones del controlador (docs/PENDIENTE.md,
 GEN 15): se lanza antes y después, además de 'run_selftests.py'. Usa partes internas de la
 ventana ('folder_import.start', 'remove_actions.request_remove') y sustituye
-'MessageBoxHelper' en el módulo del controlador y 'RemoveDialog' en el de
-'remove_actions.py': si una refactorización los mueve a otro módulo, hay que
-cambiar aquí dónde se sustituyen.
+'MessageBoxHelper' en el módulo del controlador, 'RemoveDialog' en el de
+'remove_actions.py' y 'move_to_trash' en el de 'folder_actions.py': si una refactorización
+los mueve a otro módulo, hay que cambiar aquí dónde se sustituyen.
 
 Nunca toca los datos del autor: antes de crear la ventana comprueba que 'settings.json' está
 dentro de la carpeta temporal (si no, se detiene). La carpeta se borra al terminar.
@@ -34,13 +37,15 @@ Uso (desde la raíz del proyecto, con el Python de .venv; necesita ExifTool para
 
 Termina con código 0 si todo va bien y 1 si algo falla.
 
+1.2.0 Paso nuevo: quitar del catálogo una carpeta vacía en el disco (CAT 3.2), con la
+      papelera de 'folder_actions' sustituida por una simulada.
 1.1.0 Paso nuevo: sincronizar con una foto borrada fuera (resumen y quitar la ausente).
 1.0.2 Eliminar con 'remove_actions' y su ventana sustituida en ese módulo (GEN 15.3).
 1.0.1 Añadir la carpeta con 'folder_import' (GEN 15.2: ya no está en la ventana).
 1.0.0 Primera versión (18/11/2026), con GEN 15.1.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["main", "run"]
 
 # Librerías estándar
@@ -118,7 +123,7 @@ def run(work_dir: Path) -> None:
         raise SmokeError(f"settings.json no quedó en la carpeta temporal: {app_paths.CONFIG_FILE}")
 
     import controllers.main_window_controller as mwc
-    from controllers import remove_actions
+    from controllers import folder_actions, remove_actions
     from core.catalog.catalog_builder import CatalogBuilder
     from core.metadata.exiftool_runner import ExifToolRunner
 
@@ -155,8 +160,18 @@ def run(work_dir: Path) -> None:
         def ask(_parent: object, _plan: object) -> bool:
             return False
 
+    trash_dir = work_dir / "Papelera"
+    trash_dir.mkdir()
+    trashed: list[str] = []
+
+    def fake_trash(path: Path) -> None:
+        """Papelera simulada: la de verdad es la del usuario y no se toca."""
+        path.replace(trash_dir / f"{len(trashed)}_{path.name}")
+        trashed.append(path.name)
+
     mwc.MessageBoxHelper = QuietMessageBox  # la ventana crea el suyo con esta clase
     remove_actions.RemoveDialog = CatalogOnlyRemoveDialog  # (antes de crear la ventana)
+    folder_actions.move_to_trash = fake_trash
 
     def run_until(condition: Callable[[], bool], seconds: float, label: str) -> None:
         """Deja correr el bucle de eventos hasta que se cumpla 'condition'."""
@@ -289,7 +304,35 @@ def run(work_dir: Path) -> None:
     )
     print(f"6. Sincronizar: {gone} (borrada fuera), quitada; la eliminada en 5 vuelve a entrar")
 
-    # 7. Cerrar
+    # 7. Quitar del catálogo una subcarpeta cuya foto se borró fuera de la aplicación: se
+    #    elimina también del disco (su 'Thumbs.db', a la papelera simulada)
+    empty = library / "Vacia"
+    empty.mkdir()
+    Image.new("RGB", (64, 48), (200, 90, 40)).save(empty / "suelta.jpg")
+    window.folder_import.request_sync(str(library))
+    run_until(
+        lambda: query("SELECT 1 FROM media_items WHERE relative_path = 'Vacia/suelta.jpg'"),
+        TIMEOUT_ADD_FOLDER,
+        "sincronizar con la subcarpeta nueva",
+    )
+    run_until(idle, TIMEOUT_JOBS, "fin de sincronizar la subcarpeta")
+    (empty / "suelta.jpg").unlink()  # borrada fuera: la carpeta se queda vacía en el disco
+    (empty / "Thumbs.db").write_bytes(b"x")
+    ((location_id,),) = query("SELECT id FROM storage_locations")
+    questions_before = sum(kind == "question" for kind, _ in shown)
+    window.widget_catalog_sidebar.remove_folder_requested.emit(location_id, "Vacia", "Vacia")
+    run_until(lambda: not empty.exists(), TIMEOUT_SHORT, "quitar la carpeta vacía")
+    run_until(idle, TIMEOUT_SHORT, "fin de quitar la carpeta")
+    asked = [text for kind, text in shown if kind == "question"][questions_before:]
+    if len(asked) != 1 or "la carpeta también se eliminará del disco" not in asked[0]:
+        raise SmokeError(f"El aviso no anunció que la carpeta se elimina del disco: {asked}")
+    if query("SELECT 1 FROM media_items WHERE relative_path LIKE 'Vacia/%'"):
+        raise SmokeError("La carpeta vacía sigue en el catálogo")
+    if trashed != ["Thumbs.db"]:
+        raise SmokeError(f"A la papelera simulada fue {trashed}, en lugar de 'Thumbs.db'")
+    print("7. Quitar una carpeta vacía en el disco: del catálogo y del disco")
+
+    # 8. Cerrar
     window.close()
     app.processEvents()
     if jobs.is_attached:
@@ -297,7 +340,7 @@ def run(work_dir: Path) -> None:
     errors = [text for kind, text in shown if kind == "critical"]
     if errors or exceptions:
         raise SmokeError(f"Errores: {errors or exceptions}")
-    print(f"7. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
+    print(f"8. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
     window.deleteLater()
     app.processEvents()
 
