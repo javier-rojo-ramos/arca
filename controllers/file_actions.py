@@ -1,4 +1,4 @@
-"""«Cambiar nombre...» de un archivo o de una carpeta: la ventana, el plan y el trabajo.
+"""Cambiar el nombre de un archivo o de una carpeta, y mover archivos a una carpeta.
 
 Está aparte de 'main_window_controller.py' para no seguir engordándolo: el controlador solo
 lo crea y lo conecta. Lo que se hace en el disco y en el catálogo está en
@@ -15,6 +15,12 @@ lo crea y lo conecta. Lo que se hace en el disco y en el catálogo está en
                 el nombre que tiene: conectada, no la raíz, en el disco; cuántos archivos)
                 → la ventana, en modo carpeta → el plan con el nombre nuevo → si no se
                 puede, el motivo y otra vez la ventana → el trabajo ('execute_folder_rename')
+    CatalogSidebar.media_dropped_on_folder(ubicación, carpeta, nombre, tarjetas)  (CAT 4.4b)
+        └─► request_move: ¿del mismo catálogo? ¿algo en marcha? → el plan ('plan_move',
+                segundo plano: qué se omite y por qué, y las carpetas de origen que se
+                quedarían vacías) → nada que mover: por qué → la confirmación («Mover» /
+                «Cancelar»: todo lo que toca el disco lleva aviso) → el trabajo
+                ('execute_file_moves' con la papelera, para las carpetas que se vacían)
     JobCoordinator.files_finished / files_failed
         └─► si se renombró una carpeta, los módulos ponen al día lo que recuerdan por la
             ruta ('folder_renamed': lo desplegado y lo elegido); después, la cuadrícula y
@@ -36,7 +42,11 @@ Uso (en el controlador principal, que solo lo crea y lo conecta):
     self.widget_catalog_sidebar.rename_folder_requested.connect(
         self.file_actions.request_folder_rename
     )
+    self.widget_catalog_sidebar.media_dropped_on_folder.connect(self.file_actions.request_move)
 
+1.2.0 Mover archivos soltados sobre una carpeta del árbol (CAT 4.4b): 'request_move', la
+      confirmación ('move_confirmation_text') y, si no hay nada que mover, por qué
+      ('nothing_to_move_text').
 1.1.0 También el nombre de una carpeta (CAT 4.3): 'request_folder_rename' y, al terminar,
       'folder_renamed' para que los módulos pongan al día sus barras.
 1.0.0 Primera versión (CAT 4.2): cambiar el nombre de un archivo.
@@ -45,12 +55,18 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.file_actions
 """
 
-__version__ = "1.1.0"
-__all__ = ["FileActions", "failed_rename_text", "skipped_rename_text"]
+__version__ = "1.2.0"
+__all__ = [
+    "FileActions",
+    "failed_rename_text",
+    "move_confirmation_text",
+    "nothing_to_move_text",
+    "skipped_rename_text",
+]
 
 # Librerías estándar
 from collections.abc import Callable, Sequence
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 # Librerías de terceros
@@ -70,10 +86,12 @@ from core.file_ops.moves import (
     execute_file_moves,
     execute_folder_rename,
     plan_folder_rename,
+    plan_move,
     plan_rename,
 )
 from core.file_ops.naming import rename_keeping_extension
 from ui_helpers.dialogs.rename_dialog import RenameDialog
+from ui_helpers.helpers.ui_file_manager import move_to_trash
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.helpers.ui_status import message_bar
 
@@ -103,6 +121,76 @@ def failed_rename_text(failed: Sequence[tuple[str, str]], *, folder: bool = Fals
     )
 
 
+# Al mover, el motivo de que un archivo ya esté donde se suelta se dice de otra forma
+_MOVE_REASONS = {SKIP_SAME: "ya está en esa carpeta"}
+
+MOVE_BUTTON_TEXT = "Mover"
+CANCEL_BUTTON_TEXT = "Cancelar"
+
+
+def _files(count: int) -> str:
+    return "1 archivo" if count == 1 else f"{count} archivos"
+
+
+def _reasons_text(skipped: Sequence[tuple[str, str]]) -> str:
+    """'1 porque ya está en esa carpeta, 2 porque ya existe un archivo con ese nombre'."""
+    counts: dict[str, int] = {}
+    for _path, reason in skipped:
+        reason = _MOVE_REASONS.get(reason, reason)
+        counts[reason] = counts.get(reason, 0) + 1
+    return ", ".join(f"{count} porque {reason}" for reason, count in counts.items())
+
+
+def nothing_to_move_text(folder_name: str, plan: MovePlan) -> str:
+    """Aviso cuando no se puede mover nada de lo soltado (ya estaba allí, otro disco...)."""
+    if plan.skipped and all(reason == SKIP_SAME for _path, reason in plan.skipped):
+        verb = "Ya está" if len(plan.skipped) == 1 else "Ya están"
+        return f"{verb} en «{folder_name}»."
+    return f"No se puede mover nada a «{folder_name}»: {_reasons_text(plan.skipped)}."
+
+
+def move_confirmation_text(folder_name: str, plan: MovePlan) -> str:
+    """La confirmación antes de mover: cuántos, lo que se omite y las carpetas que se vacían."""
+    count = len(plan.moves)
+    if count == 1:
+        head = (
+            f"Se va a mover 1 archivo a «{folder_name}», también en el disco (con su .xmp, si "
+            "es un RAW). Conserva la valoración, las palabras clave y las colecciones."
+        )
+    else:
+        head = (
+            f"Se van a mover {count} archivos a «{folder_name}», también en el disco (con su "
+            ".xmp, si son RAW). Conservan la valoración, las palabras clave y las colecciones."
+        )
+    paragraphs = [head]
+    if plan.skipped:
+        verb = "no se moverá" if len(plan.skipped) == 1 else "no se moverán"
+        paragraphs.append(
+            f"{_files(len(plan.skipped))} {verb}: {_reasons_text(plan.skipped)}."
+        )
+    names = sorted(
+        (PurePosixPath(top).name for empty in plan.empty_folders for top in empty.top_folders),
+        key=str.casefold,
+    )
+    if len(names) == 1:
+        paragraphs.append(
+            f"La carpeta «{names[0]}» se quedará vacía y también se eliminará del disco."
+        )
+    elif names:
+        listed = ", ".join(f"«{name}»" for name in names[:-1]) + f" y «{names[-1]}»"
+        paragraphs.append(
+            f"{len(names)} carpetas se quedarán vacías y también se eliminarán del disco: "
+            f"{listed}."
+        )
+    items = sum(empty.folder_file_items for empty in plan.empty_folders)
+    if items:
+        paragraphs.append(
+            f"Su archivo .arca.json, con los datos de {_files(items)} que ya no "
+            f"{'está' if items == 1 else 'están'} en el disco, irá a la Papelera."
+        )
+    return "\n\n".join(paragraphs)
+
+
 class FileActions(QObject):
     """Atiende «Cambiar nombre...» y lo que se hace al terminar de renombrar."""
 
@@ -118,6 +206,7 @@ class FileActions(QObject):
         refresh_counts: Callable[[], None],
         ask_name: AskName | None = None,
         folder_renamed: Callable[[int, str, str], None] | None = None,
+        get_catalog_key: Callable[[], str] | None = None,
         parent: QObject | None = None,
     ) -> None:
         """Conecta los avisos del coordinador de los trabajos.
@@ -134,6 +223,8 @@ class FileActions(QObject):
             ask_name: La ventana (None = 'RenameDialog.ask'; para las pruebas).
             folder_renamed: Se llama tras renombrar una carpeta (ubicación, ruta vieja,
                 ruta nueva): los módulos ponen al día sus barras ('ModuleHost').
+            get_catalog_key: La carpeta del catálogo abierto, en texto: las tarjetas
+                soltadas de otro catálogo (otra ventana) no se mueven. None = no se mira.
             parent: Objeto padre.
         """
         super().__init__(parent)
@@ -146,7 +237,10 @@ class FileActions(QObject):
         self._refresh_counts = refresh_counts
         self._ask_name: AskName = ask_name or RenameDialog.ask
         self._folder_renamed = folder_renamed
-        self._folder_job = False  # el trabajo en marcha es de una carpeta (para el aviso)
+        self._get_catalog_key = get_catalog_key
+        # Qué hace el trabajo en marcha, para el aviso si algo falla: 'rename' (un archivo),
+        # 'folder' (una carpeta) o 'move' (mover a una carpeta)
+        self._job_kind = "rename"
         jobs.files_finished.connect(self._on_files_finished)
         jobs.files_failed.connect(self._on_files_failed)
 
@@ -230,7 +324,7 @@ class FileActions(QObject):
         if not self._ready():
             self._jobs.schedule_write()
             return
-        self._folder_job = False
+        self._job_kind = "rename"
         self._jobs.start_file_job(execute_file_moves, plan)
 
     # -------------------------------------------------------------------------
@@ -296,8 +390,51 @@ class FileActions(QObject):
         if not self._ready():
             self._jobs.schedule_write()
             return
-        self._folder_job = True
+        self._job_kind = "folder"
         self._jobs.start_file_job(execute_folder_rename, plan)
+
+    # -------------------------------------------------------------------------
+    # Mover a una carpeta (CAT 4.4b)
+    # -------------------------------------------------------------------------
+
+    def request_move(self, location_id: int, folder: str, name: str, drag: Any) -> None:
+        """Tarjetas soltadas sobre una carpeta del árbol: primero el plan (segundo plano)."""
+        if self._get_db() is None:
+            return
+        if self._get_catalog_key is not None and getattr(drag, "catalog", None) != (
+            self._get_catalog_key()
+        ):
+            self._message_box.warning("Esos archivos son de otro catálogo: no se pueden mover.")
+            return
+        if not self._ready():
+            return
+        self._get_db().execute_async(
+            plan_move,
+            list(drag.ids),
+            location_id,
+            folder,
+            on_result=lambda plan: self._on_move_planned(name, plan),
+            on_error=lambda error: logger.error(f"No se pudo preparar el traslado: {error}"),
+        )
+
+    def _on_move_planned(self, name: str, plan: MovePlan) -> None:
+        """La confirmación y el trabajo; si no hay nada que mover, por qué."""
+        if self._get_db() is None:
+            return
+        if not plan.moves:
+            self._message_box.info(nothing_to_move_text(name, plan))
+            return
+        self._jobs.stop_scheduled_write()
+        answer = self._message_box.question(
+            move_confirmation_text(name, plan),
+            title=MOVE_BUTTON_TEXT,
+            buttons=[MOVE_BUTTON_TEXT, CANCEL_BUTTON_TEXT],
+        )
+        if answer != MOVE_BUTTON_TEXT or not self._ready():
+            self._jobs.schedule_write()
+            return
+        self._job_kind = "move"
+        self._jobs.start_file_job(execute_file_moves, plan, trash=move_to_trash)
 
     def _on_files_finished(self, result: object) -> None:
         """Terminó de renombrar: cuadrícula, contadores y aviso de lo que falló.
@@ -313,7 +450,13 @@ class FileActions(QObject):
         self._refresh_counts()
         failed = list(getattr(result, "failed", ()))
         if failed:
-            self._message_box.warning(failed_rename_text(failed, folder=self._folder_job))
+            if self._job_kind == "move":
+                text = failed_rename_text(failed).replace(
+                    "No se pudo cambiar el nombre de", "No se pudo mover"
+                )
+            else:
+                text = failed_rename_text(failed, folder=self._job_kind == "folder")
+            self._message_box.warning(text)
 
     def _on_files_failed(self) -> None:
         """Renombrar falló: cada archivo se confirma por separado; se muestra lo que hay."""
@@ -441,7 +584,9 @@ if __name__ == "__main__":
     state["busy"] = None
     db.media_file = MediaFile(7, Path("C:/Fotos/IMG_1.CR3"), None, MISSING)
     actions.request_rename([7])
-    assert box.log[-1] == ("info", "No se puede cambiar el nombre de «IMG_1.CR3»: no está en el disco.")
+    assert box.log[-1] == (
+        "info", "No se puede cambiar el nombre de «IMG_1.CR3»: no está en el disco."
+    )
     assert asked == []
     print("4. Varios, algo en marcha o ausente: sin ventana")
 
@@ -474,6 +619,37 @@ if __name__ == "__main__":
     assert asked == [] and box.log[-1][1].endswith("su disco no está conectado.")
     assert "carpeta" in failed_rename_text([("C:/F/Viaje", "x")], folder=True)
     print("6. Una carpeta: se mira, ventana, plan y trabajo; al terminar, los módulos primero")
+
+    # 7. Mover a una carpeta: los textos, la confirmación y el trabajo con la papelera
+    from core.catalog.empty_folders import EmptyFolder, EmptyFolderPlan
+    from ui_helpers.models.media_mime import MediaDrag
+
+    two = MovePlan(
+        moves=(move, move),
+        skipped=(("x.jpg", SKIP_SAME), ("y.jpg", SKIP_EXISTS)),
+        empty_folders=(EmptyFolderPlan(Path("C:/F"), (EmptyFolder("2024/Viaje"),)),),
+    )
+    text = move_confirmation_text("Ordesa", two)
+    assert text.startswith("Se van a mover 2 archivos a «Ordesa», también en el disco"), text
+    assert "2 archivos no se moverán: 1 porque ya está en esa carpeta, 1 porque ya existe" in text
+    assert "La carpeta «Viaje» se quedará vacía y también se eliminará del disco." in text
+    assert nothing_to_move_text("Ordesa", MovePlan(skipped=(("x", SKIP_SAME),))) == (
+        "Ya está en «Ordesa»."
+    )
+    music = MovePlan(skipped=(("x", "la carpeta de destino es de «Música»"),))
+    assert nothing_to_move_text("M", music) == (
+        "No se puede mover nada a «M»: 1 porque la carpeta de destino es de «Música»."
+    )
+    jobs.log.clear()
+    box.question = lambda text, **_k: (box.log.append(("question", text)), "Mover")[1]
+    db.plans.append(MovePlan(moves=(move,)))
+    actions._get_catalog_key = lambda: "C:/Catalogo"
+    actions.request_move(1, "Ordesa", "Ordesa", MediaDrag("C:/Catalogo", (7,)))
+    assert jobs.log[-1] == ("start", execute_file_moves, (MovePlan(moves=(move,)),))
+    assert box.log[-1][0] == "question" and "a «Ordesa»" in box.log[-1][1]
+    actions.request_move(1, "Ordesa", "Ordesa", MediaDrag("C:/Otro", (7,)))
+    assert box.log[-1] == ("warning", "Esos archivos son de otro catálogo: no se pueden mover.")
+    print("7. Mover a una carpeta: textos, confirmación y trabajo; otro catálogo, no")
 
     window.deleteLater()
     app.processEvents()

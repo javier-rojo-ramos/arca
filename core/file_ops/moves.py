@@ -38,6 +38,13 @@ Reglas (las comprueba el plan y, justo antes de cada archivo, otra vez):
     - Quien lo lanza comprueba antes que no haya trabajos que usen rutas (lectura,
       miniaturas, escritura de datos del usuario, añadir carpeta).
 
+MOVER A UNA CARPETA (CAT 4.4b; soltar tarjetas sobre una carpeta del árbol): 'plan_move'
+hace las peticiones y el plan, y además omite lo que no admite la carpeta de destino si se
+declaró de una biblioteca («¿Qué contiene esta carpeta?»: fotos no van a una de Música) y
+calcula las carpetas de ORIGEN que se quedarían vacías (como al eliminar del disco, CAT 3:
+'empty_folders.py'; nunca la de destino ni las de encima, que reciben archivos). Al
+terminar, 'execute_file_moves' las borra del disco si se le pasa la papelera.
+
 RENOMBRAR UNA CARPETA (CAT 4.3) es otra operación: un solo 'os.rename' de la carpeta (sus
 archivos, sus '.xmp' y su '.arca.json' van dentro: no se tocan uno a uno) y, en una
 transacción, las rutas de todo lo que tiene debajo en el catálogo, lo que se dijo en
@@ -54,6 +61,10 @@ Uso:
     result = execute_file_moves(conn, plan, progress=..., cancel_event=...)   # el trabajo
     reconcile_file_operations(conn)                               # al abrir el catálogo
 
+1.3.0 Mover a una carpeta (CAT 4.4b): 'plan_move' (con la biblioteca de destino y las
+      carpetas de origen que se quedan vacías, 'MovePlan.empty_folders') y, en
+      'execute_file_moves', su borrado con 'trash'; 'FileMoveResult.folders_deleted' y
+      'folders_kept'.
 1.2.0 Renombrar una carpeta (CAT 4.3): 'plan_folder_rename', 'execute_folder_rename',
       'renamed_folder_path' y su revisión al abrir; 'FileMoveResult.folder'.
 1.1.0 'plan_rename': la petición y el plan de renombrar un archivo, de una vez (para
@@ -64,7 +75,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.file_ops.moves
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "FileMoveRequest",
     "FileMoveResult",
@@ -78,6 +89,7 @@ __all__ = [
     "move_requests",
     "plan_file_moves",
     "plan_folder_rename",
+    "plan_move",
     "plan_rename",
     "reconcile_file_operations",
     "rename_request",
@@ -91,7 +103,7 @@ import sqlite3
 import sys
 import threading
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -99,6 +111,19 @@ from typing import Any
 from loguru import logger
 
 # Módulos del proyecto
+from core.catalog.empty_folders import (
+    EmptyFolderPlan,
+    candidate_folders,
+    plan_empty_folders,
+    remove_empty_folders,
+)
+from core.catalog.libraries import (
+    ALLOWED_MEDIA_TYPES,
+    FOLDER_AUTO,
+    LIBRARY_NAMES,
+    FolderContentResolver,
+)
+from core.catalog.media_removal import folders_keeping_items, is_network_path
 from core.file_ops.naming import name_problem, rename_keeping_extension, split_extension
 from core.jobs.progress import JobProgress
 from core.metadata.exiftool_runner import find_sidecars
@@ -123,6 +148,7 @@ SKIP_EXISTS = "ya existe un archivo con ese nombre"
 SKIP_IN_CATALOG = "ya hay un archivo con ese nombre en el catálogo"
 SKIP_DUPLICATE = "otro archivo de la lista va al mismo nombre"
 SKIP_SIDECAR_EXISTS = "ya existe un .xmp con ese nombre"
+SKIP_LIBRARY = "la carpeta de destino es de «{}»"  # con el nombre de la biblioteca
 SKIP_ROOT = "la carpeta raíz de una ubicación aún no se puede renombrar"
 SKIP_FOLDER_MISSING = "la carpeta no está en el disco"
 SKIP_FOLDER_EXISTS = "ya existe una carpeta con ese nombre"
@@ -186,10 +212,13 @@ class MovePlan:
     Attributes:
         moves: Los archivos que se moverán o renombrarán.
         skipped: Los que se omiten: (ruta de origen o 'id', motivo).
+        empty_folders: Al mover a una carpeta, las de origen que se quedarían vacías (una
+            por ubicación; 'plan_move'). Se pasan tal cual al trabajo.
     """
 
     moves: tuple[PlannedMove, ...] = ()
     skipped: tuple[tuple[str, str], ...] = ()
+    empty_folders: tuple[EmptyFolderPlan, ...] = ()
 
     @property
     def is_rename(self) -> bool:
@@ -215,6 +244,8 @@ class FileMoveResult:
         cancelled: Si se paró antes de terminar.
         folder: Al renombrar una carpeta, si se hizo: (ubicación, ruta vieja, ruta nueva).
             La interfaz lo usa para poner al día lo que recuerda por la ruta.
+        folders_deleted: Carpetas de origen vacías borradas del disco (al mover).
+        folders_kept: Las anunciadas que se quedaron en el disco: (ruta, motivo).
     """
 
     renamed: bool = False
@@ -225,10 +256,14 @@ class FileMoveResult:
     warnings: list[str] = field(default_factory=list)
     cancelled: bool = False
     folder: tuple[int, str, str] | None = None
+    folders_deleted: list[str] = field(default_factory=list)
+    folders_kept: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def has_warnings(self) -> bool:
-        return bool(self.skipped or self.failed or self.warnings or self.cancelled)
+        return bool(
+            self.skipped or self.failed or self.warnings or self.cancelled or self.folders_kept
+        )
 
     def status_text(self) -> str:
         if self.folder is not None:
@@ -240,6 +275,10 @@ class FileMoveResult:
         if self.failed:
             verb = "renombrar" if self.renamed else "mover"
             text += f" · no se pudieron {verb}: {len(self.failed)}"
+        if self.folders_deleted:
+            text += f" · carpetas eliminadas del disco: {len(self.folders_deleted)}"
+        if self.folders_kept:
+            text += f" · carpetas que siguen en el disco: {len(self.folders_kept)}"
         if self.cancelled:
             text += " (cancelado)"
         return text
@@ -267,6 +306,12 @@ class ReconcileResult:
 
 def _normalize(path: str) -> str:
     return path.replace("\\", "/").strip("/")
+
+
+def _folder_of(path: str) -> str:
+    """La carpeta de una ruta relativa ('' si está en la raíz): '2024/a.jpg' → '2024'."""
+    parent = str(PurePosixPath(path).parent)
+    return "" if parent == "." else parent
 
 
 def _join(folder: str, name: str) -> str:
@@ -398,6 +443,7 @@ def plan_file_moves(
     targets: set[tuple[int, str]] = set()
     sidecar_targets: set[tuple[int, str]] = set()
     roots: dict[int, Path | None] = {}
+    contents: dict[int, FolderContentResolver] = {}
 
     def root_of(location_id: int) -> Path | None:
         if location_id not in roots:
@@ -410,14 +456,14 @@ def plan_file_moves(
     for request in requests:
         row = conn.execute(
             """SELECT storage_location_id, relative_path, file_name, file_extension, title,
-                      is_missing
+                      is_missing, media_type
                  FROM media_items WHERE id = ?""",
             (request.media_id,),
         ).fetchone()
         if row is None:
             skipped.append((str(request.media_id), SKIP_GONE))
             continue
-        location_id, source_path, file_name, extension, title, is_missing = row
+        location_id, source_path, file_name, extension, title, is_missing, media_type = row
         target_path = _normalize(request.target_path)
         new_name = PurePosixPath(target_path).name
         source_root, target_root = root_of(location_id), root_of(request.target_location_id)
@@ -438,6 +484,20 @@ def plan_file_moves(
         if source_root is None or target_root is None:
             skip(SKIP_OFFLINE)
             continue
+        target_folder = _folder_of(target_path)
+        moving = (request.target_location_id, target_folder) != (
+            location_id, _folder_of(source_path)
+        )
+        if moving:
+            # Una carpeta declarada de una biblioteca solo admite sus tipos de archivo
+            if request.target_location_id not in contents:
+                contents[request.target_location_id] = FolderContentResolver.load(
+                    conn, request.target_location_id
+                )
+            content = contents[request.target_location_id].content_of(target_folder)
+            if content != FOLDER_AUTO and media_type not in ALLOWED_MEDIA_TYPES.get(content, ()):
+                skip(SKIP_LIBRARY.format(LIBRARY_NAMES.get(content, content)))
+                continue
         source, target = source_root / source_path, target_root / target_path
         if is_missing or not source.is_file():
             skip(SKIP_MISSING)
@@ -504,6 +564,56 @@ def plan_file_moves(
             )
         )
     return MovePlan(tuple(moves), tuple(skipped))
+
+
+def plan_move(
+    conn: sqlite3.Connection, media_ids: Iterable[int], location_id: int, folder: str
+) -> MovePlan:
+    """El plan de mover archivos a una carpeta (soltarlos en el árbol; CAT 4.4b).
+
+    Como 'plan_file_moves', y además las carpetas de origen que se quedarían vacías
+    ('MovePlan.empty_folders', para el aviso y para borrarlas al terminar).
+    """
+    plan = plan_file_moves(conn, move_requests(conn, media_ids, location_id, folder))
+    return replace(plan, empty_folders=_empty_source_folders(conn, plan.moves))
+
+
+def _empty_source_folders(
+    conn: sqlite3.Connection, moves: Sequence[PlannedMove]
+) -> tuple[EmptyFolderPlan, ...]:
+    """Las carpetas de origen que se quedarían vacías tras mover (por ubicación).
+
+    Candidatas: las carpetas de lo que se va y las de encima, salvo las que conservan algún
+    elemento del catálogo y salvo la de destino y las de encima (reciben archivos). Los
+    archivos que se van y sus '.xmp' movidos (no los copiados: se quedan) cuentan como idos.
+    Nada en una unidad de red (sin papelera).
+    """
+    by_location: dict[int, list[PlannedMove]] = {}
+    for move in moves:
+        by_location.setdefault(move.source_location_id, []).append(move)
+
+    plans: list[EmptyFolderPlan] = []
+    for location_id, group in by_location.items():
+        root = group[0].source_root
+        if is_network_path(root):
+            continue
+        leaving = {move.source_path for move in group}
+        candidates = candidate_folders(leaving)
+        candidates -= folders_keeping_items(conn, location_id, candidates, leaving)
+        for move in moves:
+            if move.target_location_id == location_id:
+                receiving = PurePosixPath(move.target_path).parent
+                while str(receiving) not in ("", "."):
+                    candidates.discard(str(receiving))
+                    receiving = receiving.parent
+        if not candidates:
+            continue
+        going = [move.source_path for move in group]
+        going += [s.source_path for move in group for s in move.sidecars if not s.copy]
+        plan = plan_empty_folders(root, candidates, ignore_files=going)
+        if plan.folders:
+            plans.append(plan)
+    return tuple(plans)
 
 
 def plan_rename(conn: sqlite3.Connection, media_id: int, new_stem: str) -> MovePlan:
@@ -732,13 +842,16 @@ def execute_file_moves(
     conn: sqlite3.Connection,
     plan: MovePlan,
     *,
+    trash: Callable[[Path], None] | None = None,
     progress: Callable[[JobProgress], None] | None = None,
     cancel_event: threading.Event | None = None,
 ) -> FileMoveResult:
     """Mueve o renombra los archivos del plan (un trabajo para 'JobManager.start').
 
     Ver la cabecera del módulo para las reglas. No lanza excepciones por un archivo: lo que
-    falla se anota en el resultado y el resto sigue.
+    falla se anota en el resultado y el resto sigue. Con 'trash' (la papelera), al terminar
+    (si no se canceló) se borran las carpetas de origen que se quedaron vacías
+    ('MovePlan.empty_folders'), mirándolas otra vez justo antes.
     """
     result = FileMoveResult(renamed=plan.is_rename, skipped=list(plan.skipped))
     total = len(plan.moves)
@@ -768,6 +881,14 @@ def execute_file_moves(
     finally:
         # Lo que no se llegó a intentar (cancelado) sale del registro: no se tocó
         _forget(conn, batch_id, [move.media_id for move in plan.moves[done:]])
+
+    # Las carpetas de origen que se han quedado vacías (CAT 4.4b): una con un archivo que no
+    # se pudo mover se queda, porque ese archivo sigue en ella
+    if trash is not None and not result.cancelled:
+        for empty in plan.empty_folders:
+            outcome = remove_empty_folders(empty, trash, cancel_event=cancel_event)
+            result.folders_deleted.extend(outcome.removed)
+            result.folders_kept.extend(outcome.kept)
 
     logger.info(f"Mover o renombrar archivos: {result.status_text()}")
     for path, reason in result.skipped:
@@ -1402,6 +1523,43 @@ if __name__ == "__main__":
         assert outcome.completed == 1, outcome
         assert item(trip[0])[0] == "Pirineo/a.jpg" and journal() == 1
         print("12. Carpeta: si el catálogo falla, se deshace; al abrir, se termina")
+
+        # ---- 13. Mover a una carpeta: la biblioteca de destino y las carpetas que se vacían ----
+        bin_dir = Path(tmp) / "papelera"
+        bin_dir.mkdir()
+
+        def fake_trash(path: Path) -> None:
+            path.replace(bin_dir / path.name)
+
+        (root / "Musica").mkdir()
+        db.execute(
+            "INSERT INTO folder_libraries(storage_location_id, folder, content) "
+            "VALUES (1, 'Musica', 'audio')"
+        )
+        db.commit()
+        first, second = add("Origen/a.jpg"), add("Origen/b.jpg")
+        (root / "Origen/Thumbs.db").write_bytes(b"x")
+        plan = plan_move(db, [first], 1, "Musica")  # una foto no va a una carpeta de Música
+        assert not plan.moves and plan.skipped[0][1] == SKIP_LIBRARY.format("Música"), plan
+        (root / "Juntas").mkdir()
+        plan = plan_move(db, [first, second], 1, "Juntas")
+        assert len(plan.moves) == 2 and [e.top_folders for e in plan.empty_folders] == [
+            ("Origen",)
+        ], plan.empty_folders
+        result = execute_file_moves(db, plan, trash=fake_trash)
+        assert result.moved == 2 and result.folders_deleted == ["Origen"], result
+        assert result.status_text() == "Movidos: 2 · carpetas eliminadas del disco: 1"
+        assert not (root / "Origen").exists() and (bin_dir / "Thumbs.db").exists()
+        assert item(first)[0] == "Juntas/a.jpg"
+        # A la carpeta de encima: la de destino nunca se cuenta como vacía
+        deep = add("Arriba/Abajo/x.jpg")
+        plan = plan_move(db, [deep], 1, "Arriba")
+        assert [e.top_folders for e in plan.empty_folders] == [("Arriba/Abajo",)], plan
+        # Sin papelera, las carpetas no se tocan
+        result = execute_file_moves(db, plan)
+        assert result.moved == 1 and result.folders_deleted == []
+        assert (root / "Arriba/Abajo").is_dir()
+        print("13. Mover a una carpeta: biblioteca de destino; la de origen vacía, eliminada")
 
     db.close()
     print("Autoprueba finalizada correctamente.")

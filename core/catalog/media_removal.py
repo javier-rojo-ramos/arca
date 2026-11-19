@@ -55,6 +55,8 @@ Uso desde la interfaz:
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_removal
 
+1.2.1 'folders_keeping_items', pública (antes '_folders_with_other_items'): la usa también
+      mover archivos ('core/file_ops/moves.py', CAT 4.4b).
 1.2.0 Carpetas que se quedan vacías al enviar a la papelera (CAT 3.3):
       'RemovalPlan.empty_folders' (y 'empty_folder_names', 'empty_folder_items', para la
       ventana) y, en 'remove_media_items', su borrado al terminar ('empty_folders').
@@ -63,7 +65,7 @@ Prueba rápida (desde la raíz del proyecto):
       la barra de estado.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = [
     "CATALOG_ONLY_REASONS",
     "REASON_MISSING",
@@ -72,6 +74,7 @@ __all__ = [
     "RemovalPlan",
     "RemovalResult",
     "TrashFunction",
+    "folders_keeping_items",
     "is_network_path",
     "plan_removal",
     "remove_media_items",
@@ -406,7 +409,7 @@ def _empty_folder_plans(
         root = Path(entries[0][0]["root"])
         leaving = {row["relative_path"] for row, _reason in entries}
         candidates = candidate_folders(leaving)
-        candidates -= _folders_with_other_items(conn, location_id, candidates, leaving)
+        candidates -= folders_keeping_items(conn, location_id, candidates, leaving)
         if not candidates or not root.is_dir():
             continue
         going: list[str] = []
@@ -429,7 +432,7 @@ def _empty_folder_plans(
     return tuple(plans)
 
 
-def _folders_with_other_items(
+def folders_keeping_items(
     conn: sqlite3.Connection, location_id: int, candidates: set[str], leaving: set[str]
 ) -> set[str]:
     """De las carpetas candidatas, las que conservan algún elemento del catálogo que no sale.

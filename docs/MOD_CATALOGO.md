@@ -108,6 +108,7 @@ Son los comunes a todos los módulos:
 
 | Orden | Qué hace | Dónde |
 |---|---|---|
+| Mover arrastrando a una carpeta | Soltar tarjetas sobre una carpeta (o ubicación) conectada de «Carpetas»: con su confirmación, se mueven también en el disco (con su `.xmp` y su `.arca.json`) y conservan todo lo suyo; no a una carpeta declarada de otra biblioteca; las carpetas de origen que se quedan vacías, eliminadas (`CAT 4.4b`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» de una carpeta | Cambia su nombre en el disco y, en el catálogo, la ruta de todo lo de dentro (que conserva todo lo suyo); las barras de los módulos siguen con lo desplegado y lo elegido. No en la raíz de una ubicación (`CAT 4.3`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» (F2) | Cambia el nombre de un archivo en el disco (con su `.xmp` y su entrada del `.arca.json`) y en el catálogo, que conserva todo lo suyo; la extensión no cambia (`CAT 4.2`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Eliminar del catálogo» | Quita los archivos del catálogo; siguen en su carpeta y vuelven al sincronizar | `media_removal.py` |

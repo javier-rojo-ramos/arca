@@ -21,7 +21,9 @@ unas fotos inventadas, y recorre lo que conecta el controlador:
        el disco y su ruta y su título en el catálogo;
     10. «Cambiar nombre...» de una subcarpeta elegida en la barra (CAT 4.3): la carpeta en el
        disco, las rutas en el catálogo y la barra y la cuadrícula con el nombre nuevo;
-    11. cerrar.
+    11. soltar esa foto sobre la raíz de la ubicación (CAT 4.4b; la confirmación responde
+       «Mover»): la foto, movida, y sus carpetas, que se quedan vacías, eliminadas;
+    12. cerrar.
 
 Falla si algo no llega a tiempo, si sale un aviso de error («critical») o si una excepción
 llega a 'sys.excepthook' (en la aplicación, una excepción en un slot de Qt solo se apunta en
@@ -31,9 +33,9 @@ Es la comprobación de fondo de las refactorizaciones del controlador (docs/PEND
 GEN 15): se lanza antes y después, además de 'run_selftests.py'. Usa partes internas de la
 ventana ('folder_import.start', 'remove_actions.request_remove') y sustituye
 'MessageBoxHelper' en el módulo del controlador, 'RemoveDialog' y 'move_to_trash' en el de
-'remove_actions.py', 'move_to_trash' en el de 'folder_actions.py' y 'RenameDialog' en el de
-'file_actions.py': si una refactorización los mueve a otro módulo, hay que cambiar aquí
-dónde se sustituyen.
+'remove_actions.py', 'move_to_trash' en el de 'folder_actions.py' y 'RenameDialog' y
+'move_to_trash' en el de 'file_actions.py': si una refactorización los mueve a otro módulo,
+hay que cambiar aquí dónde se sustituyen.
 
 Nunca toca los datos del autor: antes de crear la ventana comprueba que 'settings.json' está
 dentro de la carpeta temporal (si no, se detiene). La carpeta se borra al terminar.
@@ -44,6 +46,9 @@ Uso (desde la raíz del proyecto, con el Python de .venv; necesita ExifTool para
 
 Termina con código 0 si todo va bien y 1 si algo falla.
 
+1.6.0 Paso nuevo: soltar una foto sobre una carpeta del árbol para moverla (CAT 4.4b).
+1.5.1 Un error que no es de la prueba (p. ej. al crear la ventana) se enseña entero: antes
+      terminaba con el código 1 sin decir nada.
 1.5.0 Paso nuevo: «Cambiar nombre...» de una carpeta elegida (CAT 4.3).
 1.4.0 Paso nuevo: «Cambiar nombre...» de una foto (CAT 4.2), con su ventana sustituida.
 1.3.0 Paso nuevo: «Eliminar del disco» la única foto de una carpeta (CAT 3.3), con la
@@ -56,7 +61,7 @@ Termina con código 0 si todo va bien y 1 si algo falla.
 1.0.0 Primera versión (18/11/2026), con GEN 15.1.
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = ["main", "run"]
 
 # Librerías estándar
@@ -197,6 +202,7 @@ def run(work_dir: Path) -> None:
             return "Carpeta nueva" if kwargs.get("folder_files") is not None else "Renombrada"
 
     file_actions.RenameDialog = AnsweringRenameDialog
+    file_actions.move_to_trash = fake_trash
 
     def run_until(condition: Callable[[], bool], seconds: float, label: str) -> None:
         """Deja correr el bucle de eventos hasta que se cumpla 'condition'."""
@@ -422,7 +428,28 @@ def run(work_dir: Path) -> None:
     )
     print("10. Cambiar nombre de una carpeta: disco, catálogo y lo elegido en la barra")
 
-    # 11. Cerrar
+    # 11. Soltar esa foto sobre la raíz de la ubicación: se mueve, y «Carpeta nueva» y su
+    #     subcarpeta, que se quedan vacías, se eliminan (la confirmación responde «Mover»)
+    from ui_helpers.models.media_mime import MediaDrag
+
+    ((beach_id,),) = query(
+        "SELECT id FROM media_items WHERE relative_path = 'Carpeta nueva/Dia 1/playa.jpg'"
+    )
+    questions_before = sum(kind == "question" for kind, _ in shown)
+    drag = MediaDrag(str(window.catalog_dir), (beach_id,))
+    sidebar.media_dropped_on_folder.emit(location_id, "", "Biblioteca", drag)
+    run_until(lambda: (library / "playa.jpg").exists(), TIMEOUT_SHORT, "mover la foto")
+    run_until(idle, TIMEOUT_SHORT, "fin de mover")
+    asked = [text for kind, text in shown if kind == "question"][questions_before:]
+    if len(asked) != 1 or "se quedará vacía y también se eliminará del disco" not in asked[0]:
+        raise SmokeError(f"La confirmación no anunció la carpeta que se vacía: {asked}")
+    if query(f"SELECT relative_path FROM media_items WHERE id = {beach_id}") != [("playa.jpg",)]:
+        raise SmokeError("La foto movida no tiene la ruta nueva en el catálogo")
+    if (library / "Carpeta nueva").exists():
+        raise SmokeError("La carpeta que se quedó vacía sigue en el disco")
+    print("11. Soltar una foto en una carpeta: movida; su carpeta, vacía, eliminada")
+
+    # 12. Cerrar
     window.close()
     app.processEvents()
     if jobs.is_attached:
@@ -430,7 +457,7 @@ def run(work_dir: Path) -> None:
     errors = [text for kind, text in shown if kind == "critical"]
     if errors or exceptions:
         raise SmokeError(f"Errores: {errors or exceptions}")
-    print(f"11. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
+    print(f"12. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
     window.deleteLater()
     app.processEvents()
 
@@ -448,6 +475,11 @@ def main(argv: list[str] | None = None) -> int:
         run(work_dir)
     except SmokeError as error:
         print(f"FALLO: {error}")
+        return 1
+    except Exception:  # noqa: BLE001 - un error que no es de la prueba: se enseña entero
+        # (la prueba sustituye 'sys.excepthook': sin esto, el error no se vería)
+        print("FALLO: error inesperado")
+        traceback.print_exc(file=sys.__stderr__)
         return 1
     finally:
         if args.conservar:

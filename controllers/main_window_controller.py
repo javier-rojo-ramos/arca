@@ -186,6 +186,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             folder_renamed=lambda *args: (
                 self.module_host.folder_renamed(*args) if self.module_host is not None else None
             ),
+            # Las tarjetas soltadas de otro catálogo (otra ventana) no se mueven
+            get_catalog_key=lambda: str(self.catalog_dir) if self.catalog_dir else "",
             parent=self,
         )
 
@@ -419,6 +421,8 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.widget_catalog_sidebar.rename_folder_requested.connect(
             self.file_actions.request_folder_rename
         )
+        # Tarjetas soltadas sobre una carpeta del árbol: moverlas a ella (CAT 4.4b)
+        self.widget_catalog_sidebar.media_dropped_on_folder.connect(self.file_actions.request_move)
         # Menú de la fila «Selección rápida»: vaciarla
         self.widget_catalog_sidebar.clear_quick_selection_requested.connect(
             self._on_clear_quick_selection

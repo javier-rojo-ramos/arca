@@ -157,7 +157,10 @@ Acordado con el autor el 19/11/2026 (cambia la regla de los originales: [DECISIO
   - ~~**4.1b** El registro de operaciones (migración 5) y su revisión al abrir el catálogo; el plan y la ejecución de mover o renombrar archivos (archivo, `.xmp`, entrada del `.arca.json` y catálogo)~~ (hecho el 19/11/2026). El estado de la barra (rutas en `settings.json`) va con la interfaz (`CAT 4.2` y `4.3`).
 - ~~**CAT 4.2** Renombrar un archivo («Cambiar nombre…», F2)~~ (hecho el 19/11/2026).
 - ~~**CAT 4.3** Renombrar una carpeta~~ (hecho el 19/11/2026). La raíz de una ubicación (cambia la ubicación: `storage_locations`), en un paso aparte, sin número todavía.
-- **CAT 4.4** «Nueva carpeta…» y mover archivos en el mismo disco (arrastrar a «Carpetas» y «Mover a…»).
+- **CAT 4.4** Mover archivos en el mismo disco y crear carpetas:
+  - **4.4a** Crear una carpeta. Por decidir con el autor (19/11/2026): el árbol solo muestra carpetas con archivos, así que una vacía no se vería. Opciones: «Nueva carpeta…» en el menú de una carpeta con la casilla «Incluir los archivos seleccionados» (como Lightroom: nunca queda vacía; sin migración); una ventana «Mover a…» con su árbol y «Nueva carpeta…» (la carpeta se crea al mover); o que el catálogo recuerde las carpetas vacías (una migración).
+  - ~~**4.4b** Arrastrar tarjetas a una carpeta del árbol del Catálogo~~ (hecho el 19/11/2026).
+  - «Mover a…» desde el menú de la tarjeta (sin ratón, o con muchas carpetas): más adelante, si hace falta.
 - **CAT 4.5** Mover entre discos (copiar, comprobar y borrar el original).
 - **CAT 4.6** Renombrado múltiple con plantilla (también para `MUS 8.3`).
 - Después: deshacer renombrar y mover con Ctrl+Z (`GEN 1`).
