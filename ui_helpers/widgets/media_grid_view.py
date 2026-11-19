@@ -19,6 +19,10 @@ tarjeta que forma parte de una selección múltiple, Qt dejaba seleccionada solo
 soltar el botón (así funciona la selección extendida de 'QListView' para poder arrastrar
 varias). Ahora la selección se conserva y el valor se aplica a todas.
 
+Los botones laterales del ratón («atrás» y «adelante») no seleccionan ni arrastran: se
+ignoran y suben a quien contiene la vista, donde el 'CenterViewController' cambia de vista
+con ellos (también en la tira del mapa, que es una 'MediaGridView').
+
 Lo que se arrastra (los 'id' de las tarjetas) no cambia: lo sigue preparando el modelo
 ('MediaGridModel.mimeData'). Se promociona en el .ui: 'list_view_grid' es un
 'MediaGridView' (cabecera 'ui_helpers/widgets/media_grid_view.h').
@@ -28,6 +32,8 @@ individual). Solo cuando el modelo ha terminado de cargar sin nada ('rows_loaded
 se han quitado todas las tarjetas: no mientras carga ni sin catálogo (al vaciarse la lista
 con 'modelReset' se esconde hasta que el modelo diga cuántas hay).
 
+1.5.0 Los botones laterales del ratón no seleccionan: se ignoran para que suban a quien
+      contiene la vista (el controlador de las vistas los usa para cambiar de vista).
 1.4.0 'set_drag_image(False)': arrastrar sin imagen (solo el cursor). La usa la tira de
       fotos del mapa: sobre el mapa, solo el círculo de dónde caen (el autor, 13/11/2026).
 1.3.0 «No hay archivos» en la cuadrícula vacía (p. ej. al elegir una palabra clave sin
@@ -37,7 +43,7 @@ con 'modelReset' se esconde hasta que el modelo diga cuántas hay).
       sobre el ámbar no se leía).
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["MediaGridView"]
 
 # Librerías de terceros
@@ -73,6 +79,11 @@ DRAG_OPACITY = 0.8
 DRAG_STACK_STEP = 4
 # Tarjetas de la pila que se dibujan detrás como mucho
 DRAG_STACK_MAX = 2
+# Botones laterales del ratón («atrás» y «adelante»): la vista no los usa. Sin esto, Qt
+# seleccionaría con ellos la tarjeta de debajo; ignorados, suben a quien contiene la vista
+# (el controlador de las vistas cambia de vista con ellos: 'CenterViewController')
+_SIDE_BUTTONS = (Qt.MouseButton.BackButton, Qt.MouseButton.ForwardButton)
+_SIDE_BUTTONS_MASK = Qt.MouseButton.BackButton | Qt.MouseButton.ForwardButton
 
 
 class MediaGridView(QListView):
@@ -168,6 +179,9 @@ class MediaGridView(QListView):
         return delegate.handle_click(pos, event.modifiers(), self.model(), rect, index, self)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # nombre de Qt
+        if event.button() in _SIDE_BUTTONS:
+            event.ignore()  # sube a quien contiene la vista (ver '_SIDE_BUTTONS')
+            return
         if self._active_zone_click(event):
             self._swallowing_click = True
             event.accept()
@@ -175,6 +189,9 @@ class MediaGridView(QListView):
         super().mousePressEvent(event)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # nombre de Qt
+        if event.button() in _SIDE_BUTTONS:
+            event.ignore()
+            return
         if self._active_zone_click(event):
             self._swallowing_click = True
             event.accept()
@@ -182,13 +199,22 @@ class MediaGridView(QListView):
         super().mouseDoubleClickEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:  # nombre de Qt
-        if self._swallowing_click and event.buttons() != Qt.MouseButton.NoButton:
+        buttons = event.buttons()
+        if buttons != Qt.MouseButton.NoButton and not buttons & ~_SIDE_BUTTONS_MASK:
+            # Solo con un botón lateral pulsado: Qt movería la selección como si se
+            # arrastrara con el izquierdo
+            event.ignore()
+            return
+        if self._swallowing_click and buttons != Qt.MouseButton.NoButton:
             event.accept()  # arrastrar desde una estrella no selecciona ni arrastra tarjetas
             return
         self._swallowing_click = False
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # nombre de Qt
+        if event.button() in _SIDE_BUTTONS:
+            event.ignore()
+            return
         if self._swallowing_click:
             self._swallowing_click = False
             event.accept()

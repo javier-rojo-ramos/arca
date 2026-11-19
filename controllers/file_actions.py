@@ -54,6 +54,8 @@ Uso (en el controlador principal, que solo lo crea y lo conecta):
         self.file_actions.request_new_folder
     )
 
+1.4.1 La confirmación de mover ya no menciona el .xmp de los RAW (se entiende que va con su
+      archivo; lo pidió el autor). «Crear nueva carpeta...», el nombre nuevo del menú.
 1.4.0 Carpetas en el catálogo (CAT 5): «Nueva carpeta…» también vacía, con la casilla
       «Incluir los N archivos seleccionados» (marcada si hay algo elegido; fuera
       'NO_SELECTION_TEXT'); las carpetas que se vacían al mover ya no se borran (sin la
@@ -73,7 +75,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.file_actions
 """
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 __all__ = [
     "FileActions",
     "failed_rename_text",
@@ -175,14 +177,15 @@ def move_confirmation_text(folder_name: str, plan: MovePlan) -> str:
     """La confirmación antes de mover: cuántos y lo que se omite."""
     count = len(plan.moves)
     if count == 1:
+        # Sin mencionar el .xmp de los RAW: se entiende que va con su archivo (el autor)
         head = (
-            f"Se va a mover 1 archivo a «{folder_name}», también en el disco (con su .xmp, si "
-            "es un RAW). Conserva la valoración, las palabras clave y las colecciones."
+            f"Se va a mover 1 archivo a «{folder_name}», también en el disco. Conserva la "
+            "valoración, las palabras clave y las colecciones."
         )
     else:
         head = (
-            f"Se van a mover {count} archivos a «{folder_name}», también en el disco (con su "
-            ".xmp, si son RAW). Conservan la valoración, las palabras clave y las colecciones."
+            f"Se van a mover {count} archivos a «{folder_name}», también en el disco. Conservan "
+            "la valoración, las palabras clave y las colecciones."
         )
     return "\n\n".join([head, *_move_details(plan)])
 
@@ -466,7 +469,7 @@ class FileActions(QObject):
     # -------------------------------------------------------------------------
 
     def request_new_folder(self, location_id: int, folder: str, name: str) -> None:
-        """«Nueva carpeta...» del menú de una carpeta: la ventana (con lo elegido, si hay)."""
+        """«Crear nueva carpeta...» del menú de una carpeta: la ventana (con lo elegido, si hay)."""
         if not self._ready():
             return
         selected = list(self._get_selected_ids()) if self._get_selected_ids else []
@@ -732,6 +735,11 @@ if __name__ == "__main__":
     assert text.startswith("Se van a mover 2 archivos a «Ordesa», también en el disco"), text
     assert "2 archivos no se moverán: 1 porque ya está en esa carpeta, 1 porque ya existe" in text
     assert "vacía" not in text  # la carpeta de origen se queda (CAT 5)
+    assert ".xmp" not in text  # el .xmp de los RAW va con su archivo, sin decirlo
+    assert move_confirmation_text("Ordesa", MovePlan(moves=(move,))) == (
+        "Se va a mover 1 archivo a «Ordesa», también en el disco. Conserva la valoración, las "
+        "palabras clave y las colecciones."
+    )
     assert nothing_to_move_text("Ordesa", MovePlan(skipped=(("x", SKIP_SAME),))) == (
         "Ya está en «Ordesa»."
     )

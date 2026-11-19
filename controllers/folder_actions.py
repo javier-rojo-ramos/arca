@@ -27,6 +27,8 @@ El controlador principal solo tiene que crearlo, pasándole tres funciones:
     - busy_reason(): por qué ahora no se puede quitar nada (o None);
     - start_removal(trabajo, *args): lanza el trabajo de quitar.
 
+1.3.1 Carpeta vacía: «Al estar vacía se eliminará también del disco.», en el mismo párrafo
+      que la primera frase (lo pidió el autor).
 1.3.0 Carpetas sin archivos del catálogo (CAT 5: el árbol las muestra con 0): el aviso
       dice que, vacía, también se eliminará del disco y, si no, que en el disco se queda y
       vuelve al sincronizar.
@@ -38,7 +40,7 @@ El controlador principal solo tiene que crearlo, pasándole tres funciones:
 1.0.0 Primera versión: "Quitar del catálogo..." de una carpeta.
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = ["FolderActions", "confirmation_text"]
 
 # Librerías estándar
@@ -74,7 +76,8 @@ def confirmation_text(name: str, count: int, plan: FolderRemovalPlan | None = No
     Los dos primeros párrafos los redactó el autor. Si hay carpetas que se han quedado
     vacías en el disco ('plan'), se dice que también se eliminarán del disco y si su
     '.arca.json' guarda datos de archivos que ya no están (CAT 3.2). Una carpeta sin
-    archivos del catálogo (CAT 5) tiene su propio segundo párrafo.
+    archivos del catálogo (CAT 5): vacía, una frase más en el primer párrafo; si no, su
+    propio segundo párrafo.
     """
     if count == 0:
         files = ""
@@ -82,13 +85,15 @@ def confirmation_text(name: str, count: int, plan: FolderRemovalPlan | None = No
         files = " y su archivo"
     else:
         files = f" y sus {count} archivos"
-    paragraphs = [
+    head = (
         f"Se va a quitar del catálogo la carpeta «{name}»{files}, con sus subcarpetas si existen."
-    ]
+    )
+    if plan is not None and plan.deletes_folder and count == 0:
+        # Vacía: en el mismo párrafo, después del punto (lo pidió el autor)
+        head += " Al estar vacía se eliminará también del disco."
+    paragraphs = [head]
     if plan is not None and plan.deletes_folder:
-        if count == 0:
-            paragraphs.append("Está vacía: también se eliminará del disco.")
-        else:
+        if count != 0:
             paragraphs.append(
                 "Los archivos ya no están en el disco: se quitarán del catálogo (y de las "
                 "colecciones) y la carpeta también se eliminará del disco."
@@ -267,8 +272,9 @@ if __name__ == "__main__":
     print(f"\n--- Ejemplo ---\n{some}\n---")
     # Carpetas sin archivos del catálogo (CAT 5): vacía, también del disco; si no, se queda
     empty = plan_for("Nada", EmptyFolder("Nada"))
-    assert confirmation_text("Nada", 0, empty).endswith(
-        "\n\nEstá vacía: también se eliminará del disco."
+    assert confirmation_text("Nada", 0, empty) == (
+        "Se va a quitar del catálogo la carpeta «Nada», con sus subcarpetas si existen. Al "
+        "estar vacía se eliminará también del disco."
     ), confirmation_text("Nada", 0, empty)
     docs = plan_for("Docs")
     assert "No tiene archivos del catálogo. En el disco se queda como está" in (

@@ -7,7 +7,7 @@ Como la de Lightroom: un título, la explicación y un botón por acción.
     │                                                                        │
     │ Los archivos siguen en su carpeta y vuelven a aparecer si sincronizas  │
     │ la carpeta. Elige «Eliminar del disco» para enviarlos también a la     │
-    │ Papelera de reciclaje (con el sidecar .xmp de los RAW).                │
+    │ Papelera de reciclaje.                                                 │
     │                                                                        │
     │ ⚠ 1 archivo solo se quitará del catálogo: 1 porque está en una unidad  │
     │ de red (sin papelera).                                                 │
@@ -37,6 +37,8 @@ Uso:
     if to_trash is not None:
         ...  # False = eliminar del catálogo; True = también del disco (papelera)
 
+1.3.1 La explicación ya no menciona el sidecar .xmp de los RAW (se entiende que va con su
+      archivo; lo pidió el autor).
 1.3.0 Sin el párrafo de las carpetas que se quedarán vacías: ya no se eliminan (CAT 5).
 1.2.0 Párrafo de las carpetas que se quedarán vacías con "Eliminar del disco" (CAT 3.3).
 1.1.1 Sin el icono de la aplicación junto al título (decidido por el autor; más adelante,
@@ -45,7 +47,7 @@ Uso:
       opciones y un botón de confirmar).
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = ["RemoveDialog", "explanation_text"]
 
 # Librerías estándar
@@ -94,11 +96,8 @@ def explanation_text(plan: RemovalPlan) -> str:
         reason = reason.replace("solo se quitará", "solo se puede quitar")
         return f"{keep}\n\n{reason}" if reason else keep
     target = "enviarlo" if single else "enviarlos"
-    sidecar = "si es un RAW" if single else "de los RAW"
-    return (
-        f"{keep} Elige «{DISK_BUTTON_TEXT}» para {target} también a {TRASH_NAME} "
-        f"(con el sidecar .xmp {sidecar})."
-    )
+    # Sin mencionar el .xmp de los RAW: se entiende que va con su archivo (el autor)
+    return f"{keep} Elige «{DISK_BUTTON_TEXT}» para {target} también a {TRASH_NAME}."
 
 
 class RemoveDialog(QDialog):
@@ -199,7 +198,7 @@ if __name__ == "__main__":
 
     one = RemovalPlan(total=1, trashable=1)
     assert explanation_text(one).startswith("El archivo sigue en su carpeta")
-    assert "enviarlo también a" in explanation_text(one) and "si es un RAW" in explanation_text(one)
+    assert "enviarlo también a" in explanation_text(one) and ".xmp" not in explanation_text(one)
     mixed = RemovalPlan(total=5, trashable=2, catalog_only={REASON_NETWORK: 2, REASON_MISSING: 1})
     assert "enviarlos también a" in explanation_text(mixed)
     network_only = RemovalPlan(total=1, trashable=0, catalog_only={REASON_NETWORK: 1})

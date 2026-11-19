@@ -23,10 +23,10 @@ unas fotos inventadas, y recorre lo que conecta el controlador:
        disco, las rutas en el catálogo y la barra y la cuadrícula con el nombre nuevo;
     11. soltar esa foto sobre la raíz de la ubicación (CAT 4.4b; la confirmación responde
        «Mover»): la foto, movida; sus carpetas, vacías, se quedan (CAT 5);
-    12. «Nueva carpeta...» en la raíz con la foto elegida en la cuadrícula (CAT 4.4a; la
-       ventana responde sola): la carpeta, creada, con la foto dentro;
-    13. «Nueva carpeta...» sin incluir lo elegido (CAT 5): la carpeta, vacía, en el disco y en
-       el árbol;
+    12. «Crear nueva carpeta...» en la raíz con la foto elegida en la cuadrícula (CAT 4.4a;
+       la ventana responde sola): la carpeta, creada, con la foto dentro;
+    13. «Crear nueva carpeta...» sin incluir lo elegido (CAT 5): la carpeta, vacía, en el
+       disco y en el árbol;
     14. cerrar.
 
 Falla si algo no llega a tiempo, si sale un aviso de error («critical») o si una excepción
@@ -50,6 +50,7 @@ Uso (desde la raíz del proyecto, con el Python de .venv; necesita ExifTool para
 
 Termina con código 0 si todo va bien y 1 si algo falla.
 
+1.8.1 «Crear nueva carpeta...», el nombre nuevo de la opción del menú (solo comentarios).
 1.8.0 Carpetas en el catálogo (CAT 5): en los pasos 8 y 11 las carpetas que se vacían se
       quedan (en el disco y en el árbol); paso nuevo: «Nueva carpeta...» vacía.
 1.7.0 Paso nuevo: «Nueva carpeta...» con la foto elegida (CAT 4.4a), con su ventana
@@ -69,7 +70,7 @@ Termina con código 0 si todo va bien y 1 si algo falla.
 1.0.0 Primera versión (18/11/2026), con GEN 15.1.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.8.1"
 __all__ = ["main", "run"]
 
 # Librerías estándar
@@ -477,8 +478,9 @@ def run(work_dir: Path) -> None:
         raise SmokeError("La carpeta que se quedó vacía no sigue en el catálogo")
     print("11. Soltar una foto en una carpeta: movida; su carpeta, vacía, se queda")
 
-    # 12. «Nueva carpeta...» en la raíz de la ubicación, con la primera tarjeta elegida (antes,
-    #     la raíz elegida en la barra: la carpeta elegida en el paso 10 se ha quedado vacía)
+    # 12. «Crear nueva carpeta...» en la raíz de la ubicación, con la primera tarjeta elegida
+    #     (antes, la raíz elegida en la barra: la carpeta elegida en el paso 10 se ha quedado
+    #     vacía)
     sidebar.select_source(sidebar._source_for(location_id, ""))
     view = window.grid_actions._view  # (parte interna: la vista de la cuadrícula)
     run_until(lambda: window.mosaico_model.rowCount() > 0, TIMEOUT_SHORT, "la cuadrícula")
@@ -495,7 +497,7 @@ def run(work_dir: Path) -> None:
         raise SmokeError("La foto de la carpeta nueva no tiene la ruta nueva en el catálogo")
     print(f"12. Nueva carpeta «Seleccion» con {picked_name} dentro")
 
-    # 13. «Nueva carpeta...» sin incluir lo elegido: vacía, en el disco y en el árbol (CAT 5)
+    # 13. «Crear nueva carpeta...» sin incluir lo elegido: vacía, en el disco y en el árbol (CAT 5)
     new_folder_answer["value"] = ("Preparada", False)
     sidebar.new_folder_requested.emit(location_id, "", "Biblioteca")
     run_until(lambda: (library / "Preparada").is_dir(), TIMEOUT_SHORT, "la carpeta vacía")

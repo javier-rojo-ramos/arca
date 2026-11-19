@@ -17,6 +17,7 @@
 | Barra: Catálogo, Carpetas y Colecciones | Hecho y verificado |
 | Colecciones: del sistema, conjuntos, estáticas e inteligentes (con grupos de reglas) | Hecho y verificado |
 | Quitar del catálogo y eliminar del disco (papelera) | Hecho y verificado; unidades de red y la papelera real, sin probar. Al quitar una carpeta, las vacías se eliminan también del disco (`CAT 3`, 19/11/2026), verificado; las que se vacían al eliminar o mover, se quedan con 0 (`CAT 5`) |
+| Renombrar y mover archivos y carpetas en el mismo disco, crear carpetas; el árbol replica las carpetas del disco | Hecho y verificado (`CAT 4.1` a `4.4` y `CAT 5`, 19/11/2026); mover entre discos y renombrado múltiple, pendientes (`CAT 4.5` y `4.6`) |
 | Vista de mapa (ver y seleccionar) | Hecho y verificado |
 | Archivos sueltos, fusión de ubicaciones, duplicados (hashes) | Pendiente (`CAT 1`, `CAT 2`) |
 
@@ -27,7 +28,7 @@
 ## 1. Qué es un catálogo
 
 - **Una carpeta autónoma**: `catalogo.db` (SQLite en modo WAL), `cache/<tipo>/` (las miniaturas) y `media_assets/` (`backdrops`, `covers`, `posters`). La crea `core/catalog/catalog_builder.py`; la abre `catalog_opener.py` (comprueba que es SQLite y de esta aplicación, `APPLICATION_ID`, y aplica las migraciones).
-- **Esquema**: `core/catalog/catalog_schema.py` (`MIGRATIONS`, solo se añade al final; hoy, v4). Tablas, bloques de columnas y quién escribe cada uno: [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md).
+- **Esquema**: `core/catalog/catalog_schema.py` (`MIGRATIONS`, solo se añade al final; hoy, v6). Tablas, bloques de columnas y quién escribe cada uno: [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md).
 - **Lo que no está en el catálogo**: la configuración (`settings.json`, en la carpeta de la aplicación; el catálogo abierto, el estado de cada barra por catálogo) y la caché de teselas del mapa.
 - **Sobrevive a recrearlo**: lo que el usuario pone en los archivos (valoración, marca, color, palabras clave, metadatos editados; `core/userdata/`) vuelve al añadir de nuevo las carpetas. Las colecciones, no: solo están en la base de datos.
 - **Acceso a la base de datos**: la interfaz nunca la toca en el hilo principal. Consultas con `db.execute_async` (`core/database/db_manager.py`); trabajos largos con `JobManager` (`core/workers/job_manager.py`), que lanza y encadena `JobCoordinator` (`controllers/job_coordinator.py`). Qué corre en cada hilo: [ARQUITECTURA.md](ARQUITECTURA.md).
@@ -108,7 +109,7 @@ Son los comunes a todos los módulos:
 
 | Orden | Qué hace | Dónde |
 |---|---|---|
-| «Nueva carpeta…» | Crea una carpeta dentro de otra (o de la raíz de una ubicación), en el disco y en el catálogo; con «Incluir los N archivos seleccionados» (marcada si hay algo elegido), mueve a ella lo elegido; sin ella, vacía, con 0 en el árbol (`CAT 4.4a` y `CAT 5`, como Lightroom) | `core/file_ops/moves.py`, `controllers/file_actions.py`, `ui_helpers/dialogs/new_folder_dialog.py` |
+| «Crear nueva carpeta…» | Crea una carpeta dentro de otra (o de la raíz de una ubicación), en el disco y en el catálogo; con «Incluir los N archivos seleccionados» (marcada si hay algo elegido), mueve a ella lo elegido; sin ella, vacía, con 0 en el árbol (`CAT 4.4a` y `CAT 5`, como Lightroom) | `core/file_ops/moves.py`, `controllers/file_actions.py`, `ui_helpers/dialogs/new_folder_dialog.py` |
 | Mover arrastrando a una carpeta | Soltar tarjetas sobre una carpeta (o ubicación) conectada de «Carpetas»: con su confirmación, se mueven también en el disco (con su `.xmp` y su `.arca.json`) y conservan todo lo suyo; no a una carpeta declarada de otra biblioteca; las carpetas de origen que se quedan vacías, eliminadas (`CAT 4.4b`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» de una carpeta | Cambia su nombre en el disco y, en el catálogo, la ruta de todo lo de dentro (que conserva todo lo suyo); las barras de los módulos siguen con lo desplegado y lo elegido. No en la raíz de una ubicación (`CAT 4.3`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» (F2) | Cambia el nombre de un archivo en el disco (con su `.xmp` y su entrada del `.arca.json`) y en el catálogo, que conserva todo lo suyo; la extensión no cambia (`CAT 4.2`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
@@ -140,7 +141,7 @@ Todos los de la primera columna sin ruta están en `core/catalog/`. El mapa comp
 
 De [ESTADO.md](ESTADO.md):
 
-- **Verificado por el autor en Windows**: crear y abrir; añadir y sincronizar carpetas; ubicaciones sin solapes; ausentes y desconectadas; quitar ausentes; «Quitar del catálogo…»; las bibliotecas y la clasificación de los vídeos; la barra con sus tres secciones y su estado guardado; las colecciones, también las inteligentes con grupos; eliminar del catálogo y del disco.
+- **Verificado por el autor en Windows**: crear y abrir; añadir y sincronizar carpetas; ubicaciones sin solapes; ausentes y desconectadas; quitar ausentes; «Quitar del catálogo…»; las bibliotecas y la clasificación de los vídeos; la barra con sus tres secciones y su estado guardado; las colecciones, también las inteligentes con grupos; eliminar del catálogo y del disco; renombrar y mover archivos y carpetas en el mismo disco, crear carpetas y el árbol que replica el disco (`CAT 4` y `CAT 5`).
 - **Sin probar**: cuadrícula con decenas de miles de tarjetas visibles a la vez; la detección de unidades de red en Windows y la papelera real; macOS y Linux.
 - **Comprobaciones sueltas** anotadas: un archivo abierto en otro programa al eliminar, archivos de una unidad de red, un RAW con su `.xmp` a la Papelera; abrir el editor de colecciones inteligentes con doble clic y reglas con cada tipo de valor; la detección de archivos que desaparecen o vuelven con el catálogo abierto.
 

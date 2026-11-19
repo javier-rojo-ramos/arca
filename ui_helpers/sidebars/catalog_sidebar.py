@@ -54,6 +54,9 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.16.1 Menú de las carpetas: «Crear nueva carpeta...» (antes «Nueva carpeta...») y, debajo de
+       «Cambiar nombre...», «Quitar del catálogo...»: las tres sobre la carpeta, juntas (lo
+       pidió el autor).
 1.16.0 Menú de las carpetas: «Nueva carpeta…» ('new_folder_requested'; también en la raíz
        de una ubicación; no desconectada) y 'expand_to_folder' (para que se vea la nueva;
        CAT 4.4a).
@@ -103,7 +106,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.16.0"
+__version__ = "1.16.1"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -219,7 +222,7 @@ class CatalogSidebar(QWidget):
         reveal_folder_requested(str): "Mostrar en el Explorador" en el menú de una carpeta.
         remove_missing_requested(int, str): "Quitar archivos ausentes del catálogo" en el
             menú de una carpeta (id de la ubicación y carpeta relativa; '' = toda).
-        new_folder_requested(int, str, str): "Nueva carpeta..." en el menú de una carpeta o
+        new_folder_requested(int, str, str): "Crear nueva carpeta..." en el menú de una carpeta o
             una ubicación (ubicación, carpeta relativa y nombre): crear una dentro.
         rename_folder_requested(int, str, str): "Cambiar nombre..." en el menú de una
             carpeta (ubicación, carpeta relativa y nombre).
@@ -989,18 +992,19 @@ class CatalogSidebar(QWidget):
         sync_action = menu.addAction("Sincronizar carpeta")
         reveal_action = menu.addAction(f"Mostrar en {FILE_MANAGER_NAME}")
         menu.addSeparator()
+        # Las tres operaciones sobre la propia carpeta, juntas (crear, renombrar, quitar).
         # Crea una carpeta dentro, en el disco (también en la raíz de una ubicación)
-        new_folder_action = menu.addAction("Nueva carpeta...")
+        new_folder_action = menu.addAction("Crear nueva carpeta...")
         new_folder_action.setEnabled(online)
         # Cambia el nombre en el disco: con la ubicación conectada y no en su raíz (renombrar
         # la raíz cambiaría la ubicación: más adelante)
         rename_action = menu.addAction("Cambiar nombre...")
         rename_action.setEnabled(online and bool(source.folder))
+        # Siempre activa, también con el disco desconectado: entonces solo la quita del
+        # catálogo (sirve, p. ej., para quitar un disco que ya no existe)
+        remove_folder_action = menu.addAction("Quitar del catálogo...")
         menu.addSeparator()
         remove_action = menu.addAction("Quitar archivos ausentes del catálogo...")
-        # Siempre activa, también con el disco desconectado: no toca el disco (sirve, p. ej.,
-        # para quitar un disco que ya no existe)
-        remove_folder_action = menu.addAction("Quitar del catálogo...")
         if not online:
             # Con el disco desconectado no hay nada que leer ni que mostrar, y no se sabe
             # si los archivos siguen ahí (no se pueden quitar los ausentes)

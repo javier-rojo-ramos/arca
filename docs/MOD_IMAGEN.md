@@ -66,7 +66,7 @@ Los árboles no cogen el teclado: tras elegir una fila, los atajos siguen yendo 
 | Vista individual | `ui_helpers/widgets/single_media_view.py`, `single_view_zoom.py`; `ui_helpers/models/full_image_loader.py`; `core/thumbnails/full_image.py` | La imagen que cabe, nítida y con precarga de la siguiente; zoom 1:1 con el original (clic, Z, arrastrar; Ctrl + rueda). En un RAW, el 1:1 es su mayor vista previa. [FLUJOS.md](FLUJOS.md) §11 |
 | Mapa | `controllers/map_controller.py` y el componente de mapa | Marcadores de lo que tiene coordenadas y la tira de fotos debajo. En Imagen, además: soltar fotos de la tira para ubicarlas (pregunta a partir de 50), moverlas, «Quitar la ubicación» y Ctrl+Z (`core/catalog/geotagging.py`, `controllers/undo_history.py`). [MOD_TRACKS.md](MOD_TRACKS.md) y [FLUJOS.md](FLUJOS.md) §16 |
 
-Entrar, salir y navegar entre vistas (doble clic, Intro, Esc, G, M, flechas), y el archivo actual recordado por módulo: `controllers/center_view_controller.py`.
+Entrar, salir y navegar entre vistas (doble clic, Intro, Esc, G, M, flechas, los botones laterales del ratón), y el archivo actual recordado por módulo: `controllers/center_view_controller.py`.
 
 ## 4. Inspector (panel derecho)
 

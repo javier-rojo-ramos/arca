@@ -6,8 +6,8 @@
     │ [IMG_0001                                       ]  .CR3       │
     │ El nombre no puede acabar en un espacio ni en un punto.       │  (solo si no vale)
     │                                                               │
-    │ El nombre cambia también en el disco, y el de su .xmp. La     │
-    │ valoración, las palabras clave y las colecciones se conservan.│
+    │ El nombre cambia también en el disco. La valoración, las      │
+    │ palabras clave y las colecciones se conservan.                │
     │                                  [Cambiar nombre]  [Cancelar] │
     └───────────────────────────────────────────────────────────────┘
 
@@ -35,6 +35,8 @@ Uso:
     stem = RenameDialog.ask(parent, "IMG_0001.CR3")       # None si se cancela
     name = RenameDialog.ask(parent, "Viaje", folder_files=12)
 
+1.2.0 El aviso ya no menciona el .xmp de los RAW (se entiende que cambia con su archivo; lo
+      pidió el autor): 'explanation_text' ya no recibe el nombre del archivo.
 1.1.0 También para carpetas ('folder_files', 'folder_explanation_text'; CAT 4.3).
 1.0.1 La línea del motivo está siempre, vacía si el nombre vale: al aparecer el motivo, la
       explicación y los botones ya no se mueven (lo pidió el autor al probarla).
@@ -44,7 +46,7 @@ Prueba rápida (sin abrir ninguna ventana; desde la raíz del proyecto):
     python -m ui_helpers.dialogs.rename_dialog
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["RenameDialog", "explanation_text", "folder_explanation_text"]
 
 # Librerías de terceros (Qt)
@@ -61,7 +63,6 @@ from qtpy.QtWidgets import (
 
 # Módulos del proyecto
 from core.file_ops.naming import clean_name, name_problem, split_extension
-from core.userdata.policy import UserDataDestination, destination_for
 from ui_helpers.helpers.ui_theme import ACCENT_COLOR
 
 # Textos de los botones
@@ -72,18 +73,16 @@ CANCEL_BUTTON_TEXT = "Cancelar"
 _TITLE_EXTRA_POINTS = 3
 
 
-def explanation_text(file_name: str) -> str:
-    """El aviso de la ventana: el nombre cambia también en el disco (y el de su .xmp si es un RAW).
+def explanation_text() -> str:
+    """El aviso de la ventana: el nombre cambia también en el disco; lo suyo se conserva.
 
-    Está fuera de la clase para poder probarlo sin abrir ninguna ventana.
+    No menciona el .xmp de los RAW: se entiende que cambia con su archivo (lo pidió el
+    autor). Está fuera de la clase para poder probarlo sin abrir ninguna ventana.
     """
-    sidecar = destination_for(file_name) == UserDataDestination.XMP_SIDECAR
-    disk = (
-        "El nombre cambia también en el disco, y el de su .xmp."
-        if sidecar
-        else "El nombre cambia también en el disco."
+    return (
+        "El nombre cambia también en el disco. La valoración, las palabras clave y las "
+        "colecciones se conservan."
     )
-    return f"{disk} La valoración, las palabras clave y las colecciones se conservan."
 
 
 def folder_explanation_text(count: int) -> str:
@@ -162,7 +161,7 @@ class RenameDialog(QDialog):
 
         # --- El aviso: lo que pasa en el disco ---
         explanation = QLabel(
-            folder_explanation_text(folder_files) if is_folder else explanation_text(file_name)
+            folder_explanation_text(folder_files) if is_folder else explanation_text()
         )
         explanation.setWordWrap(True)
         layout.addWidget(explanation)
@@ -225,12 +224,11 @@ if __name__ == "__main__":
 
     from qtpy.QtWidgets import QApplication
 
-    assert explanation_text("IMG_0001.CR3") == (
-        "El nombre cambia también en el disco, y el de su .xmp. La valoración, las palabras "
-        "clave y las colecciones se conservan."
+    assert explanation_text() == (
+        "El nombre cambia también en el disco. La valoración, las palabras clave y las "
+        "colecciones se conservan."
     )
-    assert explanation_text("foto.jpg").startswith("El nombre cambia también en el disco. La")
-    print("1. El aviso: con el .xmp solo en los RAW")
+    print("1. El aviso: el nombre cambia también en el disco (sin mencionar el .xmp)")
 
     app = QApplication.instance() or QApplication(sys.argv)
     dialog = RenameDialog("IMG_0001.CR3")

@@ -426,7 +426,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         )
         # Tarjetas soltadas sobre una carpeta del árbol: moverlas a ella (CAT 4.4b)
         self.widget_catalog_sidebar.media_dropped_on_folder.connect(self.file_actions.request_move)
-        # "Nueva carpeta..." de una carpeta del árbol (CAT 4.4a)
+        # "Crear nueva carpeta..." de una carpeta del árbol (CAT 4.4a)
         self.widget_catalog_sidebar.new_folder_requested.connect(
             self.file_actions.request_new_folder
         )

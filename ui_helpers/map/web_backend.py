@@ -24,6 +24,13 @@ eventos en sus hijos ('_WebView'); si el arrastre trae tarjetas de la cuadrícul
 ('application/x-arca-media-ids') y está permitido, se acepta sin pasarlo a Chromium, se
 pinta en la página dónde caería y, al soltar, la página traduce el píxel a coordenadas.
 
+Botones laterales del ratón («atrás» y «adelante»; 19/11/2026): también llegan a un
+widget interno, que se queda con ellos (Chromium navegaría por el historial de la
+página). El mismo filtro los aparta y los reenvía a la vista, desde la que suben por sus
+padres hasta la página del mapa: allí el 'CenterViewController' cambia de vista.
+
+1.8.0 Botones laterales del ratón: no van a Chromium; '_WebView' los reenvía a la vista,
+      para que lleguen a la página del mapa (cambiar de vista; lo pidió el autor).
 1.7.0 El botón «Encuadrar» (encima del zoom): su texto y su aviso ('fit_requested');
       'DEFAULT_VIEW' pasa a 'map_types.py' (se sigue pudiendo importar de aquí).
 1.6.0 'set_track_colors': los colores de los tracks que elige el usuario (Opciones > Tracks).
@@ -42,7 +49,7 @@ pinta en la página dónde caería y, al soltar, la página traduce el píxel a 
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
@@ -55,8 +62,8 @@ from pathlib import Path
 from loguru import logger
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QEvent, QObject, QPoint, Qt, QTimer, QUrl
-from qtpy.QtGui import QColor, QResizeEvent, QShowEvent
+from qtpy.QtCore import QCoreApplication, QEvent, QObject, QPoint, QPointF, Qt, QTimer, QUrl
+from qtpy.QtGui import QColor, QMouseEvent, QResizeEvent, QShowEvent
 from qtpy.QtWebChannel import QWebChannel
 from qtpy.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
 from qtpy.QtWebEngineWidgets import QWebEngineView
@@ -90,6 +97,14 @@ _DRAG_EVENTS = (
     QEvent.Type.DragMove,
     QEvent.Type.DragLeave,
     QEvent.Type.Drop,
+)
+# Botones laterales del ratón («atrás» y «adelante») y sus eventos: no van a Chromium sino
+# a la página del mapa, que cambia de vista con ellos ('_WebView._pass_side_button')
+_SIDE_BUTTONS = (Qt.MouseButton.BackButton, Qt.MouseButton.ForwardButton)
+_BUTTON_EVENTS = (
+    QEvent.Type.MouseButtonPress,
+    QEvent.Type.MouseButtonRelease,
+    QEvent.Type.MouseButtonDblClick,
 )
 
 # Textos de los botones del mapa (al pasar el ratón): el zoom y «Encuadrar»
@@ -196,6 +211,13 @@ class _WebView(QWebEngineView):
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # nombre de Qt
         if (
+            event.type() in _BUTTON_EVENTS
+            and event.button() in _SIDE_BUTTONS
+            and isinstance(watched, QWidget)
+        ):
+            self._pass_side_button(event, watched.mapTo(self, QPoint(0, 0)))
+            return True  # Chromium no lo ve (navegaría por el historial de la página)
+        if (
             event.type() in _DRAG_EVENTS
             and self.drag_handler is not None
             and isinstance(watched, QWidget)
@@ -203,6 +225,23 @@ class _WebView(QWebEngineView):
         ):
             return True
         return super().eventFilter(watched, event)
+
+    def _pass_side_button(self, event: QMouseEvent, offset: QPoint) -> None:
+        """Reenvía a la vista un botón lateral que llegó a un widget interno.
+
+        La vista no lo usa: Qt lo pasa a sus padres, como en cualquier widget, hasta la
+        página del mapa, donde el 'CenterViewController' cambia de vista con él.
+        'offset' es la esquina del widget que lo recibió, en coordenadas de la vista.
+        """
+        copy = QMouseEvent(
+            event.type(),
+            event.position() + QPointF(offset),
+            event.globalPosition(),
+            event.button(),
+            event.buttons(),
+            event.modifiers(),
+        )
+        QCoreApplication.sendEvent(self, copy)
 
     # Por si en otra versión de Qt o en otro sistema los arrastres llegan a la vista
     def dragEnterEvent(self, event: QEvent) -> None:  # nombre de Qt

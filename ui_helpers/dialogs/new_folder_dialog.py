@@ -1,4 +1,5 @@
-"""Ventana «Nueva carpeta» (menú de una carpeta del árbol del Catálogo; CAT 4.4a).
+"""Ventana «Nueva carpeta» («Crear nueva carpeta...» en el menú de una carpeta del árbol del
+Catálogo; CAT 4.4a).
 
     ┌ Nueva carpeta ────────────────────────────────────────────────┐
     │ Nueva carpeta dentro de «Viaje»                               │
@@ -8,8 +9,8 @@
     │ [x] Incluir los 3 archivos seleccionados                      │
     │                                                               │
     │ La carpeta se crea también en el disco y se mueven a ella los │
-    │ 3 archivos seleccionados (con su .xmp, si son RAW). Conservan │
-    │ la valoración, las palabras clave y las colecciones.          │
+    │ 3 archivos seleccionados. Conservan la valoración, las        │
+    │ palabras clave y las colecciones.                             │
     │                                           [Crear]  [Cancelar] │
     └───────────────────────────────────────────────────────────────┘
 
@@ -26,6 +27,8 @@ es el botón por defecto (Intro) y se desactiva si el nombre no vale; Esc = «Ca
 Uso:
     answer = NewFolderDialog.ask(parent, "Viaje", 3)     # (nombre, incluir) o None
 
+1.2.1 El aviso ya no menciona el .xmp de los RAW (se entiende que va con su archivo; lo
+      pidió el autor).
 1.2.0 Otra vez con la casilla «Incluir los N archivos seleccionados» (marcada si hay algo
       elegido): sin ella, la carpeta se crea vacía, que ya se ve en el árbol (CAT 5).
       'ask' devuelve (nombre, incluir).
@@ -37,7 +40,7 @@ Prueba rápida (sin abrir ninguna ventana; desde la raíz del proyecto):
     python -m ui_helpers.dialogs.new_folder_dialog
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["DEFAULT_NAME", "NewFolderDialog", "explanation_text"]
 
 # Librerías de terceros (Qt)
@@ -77,16 +80,15 @@ def explanation_text(selected: int, include: bool = True) -> str:
             "La carpeta se crea también en el disco, vacía. Para llenarla, arrastra a ella "
             "tarjetas de la cuadrícula."
         )
+    # Sin mencionar el .xmp de los RAW: se entiende que va con su archivo (el autor)
     if selected == 1:
         return (
-            "La carpeta se crea también en el disco y se mueve a ella el archivo seleccionado "
-            "(con su .xmp, si es un RAW). Conserva la valoración, las palabras clave y las "
-            "colecciones."
+            "La carpeta se crea también en el disco y se mueve a ella el archivo seleccionado. "
+            "Conserva la valoración, las palabras clave y las colecciones."
         )
     return (
         f"La carpeta se crea también en el disco y se mueven a ella los {selected} archivos "
-        "seleccionados (con su .xmp, si son RAW). Conservan la valoración, las palabras clave "
-        "y las colecciones."
+        "seleccionados. Conservan la valoración, las palabras clave y las colecciones."
     )
 
 
@@ -228,9 +230,8 @@ if __name__ == "__main__":
 
     from qtpy.QtWidgets import QApplication
 
-    assert "se mueven a ella los 3 archivos seleccionados (con su .xmp, si son RAW)" in (
-        explanation_text(3)
-    )
+    assert "se mueven a ella los 3 archivos seleccionados. Conservan" in explanation_text(3)
+    assert ".xmp" not in explanation_text(1) + explanation_text(3)
     assert "se mueve a ella el archivo seleccionado" in explanation_text(1)
     assert explanation_text(3, False).startswith("La carpeta se crea también en el disco, vacía")
     assert explanation_text(0) == explanation_text(3, False)

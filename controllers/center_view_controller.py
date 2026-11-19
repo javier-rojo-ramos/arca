@@ -25,6 +25,13 @@ Teclado y ratón (sin Ctrl, Alt ni Mayús; decidido por el autor el 08/11 y el 1
                        (en el orden de la cuadrícula); también la rueda del ratón:
                        hacia delante la anterior, hacia atrás la siguiente (la cuenta
                        la vista: 'step_requested'; a 1:1 y con Ctrl la usa el zoom)
+Botones laterales del ratón (decidido por el autor el 19/11/2026), al soltarlos:
+    «atrás»            vista individual -> como Esc; mapa -> la cuadrícula, como G
+    «adelante»         cuadrícula y mapa -> la vista individual del archivo actual, como
+                       Intro (con «atrás» se sale y con «adelante» se vuelve a entrar)
+    Llegan desde cualquier punto de la vista: la cuadrícula y la tira no los usan y los
+    dejan subir ('MediaGridView'), y la vista web del mapa los reenvía hacia su página
+    ('web_backend._WebView'). La pulsación no selecciona nada.
 Al elegir otra cosa en una barra (decidido por el autor el 12/11/2026, como Lightroom): el
 teclado vuelve a la vista del centro (los árboles de las barras no lo cogen: 'NoFocus') y,
 al terminar de cargar, en la cuadrícula queda seleccionada la PRIMERA foto que se ve (la
@@ -58,6 +65,8 @@ Uso (en el controlador principal, que solo lo crea):
         map_page=pagina_del_mapa, parent=window,
     )
 
+1.8.0 Botones laterales del ratón: «atrás» sale de la vista individual (como Esc) y del
+      mapa a la cuadrícula; «adelante» abre la vista individual (lo pidió el autor).
 1.7.2 Autoprueba: con una sola vista, su botón se ve ('ViewButtons' 1.3.0).
 1.7.1 Autoprueba: lo elegido al recargar sigue seleccionado con la tira del mapa conectada
       (la vaciaba: arreglado en 'MapFilmstrip.reset').
@@ -78,7 +87,7 @@ Uso (en el controlador principal, que solo lo crea):
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.7.2"
+__version__ = "1.8.0"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -110,6 +119,16 @@ _BACK_KEY = _KEY.Key_Escape
 _STEP_KEYS = {_KEY.Key_Left: -1, _KEY.Key_Up: -1, _KEY.Key_Right: 1, _KEY.Key_Down: 1}
 # Modificadores que no impiden los atajos (el del teclado numérico)
 _NO_MODIFIER = (Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.KeypadModifier)
+# Botones laterales del ratón (decidido por el autor el 19/11/2026): «atrás», como Esc en
+# la vista individual y como G en el mapa; «adelante», como Intro en la cuadrícula y el mapa
+_BACK_BUTTON = Qt.MouseButton.BackButton
+_FORWARD_BUTTON = Qt.MouseButton.ForwardButton
+_SIDE_BUTTONS = (_BACK_BUTTON, _FORWARD_BUTTON)
+_BUTTON_EVENTS = (
+    QEvent.Type.MouseButtonPress,
+    QEvent.Type.MouseButtonRelease,
+    QEvent.Type.MouseButtonDblClick,
+)
 
 
 class CenterViewController(QObject):
@@ -263,6 +282,8 @@ class CenterViewController(QObject):
     # -------------------------------------------------------------------------
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if event.type() in _BUTTON_EVENTS:
+            return self._on_side_button(event)
         if event.type() != QEvent.Type.KeyPress or event.modifiers() not in _NO_MODIFIER:
             return False
         key = event.key()
@@ -283,7 +304,7 @@ class CenterViewController(QObject):
         if key == _GRID_KEY:
             self._host.set_view(CenterView.GRID)
         elif key == _BACK_KEY:
-            self._show_view(self._single_back) or self._host.set_view(CenterView.GRID)
+            self._leave_single()
         elif key == _MAP_KEY:
             return self._show_view(CenterView.MAP)
         elif key in _STEP_KEYS:
@@ -295,6 +316,31 @@ class CenterViewController(QObject):
         else:
             return False  # el resto (atajos de clasificación...) sigue su camino
         return True
+
+    def _on_side_button(self, event: QEvent) -> bool:
+        """Botones «atrás» y «adelante» del ratón en la vista que está en pantalla.
+
+        Se queda con la pulsación (así no selecciona ni mueve nada) y actúa al soltar, como
+        los navegadores. Llegan desde cualquier punto de la vista: la cuadrícula y la tira
+        los dejan pasar ('MediaGridView') y el mapa los reenvía a su página ('_WebView').
+        """
+        if event.button() not in _SIDE_BUTTONS:
+            return False
+        if event.type() != QEvent.Type.MouseButtonRelease:
+            return True
+        view = self._shown
+        if event.button() == _BACK_BUTTON:
+            if view == CenterView.SINGLE:
+                self._leave_single()
+            elif view == CenterView.MAP:
+                self._show_view(CenterView.GRID)
+        elif view in (CenterView.GRID, CenterView.MAP):
+            self.open_single()
+        return True
+
+    def _leave_single(self) -> None:
+        """Sale de la vista individual a la vista de la que se vino (Esc y «atrás»)."""
+        self._show_view(self._single_back) or self._host.set_view(CenterView.GRID)
 
     def _show_view(self, view: CenterView) -> bool:
         """Pasa a esa vista si el módulo la ofrece. False (y nada cambia) si no."""
@@ -752,6 +798,67 @@ if __name__ == "__main__":
     assert host.view is CenterView.GRID
     press(strip, _KEY.Key_G)  # fuera del mapa, la tira no hace nada
     assert host.view is CenterView.GRID
+
+    # Botones laterales del ratón (19/11/2026): «adelante», la vista individual; «atrás»,
+    # de vuelta a la vista de la que se vino y, en el mapa, a la cuadrícula
+    from qtpy.QtCore import QPoint, QPointF
+    from qtpy.QtGui import QMouseEvent
+
+    def mouse_click(widget: QWidget, button: Qt.MouseButton, at: QPoint | None = None) -> None:
+        """Pulsa y suelta un botón del ratón sobre el widget (en 'at'; si no, cerca de la
+        esquina)."""
+        position = QPointF(at if at is not None else QPoint(4, 4))
+        for kind, held in (
+            (QEvent.Type.MouseButtonPress, button),
+            (QEvent.Type.MouseButtonRelease, Qt.MouseButton.NoButton),
+        ):
+            QApplication.sendEvent(
+                widget,
+                QMouseEvent(kind, position, position, button, held, Qt.KeyboardModifier.NoModifier),
+            )
+
+    selection.setCurrentIndex(model.index(1, 0), QItemSelectionModel.SelectionFlag.ClearAndSelect)
+    mouse_click(grid, _FORWARD_BUTTON)
+    assert host.view is CenterView.SINGLE and selected_rows() == [1]
+    mouse_click(single, _FORWARD_BUTTON)  # ya en ella: nada
+    assert host.view is CenterView.SINGLE
+    mouse_click(single, _BACK_BUTTON)
+    assert host.view is CenterView.GRID and selected_rows() == [1]
+    mouse_click(grid, _BACK_BUTTON)  # en la cuadrícula, «atrás» no hace nada
+    assert host.view is CenterView.GRID
+    host.set_view(CenterView.MAP)
+    mouse_click(page_map, _FORWARD_BUTTON)
+    assert host.view is CenterView.SINGLE and selected_rows() == [1]
+    mouse_click(single, _BACK_BUTTON)
+    assert host.view is CenterView.MAP  # vuelve al mapa, de donde se vino
+    mouse_click(page_map, _BACK_BUTTON)
+    assert host.view is CenterView.GRID
+    # El botón izquierdo sigue su camino (el zoom de la vista individual lo usa)
+    left = QMouseEvent(
+        QEvent.Type.MouseButtonPress, QPointF(4, 4), QPointF(4, 4), Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+    )  # fmt: skip
+    assert map_controller.eventFilter(single, left) is False
+    # La tira (una 'MediaGridView', como la cuadrícula): el botón lateral no selecciona la
+    # tarjeta de debajo; sube de su 'viewport' a la tira, donde se atiende
+    map_controller.watch_map_widget(filmstrip)
+    model.fill([10, 20, 30, 40])
+    filmstrip.resize(900, 200)
+    filmstrip.show()  # plataforma 'offscreen': no se ve nada
+    QApplication.processEvents()
+    card = filmstrip.visualRect(model.index(2, 0)).center()
+    mouse_click(filmstrip.viewport(), Qt.MouseButton.LeftButton, card)
+    assert selected_rows() == [2], selected_rows()  # el sitio es el de la tarjeta 2
+    selection.setCurrentIndex(model.index(0, 0), QItemSelectionModel.SelectionFlag.ClearAndSelect)
+    host.set_view(CenterView.MAP)
+    mouse_click(filmstrip.viewport(), _FORWARD_BUTTON, card)
+    assert host.view is CenterView.SINGLE and selected_rows() == [0], selected_rows()
+    mouse_click(single, _BACK_BUTTON)
+    assert host.view is CenterView.MAP
+    mouse_click(filmstrip.viewport(), _BACK_BUTTON, card)
+    assert host.view is CenterView.GRID and selected_rows() == [0], selected_rows()
+    filmstrip.hide()
+    print("Botones laterales del ratón: «adelante» entra y «atrás» vuelve; no seleccionan")
 
     window.deleteLater()
     print("Autoprueba finalizada correctamente.")
