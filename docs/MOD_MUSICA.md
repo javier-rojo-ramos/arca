@@ -20,7 +20,7 @@
 | Marca de cambio pendiente | Sigue siendo un bit por campo (`metadata_edit_pending`); se revisa con Vídeo |
 | Valoración, marca, color y palabras clave | En el `.arca.json` de la carpeta, como hasta ahora (POPM, por decidir más adelante) |
 | Dónde se guarda lo editado | **En el propio archivo de audio, sin generar copias** (como Mp3tag): regla nueva de los archivos del usuario, [CLAUDE.md](../CLAUDE.md) |
-| Renombrar archivos (etiqueta → nombre) | Aparte y más adelante (`MUS 8.3`): mover o renombrar originales sigue sin hacerse |
+| Renombrar archivos (etiqueta → nombre) | Aparte y más adelante (`MUS 8.3`), con el motor de renombrar y mover de `CAT 4` (acordado el 19/11/2026) |
 
 ---
 

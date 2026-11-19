@@ -125,7 +125,7 @@ Paso a paso y la ventana (`RemoveDialog`): [FLUJOS.md](FLUJOS.md) §13.
 | Disponibilidad | `availability.py`, `missing_items.py` |
 | Colecciones y reglas | `system_collections.py`, `user_collections.py`, `smart_fields.py`, `smart_rules.py` |
 | Qué muestra la cuadrícula | `grid_source.py`, `media_queries.py`, `grid_orders.py`, `grid_filter.py` |
-| Quitar y eliminar | `media_removal.py`, `folder_removal.py` |
+| Quitar y eliminar | `media_removal.py`, `folder_removal.py`, `empty_folders.py` (carpetas vacías, `CAT 3`) |
 | Módulo y barra | `controllers/app_modules/catalog_module.py`, `ui_helpers/sidebars/catalog_sidebar.py`, `controllers/collection_actions.py`, `controllers/folder_actions.py` |
 | Base de datos y trabajos | `core/database/db_manager.py`, `core/workers/job_manager.py` |
 
@@ -152,6 +152,8 @@ Lo que falta, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí está la li
 | `CAT 1.1` | Añadir archivos sueltos | Hoy solo carpetas completas; `action_add_files` está sin conectar. Lo necesita también un track nuevo creado en Tracks |
 | `CAT 1.2` | Fusión de ubicaciones solapadas | Hoy se rechazan |
 | `CAT 2` | Hashes: duplicados, comprobación de integridad y reasociar un archivo renombrado fuera | Columnas `hash_partial`, `hash_full`, `hash_verified_at`; pasos por definir |
+| `CAT 3` | Carpetas vacías, como en Lightroom: al quitar del catálogo una carpeta cuyos archivos ya no están y al enviar a la Papelera los últimos de una carpeta, la carpeta también se borra del disco | Acordado el 19/11/2026; reglas en [DECISIONES.md](DECISIONES.md). En curso |
+| `CAT 4` | Operaciones con archivos: renombrar un archivo o una carpeta, nueva carpeta, mover (en el mismo disco y entre discos) y renombrado múltiple, con el catálogo al día y un registro de operaciones | Acordado el 19/11/2026 (cambia la regla de los originales); después de `CAT 3` |
 
 ### Fases de otras categorías que afectan al Catálogo
 

@@ -17,6 +17,7 @@
 
 ## En curso
 
+- **CATÁLOGO** (19/11/2026): `CAT 3` (carpetas vacías, como en Lightroom) y, después, `CAT 4` (renombrar y mover archivos y carpetas, con registro de operaciones).
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
@@ -147,6 +148,26 @@ Cómo funciona hoy y dónde está cada cosa: [MOD_CATALOGO.md](MOD_CATALOGO.md).
 - Comprobación de integridad.
 - Reasociar un archivo renombrado fuera de la aplicación.
 
+### Fase CAT 3 — Carpetas vacías
+
+Acordado con el autor el 19/11/2026 (reglas en [DECISIONES.md](DECISIONES.md)): como en Lightroom Classic, una carpeta del catálogo que se queda vacía en el disco se borra también del disco (lo que sobra, a la Papelera; la carpeta, con `os.rmdir`).
+
+- ~~**CAT 3.1** El núcleo, sin interfaz: `core/catalog/empty_folders.py` (qué carpetas están vacías y borrarlas), con autoprueba~~ (hecho el 19/11/2026).
+- **CAT 3.2** «Quitar del catálogo…» de una carpeta cuyos archivos ya no están en el disco: también la carpeta, con un párrafo en el aviso.
+- **CAT 3.3** «Eliminar del disco»: la carpeta que se queda vacía, también a la Papelera, con una línea en la ventana «Eliminar».
+
+### Fase CAT 4 — Operaciones con archivos
+
+Acordado con el autor el 19/11/2026 (cambia la regla de los originales: [DECISIONES.md](DECISIONES.md)). Renombrar y mover desde la aplicación con el catálogo al día: el `id` no cambia, así que se conservan valoración, palabras clave, colecciones y miniaturas; con el archivo van su `.xmp` y su entrada del `.arca.json`. Con el patrón de «Eliminar» (plan, aviso, trabajo y refresco) y un **registro de operaciones** (una migración) para lo que quede a medias si la aplicación se cierra.
+
+- **CAT 4.1** El núcleo, sin interfaz (`core/file_ops/`): validar nombres (Windows, macOS y Linux), el plan y la ejecución (archivo, `.xmp`, entrada del `.arca.json`, catálogo y estado de la barra), el registro de operaciones y su revisión al abrir el catálogo; con autoprueba.
+- **CAT 4.2** Renombrar un archivo («Cambiar nombre…», F2).
+- **CAT 4.3** Renombrar una carpeta (la raíz de una ubicación, en un paso aparte).
+- **CAT 4.4** «Nueva carpeta…» y mover archivos en el mismo disco (arrastrar a «Carpetas» y «Mover a…»).
+- **CAT 4.5** Mover entre discos (copiar, comprobar y borrar el original).
+- **CAT 4.6** Renombrado múltiple con plantilla (también para `MUS 8.3`).
+- Después: deshacer renombrar y mover con Ctrl+Z (`GEN 1`).
+
 ### Mejoras menores (CATÁLOGO)
 
 - **Barra lateral y colecciones**: mover colecciones entre conjuntos arrastrando; «Orden personalizado» en las colecciones estáticas (`collection_items.position`); exportar e importar colecciones, o que sobrevivan a recrear el catálogo (hoy solo están en la BD); «Clasificación» del sistema con «≥» en lugar de «=»; «Duplicar» una colección del sistema como inteligente del usuario; campo «Colección» (pertenencia) en las inteligentes; «Guardar la selección rápida como colección»; «Últimos archivos añadidos» en la sección Catálogo.
@@ -228,7 +249,7 @@ En el propio archivo, sin generar copias (regla del 16/11/2026). Sin interfaz: s
 
 - **MUS 8.1** Numerar pistas, mayúsculas y minúsculas, buscar y reemplazar.
 - **MUS 8.2** Nombre de archivo → etiqueta.
-- **MUS 8.3** Etiqueta → nombre de archivo (renombra originales: con su decisión, M6).
+- **MUS 8.3** Etiqueta → nombre de archivo (renombra originales: con el motor de `CAT 4`, M6).
 
 ### Fase MUS 9 — Carátulas: cambiarlas y guardarlas
 

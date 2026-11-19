@@ -209,6 +209,7 @@ core/
     folder_tree.py                     Árbol de carpetas con recuentos (fetch_folder_tree, build_folder_tree, sort_key natural)
     missing_items.py                   Contar y quitar del catálogo los ausentes de una carpeta (y sus miniaturas)
     folder_removal.py                  Quitar del catálogo una carpeta entera (y, si es la raíz, su ubicación): count_folder_items, remove_folder_from_catalog (trabajo; usa remove_media_items)
+    empty_folders.py                   Carpetas del catálogo que se han quedado vacías en el disco (CAT 3): candidate_folders, plan_empty_folders, remove_empty_folders (lo que sobra, a la Papelera; la carpeta, con os.rmdir); sin BD ni Qt
     media_removal.py                   Eliminar: plan_removal (qué puede ir a la papelera: no los ausentes, desconectados ni en red), remove_media_items (trabajo: quitar del catálogo y, si se pide, papelera + sidecar del RAW + entrada del .arca.json), is_network_path
     catalog_schema.py                  Esquema SQL: MIGRATIONS, apply_migrations, configure_connection
     catalog_builder.py                 CatalogBuilder: crea carpetas + catalogo.db (WAL) + esquema

@@ -43,6 +43,7 @@ python -m core.catalog.catalog_opener
 python -m core.catalog.catalog_schema
 python -m core.catalog.catalog_writer
 python -m core.catalog.color_labels
+python -m core.catalog.empty_folders
 python -m core.catalog.filter_presets
 python -m core.catalog.folder_importer
 python -m core.catalog.folder_removal
