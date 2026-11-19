@@ -16,7 +16,7 @@
 | Archivos ausentes y ubicaciones desconectadas | Hecho y verificado; la detección con el catálogo abierto, por comprobar |
 | Barra: Catálogo, Carpetas y Colecciones | Hecho y verificado |
 | Colecciones: del sistema, conjuntos, estáticas e inteligentes (con grupos de reglas) | Hecho y verificado |
-| Quitar del catálogo y eliminar del disco (papelera) | Hecho y verificado; unidades de red y la papelera real, sin probar |
+| Quitar del catálogo y eliminar del disco (papelera) | Hecho y verificado; unidades de red y la papelera real, sin probar. Las carpetas que se quedan vacías se eliminan también del disco (`CAT 3`, 19/11/2026): a verificar |
 | Vista de mapa (ver y seleccionar) | Hecho y verificado |
 | Archivos sueltos, fusión de ubicaciones, duplicados (hashes) | Pendiente (`CAT 1`, `CAT 2`) |
 
@@ -109,7 +109,7 @@ Son los comunes a todos los módulos:
 | Orden | Qué hace | Dónde |
 |---|---|---|
 | «Eliminar del catálogo» | Quita los archivos del catálogo; siguen en su carpeta y vuelven al sincronizar | `media_removal.py` |
-| «Eliminar del disco» | Además, los envía a la Papelera (con el sidecar de un RAW). Los ausentes, los de una ubicación desconectada y los de una unidad de red solo se quitan del catálogo | `media_removal.py`; la papelera se le pasa como función desde la interfaz |
+| «Eliminar del disco» | Además, los envía a la Papelera (con el sidecar de un RAW). Los ausentes, los de una ubicación desconectada y los de una unidad de red solo se quitan del catálogo. La carpeta que se queda vacía (y sin nada en el catálogo) se elimina también del disco, con su línea en la ventana (`CAT 3.3`, como Lightroom) | `media_removal.py`, `empty_folders.py`; la papelera se le pasa como función desde la interfaz |
 | «Quitar del catálogo…» (carpeta o ubicación) | Quita esa carpeta entera, también desconectada; los archivos del disco no se tocan. Las carpetas que ya no tienen archivos en el disco se eliminan también del disco, con su aviso (`CAT 3.2`, como Lightroom) | `folder_removal.py`, `empty_folders.py` |
 | «Quitar archivos ausentes del catálogo» | Borra del catálogo los ausentes de una carpeta | `missing_items.py` |
 
@@ -152,8 +152,7 @@ Lo que falta, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí está la li
 | `CAT 1.1` | Añadir archivos sueltos | Hoy solo carpetas completas; `action_add_files` está sin conectar. Lo necesita también un track nuevo creado en Tracks |
 | `CAT 1.2` | Fusión de ubicaciones solapadas | Hoy se rechazan |
 | `CAT 2` | Hashes: duplicados, comprobación de integridad y reasociar un archivo renombrado fuera | Columnas `hash_partial`, `hash_full`, `hash_verified_at`; pasos por definir |
-| `CAT 3` | Carpetas vacías, como en Lightroom: al quitar del catálogo una carpeta cuyos archivos ya no están y al enviar a la Papelera los últimos de una carpeta, la carpeta también se borra del disco | Acordado el 19/11/2026; reglas en [DECISIONES.md](DECISIONES.md). En curso |
-| `CAT 4` | Operaciones con archivos: renombrar un archivo o una carpeta, nueva carpeta, mover (en el mismo disco y entre discos) y renombrado múltiple, con el catálogo al día y un registro de operaciones | Acordado el 19/11/2026 (cambia la regla de los originales); después de `CAT 3` |
+| `CAT 4` | Operaciones con archivos: renombrar un archivo o una carpeta, nueva carpeta, mover (en el mismo disco y entre discos) y renombrado múltiple, con el catálogo al día y un registro de operaciones | Acordado el 19/11/2026 (cambia la regla de los originales). Es lo siguiente: `CAT 3` (las carpetas vacías) se hizo el 19/11/2026 |
 
 ### Fases de otras categorías que afectan al Catálogo
 

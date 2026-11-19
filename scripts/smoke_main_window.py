@@ -15,7 +15,9 @@ unas fotos inventadas, y recorre lo que conecta el controlador:
     7. quitar del catálogo una subcarpeta cuya foto se borró fuera (CAT 3.2): el aviso dice
        que la carpeta se eliminará del disco y se elimina (lo que sobra, a una papelera
        simulada, nunca a la del sistema);
-    8. cerrar.
+    8. «Eliminar del disco» la única foto de otra subcarpeta (CAT 3.3): la foto, a la
+       papelera simulada, y la carpeta, eliminada;
+    9. cerrar.
 
 Falla si algo no llega a tiempo, si sale un aviso de error («critical») o si una excepción
 llega a 'sys.excepthook' (en la aplicación, una excepción en un slot de Qt solo se apunta en
@@ -24,7 +26,7 @@ el registro). Los cuadros de mensaje no se abren: se apuntan y se responde lo pr
 Es la comprobación de fondo de las refactorizaciones del controlador (docs/PENDIENTE.md,
 GEN 15): se lanza antes y después, además de 'run_selftests.py'. Usa partes internas de la
 ventana ('folder_import.start', 'remove_actions.request_remove') y sustituye
-'MessageBoxHelper' en el módulo del controlador, 'RemoveDialog' en el de
+'MessageBoxHelper' en el módulo del controlador, 'RemoveDialog' y 'move_to_trash' en el de
 'remove_actions.py' y 'move_to_trash' en el de 'folder_actions.py': si una refactorización
 los mueve a otro módulo, hay que cambiar aquí dónde se sustituyen.
 
@@ -37,6 +39,8 @@ Uso (desde la raíz del proyecto, con el Python de .venv; necesita ExifTool para
 
 Termina con código 0 si todo va bien y 1 si algo falla.
 
+1.3.0 Paso nuevo: «Eliminar del disco» la única foto de una carpeta (CAT 3.3), con la
+      papelera de 'remove_actions' también simulada.
 1.2.0 Paso nuevo: quitar del catálogo una carpeta vacía en el disco (CAT 3.2), con la
       papelera de 'folder_actions' sustituida por una simulada.
 1.1.0 Paso nuevo: sincronizar con una foto borrada fuera (resumen y quitar la ausente).
@@ -45,7 +49,7 @@ Termina con código 0 si todo va bien y 1 si algo falla.
 1.0.0 Primera versión (18/11/2026), con GEN 15.1.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["main", "run"]
 
 # Librerías estándar
@@ -153,12 +157,14 @@ def run(work_dir: Path) -> None:
             shown.append(("question", text))
             return buttons[0] if buttons else None
 
+    remove_answer = {"to_trash": False}  # lo que responde la ventana «Eliminar»
+
     class CatalogOnlyRemoveDialog:
-        """La ventana «Eliminar», respondiendo siempre «Eliminar del catálogo»."""
+        """La ventana «Eliminar»: «Eliminar del catálogo», salvo que se pida el disco."""
 
         @staticmethod
         def ask(_parent: object, _plan: object) -> bool:
-            return False
+            return remove_answer["to_trash"]
 
     trash_dir = work_dir / "Papelera"
     trash_dir.mkdir()
@@ -171,6 +177,7 @@ def run(work_dir: Path) -> None:
 
     mwc.MessageBoxHelper = QuietMessageBox  # la ventana crea el suyo con esta clase
     remove_actions.RemoveDialog = CatalogOnlyRemoveDialog  # (antes de crear la ventana)
+    remove_actions.move_to_trash = fake_trash
     folder_actions.move_to_trash = fake_trash
 
     def run_until(condition: Callable[[], bool], seconds: float, label: str) -> None:
@@ -309,6 +316,9 @@ def run(work_dir: Path) -> None:
     empty = library / "Vacia"
     empty.mkdir()
     Image.new("RGB", (64, 48), (200, 90, 40)).save(empty / "suelta.jpg")
+    alone = library / "Sola"  # para el paso 8
+    alone.mkdir()
+    Image.new("RGB", (64, 48), (40, 200, 90)).save(alone / "unica.jpg")
     window.folder_import.request_sync(str(library))
     run_until(
         lambda: query("SELECT 1 FROM media_items WHERE relative_path = 'Vacia/suelta.jpg'"),
@@ -332,7 +342,21 @@ def run(work_dir: Path) -> None:
         raise SmokeError(f"A la papelera simulada fue {trashed}, en lugar de 'Thumbs.db'")
     print("7. Quitar una carpeta vacía en el disco: del catálogo y del disco")
 
-    # 8. Cerrar
+    # 8. «Eliminar del disco» la única foto de una subcarpeta: la foto va a la papelera
+    #    simulada y la carpeta, que se queda vacía, se elimina
+    ((alone_id,),) = query("SELECT id FROM media_items WHERE relative_path = 'Sola/unica.jpg'")
+    remove_answer["to_trash"] = True
+    window.remove_actions.request_remove([alone_id])
+    run_until(lambda: not alone.exists(), TIMEOUT_SHORT, "eliminar del disco y la carpeta vacía")
+    run_until(idle, TIMEOUT_SHORT, "fin de eliminar del disco")
+    remove_answer["to_trash"] = False
+    if query(f"SELECT 1 FROM media_items WHERE id = {alone_id}"):
+        raise SmokeError("La foto eliminada del disco sigue en el catálogo")
+    if trashed != ["Thumbs.db", "unica.jpg"]:
+        raise SmokeError(f"A la papelera simulada fue {trashed}")
+    print("8. Eliminar del disco la única foto de una carpeta: la foto y la carpeta")
+
+    # 9. Cerrar
     window.close()
     app.processEvents()
     if jobs.is_attached:
@@ -340,7 +364,7 @@ def run(work_dir: Path) -> None:
     errors = [text for kind, text in shown if kind == "critical"]
     if errors or exceptions:
         raise SmokeError(f"Errores: {errors or exceptions}")
-    print(f"8. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
+    print(f"9. Cerrar (mensajes apuntados, sin abrirse: {[kind for kind, _ in shown]})")
     window.deleteLater()
     app.processEvents()
 

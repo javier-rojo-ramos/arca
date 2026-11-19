@@ -24,6 +24,8 @@ Uso (en el controlador principal, que solo lo crea y lo conecta):
     )
     self.grid_actions.remove_requested.connect(self.remove_actions.request_remove)
 
+1.2.0 «Eliminar del disco» pasa al trabajo las carpetas que se quedan vacías, las que
+      anunció la ventana ('RemovalPlan.empty_folders', CAT 3.3).
 1.1.0 'start_removal_job' pasa al trabajo los argumentos con nombre (las carpetas vacías
       y la papelera de «Quitar del catálogo…», CAT 3.2).
 1.0.0 Primera versión (GEN 15.3): el código de 'main_window_controller.py', movido.
@@ -32,7 +34,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.remove_actions
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["REMOVE_FAILED_LIST_MAX", "RemoveActions", "failed_trash_text"]
 
 # Librerías estándar
@@ -166,13 +168,15 @@ class RemoveActions(QObject):
             self._jobs.schedule_write()
             return
 
-        # Con la papelera no se escribe antes lo pendiente: el archivo se va
+        # Con la papelera no se escribe antes lo pendiente: el archivo se va; y se borran las
+        # carpetas que se quedan vacías, las que anunció la ventana (CAT 3.3)
         self._jobs.start_removal(
             remove_media_items,
             media_ids,
             to_trash=to_trash,
             trash=move_to_trash if to_trash else None,
             write_pending=None if to_trash else self._jobs.pending_writer(),
+            empty_folders=plan.empty_folders if to_trash else (),
         )
 
     def start_removal_job(
@@ -302,7 +306,10 @@ if __name__ == "__main__":
     assert jobs.log[0] == ("stop_write",)
     (_, job, args, kwargs) = jobs.log[1]
     assert job is remove_media_items and args == ([3, 4],)
-    assert kwargs == {"to_trash": False, "trash": None, "write_pending": "escribir-pendiente"}
+    assert kwargs == {
+        "to_trash": False, "trash": None, "write_pending": "escribir-pendiente",
+        "empty_folders": (),
+    }  # fmt: skip
     print("2. Eliminar del catálogo")
 
     # 3. «Eliminar del disco»: con la papelera y sin escribir antes (el archivo se va)
@@ -311,7 +318,7 @@ if __name__ == "__main__":
     actions.request_remove([5])
     kwargs = jobs.log[1][3]
     assert kwargs["to_trash"] is True and kwargs["trash"] is move_to_trash
-    assert kwargs["write_pending"] is None
+    assert kwargs["write_pending"] is None and kwargs["empty_folders"] == ()  # el plan, tal cual
     print("3. Eliminar del disco")
 
     # 4. «Cancelar» en la ventana: no se elimina y la escritura vuelve a programarse

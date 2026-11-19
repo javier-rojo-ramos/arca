@@ -27,6 +27,9 @@ Reglas:
       ausentes, desconectados o en una unidad de red); la explicación dice por qué.
     - Con una selección mixta, un aviso dice cuántos archivos solo se quitarán del
       catálogo aunque se pulse "Eliminar del disco", y por qué.
+    - Si con "Eliminar del disco" alguna carpeta se queda vacía, un párrafo lo dice: también
+      se eliminará del disco (CAT 3.3, como Lightroom; y si su '.arca.json' guarda datos de
+      archivos que ya no están, que irá a la papelera).
 
 Prueba suelta (sin el resto de la aplicación):
     python -m ui_helpers.dialogs.remove_dialog
@@ -36,14 +39,15 @@ Uso:
     if to_trash is not None:
         ...  # False = eliminar del catálogo; True = también del disco (papelera)
 
+1.2.0 Párrafo de las carpetas que se quedarán vacías con "Eliminar del disco" (CAT 3.3).
 1.1.1 Sin el icono de la aplicación junto al título (decidido por el autor; más adelante,
       quizá un icono de papelera: iría en '__init__', a la izquierda de 'texts').
 1.1.0 Diseño como Lightroom: título, explicación y un botón por acción (antes, dos
       opciones y un botón de confirmar).
 """
 
-__version__ = "1.1.1"
-__all__ = ["RemoveDialog"]
+__version__ = "1.2.0"
+__all__ = ["RemoveDialog", "empty_folders_text", "explanation_text"]
 
 # Librerías estándar
 import sys
@@ -73,6 +77,9 @@ CANCEL_BUTTON_TEXT = "Cancelar"
 # El título va algo más grande que el texto normal (puntos de diferencia)
 _TITLE_EXTRA_POINTS = 3
 
+# Carpetas que se nombran, como mucho, en el párrafo de las que se quedan vacías
+_EMPTY_FOLDER_NAMES_MAX = 3
+
 
 def explanation_text(plan: RemovalPlan) -> str:
     """Explicación de la ventana según cuántos archivos son y si pueden ir a la papelera.
@@ -96,6 +103,51 @@ def explanation_text(plan: RemovalPlan) -> str:
         f"{keep} Elige «{DISK_BUTTON_TEXT}» para {target} también a {TRASH_NAME} "
         f"(con el sidecar .xmp {sidecar})."
     )
+
+
+def empty_folders_text(plan: RemovalPlan) -> str:
+    """Párrafo de las carpetas que se quedarán vacías con «Eliminar del disco» ('' si ninguna).
+
+    Está fuera de la clase para poder probarlo sin abrir ninguna ventana.
+    """
+    names = plan.empty_folder_names if plan.can_trash else ()
+    if not names:
+        return ""
+    if len(names) == 1:
+        text = (
+            f"Con «{DISK_BUTTON_TEXT}», la carpeta «{names[0]}» se quedará vacía y también "
+            "se eliminará del disco."
+        )
+    else:
+        shown = [f"«{name}»" for name in names[:_EMPTY_FOLDER_NAMES_MAX]]
+        more = len(names) - len(shown)
+        if more:
+            listed = ", ".join(shown) + f" y {more} más"
+        else:
+            listed = ", ".join(shown[:-1]) + f" y {shown[-1]}"
+        text = (
+            f"Con «{DISK_BUTTON_TEXT}», {len(names)} carpetas se quedarán vacías y también "
+            f"se eliminarán del disco: {listed}."
+        )
+    items = plan.empty_folder_items
+    if items:
+        folder_files = sum(
+            1
+            for location in plan.empty_folders
+            for folder in location.folders
+            if folder.folder_file_items
+        )
+        if folder_files == 1:
+            what = "Su archivo .arca.json, que guarda"
+        else:
+            what = f"Sus {folder_files} archivos .arca.json, que guardan"
+        files = "1 archivo que ya no está" if items == 1 else f"{items} archivos que ya no están"
+        verb = "irá" if folder_files == 1 else "irán"
+        text += (
+            f" {what} los datos (valoración, palabras clave...) de {files} en el disco, "
+            f"{verb} a {TRASH_NAME}."
+        )
+    return text
 
 
 class RemoveDialog(QDialog):
@@ -134,6 +186,14 @@ class RemoveDialog(QDialog):
         explanation = QLabel(explanation_text(plan))
         explanation.setWordWrap(True)
         texts.addWidget(explanation)
+
+        # --- Carpetas que se quedarán vacías con "Eliminar del disco" (CAT 3.3) ---
+        folders = empty_folders_text(plan)
+        if folders:
+            texts.addSpacing(6)
+            folders_label = QLabel(folders)
+            folders_label.setWordWrap(True)
+            texts.addWidget(folders_label)
 
         # --- Aviso: con una selección mixta, lo que no puede ir a la papelera ---
         warning = plan.catalog_only_text() if plan.can_trash else ""
@@ -202,6 +262,33 @@ if __name__ == "__main__":
     network_only = RemovalPlan(total=1, trashable=0, catalog_only={REASON_NETWORK: 1})
     assert "1 archivo solo se puede quitar del catálogo" in explanation_text(network_only)
     print("Textos: correctos")
+
+    # Carpetas que se quedarán vacías (CAT 3.3)
+    from pathlib import Path
+
+    from core.catalog.empty_folders import EmptyFolder, EmptyFolderPlan
+
+    def with_folders(*folders: EmptyFolder, trashable: int = 2) -> RemovalPlan:
+        plan = EmptyFolderPlan(Path("."), folders)
+        return RemovalPlan(total=2, trashable=trashable, empty_folders=(plan,))
+
+    assert empty_folders_text(mixed) == ""
+    one_folder = with_folders(EmptyFolder("2024/Viaje/sub"), EmptyFolder("2024/Viaje"))
+    assert empty_folders_text(one_folder) == (
+        f"Con «{DISK_BUTTON_TEXT}», la carpeta «Viaje» se quedará vacía y también se eliminará "
+        "del disco."
+    ), empty_folders_text(one_folder)
+    two = with_folders(EmptyFolder("B"), EmptyFolder("A", (), 2))
+    assert "2 carpetas se quedarán vacías y también se eliminarán del disco: «A» y «B»." in (
+        empty_folders_text(two)
+    ), empty_folders_text(two)
+    assert "Su archivo .arca.json, que guarda los datos (valoración, palabras clave...) de 2 " \
+        "archivos que ya no están en el disco, irá a" in empty_folders_text(two)
+    five = with_folders(*(EmptyFolder(name) for name in "EDCBA"))
+    assert empty_folders_text(five).endswith(": «A», «B», «C» y 2 más."), empty_folders_text(five)
+    assert empty_folders_text(with_folders(EmptyFolder("A"), trashable=0)) == ""
+    print("Carpetas vacías: textos correctos")
+    print(f"--- Ejemplo ---\n{empty_folders_text(two)}\n---")
 
     app = QApplication(sys.argv)
     print(f"Selección mixta: {RemoveDialog.ask(None, mixed)!r}")
