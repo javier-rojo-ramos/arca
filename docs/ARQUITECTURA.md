@@ -219,7 +219,7 @@ core/
     catalog_builder.py                 CatalogBuilder: crea carpetas + catalogo.db (WAL) + esquema
     catalog_opener.py                  open_catalog: valida un catálogo existente (marca APPLICATION_ID) y aplica sus migraciones
     storage_locations.py               register_folder (ubicaciones sin solapes), locate_folder (lo mismo, solo lectura), make_relative_path, refresh_location_status
-    availability.py                    check_availability: discos desconectados y archivos visibles que faltan o vuelven (sin Qt)
+    availability.py                    check_availability: discos desconectados (y cuáles han cambiado: switched_locations) y archivos visibles que faltan o vuelven (sin Qt)
     scan_filter.py                     ScanFilter: descarta basura, ocultos, temporales, enlaces
     media_detector.py                  MediaTypeDetector: tipo de medio y MIME (extensión, mimetypes, puremagic)
     folder_scanner.py                  FolderScanner: recorre carpetas y entrega ScanCandidate

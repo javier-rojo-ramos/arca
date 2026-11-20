@@ -17,7 +17,7 @@
 
 ## En curso
 
-- **CATÁLOGO** (19/11/2026): hechas `CAT 3` (carpetas vacías), `CAT 4.1` a `4.4` (renombrar y mover en el mismo disco, nueva carpeta) y `CAT 5` (el árbol replica las carpetas del disco, también las vacías; no estaba en el plan: pedida por el autor y hecha en un paso, detalle en [HISTORIAL.md](HISTORIAL.md)); todas, verificadas por el autor. Lo que queda de `CAT 4`: `4.5` (mover entre discos) y `4.6` (renombrado múltiple).
+- **CATÁLOGO** (19/11/2026): hechas `CAT 3` (carpetas vacías), `CAT 4.1` a `4.4` (renombrar y mover en el mismo disco, nueva carpeta) y `CAT 5` (el árbol replica las carpetas del disco, también las vacías; no estaba en el plan: pedida por el autor y hecha en un paso, detalle en [HISTORIAL.md](HISTORIAL.md)); todas, verificadas por el autor. Lo que queda de `CAT 4`: `4.5` (mover entre discos) y `4.6` (renombrado múltiple). En marcha (20/11/2026), `CAT 6` (carpetas que faltan y «Localizar…»): hecho el `6.1`; lo siguiente, el `6.2`.
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
@@ -165,6 +165,16 @@ Acordado con el autor el 19/11/2026 (cambia la regla de los originales: [DECISIO
 - **CAT 4.5** Mover entre discos (copiar, comprobar y borrar el original).
 - **CAT 4.6** Renombrado múltiple con plantilla (también para `MUS 8.3`).
 - Después: deshacer renombrar y mover con Ctrl+Z (`GEN 1`).
+
+### Fase CAT 6 — Carpetas que faltan y «Localizar…»
+
+Acordado con el autor el 20/11/2026 ([DECISIONES.md](DECISIONES.md)): que el árbol de «Carpetas» diga qué carpeta falta en el disco (borrada, renombrada o movida fuera de la aplicación) y qué ubicación está desconectada, y poder decirle al catálogo dónde están ahora. «Localizar…» solo cambia el catálogo, nunca el disco.
+
+- ~~**CAT 6.1** El árbol, al día al conectar o desconectar un disco con la aplicación abierta~~ (hecho el 20/11/2026; antes solo cambiaban las tarjetas).
+- **CAT 6.2** Marcar en el árbol (el del Catálogo y el de los módulos): la carpeta que falta, con el texto atenuado y el círculo naranja del aviso de las tarjetas, atenuado, sobre su icono (si no se ve bien, el círculo en lugar del icono); las de dentro, solo atenuadas; la ubicación desconectada, con el círculo gris sobre el icono del disco. Se sabe mirando el disco en segundo plano (al cargar el árbol y al volver a la ventana), en memoria, sin migración. El texto, en el emergente. Su menú: «Localizar…», «Quitar archivos ausentes del catálogo…» y «Quitar del catálogo…».
+- **CAT 6.3** «Localizar…» de una ubicación desconectada o movida (un disco externo con otra letra): cambia la ruta de su raíz (las de dentro son relativas), con el recuento de lo que se encuentra en la carpeta nueva antes de confirmar (si no hay nada, no se permite) y las reglas de añadir una carpeta (sin solapes); la ubicación pasa a llamarse como la carpeta nueva.
+- **CAT 6.4** «Localizar…» de una carpeta que falta: sus rutas en el catálogo (como la parte de catálogo de `CAT 4.3`), conservando los `id`. **Por decidir**: si la carpeta ya entró de nuevo al sincronizar la de encima, rechazarlo o fusionar.
+- Después, si hace falta: reconocer el disco por su identificador de volumen y proponer «Localizar…» solo cuando aparece con otra letra.
 
 ### Mejoras menores (CATÁLOGO)
 

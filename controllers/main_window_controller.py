@@ -1225,6 +1225,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         if result.rescan_needed:
             # Han vuelto archivos que cambiaron mientras faltaban: se releen
             self.job_coordinator.start_metadata()
+        if result.switched_locations and self.db is not None:
+            # Un disco se ha conectado o desconectado: el árbol de «Carpetas» lo muestra
+            # (atenuado y con su menú); sin esto, solo cambiaban las tarjetas
+            self._sidebar_refresh_timer.start()
 
     def _on_availability_check_finished(self) -> None:
         self._availability_check_running = False

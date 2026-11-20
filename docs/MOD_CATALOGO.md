@@ -87,7 +87,8 @@ La biblioteca se corrige a mano con el submenú «Biblioteca» de la cuadrícula
 
 - **Ausente**: el archivo ya no está donde estaba (`is_missing`). Se ve con su velo e indicador, conserva sus datos y vuelve solo si reaparece. «Quitar archivos ausentes del catálogo» los borra (`missing_items.py`).
 - **Sin conexión**: la ubicación entera no está (disco desconectado); sus archivos no se marcan ausentes (`storage_locations.refresh_location_status`).
-- **Con el catálogo abierto**: `availability.check_availability` comprueba cada pocos segundos, y al volver a la ventana, los archivos que desaparecen o vuelven.
+- **Con el catálogo abierto**: `availability.check_availability` comprueba cada pocos segundos, y al volver a la ventana, los archivos que desaparecen o vuelven; si un disco se conecta o desconecta, también se pone al día el árbol de «Carpetas» (`CAT 6.1`).
+- **En el árbol**: una ubicación desconectada se ve atenuada, con «(desconectada)» en el emergente y su menú reducido. Una carpeta borrada fuera de la aplicación todavía no se marca (`CAT 6.2`).
 
 ## 6. Colecciones
 
@@ -141,9 +142,9 @@ Todos los de la primera columna sin ruta están en `core/catalog/`. El mapa comp
 
 De [ESTADO.md](ESTADO.md):
 
-- **Verificado por el autor en Windows**: crear y abrir; añadir y sincronizar carpetas; ubicaciones sin solapes; ausentes y desconectadas; quitar ausentes; «Quitar del catálogo…»; las bibliotecas y la clasificación de los vídeos; la barra con sus tres secciones y su estado guardado; las colecciones, también las inteligentes con grupos; eliminar del catálogo y del disco; renombrar y mover archivos y carpetas en el mismo disco, crear carpetas y el árbol que replica el disco (`CAT 4` y `CAT 5`).
+- **Verificado por el autor en Windows**: crear y abrir; añadir y sincronizar carpetas; ubicaciones sin solapes; ausentes y desconectadas; quitar ausentes; «Quitar del catálogo…»; las bibliotecas y la clasificación de los vídeos; la barra con sus tres secciones y su estado guardado; las colecciones, también las inteligentes con grupos; eliminar del catálogo y del disco; renombrar y mover archivos y carpetas en el mismo disco, crear carpetas y el árbol que replica el disco (`CAT 4` y `CAT 5`); los casos difíciles (un archivo abierto en otro programa, una carpeta abierta en el Explorador, un RAW con su `.xmp`, nombres con acentos o solo cambios de mayúsculas, una carpeta borrada fuera).
 - **Sin probar**: cuadrícula con decenas de miles de tarjetas visibles a la vez; la detección de unidades de red en Windows y la papelera real; macOS y Linux.
-- **Comprobaciones sueltas** anotadas: un archivo abierto en otro programa al eliminar, archivos de una unidad de red, un RAW con su `.xmp` a la Papelera; abrir el editor de colecciones inteligentes con doble clic y reglas con cada tipo de valor; la detección de archivos que desaparecen o vuelven con el catálogo abierto.
+- **Comprobaciones sueltas** anotadas: archivos de una unidad de red; abrir el editor de colecciones inteligentes con doble clic y reglas con cada tipo de valor; la detección de archivos que desaparecen o vuelven con el catálogo abierto.
 
 ---
 
@@ -158,7 +159,8 @@ Lo que falta, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí está la li
 | `CAT 1.1` | Añadir archivos sueltos | Hoy solo carpetas completas; `action_add_files` está sin conectar. Lo necesita también un track nuevo creado en Tracks |
 | `CAT 1.2` | Fusión de ubicaciones solapadas | Hoy se rechazan |
 | `CAT 2` | Hashes: duplicados, comprobación de integridad y reasociar un archivo renombrado fuera | Columnas `hash_partial`, `hash_full`, `hash_verified_at`; pasos por definir |
-| `CAT 4` | Operaciones con archivos: renombrar un archivo o una carpeta, nueva carpeta, mover (en el mismo disco y entre discos) y renombrado múltiple, con el catálogo al día y un registro de operaciones | Acordado el 19/11/2026 (cambia la regla de los originales). Es lo siguiente: `CAT 3` (las carpetas vacías) se hizo el 19/11/2026 |
+| `CAT 4` | Operaciones con archivos: renombrar un archivo o una carpeta, nueva carpeta, mover (en el mismo disco y entre discos) y renombrado múltiple, con el catálogo al día y un registro de operaciones | Acordado el 19/11/2026 (cambia la regla de los originales). Hechos del `4.1` al `4.4`; quedan el `4.5` y el `4.6` |
+| `CAT 6` | Carpetas que faltan y «Localizar…»: el árbol, al día con los discos (`6.1`, hecho el 20/11/2026), marcar la carpeta que falta y la ubicación desconectada (`6.2`), localizar una ubicación (`6.3`) y una carpeta (`6.4`) | Acordado el 20/11/2026. «Localizar…» solo cambia el catálogo. Detalle en [PENDIENTE.md](PENDIENTE.md) |
 
 ### Fases de otras categorías que afectan al Catálogo
 

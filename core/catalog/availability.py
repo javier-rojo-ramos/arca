@@ -23,11 +23,17 @@ Qué hace con cada archivo comprobado (de una ubicación conectada):
           releer, igual que cuando lo detecta el escáner (metadatos, miniatura y hashes).
 Nunca toca los datos del usuario.
 
+Además, dice qué ubicaciones se han conectado o desconectado ('switched_locations'), para
+que el árbol de «Carpetas» se ponga al día: una sin archivos no cambia ninguna tarjeta.
+
+1.1.0 'AvailabilityCheck.switched_locations': las ubicaciones que se han conectado o
+      desconectado (para poner al día el árbol de «Carpetas»).
+
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.availability
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["AvailabilityCheck", "check_availability"]
 
 # Librerías estándar
@@ -53,10 +59,13 @@ class AvailabilityCheck:
             solo de los elementos cuyo estado ha cambiado.
         rescan_needed: Archivos que han vuelto, pero cambiados: quedan pendientes de
             releer (hay que lanzar la lectura de metadatos).
+        switched_locations: 'storage_locations.id' de las que se han conectado o
+            desconectado (hay que poner al día el árbol de «Carpetas»).
     """
 
     changes: dict[int, int] = field(default_factory=dict)
     rescan_needed: int = 0
+    switched_locations: tuple[int, ...] = ()
 
 
 def check_availability(
@@ -147,7 +156,7 @@ def check_availability(
                     rescan_needed += 1
                 changes[media_id] = AVAILABLE
 
-    return AvailabilityCheck(changes, rescan_needed)
+    return AvailabilityCheck(changes, rescan_needed, tuple(switched))
 
 
 if __name__ == "__main__":
@@ -197,12 +206,24 @@ if __name__ == "__main__":
         disk.rename(Path(tmp) / "Fuera")
         result = check_availability(db, [ids["b.jpg"]])
         assert result.changes == {ids["a.jpg"]: OFFLINE, ids["b.jpg"]: OFFLINE}, result
+        assert result.switched_locations == (1,), result
         assert db.execute("SELECT is_online FROM storage_locations").fetchone()[0] == 0
+        assert check_availability(db).switched_locations == ()  # ya constaba
 
         # 5. Se vuelve a conectar: cada uno recupera su estado (a.jpg seguía ausente)
         (Path(tmp) / "Fuera").rename(disk)
         result = check_availability(db)
         assert result.changes == {ids["a.jpg"]: MISSING, ids["b.jpg"]: AVAILABLE}, result
+        assert result.switched_locations == (1,), result
+
+        # 5b. Una ubicación sin archivos también avisa (el árbol la muestra atenuada)
+        empty = Path(tmp) / "Vacio"
+        empty.mkdir()
+        db.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('V', ?)", (str(empty),))
+        empty_id = db.execute("SELECT id FROM storage_locations WHERE name = 'V'").fetchone()[0]
+        empty.rmdir()
+        result = check_availability(db)
+        assert result.changes == {} and result.switched_locations == (empty_id,), result
 
         # 6. Vuelve un archivo ausente, pero distinto: presente y pendiente de releer
         (disk / "a.jpg").write_bytes(b"y" * 20)
