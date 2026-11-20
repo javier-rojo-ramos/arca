@@ -44,6 +44,8 @@ Qué hace (decidido por el autor el 13/11/2026):
       pasa del tope se borran las descargadas hace más tiempo, en segundo plano.
     - Tras un cambio hecho desde el inspector (p. ej. el GPS de una foto), lo que se
       pinta se vuelve a pedir ('refresh'), sin moverse: el marcador va a su sitio nuevo.
+      Con el mapa oculto, se pide igual, pero solo para la chincheta de las tarjetas de
+      la cuadrícula (si la llevan); el mapa se pinta al volver a él.
     - Miniaturas de los marcadores: las de 160 px de la caché del catálogo.
     - Tira de fotos debajo del mapa ('MapFilmstrip'): el modelo y la selección de la
       cuadrícula; se muestra u oculta con su botón (barra inferior, a la derecha del todo,
@@ -83,6 +85,9 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
     extra = controlador.save_state()     # al cerrarlo, con lo de los módulos
     controlador.apply_settings(claves_cambiadas)   # tras la ventana de opciones
 
+1.12.0 Con el mapa oculto, 'refresh' pone al día la chincheta de las tarjetas de la
+       cuadrícula ('_load_pins'): tras pegar unas coordenadas en el inspector no salía
+       hasta pasar por el mapa o recargar la cuadrícula (el autor, 20/11/2026).
 1.11.0 En un módulo sin vista individual (Tracks), doble clic, Intro y «adelante» en la
        cuadrícula hacen lo mismo que la chincheta ('CenterViewController.map_requested').
 1.10.0 Cada módulo vuelve a su encuadre del mapa (al arrancar, al volver de otro módulo)
@@ -118,7 +123,7 @@ Uso (en el controlador principal, que solo lo crea y le pasa el catálogo):
 1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 2.3).
 """
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 __all__ = ["MapController", "notice_text"]
 
 # Librerías estándar
@@ -248,6 +253,11 @@ def notice_text(rows: int, items: MapItems) -> str:
     return ""
 
 
+def _located_ids(items: MapItems) -> list[int]:
+    """Lo que lleva la chincheta: lo que sale en el mapa (los tracks, si tienen recorrido)."""
+    return [p.media_id for p in items.points] + [t.track_id for t in items.tracks if t.segments]
+
+
 class MapController(QObject):
     """Une el mapa con la cuadrícula, su selección y el catálogo (ver el docstring del archivo)."""
 
@@ -291,6 +301,8 @@ class MapController(QObject):
         self._undo: UndoHistory | None = None
         self._db: Any = None
         self._generation = 0  # las respuestas de una petición vieja se descartan
+        # Lo mismo para lo pedido solo por la chincheta, con el mapa oculto ('_load_pins')
+        self._pins_generation = 0
         self._dirty = True  # hay que volver a pedir lo que se pinta
         self._fitted_source: object = _NO_SOURCE  # el origen que se encuadró la última vez
         self._items: MapItems | None = None
@@ -398,10 +410,13 @@ class MapController(QObject):
 
     def refresh(self) -> None:
         """Vuelve a pedir lo que se pinta, sin moverse (p. ej. tras cambiar el GPS de una
-        foto en el inspector). Con el mapa oculto, se pedirá al volver a él."""
+        foto en el inspector). Con el mapa oculto, se pedirá al volver a él; mientras,
+        se pone al día la chincheta de las tarjetas de la cuadrícula."""
         self._dirty = True
         if self._shown():
             self._load()
+        else:
+            self._load_pins()
 
     def apply_settings(self, changed: set[str]) -> None:
         """Se han cambiado opciones (ventana de opciones): capas propias, tope de la caché,
@@ -429,6 +444,7 @@ class MapController(QObject):
         """Se cierra el catálogo: se olvida todo y se vacía el mapa."""
         self._db = None
         self._generation += 1  # lo que estuviera pidiéndose ya no se pinta
+        self._pins_generation += 1
         self._dirty = True
         self._fitted_source = _NO_SOURCE
         self._items = None
@@ -475,6 +491,8 @@ class MapController(QObject):
 
     def _on_model_reset(self) -> None:
         """La cuadrícula se ha recargado (otro origen, otro filtro, otro orden...)."""
+        # Las filas nuevas ya traen su chincheta: lo pedido para las de antes, fuera
+        self._pins_generation += 1
         self._dirty = True
         if self._shown():
             self._load()
@@ -516,10 +534,8 @@ class MapController(QObject):
             ]
         )
         view.set_tracks([MapTrack(t.track_id, t.name, t.segments) for t in items.tracks])
-        # La chincheta de la tira: lo que sale en el mapa (los tracks, si tienen recorrido)
-        self._model.set_located(
-            [p.media_id for p in items.points] + [t.track_id for t in items.tracks if t.segments]
-        )
+        # La chincheta de las tarjetas: lo que sale en el mapa
+        self._model.set_located(_located_ids(items))
         # Encuadre, antes de la selección (si se encuadra aquí, el track elegido no se
         # encuadra además):
         #   - lo pulsado con la chincheta de una tarjeta (sin animación: el mapa acaba de
@@ -637,6 +653,31 @@ class MapController(QObject):
         if getattr(delegate, "location_pin", wanted) != wanted:
             delegate.location_pin = wanted
             self._grid.viewport().update()
+
+    def _load_pins(self) -> None:
+        """Con el mapa oculto: pide lo mismo que pintaría el mapa, pero solo para poner al
+        día la chincheta de las tarjetas de la cuadrícula (p. ej. tras pegar unas
+        coordenadas en el inspector). Solo si la cuadrícula la lleva; el mapa sigue
+        pendiente de pintar ('_dirty') para cuando se vea."""
+        if self._db is None or not getattr(self._grid.itemDelegate(), "location_pin", False):
+            return
+        self._pins_generation += 1
+        self._db.execute_async(
+            fetch_map_items,
+            self._model.source,
+            self._model.filter_rules,
+            on_result=partial(self._on_pins, self._pins_generation),
+            on_error=partial(self._on_pins_error, self._pins_generation),
+        )
+
+    def _on_pins(self, generation: int, items: MapItems) -> None:
+        if self._db is None or generation != self._pins_generation:
+            return  # el catálogo se cerró, la cuadrícula se recargó o ya se pidió otra vez
+        self._model.set_located(_located_ids(items))
+
+    def _on_pins_error(self, generation: int, error: Exception) -> None:
+        if generation == self._pins_generation:
+            logger.error(f"Mapa: no se ha podido saber qué tarjetas tienen ubicación: {error}")
 
     def _on_location_clicked(self, index: QModelIndex) -> None:
         """Chincheta de una tarjeta (cuadrícula o tira): queda seleccionado solo ese archivo,
