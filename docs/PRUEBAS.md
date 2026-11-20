@@ -63,6 +63,7 @@ python -m core.catalog.media_queries
 python -m core.catalog.media_removal                           (papelera simulada: nunca toca la del sistema)
 python -m core.catalog.metadata_values                         (cada fila filtra lo que cuenta)
 python -m core.catalog.missing_items
+python -m core.catalog.relocation                             («Localizar...» una ubicación: carpetas de verdad, la muestra, los solapes, la del catálogo, el disco que vuelve entre medias)
 python -m core.catalog.scan_filter
 python -m core.catalog.selection_metadata
 python -m core.catalog.selection_summary
@@ -133,6 +134,7 @@ python -m controllers.center_view_controller                   (página, botones
 python -m controllers.filter_controller                        (barra <-> filtro con un host de mentira, Ctrl+L, Ctrl+F, fila de Texto, vista individual; sin ventana)
 python -m controllers.filter_preset_controller                 (ajustes del módulo, el que coincide, elegir, restaurar, guardar y reemplazar, con host y configuración de mentira y las preguntas cambiadas; sin ventana)
 python -m controllers.folder_actions                           (solo el texto del aviso)
+python -m controllers.locate_actions                           («Localizar...»: algo en marcha, cancelar, ninguno, no existe, localizar, el disco que vuelve; selector y mensajes de mentira, base de datos y carpetas de verdad; sin ventana)
 python -m controllers.sidebar_visibility                       (barras laterales: lo guardado, el menú y F7/F8, Tab también en un campo de texto, el teclado al ocultar, «Ocultar barra»; sin ventana)
 python -m controllers.undo_history                             (el historial de deshacer: orden, tope, vaciar, Ctrl+Z en la ventana; sin ventana)
 python -m controllers.track_profile_controller                 (la banda del perfil: ninguno, varios, uno, el que llega, el mismo otra vez, el que falla y por qué, de la memoria, el botón, no disponible, el alto y lo guardado; la sincronización con un mapa de mentira: punto ámbar en los dos sentidos, no con el contorno, el tramo, Esc; con la página de verdad y un lector de mentira; sin ventana)

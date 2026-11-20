@@ -23,7 +23,9 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula):
       'sync_folder_requested(ruta)', "Mostrar en el Explorador" emite
       'reveal_folder_requested(ruta)' y "Quitar archivos ausentes del catálogo" emite
       'remove_missing_requested(ubicación, carpeta)' y "Quitar del catálogo" emite
-      'remove_folder_requested(ubicación, carpeta, nombre)'. Los atiende el controlador.
+      'remove_folder_requested(ubicación, carpeta, nombre)'. En una ubicación
+      desconectada, arriba, «Localizar...» emite 'locate_folder_requested(ubicación,
+      carpeta, nombre, ruta)' (CAT 6.3; solo donde se puede). Los atiende el controlador.
     - 'set_include_subfolders' decide si al elegir una carpeta se ven también los
       elementos de sus subcarpetas (opción de settings.json; ver el controlador). Cambia
       también los contadores: con subcarpetas o solo los de la propia carpeta.
@@ -58,6 +60,8 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.18.0 «Localizar...» en el menú de una ubicación desconectada, arriba y solo ahí
+       ('locate_folder_requested'; CAT 6.3).
 1.17.0 La carpeta que ya no está en el disco: atenuada, con el aviso naranja de las tarjetas
        en lugar de su icono (las de dentro, solo atenuadas), su texto emergente y su menú
        reducido; no se sueltan tarjetas en ella. La ubicación desconectada, con el aviso gris
@@ -114,7 +118,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.17.0"
+__version__ = "1.18.0"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -242,6 +246,9 @@ class CatalogSidebar(QWidget):
         remove_folder_requested(int, str, str): "Quitar del catálogo" en el menú de una
             carpeta o ubicación (id de la ubicación, carpeta relativa, '' = la ubicación, y
             el nombre que se ve en el árbol).
+        locate_folder_requested(int, str, str, str): "Localizar..." en el menú de una
+            ubicación desconectada (ubicación, carpeta relativa, '' = la ubicación, nombre
+            y ruta absoluta de antes): decirle al catálogo dónde está ahora (CAT 6.3).
         create_collection_requested(str, object): crear una colección, una colección
             inteligente o un conjunto (KIND_STATIC, KIND_SMART o KIND_SET, y el id del
             conjunto donde crearla o None).
@@ -264,6 +271,7 @@ class CatalogSidebar(QWidget):
     remove_folder_requested = Signal(int, str, str)  # ubicación, carpeta relativa y nombre
     rename_folder_requested = Signal(int, str, str)  # ubicación, carpeta relativa y nombre
     new_folder_requested = Signal(int, str, str)  # ubicación, carpeta relativa y nombre
+    locate_folder_requested = Signal(int, str, str, str)  # ubicación, carpeta, nombre y ruta
     create_collection_requested = Signal(str, object)  # tipo y conjunto (o None)
     rename_collection_requested = Signal(int, str)  # id y nombre actual
     delete_collection_requested = Signal(int, str, str)  # id, nombre y tipo
@@ -1021,6 +1029,12 @@ class CatalogSidebar(QWidget):
         on_disk = online and not missing
 
         menu = QMenu(view)
+        # «Localizar...» (CAT 6.3), solo donde se puede (decidido por el autor): en la raíz de
+        # una ubicación desconectada. Arriba y separada: es lo que se busca en ese caso
+        locate_action = None
+        if not online and not source.folder:
+            locate_action = menu.addAction("Localizar...")
+            menu.addSeparator()
         sync_action = menu.addAction("Sincronizar carpeta")
         reveal_action = menu.addAction(f"Mostrar en {FILE_MANAGER_NAME}")
         menu.addSeparator()
@@ -1052,7 +1066,12 @@ class CatalogSidebar(QWidget):
             menu.addAction(MISSING_FOLDER_NOTE).setEnabled(False)
 
         chosen = menu.exec(view.viewport().mapToGlobal(position))
-        if chosen is sync_action:
+        if chosen is None:
+            return
+        if chosen is locate_action and source.location_id is not None:
+            name = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+            self.locate_folder_requested.emit(source.location_id, source.folder, name, path or "")
+        elif chosen is sync_action:
             self.sync_folder_requested.emit(path)
         elif chosen is reveal_action:
             self.reveal_folder_requested.emit(path)

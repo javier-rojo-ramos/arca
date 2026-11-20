@@ -48,6 +48,7 @@ from controllers.folder_actions import FolderActions
 from controllers.folder_import import FolderImport
 from controllers.inspector_controller import InspectorController
 from controllers.job_coordinator import JobCoordinator
+from controllers.locate_actions import LocateActions
 from controllers.map_controller import MapController
 from controllers.metadata_filter_controller import MetadataFilterController
 from controllers.remove_actions import RemoveActions
@@ -424,6 +425,15 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             get_db=lambda: self.db,
             busy_reason=self.remove_actions.busy_reason,
             start_removal=self.remove_actions.start_removal_job,
+        )
+        # «Localizar...» de una ubicación desconectada (CAT 6.3): 'controllers/locate_actions.py'
+        self._locate_actions = LocateActions(
+            self,
+            self.widget_catalog_sidebar,
+            self.message_box,
+            get_db=lambda: self.db,
+            busy_reason=self.remove_actions.busy_reason,
+            reload_grid=self.mosaico_model.reload,
         )
         # "Cambiar nombre..." de una carpeta: lo atiende 'controllers/file_actions.py'
         self.widget_catalog_sidebar.rename_folder_requested.connect(

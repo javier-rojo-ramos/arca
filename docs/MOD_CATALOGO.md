@@ -13,7 +13,7 @@
 | Crear y abrir un catálogo (carpeta autónoma, migraciones) | Hecho y verificado |
 | Añadir y sincronizar carpetas; ubicaciones sin solapes | Hecho y verificado (más de 20 000 imágenes en segundos) |
 | Bibliotecas: «¿Qué contiene esta carpeta?», clasificación de los vídeos, submenú «Biblioteca» | Hecho y verificado |
-| Archivos ausentes y ubicaciones desconectadas | Hecho y verificado; la detección con el catálogo abierto, por comprobar. Carpetas que faltan, en el árbol, y sus archivos (`CAT 6.2`, 20/11/2026), por verificar |
+| Archivos ausentes y ubicaciones desconectadas | Hecho y verificado; la detección con el catálogo abierto, por comprobar. Carpetas que faltan, en el árbol, y sus archivos (`CAT 6.2`) y «Localizar...» una ubicación (`CAT 6.3`), 20/11/2026, por verificar |
 | Barra: Catálogo, Carpetas y Colecciones | Hecho y verificado |
 | Colecciones: del sistema, conjuntos, estáticas e inteligentes (con grupos de reglas) | Hecho y verificado |
 | Quitar del catálogo y eliminar del disco (papelera) | Hecho y verificado; unidades de red y la papelera real, sin probar. Al quitar una carpeta, las vacías se eliminan también del disco (`CAT 3`, 19/11/2026), verificado; las que se vacían al eliminar o mover, se quedan con 0 (`CAT 5`) |
@@ -119,6 +119,7 @@ Un ausente conserva sus datos (valoración, colecciones...) hasta que se quita d
 
 | Opción | Normal | Raíz de la ubicación | Desconectada | Falta |
 |---|---|---|---|---|
+| Localizar... (arriba, solo donde se puede) | — | — | ✓ (solo la raíz) | — (`CAT 6.4`) |
 | Sincronizar carpeta | ✓ | ✓ | — | — |
 | Mostrar en el Explorador | ✓ | ✓ | — | — |
 | Crear nueva carpeta... | ✓ | ✓ | — | — |
@@ -126,6 +127,7 @@ Un ausente conserva sus datos (valoración, colecciones...) hasta que se quita d
 | Quitar del catálogo... | ✓ | ✓ (quita la ubicación) | ✓ | ✓ |
 | Quitar archivos ausentes del catálogo... | ✓ | ✓ | — | ✓ |
 
+- **Localizar...** (`CAT 6.3`): en una ubicación desconectada (un disco que vuelve con otra letra, la raíz movida o renombrada), le dice al catálogo dónde está ahora. Se elige la carpeta; se mira si vale (sin solapes) y cuántos de sus archivos están (hasta 1 000 repartidos; si ninguno, no se deja); se pregunta y se cambian la ruta de la raíz y el nombre (el de la carpeta nueva). Todo conserva su `id` y sus datos; en el disco no se toca nada y no se sincroniza.
 - **Sincronizar**: entra lo nuevo, lo que ya no está pasa a ausente y las carpetas apuntadas se ponen al día (las que ya no existen salen); el resumen ofrece quitar los ausentes.
 - **Quitar del catálogo...**: la carpeta y todo lo de dentro (presente o ausente), sin tocar los archivos; las carpetas que se quedan vacías en el disco se borran también del disco, con su aviso (`CAT 3`). Es la forma de borrar una carpeta vacía.
 - **Quitar archivos ausentes del catálogo...**: los ausentes de la carpeta y sus subcarpetas y, además, las carpetas apuntadas que ya no existen en el disco (`CAT 6.2c`); la pregunta y el mensaje final las nombran. Las vacías que siguen en el disco se quedan.
@@ -134,7 +136,7 @@ Un ausente conserva sus datos (valoración, colecciones...) hasta que se quita d
 
 **Cuándo se lee el árbol**: al terminar de cargar la cuadrícula, tras los cambios del usuario (400 ms después), al volver a la ventana, al conectarse o desconectarse un disco y cuando la comprobación de cada 5 s marca los archivos de una carpeta que falta. Leerlo mira el disco (unas 900 carpetas en unos 6 ms en un disco local; sin probar en una unidad de red).
 
-**Lo que aún no hay**: «Localizar…» una ubicación o una carpeta (`CAT 6.3` y `6.4`); reconocer un disco que vuelve con otra letra; quitar en lote las carpetas vacías que siguen en el disco (posible «Eliminar carpetas vacías…», sin decidir); los archivos nuevos solo entran al sincronizar.
+**Lo que aún no hay**: «Localizar…» una carpeta que falta (`CAT 6.4`); reconocer un disco que vuelve con otra letra; quitar en lote las carpetas vacías que siguen en el disco (posible «Eliminar carpetas vacías…», sin decidir); los archivos nuevos solo entran al sincronizar.
 
 ## 6. Colecciones
 
@@ -164,6 +166,7 @@ Son los comunes a todos los módulos:
 | «Eliminar del disco» | Además, los envía a la Papelera (con el sidecar de un RAW). Los ausentes, los de una ubicación desconectada y los de una unidad de red solo se quitan del catálogo. La carpeta que se queda vacía se queda, con 0 en el árbol (`CAT 5`, como Lightroom; para borrarla, «Quitar del catálogo…») | `media_removal.py`, `empty_folders.py`; la papelera se le pasa como función desde la interfaz |
 | «Quitar del catálogo…» (carpeta o ubicación) | Quita esa carpeta entera, también desconectada; los archivos del disco no se tocan. Las carpetas que ya no tienen archivos en el disco se eliminan también del disco, con su aviso (`CAT 3.2`, como Lightroom) | `folder_removal.py`, `empty_folders.py` |
 | «Quitar archivos ausentes del catálogo» | Borra del catálogo los ausentes de una carpeta y las carpetas apuntadas que ya no existen en el disco (`CAT 6.2c`) | `missing_items.py` |
+| «Localizar...» (ubicación desconectada) | Cambia en el catálogo la ruta de su raíz y su nombre; nada en el disco (`CAT 6.3`) | `relocation.py`, `controllers/locate_actions.py` |
 
 Paso a paso y la ventana (`RemoveDialog`): [FLUJOS.md](FLUJOS.md) §13.
 
@@ -174,12 +177,12 @@ Paso a paso y la ventana (`RemoveDialog`): [FLUJOS.md](FLUJOS.md) §13.
 | Crear, abrir, esquema | `core/catalog/catalog_builder.py`, `catalog_opener.py`, `catalog_schema.py` |
 | Carpetas y escaneo | `storage_locations.py`, `folder_scanner.py`, `scan_filter.py`, `media_detector.py`, `folder_importer.py`, `folder_tree.py` |
 | Bibliotecas | `libraries.py`, `media_types.py` |
-| Disponibilidad | `availability.py`, `missing_items.py` |
+| Disponibilidad | `availability.py`, `missing_items.py`; «Localizar...», `relocation.py` |
 | Colecciones y reglas | `system_collections.py`, `user_collections.py`, `smart_fields.py`, `smart_rules.py` |
 | Qué muestra la cuadrícula | `grid_source.py`, `media_queries.py`, `grid_orders.py`, `grid_filter.py` |
 | Quitar y eliminar | `media_removal.py`, `folder_removal.py`, `empty_folders.py` (carpetas vacías, `CAT 3`) |
 | Carpetas del catálogo | `catalog_folders.py` (tabla `folders`, `CAT 5`); el árbol, `folder_tree.py` |
-| Módulo y barra | `controllers/app_modules/catalog_module.py`, `ui_helpers/sidebars/catalog_sidebar.py`, `controllers/collection_actions.py`, `controllers/folder_actions.py` |
+| Módulo y barra | `controllers/app_modules/catalog_module.py`, `ui_helpers/sidebars/catalog_sidebar.py`, `controllers/collection_actions.py`, `controllers/folder_actions.py`, `controllers/locate_actions.py` |
 | Base de datos y trabajos | `core/database/db_manager.py`, `core/workers/job_manager.py` |
 
 Todos los de la primera columna sin ruta están en `core/catalog/`. El mapa completo, en [ARQUITECTURA.md](ARQUITECTURA.md).
@@ -206,7 +209,7 @@ Lo que falta, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí está la li
 | `CAT 1.2` | Fusión de ubicaciones solapadas | Hoy se rechazan |
 | `CAT 2` | Hashes: duplicados, comprobación de integridad y reasociar un archivo renombrado fuera | Columnas `hash_partial`, `hash_full`, `hash_verified_at`; pasos por definir |
 | `CAT 4` | Operaciones con archivos: renombrar un archivo o una carpeta, nueva carpeta, mover (en el mismo disco y entre discos) y renombrado múltiple, con el catálogo al día y un registro de operaciones | Acordado el 19/11/2026 (cambia la regla de los originales). Hechos del `4.1` al `4.4`; quedan el `4.5` y el `4.6` |
-| `CAT 6` | Carpetas que faltan y «Localizar…»: el árbol, al día con los discos (`6.1`, hecho el 20/11/2026), marcar la carpeta que falta y la ubicación desconectada (`6.2a`, hecho el 20/11/2026) y sus archivos, ausentes (`6.2b`), y «Quitar archivos ausentes» con las carpetas que ya no existen (`6.2c`), hechos el 20/11/2026; localizar una ubicación (`6.3`) y una carpeta (`6.4`) | Acordado el 20/11/2026. «Localizar…» solo cambia el catálogo. Detalle en [PENDIENTE.md](PENDIENTE.md) |
+| `CAT 6` | Carpetas que faltan y «Localizar…»: el árbol, al día con los discos (`6.1`, hecho el 20/11/2026), marcar la carpeta que falta y la ubicación desconectada (`6.2a`, hecho el 20/11/2026) y sus archivos, ausentes (`6.2b`), y «Quitar archivos ausentes» con las carpetas que ya no existen (`6.2c`), y localizar una ubicación (`6.3`), hechos el 20/11/2026; localizar una ubicación (`6.3`) y una carpeta (`6.4`) | Acordado el 20/11/2026. «Localizar…» solo cambia el catálogo. Detalle en [PENDIENTE.md](PENDIENTE.md) |
 
 ### Fases de otras categorías que afectan al Catálogo
 
