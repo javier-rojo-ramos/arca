@@ -85,7 +85,7 @@ La biblioteca se corrige a mano con el submenú «Biblioteca» de la cuadrícula
 
 ## 5. El árbol de «Carpetas»: estados, ausentes y desconectados
 
-Resumen del 20/11/2026 (`CAT 5`, `CAT 6.1` y `CAT 6.2`), para tener en un sitio cómo se comporta. Paso a paso, en [FLUJOS.md](FLUJOS.md) §9; las órdenes, en el §8 de este documento.
+Resumen del 20/11/2026 (`CAT 5`, `CAT 6.1`, `CAT 6.2` y `CAT 4.4c`), para tener en un sitio cómo se comporta. Paso a paso, en [FLUJOS.md](FLUJOS.md) §9; las órdenes, en el §8 de este documento.
 
 **Qué muestra**
 
@@ -132,11 +132,12 @@ Un ausente conserva sus datos (valoración, colecciones...) hasta que se quita d
 - **Quitar del catálogo...**: la carpeta y todo lo de dentro (presente o ausente), sin tocar los archivos; las carpetas que se quedan vacías en el disco se borran también del disco, con su aviso (`CAT 3`). Es la forma de borrar una carpeta vacía.
 - **Quitar archivos ausentes del catálogo...**: los ausentes de la carpeta y sus subcarpetas y, además, las carpetas apuntadas que ya no existen en el disco (`CAT 6.2c`); la pregunta y el mensaje final las nombran. Las vacías que siguen en el disco se quedan.
 - **Soltar tarjetas** sobre una carpeta: moverlas (`CAT 4.4b`); no en una desconectada ni en una que falta.
+- **Arrastrar una carpeta** sobre otra de su ubicación (o sobre la fila de la ubicación): moverla, con su confirmación (`CAT 4.4c`). No la raíz, ni a ella misma ni a una de dentro, ni a la que ya tiene encima, ni a una desconectada o que falta; solo a una con su mismo «¿Qué contiene esta carpeta?» y sin otra con su nombre. Mientras se arrastra algo (también tarjetas), la barra se desplaza cerca del borde y una carpeta plegada se despliega al pararse encima.
 - Con una desconectada o una que falta, el menú lleva una nota en gris que lo explica.
 
 **Cuándo se lee el árbol**: al terminar de cargar la cuadrícula, tras los cambios del usuario (400 ms después), al volver a la ventana, al conectarse o desconectarse un disco y cuando la comprobación de cada 5 s marca los archivos de una carpeta que falta. Leerlo mira el disco (unas 900 carpetas en unos 6 ms en un disco local; sin probar en una unidad de red).
 
-**Lo que aún no hay**: «Localizar…» una carpeta que falta (`CAT 6.4`); reconocer un disco que vuelve con otra letra; quitar en lote las carpetas vacías que siguen en el disco (posible «Eliminar carpetas vacías…», sin decidir); los archivos nuevos solo entran al sincronizar.
+**Lo que aún no hay**: «Localizar…» una carpeta que falta (`CAT 6.4`, en espera); mover varias carpetas a la vez o a otra ubicación; reconocer un disco que vuelve con otra letra; quitar en lote las carpetas vacías que siguen en el disco (posible «Eliminar carpetas vacías…», sin decidir); los archivos nuevos solo entran al sincronizar.
 
 ## 6. Colecciones
 
@@ -160,6 +161,7 @@ Son los comunes a todos los módulos:
 |---|---|---|
 | «Crear nueva carpeta…» | Crea una carpeta dentro de otra (o de la raíz de una ubicación), en el disco y en el catálogo; con «Incluir los N archivos seleccionados» (marcada si hay algo elegido), mueve a ella lo elegido; sin ella, vacía, con 0 en el árbol (`CAT 4.4a` y `CAT 5`, como Lightroom) | `core/file_ops/moves.py`, `controllers/file_actions.py`, `ui_helpers/dialogs/new_folder_dialog.py` |
 | Mover arrastrando a una carpeta | Soltar tarjetas sobre una carpeta (o ubicación) conectada de «Carpetas»: con su confirmación, se mueven también en el disco (con su `.xmp` y su `.arca.json`) y conservan todo lo suyo; no a una carpeta declarada de otra biblioteca; las carpetas de origen que se quedan vacías, eliminadas (`CAT 4.4b`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
+| Mover una carpeta arrastrándola | Soltar una carpeta sobre otra de su ubicación (o sobre la ubicación): con su confirmación, se mueve también en el disco con todo lo de dentro, que conserva todo lo suyo; solo a una carpeta con su mismo «¿Qué contiene esta carpeta?»; nunca se fusionan (`CAT 4.4c`) | `core/file_ops/moves.py` (`plan_folder_move`), `ui_helpers/sidebars/folder_drag.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» de una carpeta | Cambia su nombre en el disco y, en el catálogo, la ruta de todo lo de dentro (que conserva todo lo suyo); las barras de los módulos siguen con lo desplegado y lo elegido. No en la raíz de una ubicación (`CAT 4.3`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Cambiar nombre…» (F2) | Cambia el nombre de un archivo en el disco (con su `.xmp` y su entrada del `.arca.json`) y en el catálogo, que conserva todo lo suyo; la extensión no cambia (`CAT 4.2`) | `core/file_ops/moves.py`, `controllers/file_actions.py` |
 | «Eliminar del catálogo» | Quita los archivos del catálogo; siguen en su carpeta y vuelven al sincronizar | `media_removal.py` |
@@ -208,7 +210,7 @@ Lo que falta, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí está la li
 | `CAT 1.1` | Añadir archivos sueltos | Hoy solo carpetas completas; `action_add_files` está sin conectar. Lo necesita también un track nuevo creado en Tracks |
 | `CAT 1.2` | Fusión de ubicaciones solapadas | Hoy se rechazan |
 | `CAT 2` | Hashes: duplicados, comprobación de integridad y reasociar un archivo renombrado fuera | Columnas `hash_partial`, `hash_full`, `hash_verified_at`; pasos por definir |
-| `CAT 4` | Operaciones con archivos: renombrar un archivo o una carpeta, nueva carpeta, mover (en el mismo disco y entre discos) y renombrado múltiple, con el catálogo al día y un registro de operaciones | Acordado el 19/11/2026 (cambia la regla de los originales). Hechos del `4.1` al `4.4b`; en marcha el `4.4c` (mover una carpeta arrastrándola: hecho el núcleo, 20/11/2026); quedan el `4.5` y el `4.6` |
+| `CAT 4` | Operaciones con archivos: renombrar un archivo o una carpeta, nueva carpeta, mover (en el mismo disco y entre discos) y renombrado múltiple, con el catálogo al día y un registro de operaciones | Acordado el 19/11/2026 (cambia la regla de los originales). Hechos del `4.1` al `4.4c` (el `4.4c`, mover una carpeta arrastrándola, el 20/11/2026, por verificar); quedan el `4.5` y el `4.6` |
 | `CAT 6` | Carpetas que faltan y «Localizar…»: el árbol, al día con los discos (`6.1`, hecho el 20/11/2026), marcar la carpeta que falta y la ubicación desconectada (`6.2a`, hecho el 20/11/2026) y sus archivos, ausentes (`6.2b`), y «Quitar archivos ausentes» con las carpetas que ya no existen (`6.2c`), y localizar una ubicación (`6.3`), hechos y verificados el 20/11/2026; localizar una carpeta (`6.4`), en espera (decidido por el autor) | Acordado el 20/11/2026. «Localizar…» solo cambia el catálogo. Detalle en [PENDIENTE.md](PENDIENTE.md) |
 
 ### Fases de otras categorías que afectan al Catálogo

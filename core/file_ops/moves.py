@@ -82,6 +82,8 @@ Uso:
     result = execute_file_moves(conn, plan, progress=..., cancel_event=...)   # el trabajo
     reconcile_file_operations(conn)                               # al abrir el catálogo
 
+1.6.1 Al mover una carpeta, si al final no se mueve (algo cambió en el disco), la barra
+      de estado dice «Movidos: 0», no «Renombrados: 0».
 1.6.0 Mover una carpeta a otra de su ubicación (CAT 4.4c): 'plan_folder_move' (el trabajo
       es 'execute_folder_rename'), 'FolderRenamePlan.target_name' y
       'FileMoveResult.moved_to' («Carpeta «Viaje» movida a «2023»»); la declaración propia
@@ -110,7 +112,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.file_ops.moves
 """
 
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 __all__ = [
     "FileMoveRequest",
     "FileMoveResult",
@@ -1138,7 +1140,9 @@ def execute_folder_rename(
     Ver la cabecera del módulo. No lanza excepciones: lo que falla va en el resultado.
     'cancel_event' no se usa (es un solo paso), pero el trabajo lo recibe como los demás.
     """
-    result = FileMoveResult(renamed=True)
+    # Moverla (CAT 4.4c) es renombrarla con otra carpeta encima: para los textos
+    moving = _folder_of(plan.source_path) != _folder_of(plan.target_path)
+    result = FileMoveResult(renamed=not moving)
     if plan.problem is not None or plan.root is None:
         result.skipped.append((plan.source_path, plan.problem or SKIP_OFFLINE))
         return result
@@ -1194,7 +1198,6 @@ def execute_folder_rename(
         return result
     result.moved = plan.count
     result.folder = (plan.location_id, plan.source_path, plan.target_path)
-    moving = _folder_of(plan.source_path) != _folder_of(plan.target_path)
     if moving:
         result.moved_to = plan.target_name
     if progress:

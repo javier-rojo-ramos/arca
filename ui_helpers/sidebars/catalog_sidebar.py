@@ -44,6 +44,10 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula):
       del disco. Una carpeta que ya no está en el disco ('FolderNode.is_missing'), atenuada
       y con el aviso naranja en lugar de su icono; las de dentro, solo atenuadas. En las dos,
       el menú solo deja lo que tiene sentido y no se pueden soltar tarjetas (CAT 6.2).
+    - Arrastrar una carpeta sobre otra de su ubicación (o sobre la fila de la ubicación)
+      emite 'folder_dropped_on_folder' (moverla; CAT 4.4c). Empezar el arrastre, desplazar
+      la barra cerca del borde y desplegar una carpeta al pararse encima (también con
+      tarjetas) está en 'folder_drag.py'; dónde se puede soltar, aquí.
     - Menú contextual de «Selección rápida»: "Vaciar selección rápida" emite
       'clear_quick_selection_requested' (desactivado si está vacía).
     - Solo hay UNA fila seleccionada en toda la barra, aunque esté en otra sección.
@@ -60,6 +64,10 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.19.0 Arrastrar una carpeta a otra para moverla ('folder_dropped_on_folder', con
+       'folder_drag.py'; CAT 4.4c): solo a una de su ubicación, conectada y en el disco, ni a
+       ella misma ni a una de dentro, ni a la que ya tiene encima. Al arrastrar (también
+       tarjetas), la barra se desplaza cerca del borde y una carpeta se despliega al pararse.
 1.18.0 «Localizar...» en el menú de una ubicación desconectada, arriba y solo ahí
        ('locate_folder_requested'; CAT 6.3).
 1.17.0 La carpeta que ya no está en el disco: atenuada, con el aviso naranja de las tarjetas
@@ -118,11 +126,11 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.18.0"
+__version__ = "1.19.0"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
@@ -182,6 +190,7 @@ from ui_helpers.helpers.ui_theme import ACCENT_COLOR
 from ui_helpers.layout.section_layout_model import SectionLayoutModel
 from ui_helpers.layout.section_registry import Sidebar
 from ui_helpers.models.media_mime import MEDIA_IDS_MIME, decode_media_ids
+from ui_helpers.sidebars.folder_drag import FOLDER_MIME, FolderDrag, FolderTreeDrag
 from ui_helpers.widgets.collapsible_section import CollapsibleSection
 from ui_helpers.widgets.section_stack import SectionStack
 from ui_helpers.widgets.sidebar_tree_view import ROLE_COUNT, ROLE_SOURCE, SidebarTreeView
@@ -258,6 +267,10 @@ class CatalogSidebar(QWidget):
         delete_collection_requested(int, str, str): eliminar (id, nombre y tipo).
         media_dropped_on_folder(int, str, str, object): se han soltado tarjetas sobre una
             carpeta (ubicación, carpeta relativa, nombre y 'MediaDrag'): moverlas a ella.
+        folder_dropped_on_folder(int, str, str, str, str, bool): se ha soltado una carpeta
+            sobre otra de su ubicación (ubicación, carpeta relativa, su nombre, la de
+            destino, '' = la raíz, su nombre y si la primera tiene subcarpetas): moverla a
+            ella (CAT 4.4c).
         media_dropped(int, object): se han soltado tarjetas sobre una colección (id de la
             colección y un 'MediaDrag' con los 'id' de las tarjetas).
         clear_quick_selection_requested(): "Vaciar selección rápida" en el menú de su fila.
@@ -277,6 +290,8 @@ class CatalogSidebar(QWidget):
     delete_collection_requested = Signal(int, str, str)  # id, nombre y tipo
     media_dropped = Signal(int, object)  # id de la colección y MediaDrag
     media_dropped_on_folder = Signal(int, str, str, object)  # ubicación, carpeta, nombre, drag
+    # Ubicación, carpeta, su nombre, la de destino, su nombre y si tiene subcarpetas
+    folder_dropped_on_folder = Signal(int, str, str, str, str, bool)
     edit_smart_collection_requested = Signal(int)  # id de la colección inteligente
     clear_quick_selection_requested = Signal()
 
@@ -309,6 +324,9 @@ class CatalogSidebar(QWidget):
         self._expanded_system: set[str] = set()
         # Fila resaltada mientras se arrastran tarjetas por encima (destino de la soltada)
         self._drop_target: QStandardItem | None = None
+        # Mientras se arrastra: qué fila sería el destino en cada punto (para volver a mirarlo
+        # cuando la barra se desplaza sola)
+        self._drag_item_at: Callable[[QPoint], QStandardItem | None] | None = None
         # Orígenes de las colecciones del usuario por su id (para seguir a una colección
         # inteligente aunque cambien sus reglas: su origen cambia, su id no)
         self._collection_sources: dict[int, GridSource] = {}
@@ -406,6 +424,12 @@ class CatalogSidebar(QWidget):
         self._folders_view.setAcceptDrops(True)
         self._folders_view.viewport().setAcceptDrops(True)
         self._folders_view.viewport().installEventFilter(self)
+        # Arrastrar una carpeta a otra para moverla (CAT 4.4c), y desplazar la barra o
+        # desplegar una carpeta mientras se arrastra algo encima ('folder_drag.py')
+        self._folder_drag = FolderTreeDrag(
+            self._folders_view, can_drag=self._folder_drag_source, parent=self
+        )
+        self._folder_drag.scrolled.connect(self._on_drag_scrolled)
         self.section_folders.set_content(self._folders_view)
         self.section_folders.add_header_widget(self._make_add_folder_button())
         self._stack.add_section("folders", self.section_folders)
@@ -1248,47 +1272,81 @@ class CatalogSidebar(QWidget):
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Arrastrar y soltar sobre el árbol de colecciones o el de carpetas (su 'viewport').
 
-        Solo se aceptan tarjetas de la cuadrícula (formato MEDIA_IDS_MIME), y solo sobre una
-        colección ESTÁTICA del usuario (añadirlas) o sobre una carpeta de una ubicación
-        conectada (moverlas; CAT 4.4b). Mientras se arrastra, la fila de debajo se resalta.
+        Se aceptan tarjetas de la cuadrícula (formato MEDIA_IDS_MIME) sobre una colección
+        ESTÁTICA del usuario (añadirlas) o sobre una carpeta de una ubicación conectada
+        (moverlas; CAT 4.4b) y, en el de carpetas, una carpeta arrastrada desde él mismo
+        (FOLDER_MIME) sobre otra a la que se pueda mover (CAT 4.4c). Mientras se arrastra, la
+        fila de debajo se resalta y, en el de carpetas, la barra se desplaza cerca del borde y
+        una carpeta plegada se despliega al pararse encima ('folder_drag.py').
         """
         # Los árboles se crean uno tras otro: llegan eventos del de carpetas (con su filtro ya
         # puesto) antes de que exista el de colecciones
         collections = getattr(self, "_collections_view", None)
         folders = getattr(self, "_folders_view", None)
+        on_folders = folders is not None and watched is folders.viewport()
         if collections is not None and watched is collections.viewport():
             item_at = self._drop_item_at
-        elif folders is not None and watched is folders.viewport():
+        elif on_folders:
             item_at = self._folder_drop_item_at
         else:
             return super().eventFilter(watched, event)
 
         event_type = event.type()
+        drag_events = (QEvent.Type.DragEnter, QEvent.Type.DragMove, QEvent.Type.Drop)
+        # Una carpeta del propio árbol (no de otra ventana de la aplicación: ver 'folder_drag')
+        moving_folder = (
+            on_folders
+            and event_type in drag_events
+            and event.mimeData().hasFormat(FOLDER_MIME)
+            and self._folder_drag.active is not None
+        )
+        if moving_folder:
+            item_at = self._folder_move_target_at
+        action = Qt.DropAction.MoveAction if moving_folder else Qt.DropAction.CopyAction
+
         if event_type == QEvent.Type.DragEnter:
-            if event.mimeData().hasFormat(MEDIA_IDS_MIME):
-                event.setDropAction(Qt.DropAction.CopyAction)
+            if moving_folder or event.mimeData().hasFormat(MEDIA_IDS_MIME):
+                event.setDropAction(action)
                 event.accept()
             else:
                 event.ignore()
             return True
 
         if event_type == QEvent.Type.DragMove:
-            item = item_at(event.position().toPoint())
+            position = event.position().toPoint()
+            item = item_at(position)
             self._set_drop_target(item)
+            self._drag_item_at = item_at
+            if on_folders:
+                self._folder_drag.drag_moved(position)
             if item is not None:
-                event.setDropAction(Qt.DropAction.CopyAction)
+                event.setDropAction(action)
                 event.accept()
             else:
                 event.ignore()
             return True
 
         if event_type == QEvent.Type.DragLeave:
-            self._clear_drop_target()
+            self._stop_drag(on_folders)
             return True
 
         if event_type == QEvent.Type.Drop:
             item = item_at(event.position().toPoint())
-            self._clear_drop_target()
+            self._stop_drag(on_folders)
+            if moving_folder:
+                folder = self._folder_drag.active
+                if item is None or folder is None:
+                    event.ignore()
+                    return True
+                event.setDropAction(Qt.DropAction.MoveAction)
+                event.accept()
+                target: GridSource = item.data(ROLE_SOURCE)
+                target_name = str(item.data(Qt.ItemDataRole.DisplayRole) or "")
+                self.folder_dropped_on_folder.emit(
+                    folder.location_id, folder.folder, folder.name, target.folder, target_name,
+                    folder.has_subfolders,
+                )  # fmt: skip
+                return True
             drag = decode_media_ids(event.mimeData())
             if item is None or drag is None:
                 event.ignore()
@@ -1304,6 +1362,18 @@ class CatalogSidebar(QWidget):
             return True
 
         return super().eventFilter(watched, event)
+
+    def _stop_drag(self, on_folders: bool) -> None:
+        """Se ha soltado, o el arrastre ha salido del árbol: sin resaltado ni ayudas."""
+        self._clear_drop_target()
+        self._drag_item_at = None
+        if on_folders:
+            self._folder_drag.drag_stopped()
+
+    def _on_drag_scrolled(self, position: QPoint) -> None:
+        """La barra se ha desplazado sola al arrastrar: se resalta lo que ha quedado debajo."""
+        if self._drag_item_at is not None:
+            self._set_drop_target(self._drag_item_at(position))
 
     def _drop_item_at(self, position: QPoint) -> QStandardItem | None:
         """Colección estática del usuario bajo el ratón, o None si no hay ninguna."""
@@ -1322,6 +1392,47 @@ class CatalogSidebar(QWidget):
         if source is None or source.location_id is None:
             return None
         return self._folders_model.itemFromIndex(index)
+
+    def _folder_drag_source(self, index: QModelIndex) -> FolderDrag | None:
+        """La carpeta de una fila, si se puede arrastrar para moverla (CAT 4.4c).
+
+        No la raíz de una ubicación (cambiaría la ubicación), ni una desconectada, ni una que
+        no está en el disco.
+        """
+        source = index.data(ROLE_SOURCE)
+        if (
+            source is None
+            or source.kind != SourceKind.FOLDER
+            or source.location_id is None
+            or not source.folder
+            or not index.data(_ROLE_ONLINE)
+            or index.data(_ROLE_MISSING)
+        ):
+            return None
+        name = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        has_subfolders = index.model().hasChildren(index)
+        return FolderDrag(source.location_id, source.folder, name, has_subfolders)
+
+    def _folder_move_target_at(self, position: QPoint) -> QStandardItem | None:
+        """Carpeta (o ubicación) bajo el ratón a la que se puede mover la que se arrastra.
+
+        De su misma ubicación, conectada y en el disco; ni ella misma ni una de dentro, ni la
+        que ya tiene encima (CAT 4.4c). Lo demás (lo que contiene cada una, si ya hay otra
+        con su nombre...) lo mira el plan al soltar.
+        """
+        folder = self._folder_drag.active
+        item = self._folder_drop_item_at(position)
+        if folder is None or item is None:
+            return None
+        target: GridSource = item.data(ROLE_SOURCE)
+        if target.location_id != folder.location_id:
+            return None
+        path = target.folder
+        if path == folder.folder or path.startswith(f"{folder.folder}/"):
+            return None  # ella misma o una de dentro
+        if path == folder.folder.rpartition("/")[0]:
+            return None  # ya está ahí
+        return item
 
     def _set_drop_target(self, item: QStandardItem | None) -> None:
         """Resalta la colección o la carpeta sobre la que se soltarían las tarjetas."""

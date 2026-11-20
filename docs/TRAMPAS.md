@@ -44,6 +44,10 @@
 
 - **Girar un marcador de Leaflet lo descoloca** (14/11/2026): Leaflet pone cada marcador en su sitio con un `transform` en su elemento; un `transform` o un `rotate` propios en ese mismo elemento se mezclan con el suyo. El dibujo girado va en un elemento de dentro (el rombo de los waypoints).
 
+- **Arrastrar sobre las barras laterales: ni el desplazamiento ni el desplegado de Qt** (20/11/2026, `CAT 4.4c`): los árboles de las barras (`SidebarTreeView`) no tienen barra de desplazamiento propia (se desplaza el `QScrollArea` de la barra entera) y la barra atiende ella misma los eventos de arrastre en un `eventFilter`, así que `autoScroll` y `autoExpandDelay` de `QTreeView` no hacen nada. Los hace `ui_helpers/sidebars/folder_drag.py`, con temporizadores (con el ratón quieto en el borde no llegan eventos).
+
+- **Un filtro de eventos no debe preguntar a su vista por su `viewport()`** (20/11/2026): al cerrar la ventana le siguen llegando eventos cuando la vista ya se ha destruido, y `view.viewport()` da «Internal C++ object already deleted» (lo vio la prueba de humo con `folder_drag.py`). Se guarda el `viewport` al instalar el filtro y se compara con `is`.
+
 ## ExifTool y escritura en los archivos
 
 - ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.
@@ -159,3 +163,5 @@
 - **`ruff check --fix` de las importaciones (`I001`)** mueve el comentario de grupo (`# Módulos del proyecto`...) con la importación que tiene debajo: si otra importación pasa a ir antes, queda por encima del comentario. Mirar antes con `--diff` y, si pasa, ordenar ese bloque a mano. Y `loguru` va en su propio `# Librerías de terceros`, no dentro del de Qt.
 - **`TRY004` pide `TypeError` donde se comprueba un tipo**: no hay que hacerle caso a ciegas. Si quien llama recoge `ValueError` (las reglas guardadas de las colecciones inteligentes, `smart_rules.rules_from_json`; el `.arca.json`, `folder_file._parse`, que con `ValueError` pasa a la copia), cambiarlo hace que un dato dañado tire la aplicación. Ahí se deja `ValueError` con `# noqa: TRY004` y el porqué en un comentario (20/11/2026).
 - **Comprobar los `# noqa` sobrantes (`RUF100`) con la configuración del proyecto**, nunca con `--select RUF100` a secas: así ruff ve como sobrantes todos los `# noqa` (también los de reglas activas) y `--fix` los borraría. Para arreglar solo una regla: `ruff check . --fix --fixable RUF100`.
+- **Probar un arrastre sin ventana** (20/11/2026): `QDrag.exec` no se puede simular; se pone a mano lo que se arrastra y se mandan los eventos al `viewport` con `QApplication.sendEvent`. Qt solo entrega `DragMove` y `Drop` al widget que aceptó el último `DragEnter`, y lo olvida al soltar: hay que mandar antes un `DragEnter`; si no, el evento no llega y parece que el destino no vale.
+- **La salida de un guion volcada a un archivo, en Windows, va en `cp1252`** (20/11/2026): un «→» en un `print` da `UnicodeEncodeError` (lo hace `scripts/smoke_main_window.py`, que entonces falla por eso). Con `PYTHONIOENCODING=utf-8`.

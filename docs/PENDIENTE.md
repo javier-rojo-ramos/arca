@@ -17,7 +17,7 @@
 
 ## En curso
 
-- **CATÁLOGO** (19/11/2026): hechas `CAT 3` (carpetas vacías), `CAT 4.1` a `4.4` (renombrar y mover en el mismo disco, nueva carpeta) y `CAT 5` (el árbol replica las carpetas del disco, también las vacías; no estaba en el plan: pedida por el autor y hecha en un paso, detalle en [HISTORIAL.md](HISTORIAL.md)); todas, verificadas por el autor. Lo que queda de `CAT 4`: `4.4c` (mover una carpeta arrastrándola; en marcha el 20/11/2026: hecho el núcleo), `4.5` (mover entre discos) y `4.6` (renombrado múltiple). En marcha (20/11/2026), `CAT 6` (carpetas que faltan y «Localizar…»): hechos y verificados del `6.1` al `6.3`; el `6.4` («Localizar…» de una carpeta que falta), en espera.
+- **CATÁLOGO** (19/11/2026): hechas `CAT 3` (carpetas vacías), `CAT 4.1` a `4.4` (renombrar y mover en el mismo disco, nueva carpeta) y `CAT 5` (el árbol replica las carpetas del disco, también las vacías; no estaba en el plan: pedida por el autor y hecha en un paso, detalle en [HISTORIAL.md](HISTORIAL.md)); todas, verificadas por el autor. Hecho el `4.4c` (mover una carpeta arrastrándola, 20/11/2026), pendiente de que lo pruebe el autor. Lo que queda de `CAT 4`: `4.5` (mover entre discos) y `4.6` (renombrado múltiple). En marcha (20/11/2026), `CAT 6` (carpetas que faltan y «Localizar…»): hechos y verificados del `6.1` al `6.3`; el `6.4` («Localizar…» de una carpeta que falta), en espera.
 - **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
@@ -161,10 +161,8 @@ Acordado con el autor el 19/11/2026 (cambia la regla de los originales: [DECISIO
 - **CAT 4.4** Mover archivos en el mismo disco y crear carpetas:
   - ~~**4.4a** «Nueva carpeta…» en el menú de una carpeta, con «Incluir los archivos seleccionados» (como Lightroom)~~ (hecho el 19/11/2026; vacía, desde `CAT 5`).
   - ~~**4.4b** Arrastrar tarjetas a una carpeta del árbol del Catálogo~~ (hecho el 19/11/2026).
-  - **4.4c** Mover una carpeta arrastrándola a otra del árbol del Catálogo (acordado con el autor el 20/11/2026; reglas en [DECISIONES.md](DECISIONES.md)): una cada vez, dentro de su ubicación (o a su primer nivel) y solo a una carpeta con su mismo «¿Qué contiene esta carpeta?».
-    - ~~**Paso 1** El núcleo: `plan_folder_move` en `core/file_ops/moves.py`; el trabajo es el de renombrar una carpeta~~ (hecho el 20/11/2026).
-    - **Paso 2** El arrastre en el árbol (el destino resaltado, el cursor de prohibido donde no se puede, desplegar una carpeta al pararse encima y desplazar el árbol cerca del borde, también al soltar tarjetas), la confirmación y el trabajo.
-    - Después, si hace falta: varias carpetas a la vez (elegir varias en el árbol, con sus archivos juntos en la cuadrícula, como Lightroom) y a otra ubicación del mismo disco.
+  - ~~**4.4c** Mover una carpeta arrastrándola a otra del árbol del Catálogo~~ (hecho el 20/11/2026 en dos pasos, el núcleo y el arrastre; acordado con el autor, reglas en [DECISIONES.md](DECISIONES.md)).
+  - Mover varias carpetas a la vez (elegir varias en el árbol, con sus archivos juntos en la cuadrícula, como Lightroom) y a otra ubicación del mismo disco: más adelante, si hace falta.
   - «Mover a…» desde el menú de la tarjeta (sin ratón, o con muchas carpetas): más adelante, si hace falta.
 - **CAT 4.5** Mover entre discos (copiar, comprobar y borrar el original).
 - **CAT 4.6** Renombrado múltiple con plantilla (también para `MUS 8.3`).
