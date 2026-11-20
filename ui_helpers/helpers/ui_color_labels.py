@@ -9,7 +9,6 @@ oscuro de la cuadrícula. Los valores están en el tema ('MARK_COLORS', theme_co
 """
 
 __version__ = "1.1.0"
-# ruff: noqa: RUF022
 __all__ = ["LABEL_TEXTS", "blend", "label_color", "label_icon"]
 
 # Librerías de terceros (Qt)

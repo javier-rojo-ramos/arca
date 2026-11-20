@@ -220,7 +220,7 @@ def ask_keyword_operation(
         return fetch_unused_keywords, ()
 
     assert entry is not None
-    node, path, parent_id = entry
+    node, _path, parent_id = entry
     if key == "create_child":
         name = _ask_name(parent, "Crear palabra clave", f"Nombre (dentro de «{node.name}»):")
         return (create_keyword, (node.id, name)) if name else None

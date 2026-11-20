@@ -342,8 +342,10 @@ class CatalogSidebar(QWidget):
             (
                 "Selección rápida",
                 QUICK_SELECTION,
-                "Selección rápida\n\nLos archivos marcados con el círculo de su tarjeta\n"
-                "(esquina superior derecha de la miniatura).",
+                (
+                    "Selección rápida\n\nLos archivos marcados con el círculo de su tarjeta\n"
+                    "(esquina superior derecha de la miniatura)."
+                ),
             ),
             (
                 "Sin clasificar",

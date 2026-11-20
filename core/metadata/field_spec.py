@@ -124,7 +124,7 @@ def read_field(spec: FieldSpec, tags: Mapping[str, Any]) -> Any | None:
 
 def text(value: Any) -> str | None:
     """Texto limpio. Las listas se unen con ', '. Devuelve None si queda vacío."""
-    if isinstance(value, bool) or isinstance(value, dict):
+    if isinstance(value, (bool, dict)):
         return None
     if isinstance(value, (list, tuple)):
         parts = [part for part in (text(item) for item in value) if part]
@@ -168,7 +168,7 @@ def real(value: Any) -> float | None:
 def integer(value: Any) -> int | None:
     """Número entero (redondeado). Mismas entradas que 'real'."""
     number = real(value)
-    return None if number is None else int(round(number))
+    return None if number is None else round(number)  # 'round' de un float ya es un int
 
 
 def rating_value(value: Any) -> int | None:

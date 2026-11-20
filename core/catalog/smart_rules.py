@@ -67,7 +67,6 @@ Prueba rápida (desde la raíz del proyecto):
 """
 
 __version__ = "2.3.0"
-# ruff: noqa: RUF022
 __all__ = [
     "FIELDS",
     "MATCH_ALL",
@@ -448,8 +447,10 @@ def rules_from_json(text: str | None) -> RuleSet:
         data = json.loads(text or "")
     except json.JSONDecodeError:
         raise ValueError("Las reglas guardadas no se pueden leer (JSON no válido).") from None
+    # ValueError, y no TypeError (lo que pide TRY004), en todo lo que no vale: es lo que
+    # recogen quienes leen las reglas guardadas ('grid_source', 'user_collections')
     if not isinstance(data, dict) or not isinstance(data.get("rules"), list):
-        raise ValueError("Las reglas guardadas no tienen el formato esperado.")
+        raise ValueError("Las reglas guardadas no tienen el formato esperado.")  # noqa: TRY004
     version = data.get("version")
     if not isinstance(version, int) or version > RULES_JSON_VERSION:
         raise ValueError("Las reglas son de una versión más nueva de la aplicación.")
@@ -462,7 +463,8 @@ def _set_from_data(data: dict[str, Any], *, depth: int) -> RuleSet:
     items: list[Rule | RuleSet] = []
     for entry in data["rules"]:
         if not isinstance(entry, dict):
-            raise ValueError("Una regla guardada no tiene el formato esperado.")
+            # ValueError, como el resto de la lectura (ver 'rules_from_json')
+            raise ValueError("Una regla guardada no tiene el formato esperado.")  # noqa: TRY004
         if "rules" in entry:
             # Un grupo. La profundidad se corta aquí (no solo al validar): un JSON
             # manipulado con muchos niveles no llega a recorrerse entero

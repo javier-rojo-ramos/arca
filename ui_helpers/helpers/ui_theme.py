@@ -72,20 +72,20 @@ tengan que hacer nada.
 
 __version__ = "1.23.1"
 __all__ = [
+    "ACCENT_COLOR",
+    "BAR_ICON_SIZE",
     "CARD_COLORS",
     "COLORS",
-    "MARK_COLORS",
-    "PROFILE_COLORS",
-    "ACCENT_COLOR",
     "GRID_BG",
     "GRID_LINE",
+    "MARK_COLORS",
+    "PROFILE_COLORS",
     "SIDEBAR_ICON_COLOR",
     "SIDEBAR_ICON_OPEN_COLOR",
-    "TOOLBAR_ICON_ACCENT_COLOR",
-    "TOOLBAR_MARGIN",
-    "TOOLBAR_ICON_SIZE",
-    "BAR_ICON_SIZE",
     "STYLESHEET",
+    "TOOLBAR_ICON_ACCENT_COLOR",
+    "TOOLBAR_ICON_SIZE",
+    "TOOLBAR_MARGIN",
     "apply_theme",
     "apply_tooltip_style",
     "build_palette",
@@ -661,7 +661,9 @@ def apply_theme() -> None:
     global _app_style
     app = QApplication.instance()
     if not isinstance(app, QApplication):
-        raise RuntimeError("apply_theme() requiere un QApplication ya creado.")
+        # RuntimeError, y no TypeError (lo que pide TRY004): el fallo es llamar antes de
+        # crear la aplicación, no un argumento de otro tipo
+        raise RuntimeError("apply_theme() requiere un QApplication ya creado.")  # noqa: TRY004
 
     _app_style = ThemeStyle(COLORS)
     app.setStyle(_app_style)

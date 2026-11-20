@@ -11,7 +11,6 @@ prototipo ('core/workers/thumbnail_worker.py').
 """
 
 __version__ = "1.5.0"
-# ruff: noqa: RUF022
 __all__ = [
     "ROLE_AVAILABILITY",
     "ROLE_COLOR_LABEL",

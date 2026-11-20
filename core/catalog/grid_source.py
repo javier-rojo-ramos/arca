@@ -41,10 +41,10 @@ como 'folder_source') y su caso en 'media_queries._source_condition'.
 __version__ = "1.10.0"
 __all__ = [
     "ALL_ITEMS",
-    "GridSource",
     "QUICK_SELECTION",
-    "SourceKind",
     "UNCLASSIFIED",
+    "GridSource",
+    "SourceKind",
     "collection_source",
     "folder_source",
     "keyword_source",

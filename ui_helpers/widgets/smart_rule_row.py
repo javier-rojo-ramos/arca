@@ -200,7 +200,7 @@ class _ValueEditor(QWidget):
             stored = editor.value() * spec.scale
             # Sin decimales ni escala (ISO, píxeles...): entero
             if spec.decimals == 0 and spec.scale == 1:
-                return int(round(stored))
+                return round(stored)  # 'round' de un float ya es un int
             return round(stored, 6)
         if isinstance(editor, QDateEdit):
             return editor.date().toString("yyyy-MM-dd")

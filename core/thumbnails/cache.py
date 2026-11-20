@@ -39,7 +39,6 @@ Prueba rápida (desde la raíz del proyecto):
 """
 
 __version__ = "1.2.0"
-# ruff: noqa: RUF022
 __all__ = [
     "CACHE_DIRECTORY_NAME",
     "StoredThumbnail",

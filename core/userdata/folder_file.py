@@ -67,10 +67,10 @@ __version__ = "1.5.0"
 __all__ = [
     "BACKUP_FILE_NAME",
     "FOLDER_FILE_NAME",
+    "KEYWORDS_KEY",
     "USER_DEFAULTS",
     "FolderData",
     "FolderFileError",
-    "KEYWORDS_KEY",
     "edited_values_from_entry",
     "find_entry_key",
     "keywords_from_entry",
@@ -213,13 +213,15 @@ def _parse(folder: Path, raw: bytes, source: str) -> FolderData:
         document = json.loads(raw.decode("utf-8-sig"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"no es JSON válido ({exc})") from exc
+    # ValueError, y no TypeError (lo que pide TRY004), en todo lo que no vale: es lo que
+    # recoge 'read_folder_file' para pasar a la copia
     if not isinstance(document, dict):
-        raise ValueError("no contiene un objeto JSON")
+        raise ValueError("no contiene un objeto JSON")  # noqa: TRY004
     if document.get("format") != _FORMAT_ID:
         raise ValueError(f"formato desconocido: {document.get('format')!r}")
     items = document.get("items", {})
     if not isinstance(items, dict):
-        raise ValueError("'items' no es un objeto")
+        raise ValueError("'items' no es un objeto")  # noqa: TRY004
 
     version = document.get("version")
     if isinstance(version, bool) or not isinstance(version, int):

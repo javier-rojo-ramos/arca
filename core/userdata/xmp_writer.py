@@ -92,9 +92,9 @@ Prueba rápida (necesita ExifTool instalado; trabaja sobre archivos de prueba te
 __version__ = "1.3.1"
 __all__ = [
     "XMP_READ_TAGS",
+    "XmpUserDataWriter",
     "XmpWriteOutcome",
     "XmpWriteRequest",
-    "XmpUserDataWriter",
     "edited_values_from_tags",
     "keyword_paths_from_tags",
     "user_values_from_tags",

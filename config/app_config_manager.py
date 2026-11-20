@@ -40,7 +40,7 @@ import os
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 # Módulos del proyecto
@@ -182,7 +182,7 @@ class ConfigManager:
 
                 # Intento de respaldo del archivo corrupto
                 try:
-                    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
                     corrupt_path = CONFIG_FILE.with_suffix(f".corrupt.{ts}")
                     CONFIG_FILE.replace(corrupt_path)
                     logger.warning(

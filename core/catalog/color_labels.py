@@ -20,7 +20,6 @@ Prueba rápida (desde la raíz del proyecto):
 """
 
 __version__ = "1.1.0"
-# ruff: noqa: RUF022
 __all__ = [
     "COLOR_LABELS",
     "XMP_LABEL_TEXTS",

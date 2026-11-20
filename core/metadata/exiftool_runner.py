@@ -221,9 +221,12 @@ def find_sidecars(path: Path | str) -> list[Path]:
     sidecars: list[Path] = []
     for candidate in candidates:
         # En sistemas que no distinguen mayúsculas, '.xmp' y '.XMP' son el mismo archivo
-        if candidate.is_file() and candidate not in sidecars:
-            if not any(_same_file(candidate, known) for known in sidecars):
-                sidecars.append(candidate)
+        if (
+            candidate.is_file()
+            and candidate not in sidecars
+            and not any(_same_file(candidate, known) for known in sidecars)
+        ):
+            sidecars.append(candidate)
     return sidecars
 
 
