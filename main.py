@@ -13,7 +13,7 @@ from qtpy.QtWidgets import QApplication
 from config import app_paths
 from config.app_config import config
 from config.app_constants import SETTING_MAP_GPU_RENDERING
-from config.app_logging_manager import setup_logging
+from config.app_logging_manager import discard_recovered_crash_dump, setup_logging
 from controllers.main_window_controller import MainWindowController
 from ui_helpers.helpers.gpu_composition import apply_map_gpu_setting, map_gpu_allowed
 from ui_helpers.helpers.ui_theme import apply_theme
@@ -135,7 +135,9 @@ def main():
         logger.info("Entrando en el bucle de eventos de Qt.")
         exit_code = app.exec()
 
-        # Cierre limpio
+        # Cierre limpio. El volcado de errores fatales, vacío si solo trae excepciones que
+        # Windows recoge él mismo: no son un cierre (docs/TRAMPAS.md)
+        discard_recovered_crash_dump()
         logger.info(f"Aplicación finalizada (exit_code={exit_code})")
         sys.exit(exit_code)
 

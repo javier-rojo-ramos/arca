@@ -46,10 +46,19 @@ Características principales:
       y sin esto no dejan ningún rastro en el log. Los vacíos (sesiones sin
       errores) se borran al arrancar. Se desactiva con
       'setup_logging(capture_fatal_errors=False)'.
+    - (1.10) En Windows, 'faulthandler' escribe también excepciones que Windows lanza y
+      recoge él mismo (de COM: 0x8001010d), sin que el programa se cierre. Al cerrar
+      bien, 'discard_recovered_crash_dump()' vacía el volcado si solo trae esas, y lo
+      apunta en el log con una línea; si trae cualquier otra cosa, se queda tal cual.
 
 Requiere importar el nombre de la aplicación (APP_NAME) desde el archivo
 correspondiente.
 
+1.10 'discard_recovered_crash_dump': al cerrar bien, el volcado se vacía si solo trae
+     excepciones de COM recuperadas (RECOVERED_COM_CODES), con una línea en el log
+     (añadido para Arca Media el 20/11/2026: dejaban un '.crash.log' que alarmaba sin
+     ser un cierre). Hay que llamarla al salir del bucle de eventos; sin la llamada,
+     todo sigue como en la 1.09.
 1.09 Volcado de los errores fatales con 'faulthandler' (añadido para Arca Media, el
      18/11/2026, tras unos cierres con 0xc0000374 que no dejaban nada en el log).
      Todo lo nuevo está en la sección «Errores fatales» del final y en el parámetro
@@ -71,9 +80,10 @@ correspondiente.
 1.01 Se preserva la profundidad de la pila de llamadas (stack trace)
 """
 
-__version__ = "1.09"
+__version__ = "1.10"
 __all__ = [
     "InterceptHandler",
+    "discard_recovered_crash_dump",
     "setup_logging",
 ]
 
@@ -84,6 +94,7 @@ import os
 import sys
 import tempfile
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import TextIO
 
@@ -112,6 +123,16 @@ _QT_LEVELS: dict = {}
 # tiene que seguir así mientras dure el programa (ver '_enable_crash_dump')
 CRASH_SUFFIX = ".crash.log"
 _crash_file: TextIO | None = None
+
+# (1.10) Códigos de las excepciones de COM que Windows lanza y recoge él mismo, sin que el
+# programa se cierre, y que 'faulthandler' escribe igual (las ve antes de que se recojan).
+# 0x8001010d (RPC_E_CANTCALLOUT_ININPUTSYNCCALL): una llamada de COM rechazada mientras la
+# ventana contesta a un mensaje que otro programa espera (accesibilidad, portapapeles,
+# vistas previas de Alt+Tab...). Tal como los escribe 'faulthandler': en minúsculas
+RECOVERED_COM_CODES: tuple[str, ...] = ("0x8001010d",)
+
+# Cómo empieza cada volcado de 'faulthandler': el de un error de Windows y el de Python
+_DUMP_HEADERS = ("Windows fatal exception:", "Fatal Python error:")
 
 # Se define el formato base con colores para la consola
 CONSOLE_FORMAT = (
@@ -492,7 +513,8 @@ def _enable_crash_dump(log_file: Path, app_name: str) -> Path | None:
 
     Nota (Windows): 'faulthandler' escribe también algunas excepciones que el programa
     recupera después (las de COM o de algún controlador, p. ej.); un '.crash.log' con algo
-    no siempre es un cierre: hay que comprobar si el log termina ahí.
+    no siempre es un cierre: hay que comprobar si el log termina ahí. Las de COM conocidas
+    las descarta 'discard_recovered_crash_dump' al cerrar bien (1.10).
 
     Args:
         log_file: Log de esta instancia (el volcado va a su lado, con su nombre).
@@ -525,6 +547,69 @@ def _disable_crash_dump() -> None:
     faulthandler.disable()
     _crash_file.close()
     _crash_file = None
+
+
+def discard_recovered_crash_dump() -> int:
+    """Al cerrar bien: vacía el volcado de esta sesión si solo trae excepciones recuperadas.
+
+    En Windows, 'faulthandler' escribe también excepciones de COM que Windows lanza y
+    recoge él mismo (RECOVERED_COM_CODES): la sesión sigue y termina bien, pero deja un
+    '.crash.log' que parece un cierre. Si el volcado solo trae esas, se vacía y se apunta
+    en el log cuántas eran y la hora de la última (la de la última escritura del archivo).
+    Si trae cualquier otra cosa, se queda tal cual.
+
+    El archivo se vacía pero sigue abierto, con 'faulthandler' activo: un fallo de verdad
+    durante el resto del cierre se sigue escribiendo. El vacío se borra al arrancar la
+    próxima vez ('_cleanup_empty_crash_files').
+
+    Se llama al salir del bucle de eventos (en Arca Media, 'main.py', tras 'app.exec()').
+    Nunca lanza excepciones.
+
+    Returns:
+        Cuántas excepciones recuperadas se descartaron: 0 si no hay volcado, si está vacío
+        o si trae algo más.
+    """
+    if _crash_file is None:
+        return 0
+    path = Path(_crash_file.name)
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        last_write = datetime.fromtimestamp(path.stat().st_mtime)
+        count = _count_recovered_exceptions(text)
+        if count:
+            _crash_file.truncate(0)
+    except (OSError, ValueError):
+        return 0  # no se pudo leer o vaciar: se queda como está
+    if count:
+        codes = ", ".join(RECOVERED_COM_CODES)
+        at = last_write.strftime("%H:%M:%S")
+        if count == 1:
+            text = f"1 excepción de COM recuperada ({codes}, a las {at}); no es un cierre"
+        else:
+            text = (
+                f"{count} excepciones de COM recuperadas ({codes}; la última, a las {at}); "
+                "no son un cierre"
+            )
+        logger.info("Volcado: {} de la aplicación", text)
+    return count
+
+
+def _count_recovered_exceptions(text: str) -> int:
+    """Cuántos volcados trae 'text' si TODOS son de excepciones recuperadas; si no, 0.
+
+    Cada volcado de 'faulthandler' empieza con una línea de _DUMP_HEADERS; uno recuperado,
+    con «Windows fatal exception: code <código>» y un código de RECOVERED_COM_CODES. Un
+    texto que no sea de volcados (p. ej. cortado o escrito por otro) cuenta como «algo
+    más»: 0.
+    """
+    recovered = {f"Windows fatal exception: code {code}" for code in RECOVERED_COM_CODES}
+    headers = [line.strip() for line in text.splitlines() if line.startswith(_DUMP_HEADERS)]
+    if not headers or any(header not in recovered for header in headers):
+        return 0
+    # Antes del primer volcado no puede haber nada
+    if not text.lstrip().startswith(_DUMP_HEADERS):
+        return 0
+    return len(headers)
 
 
 def _cleanup_empty_crash_files(log_dir: Path, app_name: str) -> None:
