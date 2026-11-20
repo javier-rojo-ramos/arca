@@ -64,12 +64,28 @@ todavía no (cambiaría la ubicación).
     plan = plan_folder_rename(conn, location_id, "2024/Viaje", "Ordesa")    # para el aviso
     result = execute_folder_rename(conn, plan)                              # el trabajo
 
+MOVER UNA CARPETA (CAT 4.4c; arrastrarla a otra del árbol del Catálogo) es lo mismo que
+renombrarla, pero a otra carpeta de su MISMA ubicación (o a su raíz) y con su nombre:
+'plan_folder_move' hace el plan y el trabajo es 'execute_folder_rename'. Además de las
+reglas de renombrar: ni a ella misma ni a una de dentro, ni a la que ya tiene encima, y solo
+a una carpeta con su mismo «¿Qué contiene esta carpeta?» (el propio o el heredado: una
+carpeta nunca cambia de contenido al moverla; como con los archivos, decidido por el autor).
+Si en la de destino ya hay algo con su nombre, no se mueve: nunca se fusionan. Una
+declaración propia que en su sitio nuevo es igual a la heredada sobra y se borra.
+
+    plan = plan_folder_move(conn, location_id, "2024/Viaje", "2023")        # → '2023/Viaje'
+    result = execute_folder_rename(conn, plan)
+
 Uso:
     request = rename_request(conn, media_id, "Boda")              # o move_requests(...)
     plan = plan_file_moves(conn, [request])                       # para el aviso
     result = execute_file_moves(conn, plan, progress=..., cancel_event=...)   # el trabajo
     reconcile_file_operations(conn)                               # al abrir el catálogo
 
+1.6.0 Mover una carpeta a otra de su ubicación (CAT 4.4c): 'plan_folder_move' (el trabajo
+      es 'execute_folder_rename'), 'FolderRenamePlan.target_name' y
+      'FileMoveResult.moved_to' («Carpeta «Viaje» movida a «2023»»); la declaración propia
+      de «¿Qué contiene...?» que sobra en su sitio nuevo se borra.
 1.5.0 Las carpetas del catálogo (CAT 5): la de destino se apunta al mover; renombrar una
       cambia también las apuntadas; «Nueva carpeta» se puede crear vacía (sin
       'SKIP_NO_FILES') y se apunta. Las carpetas de origen que se vacían ya no se borran
@@ -94,7 +110,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.file_ops.moves
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = [
     "FileMoveRequest",
     "FileMoveResult",
@@ -109,6 +125,7 @@ __all__ = [
     "execute_new_folder",
     "move_requests",
     "plan_file_moves",
+    "plan_folder_move",
     "plan_folder_rename",
     "plan_move",
     "plan_new_folder",
@@ -139,6 +156,7 @@ from core.catalog.libraries import (
     FOLDER_AUTO,
     LIBRARY_NAMES,
     FolderContentResolver,
+    folder_content_name,
 )
 from core.file_ops.naming import name_problem, rename_keeping_extension, split_extension
 from core.jobs.progress import JobProgress
@@ -169,6 +187,12 @@ SKIP_ROOT = "la carpeta raíz de una ubicación aún no se puede renombrar"
 SKIP_FOLDER_MISSING = "la carpeta no está en el disco"
 SKIP_FOLDER_EXISTS = "ya existe una carpeta con ese nombre"
 SKIP_FOLDER_IN_CATALOG = "ya hay archivos del catálogo con esa ruta"
+# Al mover una carpeta (CAT 4.4c)
+SKIP_MOVE_ROOT = "es la raíz de una ubicación"
+SKIP_INTO_ITSELF = "la carpeta de destino es ella misma o está dentro de ella"
+SKIP_SAME_PLACE = "ya está en esa carpeta"
+SKIP_FOLDER_LIBRARY = "es de «{}» y la carpeta de destino, de «{}»"  # lo que contiene cada una
+SKIP_NAME_TAKEN = "en la carpeta de destino ya hay una con ese nombre"
 
 _IGNORE_CASE = sys.platform in ("win32", "darwin")  # sistemas sin distinguir mayúsculas
 
@@ -258,6 +282,8 @@ class FileMoveResult:
         folder: Al renombrar una carpeta, si se hizo: (ubicación, ruta vieja, ruta nueva).
             La interfaz lo usa para poner al día lo que recuerda por la ruta.
         created_folder: Al crear una carpeta, si se creó: (ubicación, ruta).
+        moved_to: Al MOVER una carpeta, si se hizo: el nombre de la de destino (el de la
+            ubicación si es su raíz), para la barra de estado. None al renombrarla.
     """
 
     renamed: bool = False
@@ -269,6 +295,7 @@ class FileMoveResult:
     cancelled: bool = False
     folder: tuple[int, str, str] | None = None
     created_folder: tuple[int, str] | None = None
+    moved_to: str | None = None
 
     @property
     def has_warnings(self) -> bool:
@@ -277,6 +304,8 @@ class FileMoveResult:
     def status_text(self) -> str:
         if self.folder is not None:
             old, new = PurePosixPath(self.folder[1]).name, PurePosixPath(self.folder[2]).name
+            if self.moved_to is not None:
+                return f"Carpeta «{old}» movida a «{self.moved_to}»"
             return f"Carpeta renombrada: «{old}» → «{new}»"
         if self.created_folder is not None:
             text = f"Carpeta creada: «{PurePosixPath(self.created_folder[1]).name}»"
@@ -881,15 +910,19 @@ def execute_file_moves(
 
 @dataclass(frozen=True, slots=True)
 class FolderRenamePlan:
-    """Lo que hay que saber antes de renombrar una carpeta (lo calcula 'plan_folder_rename').
+    """Lo que hay que saber antes de renombrar o mover una carpeta (lo calculan
+    'plan_folder_rename' y 'plan_folder_move'; el trabajo, para los dos, es
+    'execute_folder_rename').
 
     Attributes:
         location_id: Su ubicación.
         source_path: La carpeta, relativa a la ubicación, con '/'.
-        target_path: La carpeta con el nombre nuevo.
+        target_path: Dónde queda: con el nombre nuevo o dentro de la carpeta de destino.
         root: Raíz de la ubicación (None si no está conectada).
         count: Elementos del catálogo dentro de ella (con sus subcarpetas), para el aviso.
         problem: Por qué no se puede (None si se puede).
+        target_name: Al moverla, el nombre de la carpeta de destino (el de la ubicación si es
+            su raíz), para los textos; '' al renombrarla.
     """
 
     location_id: int
@@ -898,6 +931,7 @@ class FolderRenamePlan:
     root: Path | None = None
     count: int = 0
     problem: str | None = None
+    target_name: str = ""
 
 
 def renamed_folder_path(path: str, old: str, new: str) -> str | None:
@@ -961,6 +995,85 @@ def plan_folder_rename(
     return plan(None, root, count)
 
 
+def _same_path(first: str, second: str) -> bool:
+    """True si dos rutas relativas son la misma carpeta (sin mayúsculas en Windows y macOS)."""
+    if _IGNORE_CASE:
+        return first.casefold() == second.casefold()
+    return first == second
+
+
+def _is_within(path: str, folder: str) -> bool:
+    """True si 'path' es 'folder' o está dentro de ella (rutas relativas, con '/')."""
+    if _IGNORE_CASE:
+        path, folder = path.casefold(), folder.casefold()
+    return path == folder or path.startswith(folder + "/")
+
+
+def plan_folder_move(
+    conn: sqlite3.Connection, location_id: int, folder: str, target_folder: str
+) -> FolderRenamePlan:
+    """Decide si una carpeta se puede mover a otra de su ubicación (CAT 4.4c). No cambia nada.
+
+    Lee el catálogo y el disco (poco), así que se llama en segundo plano. El trabajo es
+    'execute_folder_rename'. Reglas en la cabecera del módulo.
+
+    Args:
+        conn: Conexión.
+        location_id: La ubicación de las dos carpetas.
+        folder: La carpeta que se mueve, relativa a la ubicación.
+        target_folder: La carpeta a la que va ('' = la raíz de la ubicación).
+    """
+    source = _normalize(folder)
+    destination = _normalize(target_folder)
+    target = _join(destination, PurePosixPath(source).name) if source else destination
+
+    def plan(
+        problem: str | None, root: Path | None = None, count: int = 0, target_name: str = ""
+    ) -> FolderRenamePlan:
+        return FolderRenamePlan(location_id, source, target, root, count, problem, target_name)
+
+    if not source:
+        return plan(SKIP_MOVE_ROOT)
+    root = _location(conn, location_id)
+    if root is None:
+        return plan(SKIP_OFFLINE)
+    count = _items_under(conn, location_id, source)
+    source_dir, destination_dir, target_dir = root / source, root / destination, root / target
+    if not source_dir.is_dir() or not _exists_exactly(source_dir):
+        return plan(SKIP_FOLDER_MISSING, root, count)
+    if _is_within(destination, source):
+        return plan(SKIP_INTO_ITSELF, root, count)
+    if _same_path(destination, _folder_of(source)):
+        return plan(SKIP_SAME_PLACE, root, count)
+    if not destination_dir.is_dir():
+        return plan(SKIP_NO_FOLDER, root, count)
+    try:
+        # Una carpeta de la ubicación puede ser un punto de montaje de otro disco
+        other_disk = source_dir.stat().st_dev != destination_dir.stat().st_dev
+    except OSError:
+        other_disk = True
+    if other_disk:
+        return plan(SKIP_OTHER_DISK, root, count)
+    # Lo que contiene (propio o heredado), igual en las dos: no cambia al moverla
+    resolver = FolderContentResolver.load(conn, location_id)
+    now, there = resolver.content_of(source), resolver.content_of(destination)
+    if now != there:
+        problem = SKIP_FOLDER_LIBRARY.format(folder_content_name(now), folder_content_name(there))
+        return plan(problem, root, count)
+    if target_dir.exists() or _exists_exactly(target_dir):
+        return plan(SKIP_NAME_TAKEN, root, count)
+    if _items_under(conn, location_id, target):
+        return plan(SKIP_FOLDER_IN_CATALOG, root, count)
+    if destination:
+        target_name = PurePosixPath(destination).name
+    else:
+        row = conn.execute(
+            "SELECT name FROM storage_locations WHERE id = ?", (location_id,)
+        ).fetchone()
+        target_name = str(row[0] or root) if row else str(root)
+    return plan(None, root, count, target_name)
+
+
 def _update_catalog_folder(
     conn: sqlite3.Connection, location_id: int, source: str, target: str, operation_id: int | None
 ) -> None:
@@ -995,6 +1108,14 @@ def _update_catalog_folder(
                 f"UPDATE {table} SET {column} = ? || substr({column}, ?) WHERE {where}",
                 (target, shift, *under_source),
             )
+        # Movida (CAT 4.4c), su declaración propia puede ser ya la que hereda: sobra (como en
+        # 'set_folder_content', la tabla solo tiene lo necesario). Al renombrarla, nunca
+        resolver = FolderContentResolver.load(conn, location_id)
+        conn.execute(
+            "DELETE FROM folder_libraries "
+            "WHERE storage_location_id = ? AND folder = ? AND content = ?",
+            (location_id, target, resolver.inherited_content(target)),
+        )
         add_folders(conn, location_id, [target])  # por si no estaba apuntada
         if operation_id is not None:
             conn.execute("DELETE FROM file_operations WHERE id = ?", (operation_id,))
@@ -1011,7 +1132,8 @@ def execute_folder_rename(
     progress: Callable[[JobProgress], None] | None = None,
     cancel_event: threading.Event | None = None,
 ) -> FileMoveResult:
-    """Renombra una carpeta en el disco y en el catálogo (un trabajo para 'JobManager.start').
+    """Renombra o mueve una carpeta en el disco y en el catálogo (un trabajo para
+    'JobManager.start'; el plan, de 'plan_folder_rename' o de 'plan_folder_move').
 
     Ver la cabecera del módulo. No lanza excepciones: lo que falla va en el resultado.
     'cancel_event' no se usa (es un solo paso), pero el trabajo lo recibe como los demás.
@@ -1072,9 +1194,13 @@ def execute_folder_rename(
         return result
     result.moved = plan.count
     result.folder = (plan.location_id, plan.source_path, plan.target_path)
+    moving = _folder_of(plan.source_path) != _folder_of(plan.target_path)
+    if moving:
+        result.moved_to = plan.target_name
     if progress:
         progress(JobProgress(1, 1))
-    logger.info(f"Carpeta renombrada: {source} → {target} ({plan.count} elementos)")
+    verb = "movida" if moving else "renombrada"
+    logger.info(f"Carpeta {verb}: {source} → {target} ({plan.count} elementos)")
     return result
 
 
@@ -1690,6 +1816,66 @@ if __name__ == "__main__":
         assert not (root / "Nunca").exists()
         db.execute("DROP TRIGGER no_folder")
         print("14. Crear una carpeta: con lo elegido o vacía, y apuntada en el catálogo")
+
+        # ---- 15. Mover una carpeta a otra de su ubicación (CAT 4.4c) ----
+        one = [add("Mover/Uno/a.jpg"), add("Mover/Uno/Sub/b.jpg")]
+        db.execute(
+            "INSERT OR IGNORE INTO folders(storage_location_id, relative_path) "
+            "VALUES (1, 'Mover/Uno/Vacía')"
+        )
+        db.commit()
+        (root / "Mover/Uno/Vacía").mkdir()
+        (root / "Ocupada/Uno").mkdir()
+        add("Juntas/Uno/fantasma.jpg", missing=1, create=False)  # en el catálogo, no en el disco
+        problems = {
+            ("", "Juntas"): SKIP_MOVE_ROOT,
+            ("NoEsta", "Juntas"): SKIP_FOLDER_MISSING,
+            ("Mover/Uno", "Mover/Uno"): SKIP_INTO_ITSELF,
+            ("Mover/Uno", "Mover/Uno/Sub"): SKIP_INTO_ITSELF,
+            ("Mover/Uno", "Mover"): SKIP_SAME_PLACE,
+            ("Mover/Uno", "NoExiste"): SKIP_NO_FOLDER,
+            ("Mover/Uno", "Musica"): "es de «Detectar automáticamente» y la carpeta de destino, "
+            "de «Música»",
+            ("Pirineo", "Musica"): "es de «Imágenes» y la carpeta de destino, de «Música»",
+            ("Mover/Uno", "Ocupada"): SKIP_NAME_TAKEN,
+            ("Mover/Uno", "Juntas"): SKIP_FOLDER_IN_CATALOG,
+        }
+        for (folder, destination), reason in problems.items():
+            plan = plan_folder_move(db, 1, folder, destination)
+            assert plan.problem == reason, (folder, destination, plan)
+        assert plan_folder_move(db, 2, "d", "").problem == SKIP_OFFLINE
+        if _IGNORE_CASE:  # 'mover/uno' es 'Mover/Uno': dentro de sí misma
+            assert plan_folder_move(db, 1, "Mover/Uno", "mover/uno/sub").problem == SKIP_INTO_ITSELF
+        plan = plan_folder_move(db, 1, "Mover/Uno", "Destino")
+        assert plan.problem is None and plan.count == 2, plan
+        assert (plan.target_path, plan.target_name) == ("Destino/Uno", "Destino"), plan
+        result = execute_folder_rename(db, plan)
+        assert result.folder == (1, "Mover/Uno", "Destino/Uno") and result.moved == 2, result
+        assert result.status_text() == "Carpeta «Uno» movida a «Destino»", result.status_text()
+        assert (root / "Destino/Uno/Sub/b.jpg").is_file() and not (root / "Mover/Uno").exists()
+        assert item(one[1])[0] == "Destino/Uno/Sub/b.jpg"
+        assert "Destino/Uno/Vacía" in folders_under(db, 1, "Destino")
+        assert (root / "Mover").is_dir()  # la de origen, aunque se quede vacía, sigue
+        # A la raíz de la ubicación: el destino se llama como ella
+        plan = plan_folder_move(db, 1, "Destino/Uno", "")
+        assert (plan.problem, plan.target_path, plan.target_name) == (None, "Uno", "F"), plan
+        result = execute_folder_rename(db, plan)
+        assert result.status_text() == "Carpeta «Uno» movida a «F»", result.status_text()
+        assert item(one[0])[0] == "Uno/a.jpg"
+        # Su declaración propia, igual a la que hereda en su sitio nuevo: sobra y se borra
+        add("Propia/c.jpg")
+        db.execute(
+            "INSERT INTO folder_libraries(storage_location_id, folder, content) "
+            "VALUES (1, 'Propia', 'image')"
+        )
+        db.commit()
+        result = execute_folder_rename(db, plan_folder_move(db, 1, "Propia", "Pirineo"))
+        assert result.folder == (1, "Propia", "Pirineo/Propia"), result
+        libraries = dict(db.execute("SELECT folder, content FROM folder_libraries"))
+        assert "Pirineo/Propia" not in libraries and libraries["Pirineo"] == "image", libraries
+        assert FolderContentResolver.load(db, 1).content_of("Pirineo/Propia") == "image"
+        assert journal() == 1  # solo la del disco desconectado (paso 10)
+        print("15. Mover una carpeta: sus reglas, a otra y a la raíz; «¿Qué contiene?»")
 
     db.close()
     print("Autoprueba finalizada correctamente.")
