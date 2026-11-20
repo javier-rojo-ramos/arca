@@ -13,7 +13,7 @@
 | Crear y abrir un catálogo (carpeta autónoma, migraciones) | Hecho y verificado |
 | Añadir y sincronizar carpetas; ubicaciones sin solapes | Hecho y verificado (más de 20 000 imágenes en segundos) |
 | Bibliotecas: «¿Qué contiene esta carpeta?», clasificación de los vídeos, submenú «Biblioteca» | Hecho y verificado |
-| Archivos ausentes y ubicaciones desconectadas | Hecho y verificado; la detección con el catálogo abierto, por comprobar. Carpetas que faltan, en el árbol, y sus archivos (`CAT 6.2`) y «Localizar...» una ubicación (`CAT 6.3`), 20/11/2026, por verificar |
+| Archivos ausentes y ubicaciones desconectadas | Hecho y verificado; la detección con el catálogo abierto, por comprobar. Carpetas que faltan, en el árbol, y sus archivos (`CAT 6.2`) y «Localizar...» una ubicación (`CAT 6.3`), hechos y verificados el 20/11/2026 |
 | Barra: Catálogo, Carpetas y Colecciones | Hecho y verificado |
 | Colecciones: del sistema, conjuntos, estáticas e inteligentes (con grupos de reglas) | Hecho y verificado |
 | Quitar del catálogo y eliminar del disco (papelera) | Hecho y verificado; unidades de red y la papelera real, sin probar. Al quitar una carpeta, las vacías se eliminan también del disco (`CAT 3`, 19/11/2026), verificado; las que se vacían al eliminar o mover, se quedan con 0 (`CAT 5`) |
@@ -209,7 +209,7 @@ Lo que falta, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí está la li
 | `CAT 1.2` | Fusión de ubicaciones solapadas | Hoy se rechazan |
 | `CAT 2` | Hashes: duplicados, comprobación de integridad y reasociar un archivo renombrado fuera | Columnas `hash_partial`, `hash_full`, `hash_verified_at`; pasos por definir |
 | `CAT 4` | Operaciones con archivos: renombrar un archivo o una carpeta, nueva carpeta, mover (en el mismo disco y entre discos) y renombrado múltiple, con el catálogo al día y un registro de operaciones | Acordado el 19/11/2026 (cambia la regla de los originales). Hechos del `4.1` al `4.4`; quedan el `4.5` y el `4.6` |
-| `CAT 6` | Carpetas que faltan y «Localizar…»: el árbol, al día con los discos (`6.1`, hecho el 20/11/2026), marcar la carpeta que falta y la ubicación desconectada (`6.2a`, hecho el 20/11/2026) y sus archivos, ausentes (`6.2b`), y «Quitar archivos ausentes» con las carpetas que ya no existen (`6.2c`), y localizar una ubicación (`6.3`), hechos el 20/11/2026; localizar una ubicación (`6.3`) y una carpeta (`6.4`) | Acordado el 20/11/2026. «Localizar…» solo cambia el catálogo. Detalle en [PENDIENTE.md](PENDIENTE.md) |
+| `CAT 6` | Carpetas que faltan y «Localizar…»: el árbol, al día con los discos (`6.1`, hecho el 20/11/2026), marcar la carpeta que falta y la ubicación desconectada (`6.2a`, hecho el 20/11/2026) y sus archivos, ausentes (`6.2b`), y «Quitar archivos ausentes» con las carpetas que ya no existen (`6.2c`), y localizar una ubicación (`6.3`), hechos y verificados el 20/11/2026; localizar una carpeta (`6.4`), en espera (decidido por el autor) | Acordado el 20/11/2026. «Localizar…» solo cambia el catálogo. Detalle en [PENDIENTE.md](PENDIENTE.md) |
 
 ### Fases de otras categorías que afectan al Catálogo
 
