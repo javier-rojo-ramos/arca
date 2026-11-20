@@ -19,11 +19,20 @@ inteligente…»): en la opción resaltada toma el color del texto sobre el acen
 Si un SVG todavía no está en los recursos (.qrc), se usa el icono estándar del sistema,
 para que la barra nunca se quede sin iconos.
 
+Una carpeta que ya no está en el disco ('folder_missing') y una ubicación desconectada
+('drive_offline') llevan, en lugar de su icono, el aviso de las tarjetas (círculo naranja
+con «!» y gris con un disco tachado; 'card_glyphs.availability_icon'); desplegadas, igual.
+Los textos de la carpeta que falta, que también comparten las dos barras, están aquí:
+'MISSING_FOLDER_TOOLTIP' (segunda línea de su texto emergente) y 'MISSING_FOLDER_NOTE' (la
+nota de su menú).
+
+1.2.0 'folder_missing' y 'drive_offline', con el aviso de las tarjetas, y los textos de la
+      carpeta que falta (CAT 6.2).
 1.1.0 Variante "<clave>:menu" para los menús (con 'menu_icon').
 """
 
-__version__ = "1.1.0"
-__all__ = ["load_sidebar_icons"]
+__version__ = "1.2.0"
+__all__ = ["MISSING_FOLDER_NOTE", "MISSING_FOLDER_TOOLTIP", "load_sidebar_icons"]
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QFile
@@ -32,14 +41,22 @@ from qtpy.QtWidgets import QStyle, QWidget
 
 # Módulos del proyecto
 from config.app_constants import AppIcons
+from ui_helpers.helpers.card_glyphs import MISSING, OFFLINE, availability_icon
 from ui_helpers.helpers.ui_icons import menu_icon, tinted_icon
 from ui_helpers.helpers.ui_theme import SIDEBAR_ICON_COLOR, SIDEBAR_ICON_OPEN_COLOR
 
+# Textos de una carpeta que ya no está en el disco (los de una ubicación desconectada,
+# «(desconectada)» y «(ubicación desconectada)», los pone cada barra)
+MISSING_FOLDER_TOOLTIP = (
+    "No se encuentra en el disco (se ha movido, renombrado o borrado fuera de la aplicación)"
+)
+MISSING_FOLDER_NOTE = "(no se encuentra en el disco)"
+
 
 def load_sidebar_icons(widget: QWidget) -> dict[str, QIcon]:
-    """Iconos por clave ('drive', 'folder', 'set', 'collection', 'smart') y sus variantes
-    ':open' (fila desplegada) y ':menu' (opción de un menú). 'widget' da el estilo (iconos de
-    reserva) y la paleta."""
+    """Iconos por clave ('drive', 'folder', 'set', 'collection', 'smart', y
+    'folder_missing' y 'drive_offline') y sus variantes ':open' (fila desplegada) y ':menu'
+    (opción de un menú). 'widget' da el estilo (iconos de reserva) y la paleta."""
     style = widget.style()
     palette = widget.palette()
     normal = QColor(SIDEBAR_ICON_COLOR) if SIDEBAR_ICON_COLOR else palette.color(QPalette.ColorRole.ButtonText)
@@ -69,4 +86,8 @@ def load_sidebar_icons(widget: QWidget) -> dict[str, QIcon]:
             icons[f"{key}:menu"] = menu_icon(path, normal)
         else:
             icons[key] = icons[f"{key}:open"] = icons[f"{key}:menu"] = style.standardIcon(fallback)
+    # Carpeta que falta y ubicación desconectada: el aviso de las tarjetas en lugar del
+    # icono, igual desplegadas (CAT 6.2)
+    for key, availability in (("folder_missing", MISSING), ("drive_offline", OFFLINE)):
+        icons[key] = icons[f"{key}:open"] = icons[f"{key}:menu"] = availability_icon(availability)
     return icons

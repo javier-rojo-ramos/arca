@@ -6,8 +6,12 @@ por el autor el 04/11/2026) y contando solo eso. Al elegir una, la cuadrícula m
 lo de esa biblioteca ('folder_source(..., library=...)'), con o sin subcarpetas según la
 opción del Catálogo «Mostrar los elementos de las subcarpetas».
 
-    - Ubicación: icono de disco; si está desconectada, en gris y con «(desconectada)» en su
-      texto emergente. Una ubicación que aparece por primera vez se muestra desplegada.
+    - Ubicación: icono de disco; si está desconectada, en gris, con el aviso gris de las
+      tarjetas en lugar del disco y con «(desconectada)» en su texto emergente. Una
+      ubicación que aparece por primera vez se muestra desplegada.
+    - Carpeta que ya no está en el disco ('FolderNode.is_missing'): atenuada, con el aviso
+      naranja de las tarjetas en lugar de su icono y su explicación en el texto emergente;
+      las de dentro, solo atenuadas (CAT 6.2).
     - Carpeta desplegada: icono de la carpeta abierta, en el color de acento.
     - Menú: solo «Mostrar en el Explorador» ('reveal_folder_requested'): sincronizar y
       quitar ausentes están en el Catálogo (la barra de un módulo es para navegar).
@@ -20,12 +24,15 @@ Uso (lo hace la barra, 'LibrarySidebar'; ver 'tree_section.py'):
 Estado por catálogo ('save_state'): 'expanded_folders' (lo desplegado, [ubicación, ruta]) y
 'known_locations' (las ubicaciones ya vistas).
 
+1.2.0 La carpeta que ya no está en el disco (atenuada, con el aviso naranja en lugar de su
+      icono; sin «Mostrar en el Explorador») y la ubicación desconectada, con el aviso gris
+      en lugar del disco (CAT 6.2).
 1.1.0 'folder_renamed': lo desplegado, con la ruta nueva de una carpeta renombrada (CAT 4.3).
 1.0.0 Primera versión: sale de 'image_sidebar.py' (1.7.3) al dividirla en un archivo por
       sección (12/11/2026); hace lo mismo que antes.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["FolderSection"]
 
 # Librerías estándar
@@ -41,6 +48,7 @@ from qtpy.QtWidgets import QMenu, QVBoxLayout, QWidget
 from core.catalog.folder_tree import FolderNode, LocationNode
 from core.catalog.grid_source import GridSource, SourceKind, folder_source
 from core.file_ops.moves import renamed_folder_path
+from ui_helpers.helpers.sidebar_icons import MISSING_FOLDER_NOTE, MISSING_FOLDER_TOOLTIP
 from ui_helpers.helpers.signal_blocker import blocked_signals as _blocked
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME
 from ui_helpers.sidebars.sections.tree_section import TreeSection, make_item
@@ -52,6 +60,7 @@ _ROLE_FOLDER_KEY = Qt.ItemDataRole.UserRole + 41
 _ROLE_PATH = Qt.ItemDataRole.UserRole + 42
 _ROLE_ONLINE = Qt.ItemDataRole.UserRole + 43
 _ROLE_ICON_KEY = Qt.ItemDataRole.UserRole + 44
+_ROLE_MISSING = Qt.ItemDataRole.UserRole + 45  # ella, o una de encima, ya no está en el disco
 
 
 class FolderSection(TreeSection):
@@ -210,7 +219,7 @@ class FolderSection(TreeSection):
                     location.name, self.folder_source(location.location_id, ""),
                     self._count(location.root),
                 )  # fmt: skip
-                self._set_icon(item, "drive")
+                self._set_icon(item, "drive" if location.is_online else "drive_offline")
                 item.setData((location.location_id, ""), _ROLE_FOLDER_KEY)
                 item.setData(location.absolute_path, _ROLE_PATH)
                 item.setData(location.is_online, _ROLE_ONLINE)
@@ -235,24 +244,32 @@ class FolderSection(TreeSection):
         location: LocationNode,
         children: tuple[FolderNode, ...],
         foreground: QBrush | None,
+        missing_above: bool = False,
     ) -> None:
-        """Añade (recursivamente) las subcarpetas de una carpeta."""
+        """Añade (recursivamente) las subcarpetas de una carpeta ('foreground' atenúa el
+        texto; 'missing_above': una carpeta de encima ya no está en el disco)."""
         for node in children:
             item = make_item(
                 node.name, self.folder_source(location.location_id, node.relative_path),
                 self._count(node),
             )  # fmt: skip
-            self._set_icon(item, "folder")
+            self._set_icon(item, "folder_missing" if node.is_missing else "folder")
             # Ruta completa con el separador del sistema (barra invertida en Windows)
             full_path = str(Path(location.absolute_path) / node.relative_path)
-            item.setToolTip(full_path)
+            item.setToolTip(f"{full_path}\n{MISSING_FOLDER_TOOLTIP}" if node.is_missing else full_path)
             item.setData((location.location_id, node.relative_path), _ROLE_FOLDER_KEY)
             item.setData(full_path, _ROLE_PATH)
             item.setData(location.is_online, _ROLE_ONLINE)
-            if foreground is not None:
-                item.setForeground(foreground)
+            item.setData(missing_above or node.is_missing, _ROLE_MISSING)
+            brush = foreground
+            if node.is_missing and brush is None:
+                # Atenuada, como una ubicación desconectada (y lo de dentro, con ella)
+                palette = self._view.palette()
+                brush = QBrush(palette.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text))
+            if brush is not None:
+                item.setForeground(brush)
             parent.appendRow(item)
-            self._append(item, location, node.children, foreground)
+            self._append(item, location, node.children, brush, missing_above or node.is_missing)
 
     def _expand_saved(self, parent: QStandardItem) -> None:
         """Despliega las carpetas que lo estaban (solo las que tienen subcarpetas: Qt da
@@ -311,5 +328,9 @@ class FolderSection(TreeSection):
             reveal.setEnabled(False)
             menu.addSeparator()
             menu.addAction("(ubicación desconectada)").setEnabled(False)
+        elif index.data(_ROLE_MISSING):
+            reveal.setEnabled(False)
+            menu.addSeparator()
+            menu.addAction(MISSING_FOLDER_NOTE).setEnabled(False)
         if menu.exec(self._view.viewport().mapToGlobal(position)) is reveal:
             self.reveal_folder_requested.emit(path)

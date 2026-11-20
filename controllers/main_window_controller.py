@@ -272,6 +272,11 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         super().changeEvent(event)
         if event.type() == QEvent.Type.ActivationChange and self.isActiveWindow():
             self._check_availability()
+            # Y la barra: el árbol de «Carpetas» mira qué carpetas ya no están en el disco
+            # (borradas o recuperadas de la Papelera fuera de la aplicación; CAT 6.2)
+            # (getattr: Qt puede avisar de la activación antes de terminar el __init__)
+            if getattr(self, "db", None) is not None:
+                self._sidebar_refresh_timer.start()
 
     def moveEvent(self, event: QMoveEvent) -> None:
         """Gestiona el evento de mover la ventana."""
@@ -1196,21 +1201,24 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         return model.media_ids_in_rows(start, end)
 
     def _check_availability(self) -> None:
-        """Comprueba en segundo plano los discos y los archivos de las tarjetas visibles.
+        """Comprueba en segundo plano los discos, las carpetas que faltan y los archivos
+        de las tarjetas visibles.
 
-        Los archivos solo se miran si la ventana está activa (si no, nadie los está
-        viendo); los discos, siempre (es una consulta por ubicación).
+        Las carpetas y los archivos solo se miran si la ventana está activa (si no, nadie
+        los está viendo); los discos, siempre (es una consulta por ubicación).
         """
         # (getattr: Qt puede avisar de la activación antes de terminar el __init__)
         if getattr(self, "db", None) is None or getattr(
             self, "_availability_check_running", True
         ):
             return
-        media_ids = self._visible_media_ids() if self.isActiveWindow() else []
+        active = self.isActiveWindow()
+        media_ids = self._visible_media_ids() if active else []
         self._availability_check_running = True
         self.db.execute_async(
             check_availability,
             media_ids,
+            active,
             on_result=self._on_availability_checked,
             on_error=lambda error: logger.warning(
                 f"No se pudo comprobar la disponibilidad: {error}"
@@ -1225,9 +1233,10 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         if result.rescan_needed:
             # Han vuelto archivos que cambiaron mientras faltaban: se releen
             self.job_coordinator.start_metadata()
-        if result.switched_locations and self.db is not None:
-            # Un disco se ha conectado o desconectado: el árbol de «Carpetas» lo muestra
-            # (atenuado y con su menú); sin esto, solo cambiaban las tarjetas
+        if (result.switched_locations or result.missing_folders) and self.db is not None:
+            # Un disco se ha conectado o desconectado, o falta una carpeta: el árbol de
+            # «Carpetas» lo muestra (atenuado y con su aviso); sin esto, solo cambiaban las
+            # tarjetas
             self._sidebar_refresh_timer.start()
 
     def _on_availability_check_finished(self) -> None:

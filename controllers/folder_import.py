@@ -14,7 +14,8 @@ la lectura de metadatos, recargar la cuadrícula) se le pasa con funciones, como
         metadatos, la cuadrícula y el resumen. Al sincronizar, si el recorrido fue fiable y
         faltan archivos, el resumen ofrece quitarlos del catálogo (como Lightroom).
     «Quitar archivos ausentes del catálogo...» (menú de una carpeta)
-        └─► request_remove_missing: cuenta → pregunta → los quita
+        └─► request_remove_missing: cuenta → pregunta → los quita (con las carpetas que ya
+            no están en el disco: 'count_missing' y 'remove_missing_items'; CAT 6.2c)
 
 Uso (en el controlador principal, que solo lo crea y lo conecta):
     self.folder_import = FolderImport(
@@ -28,13 +29,16 @@ Uso (en el controlador principal, que solo lo crea y lo conecta):
     self.folder_import.cancel()   # al cerrar el catálogo (lo ya guardado se conserva)
     self.folder_import.finish()   # después de cerrar la base de datos
 
+1.1.0 «Quitar archivos ausentes» también quita las carpetas que ya no están en el disco:
+      la pregunta y el mensaje final las nombran, y una carpeta sin archivos ausentes que ya
+      no está ya no da «no hay archivos ausentes» (CAT 6.2c).
 1.0.0 Primera versión (GEN 15.2): el código de 'main_window_controller.py', movido.
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.folder_import
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["FolderImport"]
 
 # Librerías estándar
@@ -56,7 +60,13 @@ from config.app_constants import SETTING_LAST_ADD_FOLDER_PARENT, AppIcons
 from core.catalog.folder_importer import AddFolderProgress, AddFolderResult, add_folder
 from core.catalog.folder_scanner import ScanError
 from core.catalog.libraries import FOLDER_AUTO, folder_content_for
-from core.catalog.missing_items import RemovedItems, count_missing_items, remove_missing_items
+from core.catalog.missing_items import (
+    MissingCount,
+    RemovedItems,
+    count_missing,
+    count_missing_items,
+    remove_missing_items,
+)
 from core.catalog.storage_locations import StorageLocationError
 from ui_helpers.dialogs.folder_content_dialog import FolderContentDialog
 from ui_helpers.helpers.ui_file_dialogs import select_folder
@@ -370,7 +380,7 @@ class FolderImport(QObject):
             )
             return
         db.execute_async(
-            count_missing_items,
+            count_missing,
             location_id,
             folder,
             on_result=lambda count: self._confirm_remove_missing(location_id, folder, count),
@@ -379,16 +389,41 @@ class FolderImport(QObject):
             ),
         )
 
-    def _confirm_remove_missing(self, location_id: int, folder: str, count: int) -> None:
-        """Pregunta antes de quitar del catálogo los ausentes de una carpeta."""
-        if count == 0:
+    def _confirm_remove_missing(self, location_id: int, folder: str, count: MissingCount) -> None:
+        """Pregunta antes de quitar del catálogo los ausentes de una carpeta (y las carpetas
+        que ya no están en el disco)."""
+        if count.items == 0 and count.folders == 0:
             self._message_box.info("En esta carpeta no hay archivos ausentes.")
             return
+        lines = []
+        if count.items:
+            lines.append(f"Hay {count.items} archivos de esta carpeta que ya no están en el disco.")
+        if count.folder_missing:
+            lines.append(
+                "La carpeta tampoco está: se quitará también del árbol."
+                if count.items
+                else "Esta carpeta ya no está en el disco."
+            )
+        elif count.folders == 1:
+            lines.append("Una subcarpeta ya no está en el disco: se quitará también del árbol.")
+        elif count.folders:
+            lines.append(
+                f"{count.folders} subcarpetas ya no están en el disco: se quitarán también "
+                "del árbol."
+            )
+        if count.items:
+            question = (
+                "¿Quitarlos del catálogo? Los archivos del disco no se tocan. Si alguno solo se "
+                "ha movido o renombrado, se perderán su valoración y sus datos en el catálogo "
+                "(salvo lo que ya esté escrito en el propio archivo)."
+            )
+        else:
+            question = (
+                f"¿{'Quitarla' if count.folders == 1 else 'Quitarlas'} del catálogo? En el disco "
+                "no se toca nada."
+            )
         answer = self._message_box.question(
-            f"Hay {count} archivos de esta carpeta que ya no están en el disco.\n\n"
-            "¿Quitarlos del catálogo? Los archivos del disco no se tocan. Si alguno solo se "
-            "ha movido o renombrado, se perderán su valoración y sus datos en el catálogo "
-            "(salvo lo que ya esté escrito en el propio archivo).",
+            " ".join(lines) + "\n\n" + question,
             buttons=["Quitar del catálogo", "Cancelar"],
         )
         if answer == "Quitar del catálogo":
@@ -412,9 +447,14 @@ class FolderImport(QObject):
 
     def _on_missing_removed(self, result: RemovedItems) -> None:
         """Los ausentes ya no están en el catálogo: se recargan la cuadrícula y la barra lateral."""
+        parts = []
+        if result.count:
+            parts.append(f"{result.count} archivos ausentes")
+        if result.folders:
+            parts.append("1 carpeta" if result.folders == 1 else f"{result.folders} carpetas")
         message_bar(
             self._window,
-            f"Quitados del catálogo: {result.count} archivos ausentes.",
+            f"Quitados del catálogo: {' y '.join(parts) or '0 archivos ausentes'}.",
             AppIcons.CHECK_CIRCLE,
         )
         # Al recargar, la barra lateral actualiza sola sus contadores y su árbol
@@ -563,7 +603,9 @@ if __name__ == "__main__":
 
     # 3. Sincronizar con 3 ausentes: el resumen pregunta; «Quitar del catálogo» los quita
     db.answers[count_missing_items] = lambda location, folder: 3
-    db.answers[remove_missing_items] = lambda location, folder, catalog_dir: SimpleNamespace(count=3)
+    db.answers[remove_missing_items] = lambda location, folder, catalog_dir: SimpleNamespace(
+        count=3, folders=0
+    )
     events.clear()
     box.log.clear()
     box.answer = "Quitar del catálogo"
@@ -623,15 +665,28 @@ if __name__ == "__main__":
     print("7. Recorrido cancelado: sin lectura")
 
     # 8. «Quitar archivos ausentes» del menú: sin ausentes, aviso; con ausentes, pregunta
-    db.answers[count_missing_items] = lambda location, folder: 0
+    db.answers[count_missing] = lambda location, folder: MissingCount()
     box.log.clear()
     importer.request_remove_missing(7, "Viajes")
     assert box.log == [("info", "En esta carpeta no hay archivos ausentes.")]
-    db.answers[count_missing_items] = lambda location, folder: 2
+    db.answers[count_missing] = lambda location, folder: MissingCount(items=2)
     box.answer = "Quitar del catálogo"
     importer.request_remove_missing(7, "Viajes")
     assert len(db.called(remove_missing_items)) == 2
-    print("8. Quitar archivos ausentes desde el menú")
+    assert box.log[-1][1].startswith("Hay 2 archivos de esta carpeta") and "subcarpeta" not in box.log[-1][1]
+    # Con carpetas que ya no están (CAT 6.2c): la pregunta las nombra; sin archivos, también
+    db.answers[count_missing] = lambda location, folder: MissingCount(2, 1, True)
+    importer.request_remove_missing(7, "Viajes")
+    assert "La carpeta tampoco está: se quitará también del árbol." in box.log[-1][1]
+    db.answers[count_missing] = lambda location, folder: MissingCount(0, 1, True)
+    importer.request_remove_missing(7, "Viajes")
+    assert box.log[-1][1].startswith("Esta carpeta ya no está en el disco.\n\n¿Quitarla del")
+    db.answers[count_missing] = lambda location, folder: MissingCount(0, 3, False)
+    importer.request_remove_missing(7, "Viajes")
+    assert box.log[-1][1].startswith("3 subcarpetas ya no están en el disco")
+    assert "¿Quitarlas del catálogo? En el disco no se toca nada." in box.log[-1][1]
+    assert len(db.called(remove_missing_items)) == 5
+    print("8. Quitar archivos ausentes desde el menú (también las carpetas que ya no están)")
 
     # 9. Un aviso de avance rezagado (ya terminado) no hace nada
     importer.scan_progress.emit(SimpleNamespace(saved_items=99))

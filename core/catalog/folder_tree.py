@@ -26,6 +26,13 @@ Cada carpeta lleva dos contadores: 'count' INCLUYE las subcarpetas (como Lightro
 en memoria, la consulta agrupa por carpeta en SQLite y aquí solo se suman los totales
 de cada carpeta hacia sus carpetas padre.
 
+Además, mira en el disco qué carpetas ya no están (borradas, renombradas o movidas fuera de
+la aplicación): 'FolderNode.is_missing', solo en la de más arriba de las que faltan (las de
+dentro faltan con ella; la barra las atenúa). Es barato (915 carpetas en unos 6 ms, en un
+disco local) y no escribe nada. Ver 'find_missing_folders'.
+
+1.4.0 'FolderNode.is_missing' y 'find_missing_folders': las carpetas que ya no están en el
+      disco (CAT 6.2).
 1.3.0 Las carpetas sin elementos también (CAT 5): las de la tabla 'folders', con 0
       ('build_folder_tree(..., folders)'); no con una biblioteca.
 1.2.0 'fetch_folder_tree(conn, library)': el árbol de una sola biblioteca (las «Carpetas»
@@ -38,15 +45,25 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.folder_tree
 """
 
-__version__ = "1.3.0"
-__all__ = ["FolderNode", "LocationNode", "build_folder_tree", "fetch_folder_tree", "sort_key"]
+__version__ = "1.4.0"
+__all__ = [
+    "FolderNode",
+    "LocationNode",
+    "build_folder_tree",
+    "fetch_folder_tree",
+    "find_missing_folders",
+    "sort_key",
+]
 
 # Librerías estándar
+import os
 import re
 import sqlite3
+import stat
 import unicodedata
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import Path
 
 # Módulos del proyecto
 from core.catalog.catalog_folders import folder_paths
@@ -87,6 +104,8 @@ class FolderNode:
         children: Subcarpetas, ordenadas por nombre (ver 'sort_key').
         direct_count: Elementos que están directamente en esta carpeta (sin los de sus
             subcarpetas).
+        is_missing: La carpeta ya no está en el disco (con la ubicación conectada). Solo
+            en la de más arriba de las que faltan: las de dentro siguen en False.
     """
 
     name: str
@@ -94,6 +113,7 @@ class FolderNode:
     count: int
     children: tuple["FolderNode", ...] = ()
     direct_count: int = 0
+    is_missing: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +146,8 @@ def fetch_folder_tree(conn: sqlite3.Connection, library: str | None = None) -> t
         Las ubicaciones ordenadas por nombre, cada una con su árbol de carpetas. Sin
         biblioteca, las ubicaciones y las carpetas sin elementos también aparecen (con 0);
         con una biblioteca, solo las que tienen algo de ella (y solo sus carpetas con algo).
+        En las ubicaciones conectadas, las carpetas que ya no están en el disco llevan
+        'is_missing' (ver 'find_missing_folders').
     """
     # Carpeta de cada archivo, sin sacar las rutas a Python: 'rtrim(ruta, caracteres)'
     # quita del final todos los caracteres que estén en el conjunto dado. Si el conjunto
@@ -155,16 +177,20 @@ def fetch_folder_tree(conn: sqlite3.Connection, library: str | None = None) -> t
     locations = conn.execute(
         "SELECT id, name, absolute_path, is_online FROM storage_locations"
     ).fetchall()
-    nodes = [
-        LocationNode(
-            location_id=location_id,
-            name=name,
-            absolute_path=absolute_path,
-            is_online=bool(is_online),
-            root=build_folder_tree(direct.get(location_id, {}), empty.get(location_id, ())),
+    nodes = []
+    for location_id, name, absolute_path, is_online in locations:
+        root = build_folder_tree(direct.get(location_id, {}), empty.get(location_id, ()))
+        if is_online:
+            root = _mark_missing(root, find_missing_folders(absolute_path, root))
+        nodes.append(
+            LocationNode(
+                location_id=location_id,
+                name=name,
+                absolute_path=absolute_path,
+                is_online=bool(is_online),
+                root=root,
+            )
         )
-        for location_id, name, absolute_path, is_online in locations
-    ]
     if library is not None:
         nodes = [node for node in nodes if node.root.count > 0]
     nodes.sort(key=lambda node: (sort_key(node.name), node.location_id))
@@ -219,6 +245,62 @@ def build_folder_tree(
         )
 
     return make("")
+
+
+def find_missing_folders(location_path: str | Path, root: FolderNode) -> frozenset[str]:
+    """Carpetas del árbol que ya no están en el disco (solo las de más arriba).
+
+    Se mira de arriba abajo y, si una carpeta falta, no se mira lo de dentro (falta con
+    ella). Solo cuenta como que falta lo que el sistema dice que no existe (o que ya no es
+    una carpeta): un error de otro tipo (permisos, una unidad de red que no responde) no
+    permite saberlo, y esa carpeta ni se marca ni se mira por dentro.
+
+    Con la misma precaución que el escáner ('mark_missing'), no se marca nada si la raíz
+    de la ubicación no está o está vacía: un disco desmontado puede dejar su carpeta (el
+    punto de montaje) vacía, y entonces faltaría todo.
+
+    Args:
+        location_path: Ruta absoluta de la raíz de la ubicación.
+        root: Su árbol ('build_folder_tree').
+
+    Returns:
+        Las rutas relativas ('a/b') de las carpetas que faltan.
+    """
+    base = Path(location_path)
+    try:
+        with os.scandir(base) as entries:
+            if next(entries, None) is None:
+                return frozenset()
+    except OSError:
+        return frozenset()  # sin raíz (desconectada) o ilegible: no se sabe nada
+
+    missing: set[str] = set()
+    pending = list(root.children)
+    while pending:
+        node = pending.pop()
+        try:
+            info = os.stat(base / node.relative_path)
+        except (FileNotFoundError, NotADirectoryError):
+            missing.add(node.relative_path)
+            continue
+        except OSError:
+            continue  # no se sabe: ni se marca ni se mira por dentro
+        if not stat.S_ISDIR(info.st_mode):
+            missing.add(node.relative_path)  # en su lugar hay un archivo
+            continue
+        pending.extend(node.children)
+    return frozenset(missing)
+
+
+def _mark_missing(node: FolderNode, missing: frozenset[str]) -> FolderNode:
+    """El mismo árbol con 'is_missing' en las carpetas de 'missing' (el resto, igual)."""
+    if not missing:
+        return node
+    if node.relative_path in missing:
+        return replace(node, is_missing=True)
+    if not node.children:
+        return node
+    return replace(node, children=tuple(_mark_missing(child, missing) for child in node.children))
 
 
 if __name__ == "__main__":
@@ -292,4 +374,44 @@ if __name__ == "__main__":
     assert only[0].root.count == 4 and [c.name for c in only[0].root.children] == ["Organizadas"]
     assert fetch_folder_tree(db, "video") == ()
     print("Solo una biblioteca: carpetas por su contenido")
+
+    # 4. Carpetas que faltan en el disco (CAT 6.2), con carpetas de verdad
+    import shutil
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        disk = Path(tmp) / "Disco"
+        for folder in ("A/A1", "B/B1/B11", "C"):
+            (disk / folder).mkdir(parents=True)
+        (disk / "D").write_bytes(b"")  # un archivo donde había una carpeta
+        tree = build_folder_tree({"A/A1": 1, "B/B1/B11": 2, "C": 1, "D": 1, "E/E1": 3})
+        assert find_missing_folders(disk, tree) == {"D", "E"}  # E1 falta con E: no se mira
+        shutil.rmtree(disk / "B" / "B1")
+        assert find_missing_folders(disk, tree) == {"B/B1", "D", "E"}
+        marked = _mark_missing(tree, find_missing_folders(disk, tree))
+        b = marked.children[1]
+        assert not b.is_missing and b.children[0].is_missing  # B sigue; B1, no
+        assert not b.children[0].children[0].is_missing  # B11 falta con B1 (sin marca)
+        assert marked.children[0] == tree.children[0]  # lo que no falta, igual
+        assert _mark_missing(tree, frozenset()) is tree
+        # Sin raíz o con la raíz vacía (un disco desmontado): nada
+        assert find_missing_folders(Path(tmp) / "No existe", tree) == frozenset()
+        empty_root = Path(tmp) / "Vacía"
+        empty_root.mkdir()
+        assert find_missing_folders(empty_root, tree) == frozenset()
+
+        # Con la base de datos: solo en las ubicaciones conectadas
+        db.execute("UPDATE storage_locations SET absolute_path = ? WHERE id = 1", (str(disk),))
+        db.execute("UPDATE storage_locations SET absolute_path = ? WHERE id = 2", (str(disk / "C"),))
+        (disk / "Organizadas" / "2000").mkdir(parents=True)  # faltan 2001, Álbumes y Sin fotos
+        images, tracks, _empty = fetch_folder_tree(db)
+        flags = {c.name: c.is_missing for c in images.root.children}
+        assert flags == {"Álbumes": True, "Organizadas": False, "Sin fotos": True}, flags
+        organized = images.root.children[1]
+        assert [(c.name, c.is_missing) for c in organized.children] == [
+            ("2000", False), ("2001", True)
+        ]  # fmt: skip
+        assert not tracks.root.children[0].is_missing  # desconectada: no se mira
+        assert [c.is_missing for c in fetch_folder_tree(db, "image")[0].root.children] == [False]
+    print("Carpetas que faltan: solo la de más arriba y con la ubicación conectada")
     print("Autoprueba finalizada correctamente.")

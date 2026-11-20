@@ -12,6 +12,10 @@ sin tener que volver a abrir el catálogo ni reescanear la carpeta.
 Qué comprueba (y qué no), para que sea barato aunque el catálogo sea enorme:
     - TODAS las ubicaciones: si existe su carpeta raíz (una consulta al disco por
       ubicación). Si una cambia, se devuelve el estado nuevo de todos sus elementos.
+    - Si se pide ('check_folders', con la ventana activa), las CARPETAS del catálogo que
+      ya no están en el disco ('folder_tree.find_missing_folders': unas 900 carpetas en
+      unos 25 ms con el árbol entero). Sus archivos pasan a ausentes, todos, aunque no se
+      vean: lo mismo que haría «Sincronizar» en la carpeta de encima (CAT 6.2b).
     - SOLO los archivos que se le piden (normalmente, las tarjetas visibles: unas
       decenas). Lo que no está a la vista se actualizará al verse o al reescanear.
 
@@ -23,9 +27,17 @@ Qué hace con cada archivo comprobado (de una ubicación conectada):
           releer, igual que cuando lo detecta el escáner (metadatos, miniatura y hashes).
 Nunca toca los datos del usuario.
 
-Además, dice qué ubicaciones se han conectado o desconectado ('switched_locations'), para
-que el árbol de «Carpetas» se ponga al día: una sin archivos no cambia ninguna tarjeta.
+Además, dice qué ubicaciones se han conectado o desconectado ('switched_locations') y en
+qué carpetas que faltan ha marcado archivos ('missing_folders'), para que el árbol de
+«Carpetas» se ponga al día: una ubicación sin archivos no cambia ninguna tarjeta.
 
+Las carpetas no se miran mientras haya una operación con archivos a medias (la tabla
+'file_operations'): al renombrar una carpeta desde la aplicación, la de origen deja de
+existir un momento antes de que el catálogo lo sepa, y sus archivos no deben quedar como
+ausentes. La operación se apunta ANTES de tocar el disco y se borra al terminar.
+
+1.2.0 'check_folders': los archivos de las carpetas que ya no están en el disco, ausentes;
+      'AvailabilityCheck.missing_folders' (CAT 6.2b).
 1.1.0 'AvailabilityCheck.switched_locations': las ubicaciones que se han conectado o
       desconectado (para poner al día el árbol de «Carpetas»).
 
@@ -33,7 +45,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.availability
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["AvailabilityCheck", "check_availability"]
 
 # Librerías estándar
@@ -44,6 +56,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Módulos del proyecto
+from core.catalog.folder_tree import FolderNode, fetch_folder_tree
 from core.catalog.media_queries import AVAILABLE, MISSING, OFFLINE
 
 # SQLite limita las variables de una sentencia (999 en versiones antiguas)
@@ -61,21 +74,28 @@ class AvailabilityCheck:
             releer (hay que lanzar la lectura de metadatos).
         switched_locations: 'storage_locations.id' de las que se han conectado o
             desconectado (hay que poner al día el árbol de «Carpetas»).
+        missing_folders: (ubicación, carpeta relativa) de las carpetas que ya no están en
+            el disco y cuyos archivos se acaban de marcar como ausentes (hay que poner al
+            día el árbol). Una que ya estaba marcada no vuelve a salir.
     """
 
     changes: dict[int, int] = field(default_factory=dict)
     rescan_needed: int = 0
     switched_locations: tuple[int, ...] = ()
+    missing_folders: tuple[tuple[int, str], ...] = ()
 
 
 def check_availability(
-    conn: sqlite3.Connection, media_ids: Sequence[int] = ()
+    conn: sqlite3.Connection, media_ids: Sequence[int] = (), check_folders: bool = False
 ) -> AvailabilityCheck:
-    """Comprueba las ubicaciones y los archivos indicados, y anota lo que haya cambiado.
+    """Comprueba las ubicaciones, las carpetas (si se pide) y los archivos indicados, y
+    anota lo que haya cambiado.
 
     Args:
         conn: Conexión (la pone el gestor de la base de datos; él hace el commit).
         media_ids: Elementos cuyos archivos hay que comprobar (las tarjetas visibles).
+        check_folders: Mirar también qué carpetas ya no están en el disco y marcar sus
+            archivos como ausentes (con la ventana activa).
 
     Returns:
         Lo que ha cambiado (para repintar solo esas tarjetas).
@@ -113,7 +133,11 @@ def check_availability(
             else:
                 changes[media_id] = MISSING if is_missing else AVAILABLE
 
-    # 2. Archivos pedidos (de ubicaciones conectadas)
+    # 2. Carpetas que ya no están en el disco: sus archivos, ausentes. Antes que los
+    #    archivos pedidos, para que los de esas carpetas no se cuenten dos veces
+    missing_folders = _mark_missing_folders(conn, changes) if check_folders else []
+
+    # 3. Archivos pedidos (de ubicaciones conectadas)
     rescan_needed = 0
     ids = [int(media_id) for media_id in media_ids]
     for start in range(0, len(ids), _CHUNK):
@@ -156,7 +180,49 @@ def check_availability(
                     rescan_needed += 1
                 changes[media_id] = AVAILABLE
 
-    return AvailabilityCheck(changes, rescan_needed, tuple(switched))
+    return AvailabilityCheck(changes, rescan_needed, tuple(switched), tuple(missing_folders))
+
+
+def _mark_missing_folders(
+    conn: sqlite3.Connection, changes: dict[int, int]
+) -> list[tuple[int, str]]:
+    """Marca como ausentes los archivos de las carpetas que ya no están en el disco.
+
+    Solo en las ubicaciones conectadas y con las precauciones de 'find_missing_folders'
+    (que el sistema diga que no existe; nada con la raíz vacía). Nada mientras haya una
+    operación con archivos a medias (ver la cabecera). Apunta en 'changes' los archivos
+    marcados.
+
+    Returns:
+        Las carpetas (ubicación, ruta relativa) con algún archivo recién marcado.
+    """
+    if conn.execute("SELECT 1 FROM file_operations LIMIT 1").fetchone() is not None:
+        return []
+    found: list[tuple[int, str]] = []
+    for location in fetch_folder_tree(conn):
+        if not location.is_online:
+            continue
+        for folder in _topmost_missing(location.root):
+            # Lo de dentro, por RANGO ('carpeta/' <= ruta < 'carpeta0'), como el resto del
+            # catálogo: sin comodines y usando el índice
+            marked = conn.execute(
+                """UPDATE media_items SET is_missing = 1
+                    WHERE storage_location_id = ? AND is_missing = 0
+                      AND relative_path >= ? AND relative_path < ?
+                RETURNING id""",
+                (location.location_id, f"{folder}/", f"{folder}0"),
+            ).fetchall()
+            if marked:
+                changes.update((int(media_id), MISSING) for (media_id,) in marked)
+                found.append((location.location_id, folder))
+    return found
+
+
+def _topmost_missing(node: FolderNode) -> list[str]:
+    """Las carpetas marcadas como que faltan (las de más arriba: no se mira por dentro)."""
+    if node.is_missing:
+        return [node.relative_path]
+    return [path for child in node.children for path in _topmost_missing(child)]
 
 
 if __name__ == "__main__":
@@ -235,5 +301,40 @@ if __name__ == "__main__":
             "FROM media_items WHERE id = ?", (ids["a.jpg"],)
         ).fetchone()
         assert row == (0, 20, 0, 0, 4), row
+
+        # 7. Carpetas que ya no están en el disco (CAT 6.2b): sus archivos, ausentes
+        for folder, name in (("Sub", "c.jpg"), ("Sub/Deep", "d.jpg"), ("Otra", "e.jpg")):
+            (disk / folder).mkdir(parents=True, exist_ok=True)
+            (disk / folder / name).write_bytes(b"z")
+            db.execute(
+                """INSERT INTO media_items(storage_location_id, relative_path, file_name,
+                       media_type, mime_type, file_size, file_mtime_ns, title)
+                   VALUES (1, ?, ?, 'photo', 'image/jpeg', 1, 0, ?)""",
+                (f"{folder}/{name}", name, name),
+            )
+        ids = dict(db.execute("SELECT relative_path, id FROM media_items"))
+        assert check_availability(db, (), True).missing_folders == ()  # todo en su sitio
+        import shutil
+
+        shutil.rmtree(disk / "Sub")
+        assert check_availability(db, ()).changes == {}  # sin pedirlo, no se mira
+        # Con una operación con archivos a medias, tampoco (renombrar una carpeta)
+        db.execute(
+            """INSERT INTO file_operations(batch_id, kind, source_location_id, source_path,
+                   target_location_id, target_path) VALUES (1, 'folder', 1, 'Sub', 1, 'Sub2')"""
+        )
+        assert check_availability(db, (), True) == AvailabilityCheck()
+        db.execute("DELETE FROM file_operations")
+        result = check_availability(db, [ids["Otra/e.jpg"], ids["Sub/c.jpg"]], True)
+        assert result.changes == {ids["Sub/c.jpg"]: MISSING, ids["Sub/Deep/d.jpg"]: MISSING}, result
+        assert result.missing_folders == ((1, "Sub"),), result
+        assert db.execute("SELECT is_missing FROM media_items WHERE id = ?",
+                          (ids["Otra/e.jpg"],)).fetchone() == (0,)  # fmt: skip
+        assert check_availability(db, (), True) == AvailabilityCheck()  # ya constaban
+        # Con la ubicación vacía (un disco desmontado que deja su carpeta): nada
+        shutil.rmtree(disk)
+        disk.mkdir()
+        db.execute("UPDATE media_items SET is_missing = 0")
+        assert check_availability(db, (), True).changes == {}
         db.close()
     print("Autoprueba finalizada correctamente.")

@@ -13,7 +13,7 @@
 | Crear y abrir un catálogo (carpeta autónoma, migraciones) | Hecho y verificado |
 | Añadir y sincronizar carpetas; ubicaciones sin solapes | Hecho y verificado (más de 20 000 imágenes en segundos) |
 | Bibliotecas: «¿Qué contiene esta carpeta?», clasificación de los vídeos, submenú «Biblioteca» | Hecho y verificado |
-| Archivos ausentes y ubicaciones desconectadas | Hecho y verificado; la detección con el catálogo abierto, por comprobar |
+| Archivos ausentes y ubicaciones desconectadas | Hecho y verificado; la detección con el catálogo abierto, por comprobar. Carpetas que faltan, en el árbol, y sus archivos (`CAT 6.2`, 20/11/2026), por verificar |
 | Barra: Catálogo, Carpetas y Colecciones | Hecho y verificado |
 | Colecciones: del sistema, conjuntos, estáticas e inteligentes (con grupos de reglas) | Hecho y verificado |
 | Quitar del catálogo y eliminar del disco (papelera) | Hecho y verificado; unidades de red y la papelera real, sin probar. Al quitar una carpeta, las vacías se eliminan también del disco (`CAT 3`, 19/11/2026), verificado; las que se vacían al eliminar o mover, se quedan con 0 (`CAT 5`) |
@@ -57,7 +57,7 @@ Tres secciones plegables; cada fila lleva un `GridSource` (qué mostrar) y su re
 | Sección | Filas | Notas |
 |---|---|---|
 | «Catálogo» | «Todos los archivos», «Selección rápida» y «Sin clasificar» | «Sin clasificar» solo se ve si hay algo sin biblioteca |
-| «Carpetas» | Una raíz por ubicación y su árbol, con recuentos: replica las carpetas del disco tal como estaban al sincronizar, también las vacías o sin nada que se catalogue, con 0 (`CAT 5`, tabla `folders`) | Botón «+»: añadir carpeta. Menú: «Sincronizar carpeta», «Mostrar en el Explorador», «Nueva carpeta…» (`CAT 4.4a`), «Cambiar nombre…» (`CAT 4.3`), «Quitar archivos ausentes del catálogo», «Quitar del catálogo…». La opción «Mostrar los elementos de las subcarpetas» (Opciones > Catálogo) decide qué se ve al elegir una |
+| «Carpetas» | Una raíz por ubicación y su árbol, con recuentos: replica las carpetas del disco tal como estaban al sincronizar, también las vacías o sin nada que se catalogue, con 0 (`CAT 5`, tabla `folders`) | Botón «+»: añadir carpeta. Menú: «Sincronizar carpeta», «Mostrar en el Explorador», «Crear nueva carpeta...» (`CAT 4.4a`), «Cambiar nombre...» (`CAT 4.3`), «Quitar del catálogo...» y «Quitar archivos ausentes del catálogo...»; qué se puede en cada estado, en el §5. La opción «Mostrar los elementos de las subcarpetas» (Opciones > Catálogo) decide qué se ve al elegir una |
 | «Colecciones» | Las del sistema (Clasificación, Etiqueta, Marcadas, Rechazadas) y las del usuario | Botón «+» y menú: crear conjunto, colección o colección inteligente; renombrar; borrar; soltar tarjetas sobre una colección |
 
 ## 4. Carpetas, ubicaciones y bibliotecas
@@ -83,12 +83,58 @@ Tres secciones plegables; cada fila lleva un `GridSource` (qué mostrar) y su re
 
 La biblioteca se corrige a mano con el submenú «Biblioteca» de la cuadrícula (queda fijada: ni el escáner ni la detección la cambian). Los nombres para el usuario salen siempre de `LIBRARY_NAMES`.
 
-## 5. Archivos ausentes y ubicaciones desconectadas
+## 5. El árbol de «Carpetas»: estados, ausentes y desconectados
 
-- **Ausente**: el archivo ya no está donde estaba (`is_missing`). Se ve con su velo e indicador, conserva sus datos y vuelve solo si reaparece. «Quitar archivos ausentes del catálogo» los borra (`missing_items.py`).
-- **Sin conexión**: la ubicación entera no está (disco desconectado); sus archivos no se marcan ausentes (`storage_locations.refresh_location_status`).
-- **Con el catálogo abierto**: `availability.check_availability` comprueba cada pocos segundos, y al volver a la ventana, los archivos que desaparecen o vuelven; si un disco se conecta o desconecta, también se pone al día el árbol de «Carpetas» (`CAT 6.1`).
-- **En el árbol**: una ubicación desconectada se ve atenuada, con «(desconectada)» en el emergente y su menú reducido. Una carpeta borrada fuera de la aplicación todavía no se marca (`CAT 6.2`).
+Resumen del 20/11/2026 (`CAT 5`, `CAT 6.1` y `CAT 6.2`), para tener en un sitio cómo se comporta. Paso a paso, en [FLUJOS.md](FLUJOS.md) §9; las órdenes, en el §8 de este documento.
+
+**Qué muestra**
+
+- **Una raíz por ubicación** (cada carpeta añadida con «Añadir carpeta» o con «+») y, debajo, sus subcarpetas, en orden natural y sin distinguir acentos.
+- **Las carpetas salen de dos sitios**: las de los archivos del catálogo y las apuntadas en la tabla `folders` al sincronizar (también las vacías o con solo archivos que no se catalogan, con 0; `catalog_folders.py`). El árbol replica el disco **tal como estaba al sincronizar**; no lo lee entero en cada momento (sí mira qué carpetas faltan: abajo).
+- **Recuentos**: con las subcarpetas (o solo lo de la carpeta, con «Mostrar los elementos de las subcarpetas» desactivada) y de todo lo que hay en el catálogo, también lo ausente o de discos desconectados (como Lightroom).
+- **En los módulos** (Imagen, Vídeo, Música, Tracks): solo las carpetas con algo de su biblioteca, sin las vacías; es para navegar (el menú, solo «Mostrar en el Explorador»). Las marcas de abajo, igual.
+
+**Estados de una fila**
+
+| Estado | Cómo se ve | Cuándo se sabe |
+|---|---|---|
+| Normal | Icono de carpeta (de disco en la raíz); desplegada, en el color de acento | — |
+| Vacía, pero en el disco | Normal, con 0 | Al sincronizar |
+| **Ubicación desconectada** | Atenuada, con el círculo gris (disco tachado) en lugar del disco y «(desconectada)» en el emergente; sus carpetas, atenuadas | La comprobación de cada 5 s, siempre (`CAT 6.1`; `availability.check_availability`) |
+| **Carpeta que falta** (borrada, renombrada o movida fuera, con el disco conectado) | Atenuada, con el círculo naranja en lugar de su icono y «No se encuentra en el disco (…)» en el emergente; las de dentro, solo atenuadas | Cada vez que se lee el árbol (`folder_tree.find_missing_folders`): tras un cambio, al volver a la ventana y cuando la comprobación de cada 5 s marca sus archivos (`CAT 6.2a`) |
+
+Los círculos son el aviso de las tarjetas (`card_glyphs.availability_icon`). Precauciones para no marcar de más: solo cuenta como que falta lo que el sistema dice que no existe, y con la raíz de la ubicación vacía (un disco desmontado) no se marca nada.
+
+**Estados de un archivo (su tarjeta)**
+
+| Estado | Aviso | Se marca | Vuelve |
+|---|---|---|---|
+| Disponible | — | — | — |
+| **Ausente** (`is_missing`) | Círculo naranja con «!» y velo | Al sincronizar (con un recorrido completo); las tarjetas visibles, cada 5 s y al volver a la ventana; todos los de una carpeta que falta (`CAT 6.2b`, con la ventana activa); un trabajo que no lo encuentra | Al verlo, si está igual (si cambió, se relee), o al sincronizar |
+| **Sin conexión** | Círculo gris y velo | Su ubicación se desconecta (no se marcan ausentes) | Al conectar el disco |
+
+Un ausente conserva sus datos (valoración, colecciones...) hasta que se quita del catálogo.
+
+**Menú de una carpeta (Catálogo)**
+
+| Opción | Normal | Raíz de la ubicación | Desconectada | Falta |
+|---|---|---|---|---|
+| Sincronizar carpeta | ✓ | ✓ | — | — |
+| Mostrar en el Explorador | ✓ | ✓ | — | — |
+| Crear nueva carpeta... | ✓ | ✓ | — | — |
+| Cambiar nombre... | ✓ | — | — | — |
+| Quitar del catálogo... | ✓ | ✓ (quita la ubicación) | ✓ | ✓ |
+| Quitar archivos ausentes del catálogo... | ✓ | ✓ | — | ✓ |
+
+- **Sincronizar**: entra lo nuevo, lo que ya no está pasa a ausente y las carpetas apuntadas se ponen al día (las que ya no existen salen); el resumen ofrece quitar los ausentes.
+- **Quitar del catálogo...**: la carpeta y todo lo de dentro (presente o ausente), sin tocar los archivos; las carpetas que se quedan vacías en el disco se borran también del disco, con su aviso (`CAT 3`). Es la forma de borrar una carpeta vacía.
+- **Quitar archivos ausentes del catálogo...**: los ausentes de la carpeta y sus subcarpetas y, además, las carpetas apuntadas que ya no existen en el disco (`CAT 6.2c`); la pregunta y el mensaje final las nombran. Las vacías que siguen en el disco se quedan.
+- **Soltar tarjetas** sobre una carpeta: moverlas (`CAT 4.4b`); no en una desconectada ni en una que falta.
+- Con una desconectada o una que falta, el menú lleva una nota en gris que lo explica.
+
+**Cuándo se lee el árbol**: al terminar de cargar la cuadrícula, tras los cambios del usuario (400 ms después), al volver a la ventana, al conectarse o desconectarse un disco y cuando la comprobación de cada 5 s marca los archivos de una carpeta que falta. Leerlo mira el disco (unas 900 carpetas en unos 6 ms en un disco local; sin probar en una unidad de red).
+
+**Lo que aún no hay**: «Localizar…» una ubicación o una carpeta (`CAT 6.3` y `6.4`); reconocer un disco que vuelve con otra letra; quitar en lote las carpetas vacías que siguen en el disco (posible «Eliminar carpetas vacías…», sin decidir); los archivos nuevos solo entran al sincronizar.
 
 ## 6. Colecciones
 
@@ -117,7 +163,7 @@ Son los comunes a todos los módulos:
 | «Eliminar del catálogo» | Quita los archivos del catálogo; siguen en su carpeta y vuelven al sincronizar | `media_removal.py` |
 | «Eliminar del disco» | Además, los envía a la Papelera (con el sidecar de un RAW). Los ausentes, los de una ubicación desconectada y los de una unidad de red solo se quitan del catálogo. La carpeta que se queda vacía se queda, con 0 en el árbol (`CAT 5`, como Lightroom; para borrarla, «Quitar del catálogo…») | `media_removal.py`, `empty_folders.py`; la papelera se le pasa como función desde la interfaz |
 | «Quitar del catálogo…» (carpeta o ubicación) | Quita esa carpeta entera, también desconectada; los archivos del disco no se tocan. Las carpetas que ya no tienen archivos en el disco se eliminan también del disco, con su aviso (`CAT 3.2`, como Lightroom) | `folder_removal.py`, `empty_folders.py` |
-| «Quitar archivos ausentes del catálogo» | Borra del catálogo los ausentes de una carpeta | `missing_items.py` |
+| «Quitar archivos ausentes del catálogo» | Borra del catálogo los ausentes de una carpeta y las carpetas apuntadas que ya no existen en el disco (`CAT 6.2c`) | `missing_items.py` |
 
 Paso a paso y la ventana (`RemoveDialog`): [FLUJOS.md](FLUJOS.md) §13.
 
@@ -160,7 +206,7 @@ Lo que falta, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí está la li
 | `CAT 1.2` | Fusión de ubicaciones solapadas | Hoy se rechazan |
 | `CAT 2` | Hashes: duplicados, comprobación de integridad y reasociar un archivo renombrado fuera | Columnas `hash_partial`, `hash_full`, `hash_verified_at`; pasos por definir |
 | `CAT 4` | Operaciones con archivos: renombrar un archivo o una carpeta, nueva carpeta, mover (en el mismo disco y entre discos) y renombrado múltiple, con el catálogo al día y un registro de operaciones | Acordado el 19/11/2026 (cambia la regla de los originales). Hechos del `4.1` al `4.4`; quedan el `4.5` y el `4.6` |
-| `CAT 6` | Carpetas que faltan y «Localizar…»: el árbol, al día con los discos (`6.1`, hecho el 20/11/2026), marcar la carpeta que falta y la ubicación desconectada (`6.2`), localizar una ubicación (`6.3`) y una carpeta (`6.4`) | Acordado el 20/11/2026. «Localizar…» solo cambia el catálogo. Detalle en [PENDIENTE.md](PENDIENTE.md) |
+| `CAT 6` | Carpetas que faltan y «Localizar…»: el árbol, al día con los discos (`6.1`, hecho el 20/11/2026), marcar la carpeta que falta y la ubicación desconectada (`6.2a`, hecho el 20/11/2026) y sus archivos, ausentes (`6.2b`), y «Quitar archivos ausentes» con las carpetas que ya no existen (`6.2c`), hechos el 20/11/2026; localizar una ubicación (`6.3`) y una carpeta (`6.4`) | Acordado el 20/11/2026. «Localizar…» solo cambia el catálogo. Detalle en [PENDIENTE.md](PENDIENTE.md) |
 
 ### Fases de otras categorías que afectan al Catálogo
 

@@ -15,6 +15,10 @@ que se vean idénticos en los dos sitios. Se dibujan con QPainter: no necesitan 
         Indicador de archivo no disponible, dentro del rectángulo 'badge':
             ausente       (MISSING) -> círculo naranja con «!»
             sin conexión  (OFFLINE) -> círculo gris con un disco tachado
+    availability_icon(availability)
+        El mismo indicador como icono (QIcon), nítido a cualquier tamaño: en las barras
+        laterales, en lugar del icono de una carpeta que falta o de una ubicación
+        desconectada (CAT 6.2).
     veil(color, amount)
         Color de un velo sobre la imagen (el de rechazada o el de no disponible) con su
         opacidad (0 a 1).
@@ -25,6 +29,7 @@ individual, más grande).
 Los colores salen del tema: el del aviso, de 'COLORS' ('missing', 'offline', los mismos
 que la fila «Estado» del inspector); el borde y el dibujo blanco, de 'CARD_COLORS'.
 
+1.4.0 'availability_icon': el indicador como icono, para las barras laterales (CAT 6.2).
 1.3.0 'draw_location_pin': la chincheta de lo que tiene ubicación (tira del mapa).
 1.2.0 Colores del tema, no sueltos (los mismos valores); 'veil' para los velos.
 1.1.0 'draw_type_glyph': el dibujo del tipo sin el fondo del marcador (paso A.3,
@@ -36,13 +41,14 @@ Prueba rápida (dibuja en una imagen; no abre ninguna ventana):
     python -m ui_helpers.helpers.card_glyphs
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "AVAILABLE",
     "MISSING",
     "MISSING_COLOR",
     "OFFLINE",
     "OFFLINE_COLOR",
+    "availability_icon",
     "draw_availability_badge",
     "draw_location_pin",
     "draw_placeholder",
@@ -54,8 +60,17 @@ __all__ = [
 from collections.abc import Callable
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QPointF, QRect, QRectF, Qt
-from qtpy.QtGui import QColor, QPainter, QPainterPath, QPen, QPolygonF
+from qtpy.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt
+from qtpy.QtGui import (
+    QColor,
+    QIcon,
+    QIconEngine,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+    QPolygonF,
+)
 
 # Módulos del proyecto
 from ui_helpers.helpers.ui_theme import CARD_COLORS, COLORS
@@ -132,6 +147,48 @@ def draw_availability_badge(painter: QPainter, badge: QRectF, availability: int)
             QPointF(badge.right() - size * 0.25, badge.top() + size * 0.25),
         )
     painter.restore()
+
+
+class _BadgeIconEngine(QIconEngine):
+    """Motor de icono que dibuja el indicador de no disponible al tamaño que se pida (nítido
+    también en pantallas HiDPI, como los SVG de 'ui_icons')."""
+
+    def __init__(self, availability: int) -> None:
+        super().__init__()
+        self._availability = availability
+
+    def clone(self) -> QIconEngine:
+        """Qt copia los iconos internamente; cada copia necesita su propio motor."""
+        return _BadgeIconEngine(self._availability)
+
+    def paint(self, painter: QPainter, rect: QRect, mode: QIcon.Mode, state: QIcon.State) -> None:
+        """El círculo, centrado, con un píxel de aire a 16 px (ocupa lo que una carpeta)."""
+        side = min(rect.width(), rect.height())
+        margin = side / 16
+        badge = QRectF(0, 0, side - 2 * margin, side - 2 * margin)
+        badge.moveCenter(QRectF(rect).center())
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        draw_availability_badge(painter, badge, self._availability)
+        painter.restore()
+
+    def pixmap(self, size: QSize, mode: QIcon.Mode, state: QIcon.State) -> QPixmap:
+        """Qt pide aquí el icono al tamaño en píxeles físicos."""
+        pixmap = QPixmap(size)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        self.paint(painter, QRect(QPoint(0, 0), size), mode, state)
+        painter.end()
+        return pixmap
+
+
+def availability_icon(availability: int) -> QIcon:
+    """El indicador de no disponible como icono (MISSING, naranja; OFFLINE, gris).
+
+    Lo usan las barras laterales en lugar del icono de una carpeta que falta en el disco o
+    de una ubicación desconectada (CAT 6.2): el mismo aviso que en las tarjetas.
+    """
+    return QIcon(_BadgeIconEngine(availability))
 
 
 def draw_location_pin(painter: QPainter, box: QRectF) -> None:
@@ -383,6 +440,14 @@ if __name__ == "__main__":
     assert offline.pixelColor(20, 60).name() == OFFLINE_COLOR
     assert nothing.pixelColor(60, 60).alpha() == 0
     assert "#ffffff" in colors_in(missing) and "#ffffff" in colors_in(offline)
+    # El mismo indicador como icono, a cualquier tamaño: centrado y con aire en las esquinas
+    for size in (16, 32):
+        for availability, color in ((MISSING, MISSING_COLOR), (OFFLINE, OFFLINE_COLOR)):
+            image = availability_icon(availability).pixmap(size, size).toImage()
+            assert (image.width(), image.height()) == (size, size)
+            assert image.pixelColor(0, 0).alpha() == 0, (size, availability)
+            # Junto al borde, por dentro: color liso (más adentro, el dibujo blanco)
+            assert image.pixelColor(size // 8, size // 2).name() == color, (size, availability)
 
     # Chincheta: blanca, con el hueco transparente en el centro de la cabeza
     pin = render(lambda p: draw_location_pin(p, QRectF(10, 10, 100, 100)))

@@ -38,6 +38,10 @@ Cómo se comunica con el resto (no sabe nada de SQL ni de la cuadrícula):
     - Iconos: los SVG de 'AppIcons' (carpeta, carpeta abierta, disco, conjunto, colección
       y colección inteligente), teñidos con 'SIDEBAR_ICON_COLOR' de ui_theme.py (None =
       el color del texto). Si un SVG aún no está en los recursos, se usa el icono estándar.
+    - Una ubicación desconectada se ve atenuada, con el aviso gris de las tarjetas en lugar
+      del disco. Una carpeta que ya no está en el disco ('FolderNode.is_missing'), atenuada
+      y con el aviso naranja en lugar de su icono; las de dentro, solo atenuadas. En las dos,
+      el menú solo deja lo que tiene sentido y no se pueden soltar tarjetas (CAT 6.2).
     - Menú contextual de «Selección rápida»: "Vaciar selección rápida" emite
       'clear_quick_selection_requested' (desactivado si está vacía).
     - Solo hay UNA fila seleccionada en toda la barra, aunque esté en otra sección.
@@ -54,6 +58,10 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.17.0 La carpeta que ya no está en el disco: atenuada, con el aviso naranja de las tarjetas
+       en lugar de su icono (las de dentro, solo atenuadas), su texto emergente y su menú
+       reducido; no se sueltan tarjetas en ella. La ubicación desconectada, con el aviso gris
+       en lugar del disco (CAT 6.2).
 1.16.1 Menú de las carpetas: «Crear nueva carpeta...» (antes «Nueva carpeta...») y, debajo de
        «Cambiar nombre...», «Quitar del catálogo...»: las tres sobre la carpeta, juntas (lo
        pidió el autor).
@@ -106,7 +114,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.16.1"
+__version__ = "1.17.0"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -158,7 +166,11 @@ from core.catalog.smart_rules import describe_rules
 from core.catalog.system_collections import SYSTEM_COLLECTIONS, SystemCollection
 from core.catalog.user_collections import KIND_SET, KIND_SMART, KIND_STATIC, CollectionNode
 from core.file_ops.moves import renamed_folder_path
-from ui_helpers.helpers.sidebar_icons import load_sidebar_icons
+from ui_helpers.helpers.sidebar_icons import (
+    MISSING_FOLDER_NOTE,
+    MISSING_FOLDER_TOOLTIP,
+    load_sidebar_icons,
+)
 from ui_helpers.helpers.ui_color_labels import label_icon
 from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME
 from ui_helpers.helpers.ui_icons import tinted_icon
@@ -173,6 +185,7 @@ from ui_helpers.widgets.sidebar_tree_view import ROLE_COUNT, ROLE_SOURCE, Sideba
 # Roles propios de las filas del árbol de carpetas (además de ROLE_SOURCE y ROLE_COUNT)
 _ROLE_PATH = Qt.ItemDataRole.UserRole + 10  # str: ruta absoluta de la carpeta
 _ROLE_ONLINE = Qt.ItemDataRole.UserRole + 11  # bool: si su ubicación está conectada
+_ROLE_MISSING = Qt.ItemDataRole.UserRole + 12  # bool: ella, o una de encima, ya no está en el disco
 # Roles propios de las filas de las colecciones del usuario
 _ROLE_COLLECTION_ID = Qt.ItemDataRole.UserRole + 20  # int: 'collections.id'
 _ROLE_COLLECTION_KIND = Qt.ItemDataRole.UserRole + 21  # str: KIND_SET, KIND_STATIC o KIND_SMART
@@ -644,7 +657,7 @@ class CatalogSidebar(QWidget):
                 item = self._make_item(
                     location.name, source, self._count_of(location.root)
                 )
-                self._set_icon(item, "drive")
+                self._set_icon(item, "drive" if location.is_online else "drive_offline")
                 item.setData(location.absolute_path, _ROLE_PATH)
                 item.setData(location.is_online, _ROLE_ONLINE)
                 tooltip = location.absolute_path
@@ -953,22 +966,35 @@ class CatalogSidebar(QWidget):
         location: LocationNode,
         children: tuple[FolderNode, ...],
         foreground: QBrush | None,
+        missing_above: bool = False,
     ) -> None:
-        """Añade (recursivamente) las subcarpetas de una carpeta."""
+        """Añade (recursivamente) las subcarpetas de una carpeta.
+
+        'foreground' atenúa el texto (ubicación desconectada, o dentro de una carpeta que
+        falta) y 'missing_above' dice que una carpeta de encima ya no está en el disco.
+        """
         for node in children:
             source = self._source_for(location.location_id, node.relative_path)
             item = self._make_item(node.name, source, self._count_of(node))
-            self._set_icon(item, "folder")
+            self._set_icon(item, "folder_missing" if node.is_missing else "folder")
             # Ruta completa con el separador del sistema (barra invertida en Windows)
             full_path = str(Path(location.absolute_path) / node.relative_path)
-            item.setToolTip(full_path)
+            item.setToolTip(f"{full_path}\n{MISSING_FOLDER_TOOLTIP}" if node.is_missing else full_path)
             item.setData(full_path, _ROLE_PATH)
             item.setData(location.is_online, _ROLE_ONLINE)
-            if foreground is not None:
-                item.setForeground(foreground)
+            item.setData(missing_above or node.is_missing, _ROLE_MISSING)
+            brush = foreground
+            if node.is_missing and brush is None:
+                # Atenuada, como una ubicación desconectada (y lo de dentro, con ella)
+                palette = self._folders_view.palette()
+                brush = QBrush(palette.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text))
+            if brush is not None:
+                item.setForeground(brush)
             self._folder_items[source] = item
             parent_item.appendRow(item)
-            self._add_folder_children(item, location, node.children, foreground)
+            self._add_folder_children(
+                item, location, node.children, brush, missing_above or node.is_missing
+            )
 
     def _source_for(self, location_id: int, relative_path: str) -> GridSource:
         """Origen de una carpeta, con la opción actual de incluir o no las subcarpetas."""
@@ -989,6 +1015,10 @@ class CatalogSidebar(QWidget):
         source: GridSource = index.data(ROLE_SOURCE)
         path = index.data(_ROLE_PATH)
         online = bool(index.data(_ROLE_ONLINE))
+        # La carpeta (o una de encima) ya no está en el disco: no hay nada que leer, mostrar
+        # ni renombrar, ni dónde crear (sí quitarla del catálogo, o quitar sus ausentes)
+        missing = bool(index.data(_ROLE_MISSING))
+        on_disk = online and not missing
 
         menu = QMenu(view)
         sync_action = menu.addAction("Sincronizar carpeta")
@@ -997,11 +1027,11 @@ class CatalogSidebar(QWidget):
         # Las tres operaciones sobre la propia carpeta, juntas (crear, renombrar, quitar).
         # Crea una carpeta dentro, en el disco (también en la raíz de una ubicación)
         new_folder_action = menu.addAction("Crear nueva carpeta...")
-        new_folder_action.setEnabled(online)
+        new_folder_action.setEnabled(on_disk)
         # Cambia el nombre en el disco: con la ubicación conectada y no en su raíz (renombrar
         # la raíz cambiaría la ubicación: más adelante)
         rename_action = menu.addAction("Cambiar nombre...")
-        rename_action.setEnabled(online and bool(source.folder))
+        rename_action.setEnabled(on_disk and bool(source.folder))
         # Siempre activa, también con el disco desconectado: entonces solo la quita del
         # catálogo (sirve, p. ej., para quitar un disco que ya no existe)
         remove_folder_action = menu.addAction("Quitar del catálogo...")
@@ -1015,6 +1045,11 @@ class CatalogSidebar(QWidget):
             menu.addSeparator()
             note = menu.addAction("(ubicación desconectada)")
             note.setEnabled(False)
+        elif missing:
+            for action in (sync_action, reveal_action):
+                action.setEnabled(False)
+            menu.addSeparator()
+            menu.addAction(MISSING_FOLDER_NOTE).setEnabled(False)
 
         chosen = menu.exec(view.viewport().mapToGlobal(position))
         if chosen is sync_action:
@@ -1259,9 +1294,10 @@ class CatalogSidebar(QWidget):
         return self._collections_model.itemFromIndex(index)
 
     def _folder_drop_item_at(self, position: QPoint) -> QStandardItem | None:
-        """Carpeta (o ubicación) conectada bajo el ratón, o None si no hay ninguna."""
+        """Carpeta (o ubicación) conectada bajo el ratón, o None si no hay ninguna (ni si ya
+        no está en el disco: no hay dónde mover)."""
         index = self._folders_view.indexAt(position)
-        if not index.isValid() or not index.data(_ROLE_ONLINE):
+        if not index.isValid() or not index.data(_ROLE_ONLINE) or index.data(_ROLE_MISSING):
             return None
         source = index.data(ROLE_SOURCE)
         if source is None or source.location_id is None:

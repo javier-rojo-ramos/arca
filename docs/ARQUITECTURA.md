@@ -103,7 +103,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   helpers/grid_actions.py            GridActions: atajos de teclado (estilo Lightroom; F2, cambiar nombre) y menú contextual de la cuadrícula
   helpers/ui_color_labels.py         Etiquetas de color en la interfaz: su color (del tema, MARK_COLORS), textos, mezcla (blend) e icono de menú
   helpers/card_marks.py              Dibujo de estrellas, marca (recuadro / X) y círculo de la selección rápida: lo comparten la tarjeta y la barra inferior
-  helpers/card_glyphs.py             Dibujo de la chincheta de la ubicación (draw_location_pin), del marcador de tipo (sin miniatura; draw_type_glyph, solo el dibujo, para la fila «Atributos») y del indicador de no disponible, y el velo de rechazada o no disponible (veil): lo comparten la tarjeta y la vista individual
+  helpers/card_glyphs.py             Dibujo de la chincheta de la ubicación (draw_location_pin), del marcador de tipo (sin miniatura; draw_type_glyph, solo el dibujo, para la fila «Atributos») y del indicador de no disponible (también como icono, availability_icon: en las barras, la carpeta que falta y la ubicación desconectada), y el velo de rechazada o no disponible (veil): lo comparten la tarjeta y la vista individual
   helpers/profile_style.py           Estilo del perfil de elevación, sin Qt: ProfileStyle (colores, cómo se ve la pendiente —SlopeMode: sin colores, en el área o en la línea—, umbrales e histéresis, grosores, rejilla, cursor, letra) y slope_bands (la franja de pendiente de cada punto, con histéresis)
   helpers/profile_format.py          Marcas de los ejes del perfil (nice_range, ticks, distance_tick_label, altitude_tick_label) y sus textos (totals_text, range_text, cursor_lines), sin Qt
   helpers/profile_painter.py         Dibujo del perfil con QPainter: build_layout (dónde va cada cosa y la escala), render_static (rejilla, ejes, área y línea, en un QPixmap que el widget guarda) y paint_overlay (línea de arriba, tramo elegido y cursor)
@@ -137,7 +137,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
   layout/section_registry.py         SECTION_REGISTRY (sin Qt): el registro de modos y de secciones plegables de las dos barras (SectionSpec: id estable, título, barras, modos, posición y estado de partida); AQUÍ se da de alta una sección. Los modos y los títulos «Biblioteca - …» salen de config/app_modules.py
   layout/section_layout.py           SectionLayout (sin Qt): la colocación por modo y barra (lista ordenada de SectionEntry: id, visible, expanded); mover, ocultar, plegar, restaurar; to_state / from_state con versión (LAYOUT_VERSION) y fusión con el registro
   layout/section_layout_model.py     SectionLayoutModel: la única fuente de verdad de la colocación; lee y guarda 'section_layout' en settings.json y avisa con layout_changed(modo, barra); working_copy / apply para editar una copia y aplicarla de una vez (Opciones); la primera vez importa lo plegado que se guardaba antes. Lo crea el controlador y llega a los módulos en ModuleContext.section_layout
-  helpers/sidebar_icons.py           load_sidebar_icons: iconos de unidades, carpetas y colecciones (barras del Catálogo e Imagen), con sus variantes ':open' y ':menu'
+  helpers/sidebar_icons.py           load_sidebar_icons: iconos de unidades, carpetas y colecciones (barras del Catálogo e Imagen), con sus variantes ':open' y ':menu', y el aviso de la carpeta que falta y de la ubicación desconectada (con sus textos)
   widgets/keyword_checklist.py       KeywordChecklist: filtro + árbol de palabras con casillas de tres estados (editor del inspector); padres de lo asignado resaltados; menú contextual y soltar tarjetas
   widgets/recent_keywords.py         RecentKeywords: «Últimas palabras clave», 6 botones de ancho fijo (asignar / quitar con un clic)
   helpers/signal_blocker.py          blocked_signals: bloquear las señales de varios objetos Qt en un 'with'
@@ -209,9 +209,9 @@ core/
     smart_rules.py                     Rule, RuleSet (con grupos de un nivel): validación, rules_to_sql, JSON (rules_to_json / rules_from_json) y describe_rule(s)
     system_collections.py              SYSTEM_COLLECTIONS: Clasificación (1..5), Etiqueta (Rojo..Púrpura), Marcadas, Rechazadas
     user_collections.py                Colecciones del usuario: árbol, crear, renombrar, borrar, añadir y quitar elementos
-    folder_tree.py                     Árbol de carpetas con recuentos (fetch_folder_tree, build_folder_tree, sort_key natural): las de los archivos y las de la tabla folders (CAT 5)
+    folder_tree.py                     Árbol de carpetas con recuentos (fetch_folder_tree, build_folder_tree, sort_key natural): las de los archivos y las de la tabla folders (CAT 5); las que ya no están en el disco (find_missing_folders, CAT 6.2)
     catalog_folders.py                 Las carpetas del catálogo (tabla folders, CAT 5: también las vacías): add_folders, sync_folders (tras recorrer), remove_folders, folders_under, folder_paths
-    missing_items.py                   Contar y quitar del catálogo los ausentes de una carpeta (y sus miniaturas)
+    missing_items.py                   Contar y quitar del catálogo los ausentes de una carpeta (y sus miniaturas) y las carpetas apuntadas que ya no existen en el disco (count_missing, CAT 6.2c)
     folder_removal.py                  Quitar del catálogo una carpeta entera (y, si es la raíz, su ubicación): count_folder_items, remove_folder_from_catalog (trabajo; usa remove_media_items)
     empty_folders.py                   Carpetas del catálogo vacías en el disco, para borrarlas al quitar una carpeta (CAT 3): candidate_folders, plan_empty_folders, remove_empty_folders (lo que sobra, a la Papelera; la carpeta, con os.rmdir); sin BD ni Qt
     media_removal.py                   Eliminar: plan_removal (qué puede ir a la papelera: no los ausentes, desconectados ni en red), remove_media_items (trabajo: quitar del catálogo y, si se pide, papelera + sidecar del RAW + entrada del .arca.json), is_network_path
@@ -219,7 +219,7 @@ core/
     catalog_builder.py                 CatalogBuilder: crea carpetas + catalogo.db (WAL) + esquema
     catalog_opener.py                  open_catalog: valida un catálogo existente (marca APPLICATION_ID) y aplica sus migraciones
     storage_locations.py               register_folder (ubicaciones sin solapes), locate_folder (lo mismo, solo lectura), make_relative_path, refresh_location_status
-    availability.py                    check_availability: discos desconectados (y cuáles han cambiado: switched_locations) y archivos visibles que faltan o vuelven (sin Qt)
+    availability.py                    check_availability: discos desconectados (y cuáles han cambiado: switched_locations), carpetas que faltan, con sus archivos (missing_folders, CAT 6.2b), y archivos visibles que faltan o vuelven (sin Qt)
     scan_filter.py                     ScanFilter: descarta basura, ocultos, temporales, enlaces
     media_detector.py                  MediaTypeDetector: tipo de medio y MIME (extensión, mimetypes, puremagic)
     folder_scanner.py                  FolderScanner: recorre carpetas y entrega ScanCandidate

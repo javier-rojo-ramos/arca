@@ -19,14 +19,32 @@ Qué se quita (y qué no):
       'track_details'...) se borran solas (ON DELETE CASCADE).
     - Sus errores de lectura en 'scan_errors'.
     - Sus miniaturas de la caché (si se indica la carpeta del catálogo o se puede deducir).
+    - Las carpetas apuntadas en el catálogo (tabla 'folders', CAT 5) dentro de ella, o ella
+      misma, que ya no están en el disco, con las de dentro y con las precauciones de
+      'folder_tree.find_missing_folders' (que el sistema diga que no existen; nada con la
+      raíz de la ubicación vacía). Sin esto, una carpeta borrada fuera de la aplicación
+      seguiría en el árbol de «Carpetas», con 0 (CAT 6.2c). Las carpetas vacías que siguen
+      en el disco se quedan (CAT 5).
     - NUNCA se toca ningún archivo del disco del usuario.
+
+'count_missing' cuenta las dos cosas (para la pregunta); 'count_missing_items', solo los
+archivos (el resumen de sincronizar, que ya pone al día las carpetas).
+
+1.1.0 También las carpetas que ya no están en el disco: 'count_missing' ('MissingCount') y
+      'RemovedItems.folders' (CAT 6.2c).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.missing_items
 """
 
-__version__ = "1.0.0"
-__all__ = ["RemovedItems", "count_missing_items", "remove_missing_items"]
+__version__ = "1.1.0"
+__all__ = [
+    "MissingCount",
+    "RemovedItems",
+    "count_missing",
+    "count_missing_items",
+    "remove_missing_items",
+]
 
 # Librerías estándar
 import sqlite3
@@ -36,6 +54,10 @@ from typing import Any
 
 # Librerías de terceros
 from loguru import logger
+
+# Módulos del proyecto
+from core.catalog.catalog_folders import folders_under, remove_folders
+from core.catalog.folder_tree import build_folder_tree, find_missing_folders
 
 # SQLite limita las variables de una sentencia (999 en versiones antiguas)
 _CHUNK = 500
@@ -48,10 +70,28 @@ class RemovedItems:
     Attributes:
         count: Elementos quitados del catálogo.
         thumbnails_deleted: Archivos de miniatura borrados de la caché.
+        folders: Carpetas quitadas porque ya no están en el disco (las de más arriba: una
+            con sus subcarpetas cuenta como una).
     """
 
     count: int = 0
     thumbnails_deleted: int = 0
+    folders: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class MissingCount:
+    """Lo que quitaría 'remove_missing_items' (lo cuenta 'count_missing').
+
+    Attributes:
+        items: Archivos ausentes.
+        folders: Carpetas que ya no están en el disco (las de más arriba).
+        folder_missing: Es la propia carpeta pedida la que ya no está (o una de encima).
+    """
+
+    items: int = 0
+    folders: int = 0
+    folder_missing: bool = False
 
 
 def _missing_condition(location_id: int, relative_folder: str) -> tuple[str, list[Any]]:
@@ -91,6 +131,26 @@ def count_missing_items(
     return int(row[0])
 
 
+def count_missing(
+    conn: sqlite3.Connection, location_id: int, relative_folder: str = ""
+) -> MissingCount:
+    """Cuenta lo que quitaría 'remove_missing_items': archivos ausentes y carpetas que ya no
+    están en el disco (mira el disco: en segundo plano).
+
+    Args:
+        conn: Conexión (la pone el gestor de la base de datos).
+        location_id: 'storage_locations.id'.
+        relative_folder: Carpeta relativa a la ubicación ('' = toda la ubicación).
+    """
+    folders = _missing_folders(conn, location_id, relative_folder)
+    scope = _normalize(relative_folder)
+    return MissingCount(
+        items=count_missing_items(conn, location_id, relative_folder),
+        folders=len(folders),
+        folder_missing=bool(scope) and folders == [scope],
+    )
+
+
 def remove_missing_items(
     conn: sqlite3.Connection,
     location_id: int,
@@ -113,7 +173,7 @@ def remove_missing_items(
             memoria), las miniaturas no se tocan.
 
     Returns:
-        Cuántos elementos y miniaturas se han quitado.
+        Cuántos elementos, miniaturas y carpetas se han quitado.
     """
     if not conn.in_transaction:
         conn.execute("BEGIN IMMEDIATE;")
@@ -123,7 +183,8 @@ def remove_missing_items(
         f"SELECT id, media_type, relative_path FROM media_items WHERE {where}",
         params,
     ).fetchall()
-    if not rows:
+    missing_folders = _missing_folders(conn, location_id, relative_folder)
+    if not rows and not missing_folders:
         return RemovedItems()
 
     # 1. Filas (y en cascada, sus detalles) y sus errores de lectura
@@ -137,7 +198,12 @@ def remove_missing_items(
         ((location_id, row[2]) for row in rows),
     )
 
-    # 2. Miniaturas de la caché
+    # 2. Las carpetas que ya no están en el disco, con las de dentro (sin esto seguirían en
+    #    el árbol, con 0; CAT 6.2c)
+    for missing_folder in missing_folders:
+        remove_folders(conn, location_id, missing_folder)
+
+    # 3. Miniaturas de la caché
     thumbnails_deleted = 0
     folder = Path(catalog_dir) if catalog_dir is not None else _catalog_directory(conn)
     if folder is not None:
@@ -152,10 +218,43 @@ def remove_missing_items(
                 continue  # tipo de medio desconocido: no tiene carpeta en la caché
 
     logger.info(
-        f"Quitados del catálogo {len(rows)} archivos ausentes (ubicación {location_id}, "
-        f"carpeta '{relative_folder}'); miniaturas borradas: {thumbnails_deleted}"
+        f"Quitados del catálogo {len(rows)} archivos ausentes y {len(missing_folders)} carpetas "
+        f"que ya no están (ubicación {location_id}, carpeta '{relative_folder}'); miniaturas "
+        f"borradas: {thumbnails_deleted}"
     )
-    return RemovedItems(count=len(rows), thumbnails_deleted=thumbnails_deleted)
+    return RemovedItems(
+        count=len(rows), thumbnails_deleted=thumbnails_deleted, folders=len(missing_folders)
+    )
+
+
+def _normalize(folder: str) -> str:
+    """Carpeta relativa con '/' y sin barras en los extremos ('' = la ubicación)."""
+    return folder.replace("\\", "/").strip("/")
+
+
+def _missing_folders(
+    conn: sqlite3.Connection, location_id: int, relative_folder: str
+) -> list[str]:
+    """Las carpetas apuntadas ('folders') dentro de 'relative_folder', o ella, que ya no
+    están en el disco: las de más arriba (las de dentro se quitan con ellas).
+
+    Solo con la ubicación conectada y con las precauciones de 'find_missing_folders'. Si
+    falta la propia carpeta (o una de encima), es ella la única.
+    """
+    location = conn.execute(
+        "SELECT absolute_path, is_online FROM storage_locations WHERE id = ?", (location_id,)
+    ).fetchone()
+    if location is None or not location[1]:
+        return []
+    scope = _normalize(relative_folder)
+    paths = folders_under(conn, location_id, scope)
+    if not paths:
+        return []
+    # El árbol lleva también las de encima de 'scope' (se mira de arriba abajo)
+    missing = find_missing_folders(location[0], build_folder_tree({}, paths))
+    if scope and any(scope == path or scope.startswith(f"{path}/") for path in missing):
+        return [scope]
+    return sorted(missing)
 
 
 def _catalog_directory(conn: sqlite3.Connection) -> Path | None:
@@ -213,4 +312,41 @@ if __name__ == "__main__":
 
     assert remove_missing_items(db, 1, "2024") == RemovedItems()  # nada más que quitar
     assert remove_missing_items(db, 2) == RemovedItems()  # desconectada
+
+    # Las carpetas que ya no están en el disco (CAT 6.2c), con carpetas de verdad
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        disk = Path(tmp) / "Disco"
+        (disk / "Sigue" / "Vacía").mkdir(parents=True)  # vacía en el disco: se queda
+        db.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('Disco', ?)", (str(disk),))
+        loc = db.execute("SELECT id FROM storage_locations WHERE name = 'Disco'").fetchone()[0]
+        for folder in ("Viejas", "Viejas/2020", "Sigue", "Sigue/Vacía", "Sigue/Borrada"):
+            db.execute(
+                "INSERT INTO folders(storage_location_id, relative_path) VALUES (?, ?)", (loc, folder)
+            )
+        add(loc, "Viejas/2020/x.jpg", 1)
+
+        def listed() -> set[str]:
+            rows = db.execute("SELECT relative_path FROM folders WHERE storage_location_id = ?", (loc,))
+            return {row[0] for row in rows}
+
+        assert count_missing(db, loc) == MissingCount(1, 2, False)  # Viejas y Sigue/Borrada
+        assert count_missing(db, loc, "Viejas/2020") == MissingCount(1, 1, True)  # falta la de encima
+        assert count_missing(db, loc, "Sigue") == MissingCount(0, 1, False)
+        assert count_missing(db, loc, "Sigue/Vacía") == MissingCount()  # está (vacía): se queda
+        assert remove_missing_items(db, loc, "Sigue") == RemovedItems(0, 0, 1)
+        assert listed() == {"Viejas", "Viejas/2020", "Sigue", "Sigue/Vacía"}
+        assert remove_missing_items(db, loc) == RemovedItems(1, 0, 1)  # Viejas, con 2020
+        assert listed() == {"Sigue", "Sigue/Vacía"}
+        assert remove_missing_items(db, loc) == RemovedItems()
+        # Con la raíz vacía (un disco desmontado): no se quita ninguna carpeta
+        db.execute("INSERT INTO folders(storage_location_id, relative_path) VALUES (?, 'Otra')", (loc,))
+        (disk / "Sigue" / "Vacía").rmdir()
+        (disk / "Sigue").rmdir()
+        assert count_missing(db, loc) == MissingCount() and remove_missing_items(db, loc) == RemovedItems()
+        # Desconectada: tampoco
+        db.execute("UPDATE storage_locations SET is_online = 0 WHERE id = ?", (loc,))
+        assert count_missing(db, loc) == MissingCount()
+        db.commit()
     print("Autoprueba finalizada correctamente.")
