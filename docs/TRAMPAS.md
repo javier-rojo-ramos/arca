@@ -48,6 +48,8 @@
 
 - **Un filtro de eventos no debe preguntar a su vista por su `viewport()`** (20/11/2026): al cerrar la ventana le siguen llegando eventos cuando la vista ya se ha destruido, y `view.viewport()` da «Internal C++ object already deleted» (lo vio la prueba de humo con `folder_drag.py`). Se guarda el `viewport` al instalar el filtro y se compara con `is`.
 
+- **En un árbol de una sola selección, pulsar y mover el ratón va eligiendo las filas de debajo** (20/11/2026; lo vio el autor en «Carpetas»): es lo que hace Qt (`SingleSelection`) y, en una barra, cada fila elegida cambia la cuadrícula. En las barras ya no pasa: con un botón pulsado, `SidebarTreeView.mouseMoveEvent` no elige nada (y en «Carpetas» del Catálogo cada carpeta empieza un arrastre, `folder_drag.py`). Un `QTreeView` o un `QListView` de Qt fuera de las barras lo sigue haciendo.
+
 ## ExifTool y escritura en los archivos
 
 - ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.

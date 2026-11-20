@@ -2,10 +2,14 @@
 
 Lo usa 'CatalogSidebar' en su árbol de «Carpetas». Hace tres cosas:
 
-    1. EMPEZAR A ARRASTRAR UNA CARPETA: al pulsar sobre una fila que se puede mover (lo
-       decide 'can_drag', de la barra) y mover el ratón más que la distancia de arrastre
-       del sistema, empieza un 'QDrag' con el formato FOLDER_MIME y la imagen de la fila.
-       Al pulsar, la fila queda elegida, como con un clic (eso lo hace Qt).
+    1. EMPEZAR A ARRASTRAR UNA CARPETA: al pulsar sobre una carpeta (lo decide 'can_drag',
+       de la barra) y mover el ratón más que la distancia de arrastre del sistema, empieza
+       un 'QDrag' con el formato FOLDER_MIME y la imagen de la fila. Al pulsar, la fila
+       queda elegida, como con un clic (eso lo hace Qt). Las que no se pueden mover
+       ('FolderDrag.movable' falso: la raíz de una ubicación, una desconectada, una que
+       falta) se arrastran igual, pero no se sueltan en ningún sitio (el cursor de
+       prohibido): sin arrastre, al pulsar y mover el ratón Qt iba eligiendo las filas de
+       debajo y la cuadrícula cambiaba con cada una (lo vio el autor).
     2. DESPLAZAR LA BARRA LATERAL mientras se arrastra algo (una carpeta o tarjetas) cerca
        del borde de arriba o de abajo de lo que se ve: el árbol no tiene barra de
        desplazamiento propia ('SidebarTreeView'), así que se desplaza el 'QScrollArea' que
@@ -27,13 +31,16 @@ Uso:
     drag.active                     # la carpeta que se arrastra (None si no es una carpeta)
     drag.scrolled.connect(...)      # la barra se ha desplazado: volver a mirar el destino
 
+1.1.0 'FolderDrag.movable': también se arrastran las carpetas que no se pueden mover, sin
+      poder soltarlas (antes, al pulsar en una ubicación y mover el ratón, se iban eligiendo
+      las carpetas de debajo).
 1.0.0 Primera versión (CAT 4.4c).
 
 Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m ui_helpers.sidebars.folder_drag
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "AUTO_EXPAND_MS",
     "FOLDER_MIME",
@@ -84,12 +91,15 @@ class FolderDrag:
         folder: Su ruta, relativa a la ubicación, con '/'.
         name: El nombre que se ve en el árbol (para los textos).
         has_subfolders: Si en el árbol tiene subcarpetas (para la confirmación).
+        movable: Si se puede mover. Si no, se arrastra igual, pero la barra no la deja
+            soltar en ningún sitio (ver la cabecera).
     """
 
     location_id: int
     folder: str
     name: str
     has_subfolders: bool = False
+    movable: bool = True
 
 
 class FolderTreeDrag(QObject):

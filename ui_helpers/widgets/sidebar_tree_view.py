@@ -20,6 +20,9 @@ Cada fila lleva, en roles propios:
                  atenuado (EMPHASIS_PARTIAL). Lo usa el árbol con casillas del inspector
                  para las palabras con hijas asignadas («Familia» si la foto tiene «Ana»).
 
+1.7.0 Con un botón pulsado, mover el ratón ya no va eligiendo las filas de debajo (en una
+      barra, la cuadrícula cambiaba con cada una; pedido por el autor el 20/11/2026): la
+      fila se elige solo al pulsar. Arrastrar tarjetas sobre el árbol sigue igual.
 1.6.0 No coge el teclado ('NoFocus'; decidido por el autor el 12/11/2026, como Lightroom):
       un clic elige la fila o marca la casilla, pero el teclado se queda en las fotos (los
       atajos van siempre a la cuadrícula o a la vista individual) y las flechas no
@@ -41,7 +44,7 @@ Cada fila lleva, en roles propios:
       seguía oculto por la derecha (el árbol pedía ~256 px y se salía del área visible).
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = [
     "EMPHASIS_FULL",
     "EMPHASIS_PARTIAL",
@@ -54,7 +57,7 @@ __all__ = [
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QModelIndex, QObject, QRect, QSize, Qt
-from qtpy.QtGui import QColor, QPainter, QPalette, QWheelEvent
+from qtpy.QtGui import QColor, QMouseEvent, QPainter, QPalette, QWheelEvent
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -271,6 +274,19 @@ class SidebarTreeView(QTreeView):
     def wheelEvent(self, event: QWheelEvent) -> None:  # nombre de Qt
         """La rueda no desplaza el árbol (no tiene barra): se deja pasar a la barra lateral."""
         event.ignore()
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # nombre de Qt
+        """Con un botón pulsado, mover el ratón no elige otras filas (ver 1.7.0).
+
+        Qt (selección de una fila) va eligiendo las filas por las que pasa el ratón con el
+        botón pulsado y, en una barra, cada una cambia la cuadrícula. La fila se elige solo
+        al pulsar. Sin botón, lo de siempre (el resaltado al pasar por encima); un árbol con
+        el arrastre de Qt ('setDragEnabled') lo sigue empezando.
+        """
+        if event.buttons() != Qt.MouseButton.NoButton and not self.dragEnabled():
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
 
     # -------------------------------------------------------------------------
     # Teclado

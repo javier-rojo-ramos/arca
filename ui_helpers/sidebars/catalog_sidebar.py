@@ -64,6 +64,9 @@ constructor solo recibe el widget padre.
 El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.py) con los
 nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 
+1.19.1 Las carpetas que no se pueden mover (la raíz de una ubicación, una desconectada, una
+       que falta) también se arrastran, con el cursor de prohibido: al pulsar en ellas y mover
+       el ratón ya no se van eligiendo las filas de debajo (lo vio el autor).
 1.19.0 Arrastrar una carpeta a otra para moverla ('folder_dropped_on_folder', con
        'folder_drag.py'; CAT 4.4c): solo a una de su ubicación, conectada y en el disco, ni a
        ella misma ni a una de dentro, ni a la que ya tiene encima. Al arrastrar (también
@@ -126,7 +129,7 @@ nombres de objeto 'scroll_catalog_sidebar' y 'widget_catalog_sidebar_content'.
 1.1.0 Sección Carpetas: árbol de ubicaciones y carpetas con contadores, y botón "+".
 """
 
-__version__ = "1.19.0"
+__version__ = "1.19.1"
 __all__ = ["CatalogSidebar"]
 
 # Librerías estándar
@@ -1294,11 +1297,14 @@ class CatalogSidebar(QWidget):
         event_type = event.type()
         drag_events = (QEvent.Type.DragEnter, QEvent.Type.DragMove, QEvent.Type.Drop)
         # Una carpeta del propio árbol (no de otra ventana de la aplicación: ver 'folder_drag')
+        # que se puede mover; la que no (la raíz de una ubicación...), en ningún sitio
+        active = self._folder_drag.active
         moving_folder = (
             on_folders
             and event_type in drag_events
             and event.mimeData().hasFormat(FOLDER_MIME)
-            and self._folder_drag.active is not None
+            and active is not None
+            and active.movable
         )
         if moving_folder:
             item_at = self._folder_move_target_at
@@ -1394,24 +1400,22 @@ class CatalogSidebar(QWidget):
         return self._folders_model.itemFromIndex(index)
 
     def _folder_drag_source(self, index: QModelIndex) -> FolderDrag | None:
-        """La carpeta de una fila, si se puede arrastrar para moverla (CAT 4.4c).
+        """La carpeta de una fila, para arrastrarla (CAT 4.4c); None si la fila no es una.
 
-        No la raíz de una ubicación (cambiaría la ubicación), ni una desconectada, ni una que
-        no está en el disco.
+        No se pueden mover ('movable' falso) la raíz de una ubicación (cambiaría la
+        ubicación), una desconectada ni una que no está en el disco: se arrastran igual, con
+        el cursor de prohibido, para que pulsar y mover el ratón no vaya eligiendo las filas
+        de debajo (ver 'folder_drag.py').
         """
         source = index.data(ROLE_SOURCE)
-        if (
-            source is None
-            or source.kind != SourceKind.FOLDER
-            or source.location_id is None
-            or not source.folder
-            or not index.data(_ROLE_ONLINE)
-            or index.data(_ROLE_MISSING)
-        ):
+        if source is None or source.kind != SourceKind.FOLDER or source.location_id is None:
             return None
+        movable = (
+            bool(source.folder) and bool(index.data(_ROLE_ONLINE)) and not index.data(_ROLE_MISSING)
+        )
         name = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
         has_subfolders = index.model().hasChildren(index)
-        return FolderDrag(source.location_id, source.folder, name, has_subfolders)
+        return FolderDrag(source.location_id, source.folder, name, has_subfolders, movable)
 
     def _folder_move_target_at(self, position: QPoint) -> QStandardItem | None:
         """Carpeta (o ubicación) bajo el ratón a la que se puede mover la que se arrastra.
@@ -1422,7 +1426,7 @@ class CatalogSidebar(QWidget):
         """
         folder = self._folder_drag.active
         item = self._folder_drop_item_at(position)
-        if folder is None or item is None:
+        if folder is None or not folder.movable or item is None:
             return None
         target: GridSource = item.data(ROLE_SOURCE)
         if target.location_id != folder.location_id:
