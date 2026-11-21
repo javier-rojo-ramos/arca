@@ -239,6 +239,7 @@ core/
     exiftool_runner.py                 Ejecuta ExifTool por lotes; find_exiftool, find_sidecars
     exiftool_extractor.py              Extractor genérico (lotes, sidecars, lista de campos, reglas)
     field_spec.py                      FieldSpec, common()/detail(), conversores, parse_datetime
+    camera_makers.py                   Marcas de cámara: el nombre corto que se guarda («NIKON CORPORATION» -> «Nikon»), por la primera palabra
     keyword_tags.py                    read_keywords: palabras clave de las etiquetas de ExifTool (lr:HierarchicalSubject, dc:Subject, IPTC:Keywords) -> FileKeywords
     image/fields.py                  ► LISTA de campos de imagen (aquí se añaden) + IMAGE_FIELDS_VERSION
     image/rules.py                     Reglas: fecha de captura, orientación/tamaño, flash, GPS

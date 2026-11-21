@@ -19,6 +19,8 @@ Tracks (sección «Track»):
     altitud       '1.200 – 2.100 m'            velocidad      '2,6 km/h'
     número        '2.566'
 
+1.7.0 'format_camera': si el modelo empieza por una marca conocida, solo el modelo
+      (('Ricoh', 'PENTAX K-70') -> 'PENTAX K-70'; core/metadata/camera_makers.py).
 1.6.2 Origen de la fecha de los CRW ('crw'): «metadatos de la cámara (CRW)».
 1.6.1 Dos orígenes de la fecha de los vídeos: la nota del fabricante ('makernote', las
       Nikon) y los AVI ('riff').
@@ -37,7 +39,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.formatting
 """
 
-__version__ = "1.6.2"
+__version__ = "1.7.0"
 __all__ = [
     "DATE_SOURCE_TEXTS",
     "EXPOSURE_PROGRAMS",
@@ -76,6 +78,9 @@ __all__ = [
 # Librerías estándar
 import math
 from collections.abc import Iterable
+
+# Módulos del proyecto
+from core.metadata.camera_makers import starts_with_maker
 
 # Unidades de tamaño (base 1024, como el Explorador de Windows y el Finder antiguo)
 _SIZE_UNITS = ("B", "KB", "MB", "GB", "TB")
@@ -370,10 +375,11 @@ def format_exposure_bias(ev: float | None) -> str:
 
 
 def format_camera(make: str | None, model: str | None) -> str:
-    """Cámara sin la marca repetida: ('NIKON CORPORATION', 'NIKON Df') -> 'NIKON Df'.
+    """Cámara sin la marca repetida: ('Nikon', 'NIKON Df') -> 'NIKON Df'.
 
-    Si el modelo no empieza por la marca (o su primera palabra), se escriben las dos:
-    ('Apple', 'iPhone 17 Pro') -> 'Apple iPhone 17 Pro'.
+    Si el modelo ya empieza por la marca (su primera palabra) o por otra marca conocida
+    (('Ricoh', 'PENTAX K-70'): Ricoh es la dueña de Pentax), solo el modelo; si no, las
+    dos: ('Apple', 'iPhone 17 Pro') -> 'Apple iPhone 17 Pro'.
     """
     make, model = (make or "").strip(), (model or "").strip()
     if not model:
@@ -381,7 +387,7 @@ def format_camera(make: str | None, model: str | None) -> str:
     if not make:
         return model
     first_word = make.split()[0].casefold()
-    if model.casefold().startswith(first_word):
+    if model.casefold().startswith(first_word) or starts_with_maker(model):
         return model
     return f"{make} {model}"
 
@@ -545,6 +551,9 @@ if __name__ == "__main__":
     ], [format_exposure_bias(v) for v in (0, 1, -1 / 3, 2 / 3, -1.6667, 0.5, 0.15, None)]
     assert EXPOSURE_PROGRAMS[3] == "Prioridad de apertura" and METERING_MODES[5] == "Matricial"
     assert format_camera("NIKON CORPORATION", "NIKON Df") == "NIKON Df"
+    assert format_camera("Nikon", "NIKON Df") == "NIKON Df"
+    assert format_camera("Ricoh", "PENTAX K-70") == "PENTAX K-70"
+    assert format_camera("Nikon", "COOLPIX P1000") == "Nikon COOLPIX P1000"
     assert format_camera("Apple", "iPhone 17 Pro") == "Apple iPhone 17 Pro"
     assert format_camera("Canon", "Canon EOS R5") == "Canon EOS R5" and format_camera(None, None) == ""
     assert format_gps(42.682089, 0.069991) == "42°40'55,5204\" N 0°4'11,9676\" E", format_gps(42.682089, 0.069991)

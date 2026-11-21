@@ -24,6 +24,9 @@ Las etiquetas de esta lista están comprobadas con la salida real de ExifTool 13
 un JPEG de iPhone exportado desde Lightroom (grupos IFD0, ExifIFD, GPS, IPTC, XMP-*,
 Composite). Las de otros formatos (HEIC, RAW) se comprobarán con sus propias salidas.
 
+1.8.0 'IMAGE_FIELDS_VERSION' 14: la marca de la cámara, con el nombre corto de Lightroom
+      («Nikon», «Ricoh»: 'maker_name', core/metadata/camera_makers.py); la marca y el
+      modelo sin los valores vacíos («--»).
 1.7.0 'IMAGE_FIELDS_VERSION' 13: el área útil de los PEF (Pentax), como Lightroom (regla
       en 'rules.py'). La lista no cambia.
 1.6.0 'IMAGE_FIELDS_VERSION' 12: los CRW (Canon, hasta 2004; sin EXIF) con marca, modelo,
@@ -40,11 +43,12 @@ Composite). Las de otros formatos (HEIC, RAW) se comprobarán con sus propias sa
       GPS. Sin subir 'IMAGE_FIELDS_VERSION': la migración copia lo ya leído.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = ["IMAGE_FIELDS", "IMAGE_FIELDS_VERSION", "IMAGE_USER_FIELDS"]
 
 # Módulos del proyecto
 from core.catalog.color_labels import normalize_color_label
+from core.metadata.camera_makers import maker_name, model_name
 from core.metadata.field_spec import (
     FieldSpec,
     common,
@@ -72,7 +76,8 @@ from core.metadata.field_spec import (
 #     réflex Nikon con sus números ('rules.py'); la fecha del archivo ya no cambia al
 #     releer (core/metadata/processor.py).
 # 13: el área útil de los PEF (Pentax), como Lightroom ('rules.py').
-IMAGE_FIELDS_VERSION = 13
+# 14: la marca de la cámara, con su nombre corto ('camera_makers.py').
+IMAGE_FIELDS_VERSION = 14
 
 # Datos del USUARIO que viajan dentro del archivo (verificado con Lightroom Classic 15.6
 # sobre HEIC: valoración 3 y 5, etiqueta roja y azul, marca de rechazo y de aceptado).
@@ -177,9 +182,10 @@ IMAGE_FIELDS: tuple[FieldSpec, ...] = (
     # Los CRW (Canon, hasta 2004) no tienen EXIF: sus datos van en 'CanonRaw' y 'Canon'
     # (comprobado con una Canon EOS D60 y Lightroom el 21/11/2026). Van al final de cada
     # campo: en los demás archivos de Canon manda el EXIF. Su número de serie (con sus
-    # 10 cifras) y su fecha de captura, en 'rules.py'
-    detail("camera_make", ("IFD0:Make", "XMP-tiff:Make", "CanonRaw:Make"), text),
-    detail("camera_model", ("IFD0:Model", "XMP-tiff:Model", "CanonRaw:Model"), text),
+    # 10 cifras) y su fecha de captura, en 'rules.py'. La marca, con su nombre corto
+    # («Nikon»: 'camera_makers.py'); el modelo, tal cual
+    detail("camera_make", ("IFD0:Make", "XMP-tiff:Make", "CanonRaw:Make"), maker_name),
+    detail("camera_model", ("IFD0:Model", "XMP-tiff:Model", "CanonRaw:Model"), model_name),
     detail(
         "body_serial_number",
         ("ExifIFD:SerialNumber", "XMP-exifEX:BodySerialNumber", "XMP-aux:SerialNumber"),

@@ -14,6 +14,7 @@ ORF, RW2, PEF, RAF...).
 Prueba rápida (usa datos REALES de ExifTool y un ExifTool simulado):
     python -m core.metadata.image.extractor
 
+1.0.8 Autoprueba: la marca de la cámara, con su nombre corto.
 1.0.7 Autoprueba: el área útil de los PEF (Pentax K-5).
 1.0.6 Autoprueba: los CRW (cámara, toma, fecha y número de serie de 'CanonRaw' y
       'Canon') y el objetivo de las réflex Nikon con sus números.
@@ -23,7 +24,7 @@ Prueba rápida (usa datos REALES de ExifTool y un ExifTool simulado):
 1.0.2 Autoprueba: la dirección de la cámara está en 'media_items' (migración 3).
 """
 
-__version__ = "1.0.7"
+__version__ = "1.0.8"
 __all__ = ["ImageExtractor"]
 
 # Librerías estándar
@@ -250,6 +251,13 @@ sys.stdout.buffer.write(json.dumps(out, ensure_ascii=False).encode("utf-8"))
         assert (cr2_details["exposure_time_s"], cr2_details["iso"]) == (0.0003125, 100)
         assert cr2_details["body_serial_number"] == "025021000537"
         print("CRW: cámara, toma, fecha y número de serie, sin EXIF")
+
+        # Marca: el nombre corto de Lightroom; el modelo, tal cual; «--», vacío
+        _, k70 = run_rules({"IFD0:Make": "RICOH IMAGING COMPANY, LTD.", "IFD0:Model": "PENTAX K-70"})
+        assert (k70["camera_make"], k70["camera_model"]) == ("Ricoh", "PENTAX K-70")
+        _, dashes = run_rules({"IFD0:Make": "--", "IFD0:Model": "--"})
+        assert (dashes["camera_make"], dashes["camera_model"]) == (None, None)
+        print("Marca de la cámara: el nombre corto, como Lightroom")
 
         # Fecha: EXIF original con la zona horaria de otra etiqueta
         dated, _ = run_rules(

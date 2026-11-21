@@ -48,7 +48,7 @@
 | `timezone_offset` | regla | regla | — | — | — |
 | `orientation` | regla (`IFD0:Orientation`) | siempre 1 | — | Orientación | giro de la miniatura |
 | `has_xmp_sidecar` | extractor genérico | extractor genérico | — | — | — |
-| `photo_details.camera_make` | `IFD0:Make` → `XMP-tiff:Make` → `CanonRaw:Make` | — | «Cámara» (Por defecto, EXIF) | Marca de la cámara | — |
+| `photo_details.camera_make` | `IFD0:Make` → `XMP-tiff:Make` → `CanonRaw:Make`, con el nombre corto («Nikon»: `camera_makers.py`) | — | «Cámara» (Por defecto, EXIF) | Marca de la cámara | — |
 | `photo_details.camera_model` | `IFD0:Model` → `XMP-tiff:Model` → `CanonRaw:Model` | — | «Cámara» (Por defecto, EXIF) | Modelo de la cámara | — |
 | `photo_details.body_serial_number` | `ExifIFD:SerialNumber` → `XMP-exifEX:BodySerialNumber` → `XMP-aux:SerialNumber` → `CanonRaw:SerialNumber` (regla) | — | — | — | — |
 | `photo_details.lens_model` | `ExifIFD:LensModel` → `XMP-exifEX:LensModel` → `XMP-aux:Lens` … → `Nikon:Lens` (regla) | — | «Objetivo» (Por defecto, EXIF) | Objetivo | — |
@@ -70,7 +70,7 @@
 | `photo_details.flash_fired` | regla (bit 0 de `flash_code`) | — | «Flash» (Por defecto, EXIF) | Flash disparado | — |
 | `photo_details.crop_width` | regla (`XMP-crs:Crop*`) | — | «Recorte» (todas) | — | — |
 | `photo_details.crop_height` | regla (`XMP-crs:Crop*`) | — | «Recorte» (todas) | — | — |
-| `video_details.camera_make` | — | `Keys:Make` → `UserData:Make` → `XML:DeviceManufacturer` … | «Cámara» (Por defecto, EXIF) | — | — |
+| `video_details.camera_make` | — | `Keys:Make` → `UserData:Make` → `XML:DeviceManufacturer` …, con el nombre corto (`camera_makers.py`) | «Cámara» (Por defecto, EXIF) | — | — |
 | `video_details.camera_model` | — | `Keys:Model` → `UserData:Model` → `XML:DeviceModelName` … | «Cámara» (Por defecto, EXIF) | — | — |
 | `video_details.software` | — | `Keys:Software` → `UserData:Software` → `Software` … | — | — | — |
 | `video_details.video_codec` | — | `CompressorID` → `VideoCodec` → `CompressorName` | «Códec» (EXIF) | — | — |
@@ -106,8 +106,8 @@ Huecos a la vista (extraídos pero sin mostrar en ningún sitio): `intellectual_
 | `altitude` | media_items | `XMP-exif:GPSAltitude` → `Composite:GPSAltitude` → `GPS:GPSAltitude` | `real` |
 | `width` | media_items | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageWidth` → `ExifIFD:ExifImageWidth` | `image_width` |
 | `height` | media_items | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageHeight` → `ExifIFD:ExifImageHeight` | `image_height` |
-| `camera_make` | photo_details | `IFD0:Make` → `XMP-tiff:Make` → `CanonRaw:Make` | `text` |
-| `camera_model` | photo_details | `IFD0:Model` → `XMP-tiff:Model` → `CanonRaw:Model` | `text` |
+| `camera_make` | photo_details | `IFD0:Make` → `XMP-tiff:Make` → `CanonRaw:Make` | `maker_name` (`camera_makers.py`: el nombre corto, como Lightroom, por la primera palabra: «NIKON CORPORATION» → «Nikon», «RICOH IMAGING COMPANY, LTD.» → «Ricoh»; lo que no está en la lista, tal cual; «--», vacío; desde la versión 14) |
+| `camera_model` | photo_details | `IFD0:Model` → `XMP-tiff:Model` → `CanonRaw:Model` | `model_name` (tal cual; «--», vacío) |
 | `body_serial_number` | photo_details | `ExifIFD:SerialNumber` → `XMP-exifEX:BodySerialNumber` → `XMP-aux:SerialNumber` | `text`; sin ninguna, `CanonRaw:SerialNumber` con sus 10 cifras («0910501743», como Lightroom; regla en `rules.py`) |
 | `lens_model` | photo_details | `ExifIFD:LensModel` → `XMP-exifEX:LensModel` → `XMP-aux:Lens` → `Canon:LensModel` → `Panasonic:LensType` → `Composite:LensID` | `lens_name` (sin los códigos numéricos: con `-n`, `Composite:LensID` es el código del fabricante); sin ningún nombre, `Nikon:Lens` («20 20 1.8 1.8») con el texto de Lightroom, «20.0 mm f/1.8» (`lens_from_spec`, regla en `rules.py`) |
 | `software` | photo_details | `IFD0:Software` → `XMP-xmp:CreatorTool` | `text` |

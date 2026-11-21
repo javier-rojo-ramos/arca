@@ -14,6 +14,7 @@ core/metadata/
 ├── exiftool_runner.py       Ejecuta ExifTool por lotes (compartido por todos los tipos)
 ├── exiftool_extractor.py    Extractor genérico basado en ExifTool: lotes, sidecars .xmp, lista de campos y de datos del usuario
 ├── field_spec.py            Cómo se escribe un campo ("esta columna sale de estas etiquetas") y sus conversores
+├── camera_makers.py         Marcas de cámara: el nombre corto que se guarda («Nikon», «Ricoh»), fotos y vídeos
 ├── keyword_tags.py          Palabras clave de un archivo (lr:HierarchicalSubject, dc:Subject, IPTC): rutas y sueltas
 │
 ├── image/                 ► Todo lo de las IMÁGENES, en su carpeta

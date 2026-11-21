@@ -82,6 +82,7 @@ python -m core.file_ops.naming
 python -m core.metadata.exiftool_extractor
 python -m core.metadata.exiftool_runner
 python -m core.metadata.field_spec
+python -m core.metadata.camera_makers
 python -m core.metadata.image.extractor
 python -m core.metadata.image.fields
 python -m core.metadata.image.pillow_extractor

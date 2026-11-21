@@ -5,6 +5,33 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 21/11/2026: la marca de la cámara, con su nombre corto (`IMAGE_FIELDS_VERSION` 14, `VIDEO_FIELDS_VERSION` 6).
+
+  Antes, el autor verificó:
+  - la versión 13 (el PEF con 4928 × 3264; «los tres puntos salen como dices»);
+  - la versión 12 (el CRW, el objetivo de los NEF y del MOV, y las fechas). El origen de la fecha del CRW no lo encontraba porque se lo había indicado mal: está en «Selección» > «Fecha», no en «Captura».
+
+  **Origen**: al probar la K-70, el autor vio la fila «Cámara» del inspector con «RICOH IMAGING COMPANY, LTD. PENTAX K-70». Lightroom muestra «Ricoh» en la marca y «Pentax K-70» en el modelo, y «Pentax» y «Pentax K-5» en la K-5. En su catálogo, además, la misma marca aparecía con varias formas: «NIKON CORPORATION» y «NIKON», «bq» y «BQ», «SAMSUNG» y «Samsung»; y en 2 fotos, «--».
+
+  **Decidido** por el autor, con la propuesta del asistente ([DECISIONES.md](DECISIONES.md)):
+  - guardar la marca con el nombre corto que muestra Lightroom, para que el filtro junte las variantes;
+  - una lista por la primera palabra, en `core/metadata/camera_makers.py`;
+  - el modelo, tal cual;
+  - en «Cámara», solo el modelo si este empieza por una marca conocida;
+  - «--», vacío.
+
+  **Cambio**:
+  - `camera_makers` 1.0.0 (nuevo): `CAMERA_MAKERS` (32 marcas), `maker_name`, `model_name` y `starts_with_maker`;
+  - `image/fields.py` 1.8.0 (versión 14) y `video/fields.py` 1.5.0 (versión 6): la marca, con `maker_name`, y el modelo, con `model_name`;
+  - `pillow_extractor` 1.1.0, el lector de reserva sin ExifTool: igual, sin subir su versión;
+  - `formatting` 1.7.0: `format_camera` deja solo el modelo también si empieza por otra marca de la lista (Ricoh es la dueña de Pentax).
+
+  **Probado**:
+  - las autopruebas de `camera_makers` (las marcas del catálogo y de los RAW de prueba, las que no están, los vacíos), `image/extractor` (la K-70 y «--»), `video/rules` (la D3100, «Nikon»), `pillow_extractor` y `formatting` («PENTAX K-70», «Nikon COOLPIX P1000»);
+  - `run_selftests.py`: 144 bien y 1 con fallo, `core.thumbnails.cache`, que no se ha tocado. Repetida sola, pasó cuatro veces seguidas: falló mientras la comparación con el catálogo usaba el disco;
+  - `smoke_main_window.py` y ruff;
+  - las 10 351 fotos y los 57 vídeos del catálogo, releídos sin escribir en él: cambia la marca de 6 517 fotos (Nikon, BQ, Casio, Sony, Ricoh, Pentax, Fujifilm y Samsung) y la del MOV de la D3100; las 2 fotos con «--» se quedan sin marca ni modelo; nada más cambia.
+
 - 21/11/2026: el área útil de los PEF (`IMAGE_FIELDS_VERSION` 13), y `IMG 2` terminada.
 
   **Origen**: el autor consiguió un PEF de una Pentax K-5 y un JPEG de una K-70, lo único que faltaba en `IMG 2`. La revisión, con `inspect_cli --campos`, las vistas previas y la escritura sobre copias:

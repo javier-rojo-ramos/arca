@@ -283,7 +283,7 @@ if __name__ == "__main__":
         values, details = run(nikon, clip)
         assert values["content_created_at"] == "2013-10-19 10:46:58", values
         assert values["content_date_source"] == "makernote" and values["timezone_offset"] is None
-        assert details["camera_model"] == "NIKON D3100"
+        assert (details["camera_make"], details["camera_model"]) == ("Nikon", "NIKON D3100")
         assert details["lens_model"] is None  # sin 'Nikon:Lens'
         _, details = run({**nikon, "Nikon:Lens": "18 55 3.5 5.6"}, clip)
         assert details["lens_model"] == "18.0-55.0 mm f/3.5-5.6", details

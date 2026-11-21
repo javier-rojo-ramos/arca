@@ -27,11 +27,14 @@ miniatura incrustada, que sería un dato erróneo.
 Ampliación futura: XMP e IPTC (título, pie de foto, ubicación, género...) llegarán
 con otro motor; este extractor seguirá sirviendo como alternativa sin dependencias.
 
+1.1.0 La marca con su nombre corto y sin los valores vacíos, como el de ExifTool
+      (core/metadata/camera_makers.py).
+
 Prueba rápida (desde la raíz del proyecto):
     python -m core.metadata.image_extractor
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["IMAGE_EXTRACTOR_VERSION", "ImageMetadataExtractor"]
 
 # Librerías estándar
@@ -53,6 +56,7 @@ from core.metadata.base import (
     MetadataExtractor,
     UnsupportedFormatError,
 )
+from core.metadata.camera_makers import maker_name, model_name
 
 # Versión de este extractor: súbela cada vez que lea campos nuevos (se reprocesan
 # las imágenes con una versión menor).
@@ -171,8 +175,8 @@ class ImageMetadataExtractor(MetadataExtractor):
         common.update(_content_date(ifd0, exif_ifd, path))
 
         details: dict[str, Any] = {
-            "camera_make": _clean_text(ifd0.get(_TAG_MAKE)),
-            "camera_model": _clean_text(ifd0.get(_TAG_MODEL)),
+            "camera_make": maker_name(_clean_text(ifd0.get(_TAG_MAKE))),
+            "camera_model": model_name(_clean_text(ifd0.get(_TAG_MODEL))),
             "lens_model": _clean_text(exif_ifd.get(_TAG_LENS_MODEL)),
             "focal_length_mm": _to_float(exif_ifd.get(_TAG_FOCAL_LENGTH)),
             "focal_length_35mm": _to_float(exif_ifd.get(_TAG_FOCAL_LENGTH_35MM)),
