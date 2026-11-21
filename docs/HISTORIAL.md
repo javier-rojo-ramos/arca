@@ -5,6 +5,48 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 21/11/2026: el área útil de los PEF (`IMAGE_FIELDS_VERSION` 13), y `IMG 2` terminada.
+
+  **Origen**: el autor consiguió un PEF de una Pentax K-5 y un JPEG de una K-70, lo único que faltaba en `IMG 2`. La revisión, con `inspect_cli --campos`, las vistas previas y la escritura sobre copias:
+  - Bien: la fecha, la cámara y la toma. La vista previa interna del PEF mide 4928 × 3264, el tamaño completo. El `.xmp` del PEF se escribe al lado y el PEF no se toca. El JPEG lleva la escritura dentro.
+  - El PEF salía con el sensor completo, 4992 × 3284. El archivo trae el área útil, `Pentax:RawImageSize` «4928 3264», que es la que muestra Lightroom (lo comprobó el autor; el JPEG, 6000 × 4000 en los dos).
+  - El objetivo sale vacío en los dos: solo traen el código, `Pentax:LensType` «7 218» y «8 215», y Lightroom muestra el nombre, «smc PENTAX-DA 18-55mm…» y «smc PENTAX-DA 18-135m…», sacado de su propia lista.
+
+  **Decidido**: el autor lo dejó en manos del asistente. El área útil, como la de Nikon y Olympus; el objetivo de las Pentax, vacío por ahora ([DECISIONES.md](DECISIONES.md)).
+
+  **Cambio**:
+  - `image/rules.py` 1.7.0: `_RAW_USEFUL_SIZE_TAGS` con `Pentax:RawImageSize` («ancho alto»), con el mismo control del 90 % al 100 % del sensor (un JPEG de Pentax más pequeño que el RAW no se recorta);
+  - `image/fields.py` 1.7.0, `IMAGE_FIELDS_VERSION` 13;
+  - la autoprueba de `image/extractor` (1.0.7): la K-5, y un JPEG con un `RawImageSize` mayor que él.
+
+  **Probado**:
+  - la autoprueba; `run_selftests.py` (144 bien); ruff;
+  - antes del cambio, el catálogo del autor, ya leído con la versión 12, tenía bien el CRW, los NEF y las fechas del PNG, el GIF y el WebP;
+  - las 10 351 fotos y los 57 vídeos, releídos con el código nuevo sin escribir en el catálogo: solo cambia el tamaño del PEF.
+
+  **Documentación**: `IMG 2` fuera de `PENDIENTE.md` (también la equivalencia «C.1») y del plan de `MOD_IMAGEN.md`; la fila del PEF en `FORMATOS.md`; `METADATOS.md`, `TRAMPAS.md` e `INDEX.md`.
+
+- 21/11/2026: versión 12 de los campos de imagen y 5 de los de vídeo. Antes, el autor verificó el DNG del DJI («las comprobaciones, correctas»).
+
+  **Origen**: los dos fallos que quedaban de la revisión de «Pruebas de formatos». El autor comparó con Lightroom:
+  - el CRW de la D60: 03/07/2016 17:14:34, 1/200 s, f/0,00, −1 EV, ISO 100, «Canon EOS D60», número de serie 0910501743;
+  - el NEF vertical de la Df: «Lente 20.0 mm f/1.8».
+
+  Lo decidió así: que los NEF muestren el objetivo; el texto «metadatos de la cámara (CRW)»; y conservar la fecha del archivo al releer («editar metadatos no debería alterar la fecha de creación»).
+
+  **Cambio**:
+  - `field_spec` 1.2.0: `lens_from_spec` («20 20 1.8 1.8» → «20.0 mm f/1.8»; un zoom, «28.0-300.0 mm f/3.5-5.6»; sin focal, nada; sin diafragma, solo la focal).
+  - `image/fields.py` 1.6.0, `IMAGE_FIELDS_VERSION` 12: `CanonRaw:Make` y `CanonRaw:Model`, `Canon:ExposureTime`, `Composite:ISO` y `Canon:ExposureCompensation`, al final de cada campo (en los demás Canon manda el EXIF). El diafragma no, porque es basura.
+  - `image/rules.py` 1.6.0: `CanonRaw:DateTimeOriginal`, con origen `crw`, detrás de las fechas EXIF; la regla 5 completa el objetivo con `Nikon:Lens` y el número de serie de `CanonRaw:SerialNumber`, con sus 10 cifras, como ExifTool y Lightroom.
+  - `video/rules.py` 1.2.0 y `video/fields.py` 1.4.0, `VIDEO_FIELDS_VERSION` 5: el objetivo de `Nikon:Lens`.
+  - `formatting` 1.6.2: el texto del origen `crw`.
+  - `processor` 2.6.0: si lo leído es `file_mtime` y lo guardado también, se conserva la fecha guardada. Escribir la valoración en un PNG le cambiaba la fecha de modificación, y al releerlo salía con la de la escritura.
+
+  **Probado**:
+  - autopruebas de `field_spec` (`lens_from_spec`), `image/extractor` (el CRW con sus etiquetas reales; una Canon con EXIF sigue con el EXIF; el objetivo de la Df), `video/rules` (el MOV de la D3100) y `processor` (un PNG releído con otra fecha de modificación conserva la suya; un JPEG que primero no tenía fecha y luego sí toma la de verdad);
+  - `run_selftests.py` (144 bien) y ruff;
+  - las 10 349 fotos y los 57 vídeos del catálogo del autor, releídos con los extractores nuevos sin escribir en él: solo cambian el CRW (cámara, fecha, ISO, velocidad, compensación y número de serie), los dos NEF de la Df («20.0 mm f/1.8») y el MOV de la D3100 («18.0-55.0 mm f/3.5-5.6»).
+
 - 21/11/2026: revisión de los archivos de «Pruebas de formatos», y el DNG del DJI ya se escribe. **Origen**: el autor repartió los archivos de prueba en tres subcarpetas: diversos formatos, con un GIF animado y un NEF vertical de su Nikon Df; vídeos y una película MKV; y un juego de 14 RAW con su «Lista de resultados previstos.csv». Les puso 1 estrella y la barra de estado avisó de que un archivo no se había podido escribir. **Revisión** (sin ventana: el log, el catálogo en solo lectura, ExifTool y las miniaturas de la caché):
   - Bien: el NEF vertical (3280 × 4928 y la miniatura en vertical; el autor lo comparó con Lightroom); el GIF (miniatura y `XMP-xmp:Rating` en el archivo); los RAW con su tamaño, cámara, objetivo, ISO, velocidad, diafragma, focal y GPS, como la lista; los vídeos en su biblioteca; la escritura en todos menos uno.
   - Tres fallos:

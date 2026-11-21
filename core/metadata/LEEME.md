@@ -19,14 +19,16 @@ core/metadata/
 ├── image/                 ► Todo lo de las IMÁGENES, en su carpeta
 │   ├── fields.py          ► AQUÍ se añaden campos de imagen (una línea por campo) + la versión;
 │   │                        también IMAGE_USER_FIELDS (rating, marca y color que trae el archivo)
-│   ├── rules.py             Reglas especiales: fecha de captura, orientación, tamaño y recorte, flash, GPS
+│   ├── rules.py             Reglas especiales: fecha de captura, orientación, tamaño y recorte, flash, GPS,
+│   │                        objetivo y número de serie de la nota del fabricante
 │   ├── extractor.py         Une lista de campos + reglas en el extractor de imágenes
 │   └── pillow_extractor.py  Alternativa sin ExifTool (solo JPEG/PNG/TIFF/WebP/GIF/BMP y EXIF)
 │
 ├── video/                 ► Todo lo de los VÍDEOS (con ExifTool; misma estructura que image/)
 │   ├── fields.py          ► AQUÍ se añaden campos de vídeo + VIDEO_FIELDS_VERSION
 │   │                        (y el conversor 'aperture': la apertura «F1.78» de los iPhone)
-│   ├── rules.py             Reglas: fecha (hora local o QuickTime en UTC), tamaño con rotación, GPS
+│   ├── rules.py             Reglas: fecha (hora local o QuickTime en UTC), tamaño con rotación, GPS,
+│   │                        objetivo de las réflex Nikon
 │   └── extractor.py         VideoExtractor (tabla de detalles: video_details)
 ├── track/                   Tracks GPS (GPX), sin ExifTool
 ├── audio/  (futuro)

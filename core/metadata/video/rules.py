@@ -1,7 +1,7 @@
 """Reglas especiales de los vídeos: lo que no es un simple "etiqueta -> columna".
 
 Se ejecutan DESPUÉS de rellenar la lista de campos ('fields.py') y ajustan los valores en
-el sitio. Son tres:
+el sitio. Son cuatro:
 
     1. Tamaño y rotación: los móviles graban el fotograma apaisado y anotan una ROTACIÓN
        (90 o 270 en los vídeos en vertical). Se guarda el tamaño "de pantalla" (ancho y
@@ -18,6 +18,9 @@ el sitio. Son tres:
             del EQUIPO, como las de los GPX. Origen: 'quicktime_utc'.
          c) Si no hay ninguna: la fecha de modificación del archivo ('file_mtime').
     3. GPS: se descartan las coordenadas imposibles y el '0, 0'.
+    4. Objetivo de las réflex Nikon, que no guardan su nombre: sus números de
+       'Nikon:Lens', con el texto de Lightroom («18.0-55.0 mm f/3.5-5.6»), como en
+       las fotos.
 
 Limitación conocida (b): algunas cámaras escriben la hora LOCAL en 'QuickTime:CreateDate'
 (contra la especificación). En ese caso la hora sale desplazada lo que valga la zona
@@ -27,12 +30,14 @@ local, cuando aparezca un vídeo suyo ('inspect_cli').
 
 Si cambias algo aquí, sube 'VIDEO_FIELDS_VERSION' (en 'fields.py').
 
+1.2.0 El objetivo de las réflex Nikon, de 'Nikon:Lens' (salían sin objetivo)
+      ('VIDEO_FIELDS_VERSION' 5).
 1.1.0 Hora local de la nota del fabricante de las Nikon ('Nikon:DateTimeOriginal'; en
       'QuickTime:CreateDate' escriben la local, no la UTC) y de los AVI de las compactas
       ('RIFF:DateTimeOriginal'), que salían con la fecha del archivo ('VIDEO_FIELDS_VERSION' 4).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["apply_video_rules"]
 
 # Librerías estándar
@@ -42,7 +47,17 @@ from pathlib import Path
 from typing import Any
 
 # Módulos del proyecto
-from core.metadata.field_spec import integer, lookup, parse_datetime, parse_offset
+from core.metadata.field_spec import (
+    integer,
+    lens_from_spec,
+    lookup,
+    parse_datetime,
+    parse_offset,
+)
+
+# Objetivo descrito con sus números (las réflex Nikon no guardan su nombre): el mismo
+# que en las fotos ('image/rules.py')
+_LENS_SPEC_TAG = "Nikon:Lens"
 
 # (a) Fechas en hora LOCAL (con o sin zona), por orden de fiabilidad: (etiqueta, origen)
 _LOCAL_DATE_SOURCES: tuple[tuple[str, str], ...] = (
@@ -79,6 +94,8 @@ def apply_video_rules(
     _size_and_rotation(tags, common_values)
     _capture_date(tags, common_values, path)
     _gps(common_values)
+    if details.get("lens_model") is None:
+        details["lens_model"] = lens_from_spec(lookup(tags, _LENS_SPEC_TAG))
 
 
 def _size_and_rotation(tags: Mapping[str, Any], common_values: dict[str, Any]) -> None:
@@ -267,6 +284,9 @@ if __name__ == "__main__":
         assert values["content_created_at"] == "2013-10-19 10:46:58", values
         assert values["content_date_source"] == "makernote" and values["timezone_offset"] is None
         assert details["camera_model"] == "NIKON D3100"
+        assert details["lens_model"] is None  # sin 'Nikon:Lens'
+        _, details = run({**nikon, "Nikon:Lens": "18 55 3.5 5.6"}, clip)
+        assert details["lens_model"] == "18.0-55.0 mm f/3.5-5.6", details
 
         # 6. AVI de compactas (etiquetas reales): Canon, y Ricoh con ':' al final
         for raw, expected in (("2009:12:07 14:06:59", "2009-12-07 14:06:59"),

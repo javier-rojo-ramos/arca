@@ -21,11 +21,13 @@ trae cada archivo.
 Los CONVERSORES transforman el valor de ExifTool (número, texto o lista) en el valor
 de la base de datos, y devuelven None si no sirve (así se pasa a la siguiente fuente).
 
+1.2.0 'lens_from_spec': el objetivo de las cámaras que no guardan su nombre (réflex Nikon),
+      compuesto con sus números como Lightroom ('20.0 mm f/1.8').
 1.1.0 'lens_name': el nombre del objetivo, sin los códigos numéricos que da ExifTool con
       '-n' ('224', '2 30 10'), que salían como objetivo.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "FieldSpec",
     "ParsedDate",
@@ -35,6 +37,7 @@ __all__ = [
     "image_height",
     "image_width",
     "integer",
+    "lens_from_spec",
     "lens_name",
     "lookup",
     "orientation_code",
@@ -158,6 +161,34 @@ def lens_name(value: Any) -> str | None:
     """
     name = text(value)
     return None if name is None or _LENS_CODE.fullmatch(name) else name
+
+
+def lens_from_spec(value: Any) -> str | None:
+    """Objetivo descrito con sus números, con el mismo texto que Lightroom: '20.0 mm f/1.8'.
+
+    Para las cámaras que no guardan el nombre del objetivo, como las réflex Nikon: su
+    'Nikon:Lens' es '20 20 1.8 1.8' (focal mínima y máxima, y diafragma máximo en cada
+    una). Un zoom: '28.0-300.0 mm f/3.5-5.6' (así salen en los JPEG que exporta Lightroom).
+    Sin focal (un objetivo sin CPU da ceros), None; sin diafragma, solo la focal.
+    """
+    spec = text(value)
+    if spec is None:
+        return None
+    try:
+        numbers = [float(part) for part in spec.split()]
+    except ValueError:
+        return None
+    if len(numbers) != 4 or not all(math.isfinite(number) for number in numbers):
+        return None
+    short, long, wide_aperture, tele_aperture = numbers
+    if short <= 0 or long < short:
+        return None
+    focal = f"{short:.1f}" if long == short else f"{short:.1f}-{long:.1f}"
+    if wide_aperture <= 0:
+        return f"{focal} mm"
+    if tele_aperture <= wide_aperture:
+        return f"{focal} mm f/{wide_aperture:.1f}"
+    return f"{focal} mm f/{wide_aperture:.1f}-{tele_aperture:.1f}"
 
 
 def real(value: Any) -> float | None:
@@ -323,6 +354,15 @@ if __name__ == "__main__":
         assert lens_name(code) is None, code
     for name in ("EF70-200mm f/2.8L IS USM", "24-70mm", "24-70", "18.3mm F2.8"):
         assert lens_name(name) == name, name
+
+    # --- lens_from_spec: 'Nikon:Lens' con el texto de Lightroom ---
+    assert lens_from_spec("20 20 1.8 1.8") == "20.0 mm f/1.8"  # Nikon Df
+    assert lens_from_spec("28 300 3.5 5.6") == "28.0-300.0 mm f/3.5-5.6"
+    assert lens_from_spec("18 55 3.5 5.6") == "18.0-55.0 mm f/3.5-5.6"  # MOV de una D3100
+    assert lens_from_spec("24 70 4 4") == "24.0-70.0 mm f/4.0"
+    assert lens_from_spec("24 70 0 0") == "24.0-70.0 mm"  # sin diafragma
+    for spec in ("0 0 0 0", "2 30 10", "20 20 1.8", "a b c d", "70 24 4 4", None, "", 224):
+        assert lens_from_spec(spec) is None, spec
 
     # --- real / integer ---
     assert real(0.2) == 0.2 and real("1/35") == 1 / 35 and real("-0.27") == -0.27

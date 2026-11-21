@@ -199,10 +199,6 @@ Cómo funciona hoy el módulo y dónde está cada cosa: [MOD_IMAGEN.md](MOD_IMAG
 
 Las líneas de información de la tarjeta de Imagen (dimensiones, duración...; las de la vista individual ya se piden por archivo: `fetch_media_file`), con el perfil de tarjeta común (`GEN 16`).
 
-### Fase IMG 2 — Verificar los RAW con ExifTool real
-
-`inspect_cli --campos` con RAW de cada marca; comparar con Lightroom (tamaño y orientación, sobre todo; `DefaultCropSize` solo existe en los DNG). Hecho con JPEG, HEIC (horizontal y vertical) y DNG y, el 21/11/2026, el tamaño y el objetivo de 17 RAW de 10 marcas (CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, ORF, RW2, RAF y DNG de iPhone, DJI y Ricoh), todos en horizontal: arreglados el área útil de Nikon y Olympus y el objetivo como número (`IMAGE_FIELDS_VERSION` 11; la Coolpix NRW y los Sony SRF y SR2 siguen con el tamaño del sensor, sin etiqueta del área útil). Falta: un PEF (Pentax) y un RAW **vertical** (orientación de la miniatura y del tamaño).
-
 ### Fase IMG 3 — Reconocimiento facial
 
 Anotado el 03/11/2026: personas como palabras clave especiales (Lightroom las guarda en «[Personas]»). Si procede, importar las regiones de caras de Lightroom (`XMP-mwg-rs:RegionInfo`: nombre y rectángulo de cada cara, tipo `Face`), que ya están en los archivos etiquetados. Por decidir: detección y agrupación propias (biblioteca local, sin nube), dónde se guardan las regiones (tabla nueva) y si se escriben de vuelta en el XMP.
@@ -485,7 +481,6 @@ Para leer [HISTORIAL.md](HISTORIAL.md), [DECISIONES.md](DECISIONES.md) y las cab
 | A.6 (módulos Vídeo, Audio y Tracks) | `MUS 1` a `MUS 10`, `VID 1` a `VID 10`, fases de TRACKS |
 | A.7 («Abrir en su módulo») | Mejoras menores (GENERAL) |
 | B (mejoras anotadas) | Las «Mejoras menores» de cada categoría; el deshacer, `GEN 1`; el reconocimiento facial, `IMG 3`; la edición para Audio y Vídeo, `MUS 6`, `MUS 7` y `VID 6` |
-| C.1 (verificar con ExifTool real) | `IMG 2` |
 | C.2 (miniaturas de vídeo y audio) | `VID 4`, `VID 7` (carteles), `MUS 3` y `MUS 9` |
 | C.3 (miniaturas, extras) | `GEN 4` |
 | C.4 (datos del usuario, lo que falta) | `GEN 3`; la valoración en POPM, M5 de [MOD_MUSICA.md](MOD_MUSICA.md) |

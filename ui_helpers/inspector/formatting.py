@@ -19,6 +19,7 @@ Tracks (sección «Track»):
     altitud       '1.200 – 2.100 m'            velocidad      '2,6 km/h'
     número        '2.566'
 
+1.6.2 Origen de la fecha de los CRW ('crw'): «metadatos de la cámara (CRW)».
 1.6.1 Dos orígenes de la fecha de los vídeos: la nota del fabricante ('makernote', las
       Nikon) y los AVI ('riff').
 1.6.0 Formatos de los tracks: 'format_distance', 'format_elevation_change',
@@ -36,7 +37,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.formatting
 """
 
-__version__ = "1.6.1"
+__version__ = "1.6.2"
 __all__ = [
     "DATE_SOURCE_TEXTS",
     "EXPOSURE_PROGRAMS",
@@ -92,6 +93,7 @@ WEEKDAY_NAMES = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"
 # tooltip de la fila «Fecha». Si aparece un origen nuevo, se muestra tal cual
 DATE_SOURCE_TEXTS: dict[str, str] = {
     "exif": "metadatos de la cámara (EXIF)",
+    "crw": "metadatos de la cámara (CRW)",
     "xmp": "metadatos XMP",
     "iptc": "metadatos IPTC",
     "quicktime_keys": "metadatos del vídeo",

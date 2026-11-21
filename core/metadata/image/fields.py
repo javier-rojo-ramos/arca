@@ -24,6 +24,11 @@ Las etiquetas de esta lista están comprobadas con la salida real de ExifTool 13
 un JPEG de iPhone exportado desde Lightroom (grupos IFD0, ExifIFD, GPS, IPTC, XMP-*,
 Composite). Las de otros formatos (HEIC, RAW) se comprobarán con sus propias salidas.
 
+1.7.0 'IMAGE_FIELDS_VERSION' 13: el área útil de los PEF (Pentax), como Lightroom (regla
+      en 'rules.py'). La lista no cambia.
+1.6.0 'IMAGE_FIELDS_VERSION' 12: los CRW (Canon, hasta 2004; sin EXIF) con marca, modelo,
+      número de serie, ISO, velocidad y compensación (y la fecha, en 'rules.py'); el
+      objetivo de las réflex Nikon, compuesto con sus números (regla en 'rules.py').
 1.5.0 'IMAGE_FIELDS_VERSION' 11: el objetivo, también de 'Canon:LensModel' y
       'Panasonic:LensType', y sin los códigos numéricos ('lens_name'); el área útil de los
       RAW de Nikon y Olympus (regla en 'rules.py').
@@ -35,7 +40,7 @@ Composite). Las de otros formatos (HEIC, RAW) se comprobarán con sus propias sa
       GPS. Sin subir 'IMAGE_FIELDS_VERSION': la migración copia lo ya leído.
 """
 
-__version__ = "1.5.0"
+__version__ = "1.7.0"
 __all__ = ["IMAGE_FIELDS", "IMAGE_FIELDS_VERSION", "IMAGE_USER_FIELDS"]
 
 # Módulos del proyecto
@@ -63,7 +68,11 @@ from core.metadata.field_spec import (
 # 9: GPS, altitud y dirección, primero del XMP; la altitud del XMP, con su referencia.
 # 10: el tamaño de los HEIC, HEIF y AVIF girados con su caja 'irot' (regla en 'rules.py').
 # 11: el objetivo sin códigos numéricos; el área útil de los RAW de Nikon y Olympus ('rules.py').
-IMAGE_FIELDS_VERSION = 11
+# 12: los CRW (sus datos van en 'CanonRaw' y 'Canon', no en el EXIF); el objetivo de las
+#     réflex Nikon con sus números ('rules.py'); la fecha del archivo ya no cambia al
+#     releer (core/metadata/processor.py).
+# 13: el área útil de los PEF (Pentax), como Lightroom ('rules.py').
+IMAGE_FIELDS_VERSION = 13
 
 # Datos del USUARIO que viajan dentro del archivo (verificado con Lightroom Classic 15.6
 # sobre HEIC: valoración 3 y 5, etiqueta roja y azul, marca de rechazo y de aceptado).
@@ -165,8 +174,12 @@ IMAGE_FIELDS: tuple[FieldSpec, ...] = (
     # Detalles de la foto (tabla 'photo_details')              EXIF > XMP
     # =========================================================================
     # --- Cámara y objetivo ---
-    detail("camera_make", ("IFD0:Make", "XMP-tiff:Make"), text),
-    detail("camera_model", ("IFD0:Model", "XMP-tiff:Model"), text),
+    # Los CRW (Canon, hasta 2004) no tienen EXIF: sus datos van en 'CanonRaw' y 'Canon'
+    # (comprobado con una Canon EOS D60 y Lightroom el 21/11/2026). Van al final de cada
+    # campo: en los demás archivos de Canon manda el EXIF. Su número de serie (con sus
+    # 10 cifras) y su fecha de captura, en 'rules.py'
+    detail("camera_make", ("IFD0:Make", "XMP-tiff:Make", "CanonRaw:Make"), text),
+    detail("camera_model", ("IFD0:Model", "XMP-tiff:Model", "CanonRaw:Model"), text),
     detail(
         "body_serial_number",
         ("ExifIFD:SerialNumber", "XMP-exifEX:BodySerialNumber", "XMP-aux:SerialNumber"),
@@ -174,7 +187,8 @@ IMAGE_FIELDS: tuple[FieldSpec, ...] = (
     ),
     # Objetivo: sin 'LensModel' en el EXIF (cámaras antiguas, Panasonic), el nombre de la
     # nota del fabricante; 'lens_name' descarta los códigos numéricos ('Composite:LensID'
-    # llega así con '-n': «224» en un Canon EOS 7D, «2 30 10» en una Panasonic G9)
+    # llega así con '-n': «224» en un Canon EOS 7D, «2 30 10» en una Panasonic G9). Sin
+    # ningún nombre (las réflex Nikon), sus números: regla en 'rules.py'
     detail(
         "lens_model",
         (
@@ -197,11 +211,22 @@ IMAGE_FIELDS: tuple[FieldSpec, ...] = (
         real,
     ),
     detail("f_number", ("ExifIFD:FNumber", "XMP-exif:FNumber"), real),
-    detail("exposure_time_s", ("ExifIFD:ExposureTime", "XMP-exif:ExposureTime"), real),
-    detail("iso", ("ExifIFD:ISO", "XMP-exif:ISO"), integer),
+    # El diafragma de los CRW no se lee: 'Canon:FNumber' es basura (7e-155) cuando el
+    # objetivo no lo da (Lightroom muestra «f/0,00»)
+    detail(
+        "exposure_time_s",
+        ("ExifIFD:ExposureTime", "XMP-exif:ExposureTime", "Canon:ExposureTime"),
+        real,
+    ),
+    # 'Composite:ISO': la ISO que ExifTool calcula con la nota del fabricante de Canon
+    detail("iso", ("ExifIFD:ISO", "XMP-exif:ISO", "Composite:ISO"), integer),
     detail(
         "exposure_bias_ev",
-        ("ExifIFD:ExposureCompensation", "XMP-exif:ExposureBiasValue"),
+        (
+            "ExifIFD:ExposureCompensation",
+            "XMP-exif:ExposureBiasValue",
+            "Canon:ExposureCompensation",
+        ),
         real,
     ),
     detail("brightness_value", ("ExifIFD:BrightnessValue", "XMP-exif:BrightnessValue"), real),

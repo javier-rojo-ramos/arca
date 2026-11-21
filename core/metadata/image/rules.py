@@ -1,31 +1,41 @@
 """Reglas especiales de las imágenes: lo que no es un simple "etiqueta -> columna".
 
 Se ejecutan DESPUÉS de rellenar la lista de campos ('fields.py'), con los valores ya
-leídos, y los ajustan en el sitio. Son cinco:
+leídos, y los ajustan en el sitio. Son seis:
 
     1. Orientación y tamaño: las imágenes giradas (orientación EXIF 5 a 8 o, en HEIC, HEIF
        y AVIF, el cuarto de vuelta de su caja 'irot') intercambian ancho y alto. Se
        guarda el tamaño "de pantalla", que es la proporción real de la miniatura. En los
-       RAW de Nikon y Olympus, el área útil (la de Lightroom), no el sensor completo.
+       RAW de Nikon, Olympus y Pentax, el área útil (la de Lightroom), no el sensor completo.
     1b. Recorte de Lightroom ("Dimensiones actuales"): se calcula con los ajustes de
        revelado del XMP ('crs:Crop*') y el tamaño, antes de girarlo.
     2. Fecha de captura: depende de varias etiquetas a la vez (fecha, zona horaria,
-       de dónde salió y con qué precisión) y tiene respaldo en la fecha del archivo.
+       de dónde salió y con qué precisión) y tiene respaldo en la fecha del archivo. Los
+       CRW, sin EXIF, la traen en 'CanonRaw:DateTimeOriginal' (origen 'crw').
     3. Flash: 'flash_fired' (0 o 1) se deriva del código de flash.
     4. GPS: la latitud y la longitud salen de una sola fuente (el XMP si tiene las dos; si
        no, el EXIF), la altitud del XMP lleva su referencia aparte (sobre o bajo el nivel
        del mar) y se descartan las coordenadas imposibles.
+    5. Nota del fabricante: el objetivo de las cámaras que no guardan su nombre (las
+       réflex Nikon), compuesto con sus números como Lightroom («20.0 mm f/1.8»), y el
+       número de serie de los CRW, con sus 10 cifras.
 
 Si cambias algo aquí, sube 'IMAGE_FIELDS_VERSION' (en 'fields.py').
 
 El tamaño, comprobado con Lightroom el 21/11/2026: los HEIC y AVIF (ExifTool da el tamaño
 sin girar: 'Composite:ImageSize' 4032 3024 en una foto vertical del iPhone) y RAW de
-Canon (CR2, CR3, CRW), Fujifilm, Panasonic, Sony (ARW), Nikon (NEF), OM System y DNG.
+Canon (CR2, CR3, CRW), Fujifilm, Panasonic, Sony (ARW), Nikon (NEF), OM System, Pentax (PEF)
+y DNG.
 Sin arreglo: Nikon Coolpix (NRW) y los Sony SRF y SR2 antiguos dan el sensor completo,
 entre un 0,5 % y un 3 % más que Lightroom (no traen ninguna etiqueta con el área útil).
 Con 'python -m core.metadata.inspect_cli archivo.heic --campos' se ve qué guarda
 la aplicación y se compara con Lightroom.
 
+1.7.0 PEF (Pentax): el área útil de 'Pentax:RawImageSize', la de Lightroom (4928 × 3264 en
+      una K-5), en lugar del sensor completo ('IMAGE_FIELDS_VERSION' 13).
+1.6.0 Los CRW (sin EXIF): la fecha de 'CanonRaw:DateTimeOriginal' (antes, la del archivo) y
+      el número de serie; el objetivo de las réflex Nikon, de 'Nikon:Lens' (salían sin
+      objetivo) ('IMAGE_FIELDS_VERSION' 12).
 1.5.0 RAW de Nikon y Olympus: el área útil de su nota del fabricante ('Nikon:CropArea',
       'Nikon:AFImageWidth/Height', 'Olympus:CropWidth/Height'), la que muestra Lightroom,
       en lugar del sensor completo ('IMAGE_FIELDS_VERSION' 11).
@@ -38,7 +48,7 @@ la aplicación y se compara con Lightroom.
       su referencia ('IMAGE_FIELDS_VERSION' 9).
 """
 
-__version__ = "1.5.0"
+__version__ = "1.7.0"
 __all__ = ["GPS_COLUMNS", "GPS_SOURCE_TAGS", "apply_image_rules", "crop_size", "gps_from_tags"]
 
 # Librerías estándar
@@ -53,6 +63,7 @@ from typing import Any
 from core.metadata.field_spec import (
     common,
     integer,
+    lens_from_spec,
     lookup,
     orientation_code,
     parse_datetime,
@@ -83,6 +94,8 @@ GPS_SOURCE_TAGS: tuple[str, ...] = (
 _CAPTURE_DATE_SOURCES: tuple[tuple[str, str, str | None], ...] = (
     ("ExifIFD:DateTimeOriginal", "exif", "ExifIFD:OffsetTimeOriginal"),
     ("ExifIFD:CreateDate", "exif", "ExifIFD:OffsetTimeDigitized"),
+    # Los CRW (Canon, hasta 2004) no tienen EXIF: la de la cámara va en su propio formato
+    ("CanonRaw:DateTimeOriginal", "crw", None),
     ("XMP-photoshop:DateCreated", "xmp", None),
     ("Composite:DateTimeCreated", "iptc", None),
     ("IFD0:ModifyDate", "exif", "ExifIFD:OffsetTime"),  # la menos fiable: la última edición
@@ -102,9 +115,10 @@ _IROT_ORIENTATIONS: dict[int, int] = {0: 1, 1: 8, 2: 3, 3: 6}
 
 # RAW que no son DNG: el área útil, la que Lightroom muestra como "Dimensiones de archivo"
 # ('Composite:ImageSize' es el sensor completo, algo mayor), sale de la nota del fabricante.
-# Comprobado con Lightroom el 21/11/2026: Nikon Df (AF) y Z6 (las dos), OM System OM-1. En
-# los DNG manda 'DefaultCropSize' ('fields.py'). Parejas (ancho, alto), por orden; antes,
-# 'Nikon:CropArea' ('izquierda arriba ancho alto')
+# Comprobado con Lightroom el 21/11/2026: Nikon Df (AF) y Z6 (las dos), OM System OM-1 y
+# Pentax K-5. En los DNG manda 'DefaultCropSize' ('fields.py'). Por orden: 'Nikon:CropArea'
+# ('izquierda arriba ancho alto'), las etiquetas con 'ancho alto' y las parejas (ancho, alto)
+_RAW_USEFUL_SIZE_TAGS: tuple[str, ...] = ("Pentax:RawImageSize",)
 _RAW_USEFUL_SIZE_PAIRS: tuple[tuple[str, str], ...] = (
     ("Nikon:AFImageWidth", "Nikon:AFImageHeight"),
     ("Olympus:CropWidth", "Olympus:CropHeight"),
@@ -112,6 +126,14 @@ _RAW_USEFUL_SIZE_PAIRS: tuple[tuple[str, str], ...] = (
 # El área útil recorta solo los bordes del sensor (Df, 98,7 %): un valor por debajo de esta
 # proporción, o mayor que el sensor, no es eso y se ignora
 _RAW_USEFUL_MIN_RATIO = 0.9
+
+# Objetivo descrito con sus números (focal mínima y máxima, diafragma máximo en cada una):
+# las réflex Nikon no guardan su nombre, y con '-n' 'Composite:LensID' es un código
+_LENS_SPEC_TAG = "Nikon:Lens"
+
+# Número de serie de los CRW: con '-n' llega como número (910501743); ExifTool y Lightroom
+# lo muestran con sus 10 cifras («0910501743»)
+_CRW_SERIAL_TAG = "CanonRaw:SerialNumber"
 
 
 def apply_image_rules(
@@ -122,6 +144,16 @@ def apply_image_rules(
     _capture_date(tags, common_values, path)
     _flash(details)
     _gps(tags, common_values)
+    _maker_note_details(tags, details)
+
+
+def _maker_note_details(tags: Mapping[str, Any], details: dict[str, Any]) -> None:
+    """Objetivo y número de serie de la nota del fabricante, si no hay otros."""
+    if details.get("lens_model") is None:
+        details["lens_model"] = lens_from_spec(lookup(tags, _LENS_SPEC_TAG))
+    if details.get("body_serial_number") is None:
+        serial = integer(lookup(tags, _CRW_SERIAL_TAG))
+        details["body_serial_number"] = f"{serial:010d}" if serial and serial > 0 else None
 
 
 def _orientation_and_size(
@@ -165,6 +197,10 @@ def _raw_useful_size(
     numbers = [int(n) for n in re.findall(r"\d+", str(lookup(tags, "Nikon:CropArea") or ""))]
     if len(numbers) == 4:
         candidates.append((numbers[2], numbers[3]))
+    for size_tag in _RAW_USEFUL_SIZE_TAGS:
+        numbers = [int(n) for n in re.findall(r"\d+", str(lookup(tags, size_tag) or ""))]
+        if len(numbers) == 2:
+            candidates.append((numbers[0], numbers[1]))
     for width_tag, height_tag in _RAW_USEFUL_SIZE_PAIRS:
         candidates.append((integer(lookup(tags, width_tag)), integer(lookup(tags, height_tag))))
     for useful_width, useful_height in candidates:

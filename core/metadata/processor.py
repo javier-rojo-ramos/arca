@@ -36,6 +36,14 @@ Metadatos descriptivos editables (título, pie, ubicación...; ver
 formatos sin XMP, lo editado está en el '.arca.json' de la carpeta y manda siempre sobre lo
 leído. Sin título en el archivo, 'title' vale el nombre del archivo sin extensión.
 
+Fecha de un archivo sin fecha en sus metadatos ('content_date_source' = 'file_mtime'): la
+de modificación del archivo, la PRIMERA vez que se lee. Al releerlo (otra versión del
+extractor, o el archivo cambiado: también al escribirle la valoración) se conserva la
+guardada, porque la de modificación ya es otra. Si ahora trae una fecha de verdad, manda
+esa (docs/DECISIONES.md, 21/11/2026).
+
+2.6.0 La fecha del archivo ('file_mtime') ya guardada se conserva al releer: escribir los
+      datos del usuario en un PNG o un GIF le cambiaba la fecha a la de la escritura.
 2.5.0 En la primera lectura de un archivo con XMP ('last_scanned_at' vacío antes de
       leerlo), las palabras clave asignadas antes se suman a las del archivo
       ('apply_file_keywords(first_read=True)'; docs/PENDIENTE.md, GEN 20, paso 1).
@@ -60,7 +68,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.metadata.processor
 """
 
-__version__ = "2.5.0"
+__version__ = "2.6.0"
 __all__ = [
     "DEFAULT_BATCH_SIZE",
     "SCAN_STAGE_METADATA",
@@ -117,6 +125,11 @@ _FAILED = "failed"
 _UNSUPPORTED = "unsupported"
 _MISSING = "missing"
 _OFFLINE = "offline"
+
+# La fecha sacada de la de modificación del archivo, y sus columnas (ver la cabecera)
+_FILE_DATE_SOURCE = "file_mtime"
+_DATE_COLUMNS = ("content_created_at", "content_date_precision", "content_date_source",
+                 "timezone_offset")  # fmt: skip
 
 
 @dataclass(frozen=True, slots=True)
@@ -563,6 +576,16 @@ def _write_success(
     # El título es NOT NULL: sin título, el nombre del archivo sin extensión
     if "title" in values and values["title"] is None:
         values["title"] = default_title(PurePosixPath(outcome.relative_path).name)
+    # Sin fecha en los metadatos: si ya se guardó la del archivo, se conserva (su fecha de
+    # modificación ya no es la de cuando llegó: ver la cabecera)
+    if values.get("content_date_source") == _FILE_DATE_SOURCE:
+        stored_source, stored_date = conn.execute(
+            "SELECT content_date_source, content_created_at FROM media_items WHERE id = ?",
+            (outcome.media_id,),
+        ).fetchone()
+        if stored_source == _FILE_DATE_SOURCE and stored_date:
+            for column in _DATE_COLUMNS:
+                values.pop(column, None)
     # Los nombres de columna salen de listas cerradas (las de arriba y la de los campos
     # editables): no hay inyección SQL. Un campo editado pendiente de escribir en el
     # archivo no se pisa (se comprueba en la misma sentencia: 'unless_pending_sql')
@@ -806,10 +829,24 @@ if __name__ == "__main__":
                 and "1 con errores" in result.status_text()
             )
 
-            # 3. El extractor sube de versión: se vuelve a leer todo lo de su tipo
+            # 3. El extractor sube de versión: se vuelve a leer todo lo de su tipo. El PNG sin
+            #    fecha ha cambiado de fecha de modificación (como al escribirle la valoración):
+            #    conserva la que se guardó al leerlo la primera vez
+            png_date = rows(
+                conn, "SELECT content_created_at FROM media_items WHERE relative_path = 'sin_exif.png'"
+            )[0][0]
+            png_stat = (library / "sin_exif.png").stat()
+            os.utime(library / "sin_exif.png", ns=(2_000_000_000_000_000_000,) * 2)  # año 2033
             registry_v2 = ExtractorRegistry()
             registry_v2.register(VersionTwoExtractor())
             result = process_pending_metadata(conn, registry=registry_v2)
+            assert rows(
+                conn,
+                "SELECT content_created_at, content_date_source, scan_version FROM media_items "
+                "WHERE relative_path = 'sin_exif.png'",
+            ) == [(png_date, "file_mtime", next_version)]
+            # (su fecha de antes, para que el paso 4 no lo vea cambiado)
+            os.utime(library / "sin_exif.png", ns=(png_stat.st_atime_ns, png_stat.st_mtime_ns))
             assert (
                 result.total,
                 result.processed,
@@ -835,6 +872,19 @@ if __name__ == "__main__":
             assert rows(
                 conn, "SELECT width FROM media_items WHERE relative_path = 'buena.jpg'"
             ) == [(80,)]
+
+            # 4b. Un archivo que primero no tenía fecha y luego trae una de verdad: manda esa
+            make_jpeg(library / "tarde.jpg")
+            add_folder(conn, library)
+            process_pending_metadata(conn, registry=registry_v2)
+            late = "SELECT content_created_at, content_date_source FROM media_items WHERE relative_path = 'tarde.jpg'"
+            assert rows(conn, late)[0][1] == "file_mtime"
+            make_jpeg(library / "tarde.jpg", camera="Canon EOS R5")
+            os.utime(library / "tarde.jpg", ns=(9_500_000_000, 9_500_000_000))
+            add_folder(conn, library)
+            process_pending_metadata(conn, registry=registry_v2)
+            assert rows(conn, late) == [("2026-09-12 14:48:51", "exif")]
+            print("Fecha del archivo: se conserva al releer; una fecha de verdad, la sustituye")
 
             # 5. Cancelación a mitad, y la siguiente ejecución termina lo que faltaba
             for index in range(30):

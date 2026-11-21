@@ -19,7 +19,7 @@
 | Mapa: ver, ubicar fotos soltándolas, mover, quitar la ubicación, deshacer | Hecho y verificado; «Sin ubicación» y la chincheta, pendientes de verificar |
 | Clasificación, guardada en los archivos | Hecho y verificado |
 | Palabras clave: leer, asignar, gestionar el árbol | Hecho y verificado |
-| Metadatos: lectura con ExifTool y edición (título, pie, creador, copyright, ubicación, GPS) | Hecho y verificado con JPEG, HEIC y DNG; el tamaño y el objetivo de RAW de 10 marcas, comparados con Lightroom el 21/11/2026 (lo que falta, en `IMG 2`) |
+| Metadatos: lectura con ExifTool y edición (título, pie, creador, copyright, ubicación, GPS) | Hecho y verificado con JPEG, HEIC y DNG; el tamaño y el objetivo de RAW de 11 marcas (también un NEF vertical), comparados con Lightroom el 21/11/2026 (`IMG 2`, terminada: [FORMATOS.md](FORMATOS.md)) |
 | Miniaturas (cuatro tamaños) | Hecho y verificado; las de los vídeos, pendientes (`VID 4.1`) |
 | Perfil de tarjeta, reconocimiento facial, ubicar por la hora con un GPX | Pendiente (`GEN 16` e `IMG 1`, `IMG 3`, `TRK 8`) |
 
@@ -125,7 +125,6 @@ Lo que falta del módulo, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí
 | Fase | Qué | Notas |
 |---|---|---|
 | `IMG 1` | La tarjeta de Imagen | Sus líneas de información (dimensiones, duración...), con el perfil de tarjeta común (`GEN 16`) |
-| `IMG 2` | Verificar los RAW con ExifTool real | Hecho el 21/11/2026 el tamaño y el objetivo de CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, ORF, RW2, RAF y DNG (iPhone, DJI, Ricoh), comparados con Lightroom. Falta: un PEF (Pentax) y un RAW vertical |
 | `IMG 3` | Reconocimiento facial | Personas como palabras clave especiales; importar las regiones de caras de Lightroom; por decidir, la detección propia |
 
 ### Fases de otras categorías que afectan a Imagen

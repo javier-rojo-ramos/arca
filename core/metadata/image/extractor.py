@@ -14,13 +14,16 @@ ORF, RW2, PEF, RAF...).
 Prueba rápida (usa datos REALES de ExifTool y un ExifTool simulado):
     python -m core.metadata.image.extractor
 
+1.0.7 Autoprueba: el área útil de los PEF (Pentax K-5).
+1.0.6 Autoprueba: los CRW (cámara, toma, fecha y número de serie de 'CanonRaw' y
+      'Canon') y el objetivo de las réflex Nikon con sus números.
 1.0.5 Autoprueba: el área útil de los RAW de Nikon y Olympus y el objetivo sin códigos.
 1.0.4 Autoprueba: el giro de HEIC, HEIF y AVIF de su caja 'irot', con o sin orientación EXIF.
 1.0.3 Autoprueba: GPS con el XMP primero, con los casos comprobados en Lightroom.
 1.0.2 Autoprueba: la dirección de la cámara está en 'media_items' (migración 3).
 """
 
-__version__ = "1.0.5"
+__version__ = "1.0.7"
 __all__ = ["ImageExtractor"]
 
 # Librerías estándar
@@ -195,10 +198,15 @@ sys.stdout.buffer.write(json.dumps(out, ensure_ascii=False).encode("utf-8"))
         assert size_of(z6) == (6048, 4024)  # Nikon Z6
         assert size_of({"Composite:ImageSize": "5220 3912", "Olympus:CropWidth": 5184,
                         "Olympus:CropHeight": 3888}) == (5184, 3888)  # OM System OM-1
+        k5 = {"Composite:ImageSize": "4992 3284", "Pentax:RawImageSize": "4928 3264"}
+        assert size_of(k5) == (4928, 3264)  # Pentax K-5 (PEF)
+        # Un JPEG de Pentax con un tamaño menor que el del RAW: no es su área útil
+        assert size_of({"Composite:ImageSize": "3000 2000",
+                        "Pentax:RawImageSize": "6000 4000"}) == (3000, 2000)
         assert size_of({**df, "Nikon:AFImageWidth": 640, "Nikon:AFImageHeight": 480}) == (4992, 3292)
         assert size_of({**df, "Nikon:AFImageWidth": 5000}) == (4992, 3292)  # mayor que el sensor
         assert size_of({**df, "SubIFD:DefaultCropSize": "3200 2128"}) == (3200, 2128)  # DNG
-        print("RAW de Nikon y Olympus: el área útil, como Lightroom")
+        print("RAW de Nikon, Olympus y Pentax: el área útil, como Lightroom")
 
         # Objetivo: el nombre de la nota del fabricante; los códigos numéricos, fuera
         def lens_of(tags: dict) -> str | None:
@@ -211,7 +219,37 @@ sys.stdout.buffer.write(json.dumps(out, ensure_ascii=False).encode("utf-8"))
                         "Composite:LensID": "2 30 10"}) == "LEICA DG 12-60/F2.8-4.0"  # G9
         assert lens_of({"Composite:LensID": "31 1"}) is None  # Ricoh GR III: como Lightroom
         assert lens_of({"ExifIFD:LensModel": "24-70mm", "Composite:LensID": 137}) == "24-70mm"
-        print("Objetivo: de la nota del fabricante, sin códigos numéricos")
+        # Réflex Nikon: sin nombre, sus números con el texto de Lightroom (NEF de una Df)
+        nikon = {"Nikon:Lens": "20 20 1.8 1.8", "Composite:LensID": "A9 4C 31 31 14 14 C4 06"}
+        assert lens_of(nikon) == "20.0 mm f/1.8"
+        assert lens_of({**nikon, "XMP-aux:Lens": "AF-S 20mm"}) == "AF-S 20mm"  # el nombre, antes
+        assert lens_of({"Nikon:Lens": "0 0 0 0"}) is None  # objetivo sin CPU
+        print("Objetivo: de la nota del fabricante, sin códigos numéricos; Nikon, con sus números")
+
+        # CRW (Canon EOS D60): sin EXIF; las etiquetas reales que da ExifTool con '-n'
+        crw = {
+            "Composite:ImageSize": "3072 2048", "CanonRaw:Make": "Canon",
+            "CanonRaw:Model": "Canon EOS D60", "CanonRaw:DateTimeOriginal": "2016:07:03 17:14:34",
+            "CanonRaw:SerialNumber": 910501743, "Composite:ISO": 100,
+            "Canon:ExposureTime": "0.00492156660115185", "Canon:ExposureCompensation": -1,
+            "Canon:FNumber": 7.45834073120029e-155, "Composite:Aperture": 7.45834073120029e-155,
+            "Composite:LensID": 65535,
+        }  # fmt: skip
+        crw_common, crw_details = run_rules(crw, "x.crw")
+        assert (crw_details["camera_make"], crw_details["camera_model"]) == ("Canon", "Canon EOS D60")
+        assert crw_common["content_created_at"] == "2016-07-03 17:14:34"
+        assert crw_common["content_date_source"] == "crw"
+        assert crw_details["body_serial_number"] == "0910501743"  # como Lightroom
+        assert crw_details["iso"] == 100 and crw_details["exposure_bias_ev"] == -1
+        assert abs(crw_details["exposure_time_s"] - 1 / 203.19) < 1e-6  # Lightroom: 1/200
+        assert crw_details["f_number"] is None and crw_details["lens_model"] is None
+        # Una Canon con EXIF: manda el EXIF (ni la nota del fabricante ni el serial del CRW)
+        cr2 = {"IFD0:Make": "Canon", "ExifIFD:ExposureTime": 0.0003125, "ExifIFD:ISO": 100,
+               "Canon:ExposureTime": 0.0003, "Composite:ISO": 125, "ExifIFD:SerialNumber": "025021000537"}
+        _, cr2_details = run_rules(cr2, "x.cr2")
+        assert (cr2_details["exposure_time_s"], cr2_details["iso"]) == (0.0003125, 100)
+        assert cr2_details["body_serial_number"] == "025021000537"
+        print("CRW: cámara, toma, fecha y número de serie, sin EXIF")
 
         # Fecha: EXIF original con la zona horaria de otra etiqueta
         dated, _ = run_rules(

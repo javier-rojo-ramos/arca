@@ -10,12 +10,12 @@
 | Descriptivos (título, pie de foto, autor, copyright, ubicación) | XMP → IPTC → EXIF |
 | GPS: coordenadas, altitud y dirección (desde el 11/11/2026, `IMAGE_FIELDS_VERSION` 9) | XMP → EXIF |
 | Técnicos de la toma (cámara, objetivo, exposición, ISO, flash...) | EXIF → XMP |
-| Fecha de captura | EXIF `DateTimeOriginal` → EXIF `CreateDate` → XMP `DateCreated` → IPTC → EXIF `ModifyDate` → fecha del archivo (`content_date_source = 'file_mtime'`) |
+| Fecha de captura | EXIF `DateTimeOriginal` → EXIF `CreateDate` → CRW `CanonRaw:DateTimeOriginal` (origen `crw`; los CRW no tienen EXIF) → XMP `DateCreated` → IPTC → EXIF `ModifyDate` → fecha del archivo (`content_date_source = 'file_mtime'`): la de la primera lectura; al releer se conserva, porque escribir en el archivo le cambia la fecha (`processor.py`, desde la versión 12) |
 
 - **Sidecars**: se buscan `IMG_0001.xmp` (convención de Adobe) y `IMG_0001.CR3.xmp`. Del sidecar solo se toman etiquetas XMP, y pisan a las del XMP incrustado.
 - **ExifTool se invoca con** `-j -n -G1 -a -charset utf8 -charset filename=utf8`: JSON, valores numéricos sin traducir (programa de exposición, medición y flash se guardan como **códigos EXIF**; la interfaz los traduce), etiquetas con su grupo (`IFD0:Make`, `XMP-photoshop:City`) y los nombres de archivo en UTF-8 mediante archivo temporal (`-@`).
 - **Dónde busca el ejecutable**: variable `EXIFTOOL_PATH` → carpeta `tools/exiftool` → `PATH`.
-- **Tamaño**: se guarda "de pantalla" (ya girado si la orientación EXIF es 5 a 8). En los **HEIC, HEIF y AVIF**, si traen su caja `irot` (ExifTool: `QuickTime:Rotation`, cuartos de vuelta de 0 a 3), manda ella, porque es el giro que aplican las librerías y el de la miniatura; si no hay orientación EXIF, la columna `orientation` toma la equivalente (desde el 21/11/2026, `IMAGE_FIELDS_VERSION` 10; antes, un AVIF con el giro solo en el `irot` salía apaisado). En los **RAW de Nikon y Olympus**, el área útil de su nota del fabricante (`Nikon:CropArea`, `Nikon:AFImageWidth/Height`, `Olympus:CropWidth/Height`, si mide entre el 90 % y el 100 % del sensor), que es la de Lightroom: Nikon Df 4928 × 3280 frente a 4992 × 3292 del sensor (desde el 21/11/2026, `IMAGE_FIELDS_VERSION` 11; comparados con Lightroom 17 RAW de 10 marcas: solo la Coolpix NRW y los Sony SRF y SR2 antiguos siguen con el sensor, entre un 0,5 % y un 3 % mayor). En los **DNG**, `DefaultCropSize` manda sobre `Composite:ImageSize` (el sensor completo, algo mayor): es lo que Lightroom muestra como "Dimensiones de archivo" (verificado: 3200 × 2128 frente a 3264 × 2140). Solo existe en los DNG, así que no afecta a otros formatos.
+- **Tamaño**: se guarda "de pantalla" (ya girado si la orientación EXIF es 5 a 8). En los **HEIC, HEIF y AVIF**, si traen su caja `irot` (ExifTool: `QuickTime:Rotation`, cuartos de vuelta de 0 a 3), manda ella, porque es el giro que aplican las librerías y el de la miniatura; si no hay orientación EXIF, la columna `orientation` toma la equivalente (desde el 21/11/2026, `IMAGE_FIELDS_VERSION` 10; antes, un AVIF con el giro solo en el `irot` salía apaisado). En los **RAW de Nikon, Olympus y Pentax**, el área útil de su nota del fabricante (`Nikon:CropArea`, `Nikon:AFImageWidth/Height`, `Olympus:CropWidth/Height`, `Pentax:RawImageSize`, si mide entre el 90 % y el 100 % del sensor), que es la de Lightroom: Nikon Df 4928 × 3280 frente a 4992 × 3292 del sensor (desde el 21/11/2026, `IMAGE_FIELDS_VERSION` 11; las Pentax, desde la 13; comparados con Lightroom 18 RAW de 11 marcas: solo la Coolpix NRW y los Sony SRF y SR2 antiguos siguen con el sensor, entre un 0,5 % y un 3 % mayor). En los **DNG**, `DefaultCropSize` manda sobre `Composite:ImageSize` (el sensor completo, algo mayor): es lo que Lightroom muestra como "Dimensiones de archivo" (verificado: 3200 × 2128 frente a 3264 × 2140). Solo existe en los DNG, así que no afecta a otros formatos.
 - **GPS**: primero el XMP y después el compuesto de ExifTool (los dos, ya con signo), como Lightroom; la pareja latitud/longitud, siempre de la misma fuente (el XMP solo si tiene las dos); la altitud del XMP, con `XMP-exif:GPSAltitudeRef` (1 = bajo el nivel del mar; sin ella, sobre él); se descartan los fuera de rango y `0, 0` (`rules.py`).
 
 ## Mapa de campos: qué se extrae y dónde se ve
@@ -48,10 +48,10 @@
 | `timezone_offset` | regla | regla | — | — | — |
 | `orientation` | regla (`IFD0:Orientation`) | siempre 1 | — | Orientación | giro de la miniatura |
 | `has_xmp_sidecar` | extractor genérico | extractor genérico | — | — | — |
-| `photo_details.camera_make` | `IFD0:Make` → `XMP-tiff:Make` | — | «Cámara» (Por defecto, EXIF) | Marca de la cámara | — |
-| `photo_details.camera_model` | `IFD0:Model` → `XMP-tiff:Model` | — | «Cámara» (Por defecto, EXIF) | Modelo de la cámara | — |
-| `photo_details.body_serial_number` | `ExifIFD:SerialNumber` → `XMP-exifEX:BodySerialNumber` → `XMP-aux:SerialNumber` | — | — | — | — |
-| `photo_details.lens_model` | `ExifIFD:LensModel` → `XMP-exifEX:LensModel` → `XMP-aux:Lens` … | — | «Objetivo» (Por defecto, EXIF) | Objetivo | — |
+| `photo_details.camera_make` | `IFD0:Make` → `XMP-tiff:Make` → `CanonRaw:Make` | — | «Cámara» (Por defecto, EXIF) | Marca de la cámara | — |
+| `photo_details.camera_model` | `IFD0:Model` → `XMP-tiff:Model` → `CanonRaw:Model` | — | «Cámara» (Por defecto, EXIF) | Modelo de la cámara | — |
+| `photo_details.body_serial_number` | `ExifIFD:SerialNumber` → `XMP-exifEX:BodySerialNumber` → `XMP-aux:SerialNumber` → `CanonRaw:SerialNumber` (regla) | — | — | — | — |
+| `photo_details.lens_model` | `ExifIFD:LensModel` → `XMP-exifEX:LensModel` → `XMP-aux:Lens` … → `Nikon:Lens` (regla) | — | «Objetivo» (Por defecto, EXIF) | Objetivo | — |
 | `photo_details.software` | `IFD0:Software` → `XMP-xmp:CreatorTool` | — | — | — | — |
 | `photo_details.user_comment` | `ExifIFD:UserComment` | — | — | — | — |
 | `photo_details.focal_length_mm` | `ExifIFD:FocalLength` → `XMP-exif:FocalLength` | — | «Focal» (Por defecto, EXIF) | Distancia focal | — |
@@ -75,7 +75,7 @@
 | `video_details.software` | — | `Keys:Software` → `UserData:Software` → `Software` … | — | — | — |
 | `video_details.video_codec` | — | `CompressorID` → `VideoCodec` → `CompressorName` | «Códec» (EXIF) | — | — |
 | `video_details.frame_rate` | — | `VideoFrameRate` → `FrameRate` | «Fotogramas» (EXIF) | — | — |
-| `video_details.lens_model` | — | `VideoKeys:LensModel` → `Keys:LensModel` → `LensModel` … | «Objetivo» (Por defecto, EXIF) | — | — |
+| `video_details.lens_model` | — | `VideoKeys:LensModel` → `Keys:LensModel` → `LensModel` … → `Nikon:Lens` (regla) | «Objetivo» (Por defecto, EXIF) | — | — |
 | `video_details.focal_length_35mm` | — | `VideoKeys:FocalLengthIn35mmFormat` → `Keys:FocalLengthIn35mmFormat` → `FocalLengthIn35mmFormat` | «Focal 35 mm» (Por defecto, EXIF) | — | — |
 | `video_details.f_number` | — | `VideoKeys:CameraLensIrisfnumber` → `Keys:CameraLensIrisfnumber` → `CameraLensIrisfnumber` … | — | — | — |
 
@@ -106,18 +106,18 @@ Huecos a la vista (extraídos pero sin mostrar en ningún sitio): `intellectual_
 | `altitude` | media_items | `XMP-exif:GPSAltitude` → `Composite:GPSAltitude` → `GPS:GPSAltitude` | `real` |
 | `width` | media_items | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageWidth` → `ExifIFD:ExifImageWidth` | `image_width` |
 | `height` | media_items | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageHeight` → `ExifIFD:ExifImageHeight` | `image_height` |
-| `camera_make` | photo_details | `IFD0:Make` → `XMP-tiff:Make` | `text` |
-| `camera_model` | photo_details | `IFD0:Model` → `XMP-tiff:Model` | `text` |
-| `body_serial_number` | photo_details | `ExifIFD:SerialNumber` → `XMP-exifEX:BodySerialNumber` → `XMP-aux:SerialNumber` | `text` |
-| `lens_model` | photo_details | `ExifIFD:LensModel` → `XMP-exifEX:LensModel` → `XMP-aux:Lens` → `Canon:LensModel` → `Panasonic:LensType` → `Composite:LensID` | `lens_name` (sin los códigos numéricos: con `-n`, `Composite:LensID` es el código del fabricante) |
+| `camera_make` | photo_details | `IFD0:Make` → `XMP-tiff:Make` → `CanonRaw:Make` | `text` |
+| `camera_model` | photo_details | `IFD0:Model` → `XMP-tiff:Model` → `CanonRaw:Model` | `text` |
+| `body_serial_number` | photo_details | `ExifIFD:SerialNumber` → `XMP-exifEX:BodySerialNumber` → `XMP-aux:SerialNumber` | `text`; sin ninguna, `CanonRaw:SerialNumber` con sus 10 cifras («0910501743», como Lightroom; regla en `rules.py`) |
+| `lens_model` | photo_details | `ExifIFD:LensModel` → `XMP-exifEX:LensModel` → `XMP-aux:Lens` → `Canon:LensModel` → `Panasonic:LensType` → `Composite:LensID` | `lens_name` (sin los códigos numéricos: con `-n`, `Composite:LensID` es el código del fabricante); sin ningún nombre, `Nikon:Lens` («20 20 1.8 1.8») con el texto de Lightroom, «20.0 mm f/1.8» (`lens_from_spec`, regla en `rules.py`) |
 | `software` | photo_details | `IFD0:Software` → `XMP-xmp:CreatorTool` | `text` |
 | `user_comment` | photo_details | `ExifIFD:UserComment` | `text` |
 | `focal_length_mm` | photo_details | `ExifIFD:FocalLength` → `XMP-exif:FocalLength` | `real` |
 | `focal_length_35mm` | photo_details | `ExifIFD:FocalLengthIn35mmFormat` → `XMP-exif:FocalLengthIn35mmFilm` | `real` |
 | `f_number` | photo_details | `ExifIFD:FNumber` → `XMP-exif:FNumber` | `real` |
-| `exposure_time_s` | photo_details | `ExifIFD:ExposureTime` → `XMP-exif:ExposureTime` | `real` |
-| `iso` | photo_details | `ExifIFD:ISO` → `XMP-exif:ISO` | `integer` |
-| `exposure_bias_ev` | photo_details | `ExifIFD:ExposureCompensation` → `XMP-exif:ExposureBiasValue` | `real` |
+| `exposure_time_s` | photo_details | `ExifIFD:ExposureTime` → `XMP-exif:ExposureTime` → `Canon:ExposureTime` (CRW) | `real` |
+| `iso` | photo_details | `ExifIFD:ISO` → `XMP-exif:ISO` → `Composite:ISO` (CRW) | `integer` |
+| `exposure_bias_ev` | photo_details | `ExifIFD:ExposureCompensation` → `XMP-exif:ExposureBiasValue` → `Canon:ExposureCompensation` (CRW) | `real` |
 | `brightness_value` | photo_details | `ExifIFD:BrightnessValue` → `XMP-exif:BrightnessValue` | `real` |
 | `exposure_program` | photo_details | `ExifIFD:ExposureProgram` → `XMP-exif:ExposureProgram` | `integer` |
 | `metering_mode` | photo_details | `ExifIFD:MeteringMode` → `XMP-exif:MeteringMode` | `integer` |
@@ -126,7 +126,7 @@ Huecos a la vista (extraídos pero sin mostrar en ningún sitio): `intellectual_
 | `digitized_at` | photo_details | `ExifIFD:CreateDate` → `XMP-xmp:CreateDate` | `datetime_text` |
 | `exif_modified_at` | photo_details | `IFD0:ModifyDate` → `XMP-xmp:ModifyDate` | `datetime_text` |
 
-Además, las reglas (`image/rules.py`) rellenan `orientation`, `content_created_at`, `content_date_precision`, `content_date_source`, `timezone_offset`, `flash_fired`, `crop_width` y `crop_height`; el extractor genérico rellena `has_xmp_sidecar`.
+Además, las reglas (`image/rules.py`) rellenan `orientation`, `content_created_at`, `content_date_precision`, `content_date_source`, `timezone_offset`, `flash_fired`, `crop_width` y `crop_height`, y completan `lens_model` y `body_serial_number` con la nota del fabricante; el extractor genérico rellena `has_xmp_sidecar`.
 
 **Lightroom ↔ aplicación** (paneles EXIF y Ubicación):
 

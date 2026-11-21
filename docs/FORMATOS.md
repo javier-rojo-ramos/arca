@@ -98,9 +98,10 @@ Al día el 21/11/2026 (los archivos de prueba, en «3 Fotos/Pruebas de formatos�
 | JPEG 2000 | Sí | Sí (`.arca.json`) | Sin el perfil de color: algo más apagado |
 | PSD | Sí | — | Los de 8 bits con «Maximizar compatibilidad» |
 | DNG | Sí | Sí | De una Nikon Df, iPhone (vertical), DJI y Ricoh; el tamaño, como Lightroom. El del DJI, con `-m` (su nota del fabricante está dañada: [TRAMPAS.md](TRAMPAS.md)) |
-| NEF, CR3 | Sí | Sí (`.xmp` al lado) | Nikon Df (también en vertical) y Z6, Canon EOS R y M50. Los NEF de la Df, sin objetivo (la versión 12 lo arreglará) |
+| NEF, CR3 | Sí | Sí (`.xmp` al lado) | Nikon Df (también en vertical) y Z6, Canon EOS R y M50. Las réflex Nikon no guardan el nombre del objetivo: se compone con sus números, como Lightroom («20.0 mm f/1.8»; versión 12) |
+| PEF | Sí | Sí (`.xmp` al lado) | Una Pentax K-5 (y un JPEG de una K-70): el tamaño, el área útil, como Lightroom (versión 13). Sin objetivo: las Pentax solo guardan su código (Lightroom muestra el nombre, de su propia lista) |
 | CR2, ARW, ORF, RW2, RAF | Sí | Sí (`.xmp` al lado) | El tamaño, el objetivo y la toma, comparados con Lightroom y con la lista de resultados del juego de RAW |
-| CRW | Sí, sin cámara, toma ni fecha (las guarda fuera del EXIF; la versión 12 lo arreglará) | Sí (`.xmp` al lado) | Una Canon EOS D60 |
+| CRW | Sí | Sí (`.xmp` al lado) | Una Canon EOS D60. Sin EXIF: la cámara, la toma y la fecha, de su propio formato (versión 12; antes salía sin ellas y con la fecha del archivo); el diafragma no se lee (basura cuando el objetivo no lo da) |
 | NRW, SRF, SR2 | Sí | Como los demás RAW | El tamaño, el del sensor: entre un 0,5 % y un 3 % mayor que el de Lightroom (no traen el área útil) |
 | Vídeo: MOV del iPhone | Sí | Sí (`.arca.json`) | Horizontal y vertical |
 | Vídeo: MOV de una réflex Nikon (D3100) | Sí | Como los demás vídeos | La hora, de su nota del fabricante (la de QuickTime es la local) |
@@ -112,7 +113,7 @@ Al día el 21/11/2026 (los archivos de prueba, en «3 Fotos/Pruebas de formatos�
 
 - **Vídeos**: uno de Android y uno de cámara (GoPro, DJI, Sony o Canon sin espejo, una videocámara `.MTS`): sobre todo, si la fecha es la local o la UTC ([ESTADO.md](ESTADO.md), «Comprobaciones sueltas»). Una película MP4, con `VID 1.1`.
 - **BMP**: la escritura en el `.arca.json` (como el JPEG 2000).
-- Solo si aparecen: un `.hif` (HEIF de Canon o Fujifilm) y un PEF (Pentax). Los formatos poco comunes de las tablas (RAW antiguos o raros, PSB, SVG, ICO, JPEG XL...) no se buscan.
+- Solo si aparece: un `.hif` (HEIF de Canon o Fujifilm). Los formatos poco comunes de las tablas (RAW antiguos o raros, PSB, SVG, ICO, JPEG XL...) no se buscan.
 
 ## Dónde se decide cada columna
 
