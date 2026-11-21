@@ -23,8 +23,8 @@
 
 ## 1. Punto de partida (lo que ya existe)
 
-- **Bibliotecas**: los vídeos personales (móvil, cámara) son de la biblioteca Imágenes; las películas y series, de `video`. La clasificación está hecha (`core/catalog/libraries.py`): por la declaración de la carpeta, por el nombre (`S01E02`, año entre paréntesis, etiquetas de ripeo), por los metadatos (cámara o GPS → Imagen; más de 40 minutos sin cámara → Vídeo) y a mano (menú «Biblioteca»). En una carpeta declarada de vídeo solo se cataloga vídeo: los carteles sueltos no entran.
-- **Extractor**: `core/metadata/video/` (ExifTool, `VIDEO_FIELDS_VERSION` 3), pensado para los clips: fecha, duración, tamaño girado, GPS, cámara, objetivo, `video_codec` y `frame_rate` (`video_details`). Comprobado con vídeos de iPhone; sin comprobar con películas (ESTADO, «Comprobaciones sueltas»).
+- **Bibliotecas**: los vídeos personales (móvil, cámara) son de la biblioteca Imágenes; las películas y series, de `video`. La clasificación está hecha (`core/catalog/libraries.py`): por la declaración de la carpeta, por el nombre (`S01E02`, año entre paréntesis, etiquetas de ripeo), por los metadatos (cámara, una fecha que solo escribe una cámara o GPS → Imagen; más de 40 minutos sin cámara → Vídeo) y a mano (menú «Biblioteca»). En una carpeta declarada de vídeo solo se cataloga vídeo: los carteles sueltos no entran.
+- **Extractor**: `core/metadata/video/` (ExifTool, `VIDEO_FIELDS_VERSION` 4), pensado para los clips: fecha, duración, tamaño girado, GPS, cámara, objetivo, `video_codec` y `frame_rate` (`video_details`). Comprobado con vídeos de iPhone; sin comprobar con películas (ESTADO, «Comprobaciones sueltas»).
 - **Módulo**: `controllers/app_modules/video_module.py` (`VideoModule`, sobre `LibraryModule`), con la barra común (biblioteca, carpetas y fechas), cuadrícula y vista individual; orden `VIDEO_AUDIO_SORT_FIELDS`.
 - **Tarjeta**: en la biblioteca Vídeos, proporción de cartel (2:3), con el marcador dibujado y la duración. Sin miniatura real.
 - **Carpeta del catálogo**: `media_assets/posters` y `media_assets/backdrops` ya se crean (vacías). Decidido antes: los carteles viven en el catálogo, descargados.
@@ -186,7 +186,7 @@ Cada paso deja la aplicación funcionando. Hasta `VID 6` no hace falta internet.
 
 | Paso | Objetivo | Aceptación |
 |---|---|---|
-| **VID 1.1** Datos técnicos de película | Ampliar el extractor (contenedor, audio, subtítulos, tasa de bits, HDR); `VIDEO_FIELDS_VERSION` 4; migración con las columnas | `inspect_cli` con películas reales (MKV, MP4, AVI); los clips de Imagen, igual |
+| **VID 1.1** Datos técnicos de película | Ampliar el extractor (contenedor, audio, subtítulos, tasa de bits, HDR); la siguiente `VIDEO_FIELDS_VERSION`; migración con las columnas | `inspect_cli` con películas reales (MKV, MP4, AVI); los clips de Imagen, igual |
 | **VID 1.2** Leer el nombre | `core/video/name_parser.py`: título, año, temporada, episodio, parte | Autoprueba con una lista de nombres reales del autor |
 
 ### Fase VID 2 — Obras

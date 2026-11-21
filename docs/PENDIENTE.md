@@ -284,7 +284,7 @@ Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso y 
 
 ### Fase VID 1 — Datos técnicos y nombre
 
-- **VID 1.1** Datos técnicos de película: contenedor, audio, subtítulos, tasa de bits, HDR (`VIDEO_FIELDS_VERSION` 4; la 3, el 21/11/2026, fue el objetivo sin códigos numéricos). Se decide si basta ExifTool o hace falta `ffprobe`.
+- **VID 1.1** Datos técnicos de película: contenedor, audio, subtítulos, tasa de bits, HDR (la siguiente `VIDEO_FIELDS_VERSION`). Se decide si basta ExifTool o hace falta `ffprobe`.
 - **VID 1.2** Leer el nombre (`core/video/name_parser.py`): título, año, temporada, episodio, parte.
 
 ### Fase VID 2 — Obras

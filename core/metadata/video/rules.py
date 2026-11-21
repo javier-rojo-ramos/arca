@@ -10,7 +10,9 @@ el sitio. Son tres:
     2. Fecha de captura ('content_created_at', hora LOCAL, como en las fotos):
          a) Etiquetas que guardan la hora local (y a veces su zona): la de los iPhone
             ('Keys:CreationDate', con zona), las cámaras Sony ('XML:CreationDateValue'),
-            las videocámaras AVCHD ('H264:DateTimeOriginal') y las XMP.
+            las videocámaras AVCHD ('H264:DateTimeOriginal'), las XMP, la nota del
+            fabricante de las réflex Nikon ('Nikon:DateTimeOriginal') y los AVI de las
+            compactas ('RIFF:DateTimeOriginal'; las Ricoh le añaden ':' al final).
          b) 'QuickTime:CreateDate' y similares: según la especificación de QuickTime van
             en UTC (así las escriben los Android), de modo que se pasan a la hora local
             del EQUIPO, como las de los GPX. Origen: 'quicktime_utc'.
@@ -19,12 +21,18 @@ el sitio. Son tres:
 
 Limitación conocida (b): algunas cámaras escriben la hora LOCAL en 'QuickTime:CreateDate'
 (contra la especificación). En ese caso la hora sale desplazada lo que valga la zona
-horaria. Se verá con vídeos reales ('inspect_cli') y se corregirá por marca si hace falta.
+horaria. Visto el 21/11/2026 con una Nikon D3100 (dos horas de más): las Nikon se leen ya
+de su nota del fabricante (a). Otra marca así se corrige igual, con su etiqueta de hora
+local, cuando aparezca un vídeo suyo ('inspect_cli').
 
 Si cambias algo aquí, sube 'VIDEO_FIELDS_VERSION' (en 'fields.py').
+
+1.1.0 Hora local de la nota del fabricante de las Nikon ('Nikon:DateTimeOriginal'; en
+      'QuickTime:CreateDate' escriben la local, no la UTC) y de los AVI de las compactas
+      ('RIFF:DateTimeOriginal'), que salían con la fecha del archivo ('VIDEO_FIELDS_VERSION' 4).
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["apply_video_rules"]
 
 # Librerías estándar
@@ -43,6 +51,9 @@ _LOCAL_DATE_SOURCES: tuple[tuple[str, str], ...] = (
     ("H264:DateTimeOriginal", "h264"),  # videocámaras AVCHD (.MTS)
     ("XMP-exif:DateTimeOriginal", "xmp"),
     ("XMP-xmp:CreateDate", "xmp"),
+    # Nikon (MOV de una D3100): la misma hora que en 'QuickTime:CreateDate', que es la local
+    ("Nikon:DateTimeOriginal", "makernote"),
+    ("RIFF:DateTimeOriginal", "riff"),  # AVI de compactas (Canon, Ricoh)
 )
 
 # (b) Fechas de QuickTime en UTC (según la especificación)
@@ -83,7 +94,10 @@ def _capture_date(tags: Mapping[str, Any], common_values: dict[str, Any], path: 
     """Fecha de captura con su zona horaria, origen y precisión (ver la cabecera)."""
     # (a) Hora local tal como la escribió el dispositivo
     for tag, origin in _LOCAL_DATE_SOURCES:
-        parsed = parse_datetime(lookup(tags, tag))
+        value = lookup(tags, tag)
+        if isinstance(value, str):
+            value = value.rstrip(": ")  # Ricoh: «2007:08:21 12:52:34:»
+        parsed = parse_datetime(value)
         if parsed is None or int(parsed.text[:4]) < _MIN_VALID_YEAR:
             continue
         common_values.update(
@@ -241,4 +255,23 @@ if __name__ == "__main__":
         values, details = run(avchd, clip)
         assert values["content_created_at"] == "2019-08-15 18:30:00"
         assert details["camera_make"] == "Sony" and values["content_date_source"] == "h264"
+
+        # 5. Nikon D3100 (etiquetas reales): la hora local de su nota del fabricante, no
+        # la de QuickTime pasada de UTC a local (salía con dos horas de más)
+        nikon = {"QuickTime:CreateDate": "2013:10:19 10:46:58",
+                 "Track1:MediaCreateDate": "2013:10:19 10:46:58",
+                 "Nikon:Make": "NIKON CORPORATION", "Nikon:Model": "NIKON D3100",
+                 "Nikon:DateTimeOriginal": "2013:10:19 10:46:58", "Nikon:TimeZone": 60,
+                 "Composite:ImageSize": "1920 1080", "Composite:Rotation": 0}
+        values, details = run(nikon, clip)
+        assert values["content_created_at"] == "2013-10-19 10:46:58", values
+        assert values["content_date_source"] == "makernote" and values["timezone_offset"] is None
+        assert details["camera_model"] == "NIKON D3100"
+
+        # 6. AVI de compactas (etiquetas reales): Canon, y Ricoh con ':' al final
+        for raw, expected in (("2009:12:07 14:06:59", "2009-12-07 14:06:59"),
+                              ("2007:08:21 12:52:34:", "2007-08-21 12:52:34")):
+            values, _ = run({"RIFF:DateTimeOriginal": raw, "Composite:ImageSize": "640 480"}, clip)
+            assert values["content_created_at"] == expected, values
+            assert values["content_date_source"] == "riff"
     print("Autoprueba finalizada correctamente.")

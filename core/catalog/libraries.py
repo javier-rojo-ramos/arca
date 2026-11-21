@@ -35,8 +35,10 @@ es lo único que se conoce al escanear ('guess_video_library'):
     - Episodios (S01E02, 1x02) o películas (año entre paréntesis o etiquetas de
       ripeo como 1080p, x264, BluRay, WEB-DL)                            -> 'video'
     - Lo demás queda sin clasificar hasta que se leen sus metadatos (paso 2c):
-      con datos de cámara (marca o modelo) o GPS -> 'image'; más de 40 minutos sin
-      datos de cámara -> 'video'; si no, sigue sin clasificar ('classify_video').
+      con datos de cámara (marca o modelo, o una fecha de captura que solo escribe una
+      cámara: los AVI de las compactas no traen marca) o GPS -> 'image'; más de 40
+      minutos sin datos de cámara -> 'video'; si no, sigue sin clasificar
+      ('classify_video').
 
 CORRECCIÓN MANUAL (menú contextual "Biblioteca", 'set_library'): se guarda con
 'library_manual = 1', y entonces ni el escáner ni la detección automática la cambian.
@@ -48,6 +50,9 @@ el menú de la cuadrícula ('set_library'), la apertura del catálogo y el final
 lectura de metadatos ('classify_pending_videos': aplica la detección, por el nombre y por
 los metadatos, a los vídeos que siguen sin clasificar).
 
+1.5.0 Una fecha de captura escrita por la propia cámara ('CAMERA_DATE_SOURCES': AVI de
+      compactas, Nikon, videocámaras, Sony, iPhone) cuenta como dato de cámara: los AVI
+      de las compactas, sin marca ni modelo, quedaban sin clasificar.
 1.4.0 'FOLDER_AUTO_NAME' y 'folder_content_name' (el nombre de un tipo de contenido de
       carpeta, también «Detectar automáticamente») y 'count_by_library' (los elementos de
       una carpeta por biblioteca): para el resumen de «Carpeta añadida».
@@ -61,10 +66,11 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.libraries
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "ALLOWED_MEDIA_TYPES",
     "AUTO_LIBRARY_BY_MEDIA_TYPE",
+    "CAMERA_DATE_SOURCES",
     "CLASSIFIABLE_MEDIA_TYPES",
     "FOLDER_AUTO",
     "FOLDER_AUTO_NAME",
@@ -202,6 +208,12 @@ _CAMERA_EXTENSIONS = frozenset({"mts", "m2ts"})
 # o episodio. 40 minutos: más que casi cualquier clip personal y menos que una película
 MOVIE_MIN_DURATION_S = 40 * 60
 
+# Orígenes de la fecha de captura de un vídeo ('media_items.content_date_source', ver
+# 'core/metadata/video/rules.py') que solo escribe una cámara o un móvil: cuentan como dato
+# de cámara. No están las fechas de QuickTime en UTC ni las del XMP: las escriben también
+# los programas (una película recomprimida, Lightroom)
+CAMERA_DATE_SOURCES = frozenset({"riff", "makernote", "h264", "xml", "quicktime_keys"})
+
 
 def guess_video_library(file_name: str) -> str | None:
     """Biblioteca de un vídeo deducida por su nombre, o None si el nombre no lo dice.
@@ -251,13 +263,15 @@ def classify_video(
     """Biblioteca de un vídeo de una carpeta "auto", con todo lo que se sepa de él.
 
     Por orden: su nombre ('guess_video_library'); si no dice nada, sus metadatos: datos
-    de cámara (marca o modelo) o GPS -> 'image' (lo grabó un móvil o una cámara); al
-    menos 'MOVIE_MIN_DURATION_S' sin ellos -> 'video'. Si nada lo decide, None.
+    de cámara (marca o modelo, o una fecha de captura de cámara) o GPS -> 'image' (lo
+    grabó un móvil o una cámara); al menos 'MOVIE_MIN_DURATION_S' sin ellos -> 'video'.
+    Si nada lo decide, None.
 
     Args:
         file_name: Nombre del archivo.
         duration: Duración en segundos (None = no se sabe todavía).
-        has_camera: Si sus metadatos traen marca o modelo de cámara.
+        has_camera: Si sus metadatos traen marca o modelo de cámara, o su fecha de captura
+            salió de una etiqueta que solo escribe una cámara ('CAMERA_DATE_SOURCES').
         has_gps: Si trae coordenadas.
     """
     by_name = guess_video_library(file_name)
@@ -489,7 +503,7 @@ def classify_pending_videos(conn: sqlite3.Connection) -> int:
         Número de vídeos clasificados.
     """
     rows = conn.execute(
-        """SELECT m.id, m.file_name, m.duration, m.latitude,
+        """SELECT m.id, m.file_name, m.duration, m.latitude, m.content_date_source,
                   d.camera_make, d.camera_model
              FROM media_items AS m
              LEFT JOIN video_details AS d ON d.media_id = m.id
@@ -498,12 +512,12 @@ def classify_pending_videos(conn: sqlite3.Connection) -> int:
     ).fetchall()
     updates = [
         (library, media_id)
-        for media_id, file_name, duration, latitude, make, model in rows
+        for media_id, file_name, duration, latitude, date_source, make, model in rows
         if (
             library := classify_video(
                 file_name,
                 duration=duration,
-                has_camera=bool(make or model),
+                has_camera=bool(make or model) or date_source in CAMERA_DATE_SOURCES,
                 has_gps=latitude is not None,
             )
         )
@@ -707,6 +721,15 @@ if __name__ == "__main__":
         assert library_of("Viajes/boda.mp4") == ("image", 0)
         db.execute("UPDATE media_items SET library = NULL WHERE relative_path = 'Viajes/boda.mp4'")
         db.execute("DELETE FROM video_details")
+        # Sin marca ni modelo (un AVI de compacta), con la fecha que solo escribe una
+        # cámara: también; con la del XMP o la de QuickTime en UTC, no
+        for source, expected in (("xmp", None), ("quicktime_utc", None), ("riff", "image")):
+            db.execute("UPDATE media_items SET content_date_source = ? WHERE id = ?",
+                       (source, ids["Viajes/boda.mp4"]))
+            classify_pending_videos(db)
+            assert library_of("Viajes/boda.mp4") == (expected, 0), source
+        db.execute("UPDATE media_items SET library = NULL, content_date_source = NULL "
+                   "WHERE relative_path = 'Viajes/boda.mp4'")
         # Corrección manual: la boda es de Imagen; la foto no puede ir a Vídeo
         boda, foto, peli = ids["Viajes/boda.mp4"], ids["Viajes/a.jpg"], ids["Pelis/x.mkv"]
         assert set_library(db, [boda, foto], "image") == {boda: ("image", 1)}

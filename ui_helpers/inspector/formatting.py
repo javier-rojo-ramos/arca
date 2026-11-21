@@ -19,6 +19,8 @@ Tracks (sección «Track»):
     altitud       '1.200 – 2.100 m'            velocidad      '2,6 km/h'
     número        '2.566'
 
+1.6.1 Dos orígenes de la fecha de los vídeos: la nota del fabricante ('makernote', las
+      Nikon) y los AVI ('riff').
 1.6.0 Formatos de los tracks: 'format_distance', 'format_elevation_change',
       'format_altitude_range', 'format_speed' y 'format_count'.
 
@@ -34,7 +36,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.formatting
 """
 
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 __all__ = [
     "DATE_SOURCE_TEXTS",
     "EXPOSURE_PROGRAMS",
@@ -96,6 +98,8 @@ DATE_SOURCE_TEXTS: dict[str, str] = {
     "quicktime_utc": "metadatos del vídeo (hora UTC pasada a la hora local de este equipo)",
     "xml": "metadatos de la cámara (XML)",
     "h264": "metadatos de la videocámara (AVCHD)",
+    "makernote": "metadatos de la cámara (nota del fabricante)",
+    "riff": "metadatos del vídeo (AVI)",
     "gpx": "primer punto del track",
     "id3": "etiquetas de audio",
     "filename": "nombre del archivo",

@@ -27,12 +27,14 @@ etiquetas reales de un vídeo:
 COMPROBADO con vídeos reales de iPhone 17 Pro (horizontal y vertical, 31/10/2026). Las
 etiquetas de Android, cámaras y películas salen todavía de la documentación de ExifTool.
 
+1.3.0 'VIDEO_FIELDS_VERSION' 4: la hora local de las Nikon y de los AVI de las compactas
+      (regla en 'rules.py'). La lista no cambia.
 1.2.0 El objetivo sin los códigos numéricos de 'Composite:LensID' ('lens_name');
       'VIDEO_FIELDS_VERSION' 3.
 1.1.0 Objetivo del vídeo: 'lens_model', 'focal_length_35mm' y 'f_number' (migración 13).
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["VIDEO_FIELDS", "VIDEO_FIELDS_VERSION", "aperture"]
 
 # Módulos del proyecto
@@ -51,7 +53,8 @@ from core.metadata.field_spec import (
 # los vídeos ya leídos se vuelvan a leer
 # 2: objetivo (lens_model, focal_length_35mm, f_number).
 # 3: el objetivo sin códigos numéricos ('lens_name').
-VIDEO_FIELDS_VERSION = 3
+# 4: la hora local de las Nikon y de los AVI de las compactas (regla en 'rules.py').
+VIDEO_FIELDS_VERSION = 4
 
 
 def aperture(value: object) -> float | None:
