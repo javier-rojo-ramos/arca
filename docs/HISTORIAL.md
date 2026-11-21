@@ -5,6 +5,31 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 21/11/2026: revisión de los archivos de «Pruebas de formatos», y el DNG del DJI ya se escribe. **Origen**: el autor repartió los archivos de prueba en tres subcarpetas: diversos formatos, con un GIF animado y un NEF vertical de su Nikon Df; vídeos y una película MKV; y un juego de 14 RAW con su «Lista de resultados previstos.csv». Les puso 1 estrella y la barra de estado avisó de que un archivo no se había podido escribir. **Revisión** (sin ventana: el log, el catálogo en solo lectura, ExifTool y las miniaturas de la caché):
+  - Bien: el NEF vertical (3280 × 4928 y la miniatura en vertical; el autor lo comparó con Lightroom); el GIF (miniatura y `XMP-xmp:Rating` en el archivo); los RAW con su tamaño, cámara, objetivo, ISO, velocidad, diafragma, focal y GPS, como la lista; los vídeos en su biblioteca; la escritura en todos menos uno.
+  - Tres fallos:
+    - el DNG del DJI no se escribe: «Error: [minor] Maker notes could not be parsed»;
+    - el CRW de la Canon D60 sale sin cámara, toma ni fecha, y se queda con la del archivo (la de la descarga): todo va en `CanonRaw:*` y `Canon:*`, sin EXIF;
+    - los NEF de la Df salen sin objetivo: solo traen `Nikon:Lens` («20 20 1.8 1.8») y el código de `Composite:LensID`, que se descarta desde la versión 11. El autor confirmó en Lightroom «20.0 mm f/1.8», el mismo texto que tienen los JPEG que exporta.
+  - Ya previsto: la MKV va a Vídeo, pero sin el códec (`Track1:VideoCodecID`): `VID 1.1`.
+
+  **Prueba del DJI**, sobre copias:
+  - Con `-m`, ExifTool escribe, y `ImageDataHash` y las dos vistas previas quedan idénticos. La nota (datos de depuración del dron) se copia tal cual: ya tenía los offsets mal.
+  - El autor abrió la copia en Lightroom, la vio bien y escribió en ella.
+
+  **Decidido** por el autor: reintentar con `-m` solo ante ese error ([DECISIONES.md](DECISIONES.md)).
+
+  **Cambio**: `xmp_writer` 1.4.0:
+  - `_write_and_check`: la escritura y la comprobación de un grupo, sacadas de `_write_batch`;
+  - el reintento con `-m` (`_run_write(..., ignore_minor=True)`) de los que `_only_maker_notes_error` acepta, con una línea en el log.
+
+  **Probado**:
+  - la autoprueba de `xmp_writer`: el caso 9c, un TIFF de 2 × 2 hecho a mano con Make=DJI y una nota con un valor fuera del archivo, que da el mismo error que el DNG real; se escribe en dos llamadas y la imagen queda intacta. Más casos de `_only_maker_notes_error`;
+  - el escritor sobre una copia del DNG real: valoración, marca y color escritos, con la imagen igual;
+  - `run_selftests.py core.userdata` (5 bien) y ruff.
+
+  Pendiente de decidir: la versión 12 de los campos de imagen (el CRW y el objetivo de los NEF).
+
 - 21/11/2026: el autor verificó los AVI de compactas en Imagen. `FORMATOS.md`: la nota larga de «Probados con archivos reales» pasa a una sección propia, «Qué se ha probado con archivos reales» (una tabla con cada formato, si se lee y si se escribe, y la lista de lo que falta: GIF, un RAW vertical, vídeos de Android, de cámara y una película, la escritura en el `.arca.json` de un BMP y, si aparecen, un `.hif` y un PEF); la cabecera, con el criterio de los formatos estándar; la sección de vídeo, con cómo se clasifican y de dónde sale su fecha.
 
 - 21/11/2026: los AVI de compactas, a Imagen. **Origen**: el autor verificó la hora de los tres vídeos («salen bien») y vio que los dos AVI no tenían la sección «Metadatos» del inspector: estaban «Sin clasificar» (esa sección es de Imagen), porque `classify_video` solo daba por clip personal un vídeo con marca o modelo de cámara o con GPS, y esos AVI no traen ninguno (y duran menos de 40 minutos). **Decidido** por el autor (frente a mostrar «Metadatos» también en «Sin clasificar», que abriría la edición a vídeos que pueden ser películas): una fecha de captura que solo escribe una cámara cuenta como dato de cámara. **Cambio**: `libraries` 1.5.0: `CAMERA_DATE_SOURCES` (`riff`, `makernote`, `h264`, `xml`, `quicktime_keys`; no `quicktime_utc` ni `xmp`, que escriben también los programas); `classify_pending_videos` lee `content_date_source`. Sin subir ninguna versión: la clasificación de pendientes corre al abrir el catálogo con los vídeos sin biblioteca ni corrección manual. **Probado**: la autoprueba de `libraries` (con `xmp` y `quicktime_utc`, sin clasificar; con `riff`, Imagen); en el catálogo del autor (solo lectura), los vídeos sin clasificar: los dos AVI (`riff`) pasarán a Imagen y los 6 MP4 (`xmp`) siguen igual; `run_selftests.py` (144 bien); ruff.

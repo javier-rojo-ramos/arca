@@ -92,23 +92,25 @@ Al día el 21/11/2026 (los archivos de prueba, en «3 Fotos/Pruebas de formatos�
 | JPEG, HEIC | Sí | Sí | También en vertical: orientación EXIF y, en el HEIC, su `irot` |
 | `.jfif` | Sí | Sí | Un JPEG con otra extensión: la que pone Windows a algunas imágenes descargadas con Chrome o Edge |
 | PNG, WebP | Sí | Sí | Una captura de pantalla y una imagen de la web |
+| GIF | Sí | Sí | Uno animado: la miniatura, del primer fotograma; la escritura, leída con ExifTool (Lightroom no abre los GIF) |
 | TIFF | Sí | Sí | Con orientación 6 (Pillow 12 lo endereza al cargarlo: [TRAMPAS.md](TRAMPAS.md)) |
 | AVIF | Sí | — | Con el giro solo en su `irot` |
 | JPEG 2000 | Sí | Sí (`.arca.json`) | Sin el perfil de color: algo más apagado |
 | PSD | Sí | — | Los de 8 bits con «Maximizar compatibilidad» |
-| DNG | Sí | Sí | De una Nikon Df, iPhone (vertical), DJI y Ricoh; el tamaño, como Lightroom |
-| NEF, CR3 | Sí | Sí (`.xmp` al lado) | Nikon Df y Z6, Canon EOS R y M50 |
-| CR2, CRW, ARW, ORF, RW2, RAF | Sí | Como los demás RAW | El tamaño y el objetivo, comparados con Lightroom |
+| DNG | Sí | Sí | De una Nikon Df, iPhone (vertical), DJI y Ricoh; el tamaño, como Lightroom. El del DJI, con `-m` (su nota del fabricante está dañada: [TRAMPAS.md](TRAMPAS.md)) |
+| NEF, CR3 | Sí | Sí (`.xmp` al lado) | Nikon Df (también en vertical) y Z6, Canon EOS R y M50. Los NEF de la Df, sin objetivo (la versión 12 lo arreglará) |
+| CR2, ARW, ORF, RW2, RAF | Sí | Sí (`.xmp` al lado) | El tamaño, el objetivo y la toma, comparados con Lightroom y con la lista de resultados del juego de RAW |
+| CRW | Sí, sin cámara, toma ni fecha (las guarda fuera del EXIF; la versión 12 lo arreglará) | Sí (`.xmp` al lado) | Una Canon EOS D60 |
 | NRW, SRF, SR2 | Sí | Como los demás RAW | El tamaño, el del sensor: entre un 0,5 % y un 3 % mayor que el de Lightroom (no traen el área útil) |
 | Vídeo: MOV del iPhone | Sí | Sí (`.arca.json`) | Horizontal y vertical |
 | Vídeo: MOV de una réflex Nikon (D3100) | Sí | Como los demás vídeos | La hora, de su nota del fabricante (la de QuickTime es la local) |
-| Vídeo: AVI de compactas (Canon, Ricoh) | Sí | Como los demás vídeos | La fecha, de `RIFF:DateTimeOriginal`; van a Imagen por ella |
+| Vídeo: AVI de compactas (Canon, Ricoh) | Sí | Sí (`.arca.json`) | La fecha, de `RIFF:DateTimeOriginal`; van a Imagen por ella |
+| Vídeo: película MKV | Sí, sin el códec (`VID 1.1`) | Sí (`.arca.json`) | Va a Vídeo; la fecha, la del archivo |
 | GPX, audio | Sí (el audio, sin metadatos hasta `MUS 1`) | Sí (`.arca.json`) | |
 
 **Falta**, por orden de utilidad:
 
-- **GIF** (la miniatura y la escritura en el archivo) y un **RAW vertical** (un NEF de la Df: la miniatura y el tamaño en vertical).
-- **Vídeos**: uno de Android, uno de cámara (GoPro, DJI, Sony o Canon sin espejo, una videocámara `.MTS`) y una película (MKV o MP4): sobre todo, si la fecha es la local o la UTC ([ESTADO.md](ESTADO.md), «Comprobaciones sueltas»).
+- **Vídeos**: uno de Android y uno de cámara (GoPro, DJI, Sony o Canon sin espejo, una videocámara `.MTS`): sobre todo, si la fecha es la local o la UTC ([ESTADO.md](ESTADO.md), «Comprobaciones sueltas»). Una película MP4, con `VID 1.1`.
 - **BMP**: la escritura en el `.arca.json` (como el JPEG 2000).
 - Solo si aparecen: un `.hif` (HEIF de Canon o Fujifilm) y un PEF (Pentax). Los formatos poco comunes de las tablas (RAW antiguos o raros, PSB, SVG, ICO, JPEG XL...) no se buscan.
 

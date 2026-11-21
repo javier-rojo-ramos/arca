@@ -103,7 +103,7 @@ Una película con un solo archivo tiene su obra, creada sola a partir del nombre
 
 ## 5. Lectura (datos técnicos)
 
-El extractor de vídeo se amplía para lo que importa en una película: contenedor, códec y canales de audio, idiomas de audio y de subtítulos, tasa de bits, HDR. Sube `VIDEO_FIELDS_VERSION` (los vídeos se releen solos). A decidir en `VID 1.1` con películas reales (`inspect_cli`): si ExifTool lo da bien en MKV y MP4, o hace falta `ffprobe` (que llegará de todos modos con `ffmpeg` para los fotogramas, V6). Los subtítulos sueltos (`.srt` junto al vídeo) se pueden contar sin catalogarlos.
+El extractor de vídeo se amplía para lo que importa en una película: contenedor, códec y canales de audio, idiomas de audio y de subtítulos, tasa de bits, HDR. Sube `VIDEO_FIELDS_VERSION` (los vídeos se releen solos). A decidir en `VID 1.1` con películas reales (`inspect_cli`): si ExifTool lo da bien en MKV y MP4, o hace falta `ffprobe` (que llegará de todos modos con `ffmpeg` para los fotogramas, V6). Primera prueba, el 21/11/2026, con una MKV de `mkvmerge`: ExifTool da, por pista, el códec de vídeo (`Track1:VideoCodecID`, «V_MPEGH/ISO/HEVC»), los fotogramas por segundo, la tasa de bits (`BPS`), el audio (códec «A_AC3», canales e idioma) y los subtítulos (formato e idioma); de la MKV, hoy solo se leen los fotogramas por segundo. Los subtítulos sueltos (`.srt` junto al vídeo) se pueden contar sin catalogarlos.
 
 **Un extractor nunca escribe datos del usuario** ni la biblioteca; tampoco la obra: la crea y la enlaza un paso aparte, tras la lectura (como `classify_pending_videos`).
 

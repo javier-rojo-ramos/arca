@@ -66,11 +66,18 @@ Medidas de seguridad:
     - Si una escritura anterior se cortó y dejó el temporal de ExifTool
       ('foto.jpg_exiftool_tmp'), ExifTool se negaría a escribir para siempre: un temporal
       de más de 10 minutos se borra (el original nunca llegó a sustituirse: está intacto).
+    - Una nota del fabricante que ExifTool no sabe reescribir ('[minor] Maker notes could
+      not be parsed': la de los DNG de los drones DJI, con sus offsets mal) le impide
+      escribir. Si es el ÚNICO problema del archivo, se reintenta con '-m': ExifTool copia
+      la nota tal cual y la imagen no cambia (comprobado con un DNG de un DJI Mavic 3 Pro,
+      también en Lightroom, el 21/11/2026). Ningún otro error se salta.
 
 Rendimiento: arrancar ExifTool tarda unos cientos de milisegundos, así que cada lote
 de archivos se escribe con UNA sola llamada ('-execute' separa los archivos dentro de
 la misma llamada) y se lee con otra antes y otra después.
 
+1.4.0 Reintento con '-m' de los archivos cuyo único error es la nota del fabricante que
+      ExifTool no sabe reescribir (los DNG de los drones DJI no se podían escribir).
 1.3.1 Solo conoce los campos editables con etiqueta XMP (los demás, como la actividad de
       un track, van al '.arca.json'). Nada cambia en lo que se escribe.
 1.3.0 El GPS editado (latitud, longitud, altitud y dirección): donde ya esté y, si no está,
@@ -89,7 +96,7 @@ Prueba rápida (necesita ExifTool instalado; trabaja sobre archivos de prueba te
     python -m core.userdata.xmp_writer
 """
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 __all__ = [
     "XMP_READ_TAGS",
     "XmpUserDataWriter",
@@ -213,6 +220,10 @@ _MARK = "@@ARCA "
 
 # En Windows, evita que aparezca una ventana de consola en cada llamada
 _CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+# El único error de ExifTool que se salta con '-m' (ver la cabecera y
+# '_only_maker_notes_error'), en minúsculas
+_MAKER_NOTES_ERROR = "error: [minor] maker notes could not be parsed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -578,24 +589,56 @@ class XmpUserDataWriter:
                 to_write.append((index, request, args))
 
         if to_write:
-            # 2. Escritura de todo el lote en una sola llamada
-            messages = self._run_write([(request.path, args) for _, request, args in to_write])
+            # 2 y 3. Escritura de todo el lote en una sola llamada, y comprobación
+            results.update(self._write_and_check(to_write))
 
-            # 3. Comprobación: se vuelve a leer lo escrito
-            after = self._read([request.path for _, request, _ in to_write if request.path.exists()])
-            for position, (index, request, _) in enumerate(to_write):
-                message = messages.get(position, "")
-                metadata = after.get(request.path)
-                if metadata is not None and not metadata.error:
-                    if _matches(metadata.tags, request.values):
-                        results[index] = XmpWriteOutcome(request, ok=True, written=True)
-                        continue
-                    message = message or "Tras escribir, el archivo no tiene los valores pedidos"
-                results[index] = XmpWriteOutcome(
-                    request, ok=False, message=message or "ExifTool no pudo escribirlo"
-                )
+            # 4. Los que solo fallaron por su nota del fabricante (los DNG de los drones DJI),
+            #    otra vez con '-m' (docs/DECISIONES.md, 21/11/2026)
+            retry = [
+                entry
+                for entry in to_write
+                if not results[entry[0]].ok and _only_maker_notes_error(results[entry[0]].message)
+            ]
+            if retry:
+                names = ", ".join(request.path.name for _, request, _ in retry)
+                logger.info(f"Nota del fabricante que ExifTool no sabe reescribir; con '-m': {names}")
+                results.update(self._write_and_check(retry, ignore_minor=True))
 
         return [results[index] for index in range(len(batch))]
+
+    def _write_and_check(
+        self,
+        entries: list[tuple[int, XmpWriteRequest, list[str]]],
+        *,
+        ignore_minor: bool = False,
+    ) -> dict[int, XmpWriteOutcome]:
+        """Escribe varios archivos en una sola llamada y comprueba lo escrito releyéndolos.
+
+        Args:
+            entries: (posición en el lote, petición, argumentos de ExifTool) de cada uno.
+            ignore_minor: True para escribir con '-m' (solo los que '_only_maker_notes_error'
+                acepta).
+
+        Returns:
+            Posición en el lote -> resultado.
+        """
+        messages = self._run_write(
+            [(request.path, args) for _, request, args in entries], ignore_minor=ignore_minor
+        )
+        after = self._read([request.path for _, request, _ in entries if request.path.exists()])
+        results: dict[int, XmpWriteOutcome] = {}
+        for position, (index, request, _) in enumerate(entries):
+            message = messages.get(position, "")
+            metadata = after.get(request.path)
+            if metadata is not None and not metadata.error:
+                if _matches(metadata.tags, request.values):
+                    results[index] = XmpWriteOutcome(request, ok=True, written=True)
+                    continue
+                message = message or "Tras escribir, el archivo no tiene los valores pedidos"
+            results[index] = XmpWriteOutcome(
+                request, ok=False, message=message or "ExifTool no pudo escribirlo"
+            )
+        return results
 
     def _read(self, paths: list[Path]) -> dict[Path, Any]:
         """Lee las etiquetas del usuario de varios archivos (aislando un lote que falle)."""
@@ -609,8 +652,14 @@ class XmpUserDataWriter:
             middle = len(paths) // 2
             return {**self._read(paths[:middle]), **self._read(paths[middle:])}
 
-    def _run_write(self, items: list[tuple[Path, list[str]]]) -> dict[int, str]:
+    def _run_write(
+        self, items: list[tuple[Path, list[str]]], *, ignore_minor: bool = False
+    ) -> dict[int, str]:
         """Ejecuta ExifTool con un bloque de argumentos por archivo ('-execute').
+
+        Args:
+            items: (archivo, argumentos) de cada uno.
+            ignore_minor: True para añadir '-m' (escribir pese a los errores menores).
 
         Returns:
             Posición del archivo en 'items' -> mensajes de error/aviso de ExifTool sobre
@@ -643,6 +692,7 @@ class XmpUserDataWriter:
             "utf8",
             "-charset",
             "filename=utf8",
+            *(["-m"] if ignore_minor else []),
         ]
         try:
             self.calls += 1
@@ -701,6 +751,17 @@ def _split_messages(stderr: str) -> dict[int, str]:
         ):
             messages.setdefault(current, []).append(line_text)
     return {position: " | ".join(texts) for position, texts in messages.items()}
+
+
+def _only_maker_notes_error(message: str) -> bool:
+    """True si lo único que impidió escribir un archivo es su nota del fabricante.
+
+    'message' es lo que '_split_messages' dejó para ese archivo. Ese error es el que '-m'
+    salta sin riesgo para la imagen: ExifTool copia la nota tal cual. Si viene con
+    cualquier otro mensaje (otro error, un aviso que no es menor), no se reintenta.
+    """
+    parts = [part.strip().lower() for part in message.split(" | ") if part.strip()]
+    return bool(parts) and all(part.startswith(_MAKER_NOTES_ERROR) for part in parts)
 
 
 if __name__ == "__main__":
@@ -954,6 +1015,48 @@ if __name__ == "__main__":
             assert not any(k.startswith("GPS:") for k in tags), (path, tags)
         print("GPS: donde ya está o, si no, en el EXIF; referencias; vaciar; sidecar y GIF, solo XMP")
 
+        # 9c. Nota del fabricante que ExifTool no sabe reescribir (como la de los DNG de los
+        #     drones DJI): un TIFF de 2x2 hecho a mano, con Make=DJI y una nota cuyo único
+        #     valor está fuera del archivo. Sin '-m' no se escribe; con él, sí
+        import struct
+
+        def ifd_entry(tag: int, kind: int, count: int, value: bytes) -> bytes:
+            return struct.pack("<HHI", tag, kind, count) + value.ljust(4, b"\x00")
+
+        def u16(value: int) -> bytes:
+            return struct.pack("<H", value)
+
+        def u32(value: int) -> bytes:
+            return struct.pack("<I", value)
+
+        note = u16(1) + ifd_entry(0x0001, 2, 100, u32(0x7FFFFF00)) + u32(0)
+        pixels = bytes([200, 50, 50]) * 4
+        exif_offset = 8 + 2 + 12 * 12 + 4  # tras la cabecera y el IFD0 (12 entradas)
+        bits_offset = exif_offset + 2 + 12 + 4  # tras el IFD del EXIF (1 entrada)
+        note_offset = bits_offset + 6 + 8  # tras los bits por muestra y la resolución
+        pixels_offset = note_offset + len(note)
+        ifd0 = u16(12) + b"".join([
+            ifd_entry(256, 3, 1, u16(2)), ifd_entry(257, 3, 1, u16(2)),
+            ifd_entry(258, 3, 3, u32(bits_offset)), ifd_entry(259, 3, 1, u16(1)),
+            ifd_entry(262, 3, 1, u16(2)), ifd_entry(271, 2, 4, b"DJI\x00"),
+            ifd_entry(273, 4, 1, u32(pixels_offset)), ifd_entry(277, 3, 1, u16(3)),
+            ifd_entry(278, 3, 1, u16(2)), ifd_entry(279, 4, 1, u32(len(pixels))),
+            ifd_entry(282, 5, 1, u32(bits_offset + 6)), ifd_entry(34665, 4, 1, u32(exif_offset)),
+        ]) + u32(0)  # fmt: skip
+        exif_ifd = u16(1) + ifd_entry(0x927C, 7, len(note), u32(note_offset)) + u32(0)
+        drone = folder / "dron.tif"
+        drone.write_bytes(
+            b"II*\x00" + u32(8) + ifd0 + exif_ifd + u16(8) * 3 + u32(72) + u32(1) + note + pixels
+        )
+        calls = writer.calls
+        outcome = writer.write([req(drone, 2, 0, None)])[0]
+        assert outcome.ok and outcome.written, outcome
+        assert writer.calls == calls + 2  # el intento normal y el reintento con '-m'
+        assert read_tags(drone)["XMP-xmp:Rating"] == 2
+        with Image.open(drone) as image:  # la imagen, intacta
+            assert image.size == (2, 2) and image.getpixel((1, 1)) == (200, 50, 50)
+        print("Nota del fabricante dañada: se escribe con '-m'; la imagen, intacta")
+
     # 10. Detalles sin ExifTool: números como texto, saltos de línea y avisos menores
     assert _same_text("1.5", "1.50") and _same_text("7", "007") and not _same_text("1.5", "1,5")
     assert not _same_text(None, "1") and _same_text(None, None)
@@ -961,6 +1064,11 @@ if __name__ == "__main__":
     assert _argument_line("-A=x\\y\nz") == "#[CSTR]-A=x\\\\y\\nz"
     stderr = f"{_MARK}0\nWarning: [Minor] IPTC:City exceeds length limit (truncated)\n{_MARK}1\nError: x"
     assert _split_messages(stderr) == {1: "Error: x"}
+    maker_notes = "Error: [minor] Maker notes could not be parsed - C:/fotos/dron.dng"
+    assert _only_maker_notes_error(maker_notes)
+    assert not _only_maker_notes_error(f"{maker_notes} | Error: Not a valid TIFF")
+    assert not _only_maker_notes_error("Warning: Maker notes could not be parsed - x")  # ya con '-m'
+    assert not _only_maker_notes_error("") and not _only_maker_notes_error("Error: x")
     assert _number_text(41.3874) == "41.3874" and _number_text(100.0) == "100"
     assert _number_text(0.000001) == "0.000001" and _number_text(0.0) == "0"
     assert _same_number("latitude", 42.6820889999083, 42.682089)  # el EXIF, con su margen
