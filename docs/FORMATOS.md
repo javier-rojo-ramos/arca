@@ -1,6 +1,6 @@
 # Arca Media — Formatos admitidos
 
-> Qué hace hoy la aplicación con cada formato, por biblioteca: si se cataloga, si tiene miniatura, si se leen sus metadatos y dónde se guardan los datos del usuario; y qué se ha probado con archivos reales. Sacado del código el 19/11/2026; las pruebas, al día el 21/11/2026. Criterio: los formatos estándar y los de las cámaras y móviles de uso común; los demás, cuando hagan falta ([DECISIONES.md](DECISIONES.md), 21/11/2026).
+> Qué hace hoy la aplicación con cada formato, por biblioteca: si se cataloga, si tiene miniatura, si se leen sus metadatos y dónde se guardan los datos del usuario; y qué se ha probado con archivos reales. Sacado del código el 19/11/2026 y revisado con él el 21/11/2026, con las pruebas al día. Criterio: los formatos estándar y los de las cámaras y móviles de uso común; los demás, cuando hagan falta ([DECISIONES.md](DECISIONES.md), 21/11/2026).
 > Índice: [INDEX.md](INDEX.md).
 
 **Columnas**
@@ -102,9 +102,9 @@ Al día el 21/11/2026 (los archivos de prueba, en «3 Fotos/Pruebas de formatos�
 | PEF | Sí | Sí (`.xmp` al lado) | Una Pentax K-5 (y un JPEG de una K-70): el tamaño, el área útil, como Lightroom (versión 13). Sin objetivo: las Pentax solo guardan su código (Lightroom muestra el nombre, de su propia lista) |
 | CR2, ARW, ORF, RW2, RAF | Sí | Sí (`.xmp` al lado) | El tamaño, el objetivo y la toma, comparados con Lightroom y con la lista de resultados del juego de RAW |
 | CRW | Sí | Sí (`.xmp` al lado) | Una Canon EOS D60. Sin EXIF: la cámara, la toma y la fecha, de su propio formato (versión 12; antes salía sin ellas y con la fecha del archivo); el diafragma no se lee (basura cuando el objetivo no lo da) |
-| NRW, SRF, SR2 | Sí | Como los demás RAW | El tamaño, el del sensor: entre un 0,5 % y un 3 % mayor que el de Lightroom (no traen el área útil) |
+| NRW, SRF, SR2 | Sí | Sí (`.xmp` al lado) | El tamaño, el del sensor: entre un 0,5 % y un 3 % mayor que el de Lightroom (no traen el área útil) |
 | Vídeo: MOV del iPhone | Sí | Sí (`.arca.json`) | Horizontal y vertical |
-| Vídeo: MOV de una réflex Nikon (D3100) | Sí | Como los demás vídeos | La hora, de su nota del fabricante (la de QuickTime es la local) |
+| Vídeo: MOV de una réflex Nikon (D3100) | Sí | Sí (`.arca.json`) | La hora, de su nota del fabricante (la de QuickTime es la local); el objetivo, con sus números, como en las fotos («18.0-55.0 mm f/3.5-5.6») |
 | Vídeo: AVI de compactas (Canon, Ricoh) | Sí | Sí (`.arca.json`) | La fecha, de `RIFF:DateTimeOriginal`; van a Imagen por ella |
 | Vídeo: película MKV | Sí, sin el códec (`VID 1.1`) | Sí (`.arca.json`) | Va a Vídeo; la fecha, la del archivo |
 | GPX, audio | Sí (el audio, sin metadatos hasta `MUS 1`) | Sí (`.arca.json`) | |

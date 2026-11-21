@@ -5,6 +5,15 @@
 
 ## Registro de cambios (del más reciente al más antiguo)
 
+- 21/11/2026: el autor verificó la marca de la cámara («la cámara sale bien»). Repaso de la documentación de formatos.
+  - Las tablas de `FORMATOS.md` coinciden con el código: el detector, los orígenes de las miniaturas y los destinos de los datos del usuario, sacados de `media_detector`, `thumbnails/sources` y `userdata/policy`.
+  - Retocados:
+    - `FORMATOS.md`: la cabecera; la escritura del MOV de la D3100 y de los NRW, SRF y SR2, que sí se probó; el objetivo del MOV.
+    - `TRAMPAS.md`: la redacción del CRW.
+    - `ESTADO.md`: «Nunca probado», con el BMP, como en `FORMATOS.md`.
+    - `MINIATURAS.md`: el tamaño de la vista previa de cada RAW del juego de pruebas.
+    - `INDEX.md`: la descripción de `FORMATOS.md`.
+
 - 21/11/2026: la marca de la cámara, con su nombre corto (`IMAGE_FIELDS_VERSION` 14, `VIDEO_FIELDS_VERSION` 6).
 
   Antes, el autor verificó:
