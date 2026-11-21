@@ -201,7 +201,7 @@ Las líneas de información de la tarjeta de Imagen (dimensiones, duración...; 
 
 ### Fase IMG 2 — Verificar los RAW con ExifTool real
 
-`inspect_cli --campos` con NEF, CR2/CR3, ARW, ORF, RW2, PEF, RAF y WebP; comparar con Lightroom (tamaño y orientación, sobre todo; `DefaultCropSize` solo existe en los DNG). Hecho con JPEG, HEIC (horizontal y vertical) y DNG.
+`inspect_cli --campos` con RAW de cada marca; comparar con Lightroom (tamaño y orientación, sobre todo; `DefaultCropSize` solo existe en los DNG). Hecho con JPEG, HEIC (horizontal y vertical) y DNG y, el 21/11/2026, el tamaño y el objetivo de 17 RAW de 10 marcas (CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, ORF, RW2, RAF y DNG de iPhone, DJI y Ricoh), todos en horizontal: arreglados el área útil de Nikon y Olympus y el objetivo como número (`IMAGE_FIELDS_VERSION` 11; la Coolpix NRW y los Sony SRF y SR2 siguen con el tamaño del sensor, sin etiqueta del área útil). Falta: un PEF (Pentax) y un RAW **vertical** (orientación de la miniatura y del tamaño).
 
 ### Fase IMG 3 — Reconocimiento facial
 
@@ -284,7 +284,7 @@ Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso y 
 
 ### Fase VID 1 — Datos técnicos y nombre
 
-- **VID 1.1** Datos técnicos de película: contenedor, audio, subtítulos, tasa de bits, HDR (`VIDEO_FIELDS_VERSION` 3). Se decide si basta ExifTool o hace falta `ffprobe`.
+- **VID 1.1** Datos técnicos de película: contenedor, audio, subtítulos, tasa de bits, HDR (`VIDEO_FIELDS_VERSION` 4; la 3, el 21/11/2026, fue el objetivo sin códigos numéricos). Se decide si basta ExifTool o hace falta `ffprobe`.
 - **VID 1.2** Leer el nombre (`core/video/name_parser.py`): título, año, temporada, episodio, parte.
 
 ### Fase VID 2 — Obras

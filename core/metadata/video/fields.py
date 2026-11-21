@@ -27,10 +27,12 @@ etiquetas reales de un vídeo:
 COMPROBADO con vídeos reales de iPhone 17 Pro (horizontal y vertical, 31/10/2026). Las
 etiquetas de Android, cámaras y películas salen todavía de la documentación de ExifTool.
 
+1.2.0 El objetivo sin los códigos numéricos de 'Composite:LensID' ('lens_name');
+      'VIDEO_FIELDS_VERSION' 3.
 1.1.0 Objetivo del vídeo: 'lens_model', 'focal_length_35mm' y 'f_number' (migración 13).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["VIDEO_FIELDS", "VIDEO_FIELDS_VERSION", "aperture"]
 
 # Módulos del proyecto
@@ -40,13 +42,16 @@ from core.metadata.field_spec import (
     detail,
     image_height,
     image_width,
+    lens_name,
     real,
     text,
 )
 
 # Versión de la lista: SÚBELA cada vez que cambies VIDEO_FIELDS o 'rules.py', para que
 # los vídeos ya leídos se vuelvan a leer
-VIDEO_FIELDS_VERSION = 2  # 2: objetivo (lens_model, focal_length_35mm, f_number)
+# 2: objetivo (lens_model, focal_length_35mm, f_number).
+# 3: el objetivo sin códigos numéricos ('lens_name').
+VIDEO_FIELDS_VERSION = 3
 
 
 def aperture(value: object) -> float | None:
@@ -99,8 +104,9 @@ VIDEO_FIELDS: tuple[FieldSpec, ...] = (
     # Objetivo (iPhone: grupo 'VideoKeys'; sin grupo = cualquiera). Mismas columnas que
     # en 'photo_details'. No se leen las variantes con idioma ('LensModel-eng-US'): son
     # copias de las mismas etiquetas.
+    # 'lens_name' descarta los códigos numéricos ('Composite:LensID' llega así con '-n')
     detail("lens_model", ("VideoKeys:LensModel", "Keys:LensModel", "LensModel",
-                          "Composite:LensID"), text),
+                          "Composite:LensID"), lens_name),
     detail("focal_length_35mm", ("VideoKeys:FocalLengthIn35mmFormat",
                                  "Keys:FocalLengthIn35mmFormat", "FocalLengthIn35mmFormat"), real),
     detail("f_number", ("VideoKeys:CameraLensIrisfnumber", "Keys:CameraLensIrisfnumber",

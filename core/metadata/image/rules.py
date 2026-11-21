@@ -5,7 +5,8 @@ leídos, y los ajustan en el sitio. Son cinco:
 
     1. Orientación y tamaño: las imágenes giradas (orientación EXIF 5 a 8 o, en HEIC, HEIF
        y AVIF, el cuarto de vuelta de su caja 'irot') intercambian ancho y alto. Se
-       guarda el tamaño "de pantalla", que es la proporción real de la miniatura.
+       guarda el tamaño "de pantalla", que es la proporción real de la miniatura. En los
+       RAW de Nikon y Olympus, el área útil (la de Lightroom), no el sensor completo.
     1b. Recorte de Lightroom ("Dimensiones actuales"): se calcula con los ajustes de
        revelado del XMP ('crs:Crop*') y el tamaño, antes de girarlo.
     2. Fecha de captura: depende de varias etiquetas a la vez (fecha, zona horaria,
@@ -17,12 +18,17 @@ leídos, y los ajustan en el sitio. Son cinco:
 
 Si cambias algo aquí, sube 'IMAGE_FIELDS_VERSION' (en 'fields.py').
 
-Pendiente de comprobar con archivos reales: el tamaño de los RAW (varias imágenes dentro
-del archivo). El de los HEIC y AVIF, comprobado el 21/11/2026: ExifTool da el tamaño sin
-girar ('Composite:ImageSize' 4032 3024 en una foto vertical del iPhone).
+El tamaño, comprobado con Lightroom el 21/11/2026: los HEIC y AVIF (ExifTool da el tamaño
+sin girar: 'Composite:ImageSize' 4032 3024 en una foto vertical del iPhone) y RAW de
+Canon (CR2, CR3, CRW), Fujifilm, Panasonic, Sony (ARW), Nikon (NEF), OM System y DNG.
+Sin arreglo: Nikon Coolpix (NRW) y los Sony SRF y SR2 antiguos dan el sensor completo,
+entre un 0,5 % y un 3 % más que Lightroom (no traen ninguna etiqueta con el área útil).
 Con 'python -m core.metadata.inspect_cli archivo.heic --campos' se ve qué guarda
 la aplicación y se compara con Lightroom.
 
+1.5.0 RAW de Nikon y Olympus: el área útil de su nota del fabricante ('Nikon:CropArea',
+      'Nikon:AFImageWidth/Height', 'Olympus:CropWidth/Height'), la que muestra Lightroom,
+      en lugar del sensor completo ('IMAGE_FIELDS_VERSION' 11).
 1.4.0 HEIC, HEIF y AVIF: el giro de su caja 'irot' ('QuickTime:Rotation') decide si se
       intercambian ancho y alto; un AVIF con el giro solo ahí salía apaisado
       ('IMAGE_FIELDS_VERSION' 10).
@@ -32,11 +38,12 @@ la aplicación y se compara con Lightroom.
       su referencia ('IMAGE_FIELDS_VERSION' 9).
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["GPS_COLUMNS", "GPS_SOURCE_TAGS", "apply_image_rules", "crop_size", "gps_from_tags"]
 
 # Librerías estándar
 import math
+import re
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
@@ -93,6 +100,19 @@ _HEIF_FILE_TYPES = frozenset({"HEIC", "HEIF", "AVIF"})
 # tamaño, y ExifTool no la da
 _IROT_ORIENTATIONS: dict[int, int] = {0: 1, 1: 8, 2: 3, 3: 6}
 
+# RAW que no son DNG: el área útil, la que Lightroom muestra como "Dimensiones de archivo"
+# ('Composite:ImageSize' es el sensor completo, algo mayor), sale de la nota del fabricante.
+# Comprobado con Lightroom el 21/11/2026: Nikon Df (AF) y Z6 (las dos), OM System OM-1. En
+# los DNG manda 'DefaultCropSize' ('fields.py'). Parejas (ancho, alto), por orden; antes,
+# 'Nikon:CropArea' ('izquierda arriba ancho alto')
+_RAW_USEFUL_SIZE_PAIRS: tuple[tuple[str, str], ...] = (
+    ("Nikon:AFImageWidth", "Nikon:AFImageHeight"),
+    ("Olympus:CropWidth", "Olympus:CropHeight"),
+)
+# El área útil recorta solo los bordes del sensor (Df, 98,7 %): un valor por debajo de esta
+# proporción, o mayor que el sensor, no es eso y se ignora
+_RAW_USEFUL_MIN_RATIO = 0.9
+
 
 def apply_image_rules(
     tags: Mapping[str, Any], common_values: dict[str, Any], details: dict[str, Any], path: Path
@@ -118,6 +138,10 @@ def _orientation_and_size(
     # las orientaciones EXIF 5 a 8
     quarter_turn = turns % 2 == 1 if turns is not None else orientation >= 5
     width, height = common_values.get("width"), common_values.get("height")
+    useful = _raw_useful_size(tags, width, height)
+    if useful is not None:
+        width, height = useful
+        common_values["width"], common_values["height"] = width, height
     # El recorte se calcula sobre el tamaño SIN girar (así lo guarda Lightroom)
     crop = crop_size(tags, width, height)
     if quarter_turn and width and height:
@@ -125,6 +149,33 @@ def _orientation_and_size(
         if crop is not None:
             crop = (crop[1], crop[0])
     details["crop_width"], details["crop_height"] = crop if crop is not None else (None, None)
+
+
+def _raw_useful_size(
+    tags: Mapping[str, Any], width: int | None, height: int | None
+) -> tuple[int, int] | None:
+    """Área útil (ancho, alto) de un RAW que no es DNG, sin girar; None si no consta.
+
+    'width' y 'height' son el tamaño del sensor completo: el área útil tiene que caber en
+    él y ocupar al menos '_RAW_USEFUL_MIN_RATIO' en las dos medidas.
+    """
+    if not width or not height or lookup(tags, "DefaultCropSize") is not None:
+        return None
+    candidates: list[tuple[int | None, int | None]] = []
+    numbers = [int(n) for n in re.findall(r"\d+", str(lookup(tags, "Nikon:CropArea") or ""))]
+    if len(numbers) == 4:
+        candidates.append((numbers[2], numbers[3]))
+    for width_tag, height_tag in _RAW_USEFUL_SIZE_PAIRS:
+        candidates.append((integer(lookup(tags, width_tag)), integer(lookup(tags, height_tag))))
+    for useful_width, useful_height in candidates:
+        if (
+            useful_width
+            and useful_height
+            and _RAW_USEFUL_MIN_RATIO * width <= useful_width <= width
+            and _RAW_USEFUL_MIN_RATIO * height <= useful_height <= height
+        ):
+            return useful_width, useful_height
+    return None
 
 
 def _heif_rotation(tags: Mapping[str, Any]) -> int | None:

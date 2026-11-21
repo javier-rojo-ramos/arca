@@ -24,6 +24,9 @@ Las etiquetas de esta lista están comprobadas con la salida real de ExifTool 13
 un JPEG de iPhone exportado desde Lightroom (grupos IFD0, ExifIFD, GPS, IPTC, XMP-*,
 Composite). Las de otros formatos (HEIC, RAW) se comprobarán con sus propias salidas.
 
+1.5.0 'IMAGE_FIELDS_VERSION' 11: el objetivo, también de 'Canon:LensModel' y
+      'Panasonic:LensType', y sin los códigos numéricos ('lens_name'); el área útil de los
+      RAW de Nikon y Olympus (regla en 'rules.py').
 1.4.0 'IMAGE_FIELDS_VERSION' 10: el tamaño de los HEIC, HEIF y AVIF girados con su caja
       'irot' (regla en 'rules.py'). La lista no cambia.
 1.3.0 GPS, altitud y dirección: primero el XMP (como Lightroom, y para que lo editado en
@@ -32,7 +35,7 @@ Composite). Las de otros formatos (HEIC, RAW) se comprobarán con sus propias sa
       GPS. Sin subir 'IMAGE_FIELDS_VERSION': la migración copia lo ya leído.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["IMAGE_FIELDS", "IMAGE_FIELDS_VERSION", "IMAGE_USER_FIELDS"]
 
 # Módulos del proyecto
@@ -45,6 +48,7 @@ from core.metadata.field_spec import (
     image_height,
     image_width,
     integer,
+    lens_name,
     pick_flag,
     rating_value,
     real,
@@ -58,7 +62,8 @@ from core.metadata.field_spec import (
 # 8: palabras clave (se leen como datos del usuario: ver core/metadata/keyword_tags.py).
 # 9: GPS, altitud y dirección, primero del XMP; la altitud del XMP, con su referencia.
 # 10: el tamaño de los HEIC, HEIF y AVIF girados con su caja 'irot' (regla en 'rules.py').
-IMAGE_FIELDS_VERSION = 10
+# 11: el objetivo sin códigos numéricos; el área útil de los RAW de Nikon y Olympus ('rules.py').
+IMAGE_FIELDS_VERSION = 11
 
 # Datos del USUARIO que viajan dentro del archivo (verificado con Lightroom Classic 15.6
 # sobre HEIC: valoración 3 y 5, etiqueta roja y azul, marca de rechazo y de aceptado).
@@ -167,10 +172,20 @@ IMAGE_FIELDS: tuple[FieldSpec, ...] = (
         ("ExifIFD:SerialNumber", "XMP-exifEX:BodySerialNumber", "XMP-aux:SerialNumber"),
         text,
     ),
+    # Objetivo: sin 'LensModel' en el EXIF (cámaras antiguas, Panasonic), el nombre de la
+    # nota del fabricante; 'lens_name' descarta los códigos numéricos ('Composite:LensID'
+    # llega así con '-n': «224» en un Canon EOS 7D, «2 30 10» en una Panasonic G9)
     detail(
         "lens_model",
-        ("ExifIFD:LensModel", "XMP-exifEX:LensModel", "XMP-aux:Lens", "Composite:LensID"),
-        text,
+        (
+            "ExifIFD:LensModel",
+            "XMP-exifEX:LensModel",
+            "XMP-aux:Lens",
+            "Canon:LensModel",
+            "Panasonic:LensType",
+            "Composite:LensID",
+        ),
+        lens_name,
     ),
     detail("software", ("IFD0:Software", "XMP-xmp:CreatorTool"), text),
     detail("user_comment", ("ExifIFD:UserComment",), text),

@@ -20,9 +20,12 @@ trae cada archivo.
 
 Los CONVERSORES transforman el valor de ExifTool (número, texto o lista) en el valor
 de la base de datos, y devuelven None si no sirve (así se pasa a la siguiente fuente).
+
+1.1.0 'lens_name': el nombre del objetivo, sin los códigos numéricos que da ExifTool con
+      '-n' ('224', '2 30 10'), que salían como objetivo.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "FieldSpec",
     "ParsedDate",
@@ -32,6 +35,7 @@ __all__ = [
     "image_height",
     "image_width",
     "integer",
+    "lens_name",
     "lookup",
     "orientation_code",
     "parse_datetime",
@@ -138,6 +142,22 @@ def text(value: Any) -> str | None:
         cleaned = value.replace("\x00", "").strip()
         return cleaned or None
     return None
+
+
+# Código de objetivo, no nombre: números sueltos ('224', '2 30 10', '65535') u ocho bytes en
+# hexadecimal (el 'Composite:LensID' de Nikon con '-n': '7A 3C 1F 37 30 30 7E 06')
+_LENS_CODE = re.compile(r"[\d\s.]+|(?:[0-9A-F]{2} ){7}[0-9A-F]{2}")
+
+
+def lens_name(value: Any) -> str | None:
+    """Nombre del objetivo como texto; None si es un código del fabricante.
+
+    Con '-n', ExifTool da algunas etiquetas del objetivo ('Composite:LensID', 'LensType')
+    como el código, no como su nombre: así se pasa a la siguiente fuente. Un nombre con
+    guion ('24-70') sí vale.
+    """
+    name = text(value)
+    return None if name is None or _LENS_CODE.fullmatch(name) else name
 
 
 def real(value: Any) -> float | None:
@@ -297,6 +317,12 @@ if __name__ == "__main__":
     assert text("  Madrid \x00") == "Madrid" and text("   ") is None and text(None) is None
     assert text(["Paseo", "", "Playa"]) == "Paseo, Playa" and text([]) is None
     assert text(123456) == "123456" and text(True) is None and text({"a": 1}) is None
+
+    # --- lens_name: los códigos de ExifTool con '-n' no son nombres ---
+    for code in (224, "224", "2 30 10", "31 1", "65535", "137.1", "7A 3C 1F 37 30 30 7E 06"):
+        assert lens_name(code) is None, code
+    for name in ("EF70-200mm f/2.8L IS USM", "24-70mm", "24-70", "18.3mm F2.8"):
+        assert lens_name(name) == name, name
 
     # --- real / integer ---
     assert real(0.2) == 0.2 and real("1/35") == 1 / 35 and real("-0.27") == -0.27

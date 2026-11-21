@@ -19,7 +19,7 @@
 | Mapa: ver, ubicar fotos soltándolas, mover, quitar la ubicación, deshacer | Hecho y verificado; «Sin ubicación» y la chincheta, pendientes de verificar |
 | Clasificación, guardada en los archivos | Hecho y verificado |
 | Palabras clave: leer, asignar, gestionar el árbol | Hecho y verificado |
-| Metadatos: lectura con ExifTool y edición (título, pie, creador, copyright, ubicación, GPS) | Hecho y verificado con JPEG, HEIC y DNG; otros RAW, sin probar (`IMG 2`) |
+| Metadatos: lectura con ExifTool y edición (título, pie, creador, copyright, ubicación, GPS) | Hecho y verificado con JPEG, HEIC y DNG; el tamaño y el objetivo de RAW de 10 marcas, comparados con Lightroom el 21/11/2026 (lo que falta, en `IMG 2`) |
 | Miniaturas (cuatro tamaños) | Hecho y verificado; las de los vídeos, pendientes (`VID 4.1`) |
 | Perfil de tarjeta, reconocimiento facial, ubicar por la hora con un GPX | Pendiente (`GEN 16` e `IMG 1`, `IMG 3`, `TRK 8`) |
 
@@ -87,7 +87,7 @@ Es el mismo en todos los módulos y depende solo de la selección ([FLUJOS.md](F
 ## 6. Datos
 
 - **Tablas**: `media_items` (lo común: título, creador, fecha, tamaño, GPS, ubicación, clasificación), `photo_details` (cámara, objetivo, exposición, recorte de Lightroom), `video_details` (los vídeos personales: cámara, objetivo, códec) y `keywords` / `media_keywords`. Esquema y quién escribe cada columna: [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md).
-- **Lectura** (`core/metadata/image/`: `fields.py`, `rules.py`, `extractor.py`; `pillow_extractor.py` como reserva sin ExifTool, y `core/metadata/video/` para los vídeos): una lista de campos declarativa, con su prioridad entre etiquetas (el XMP primero en el GPS, como Lightroom). `IMAGE_FIELDS_VERSION` 10 y `VIDEO_FIELDS_VERSION` 2: al subirlas, se relee solo. Detalle y recetas: [METADATOS.md](METADATOS.md) y [core/metadata/LEEME.md](../core/metadata/LEEME.md).
+- **Lectura** (`core/metadata/image/`: `fields.py`, `rules.py`, `extractor.py`; `pillow_extractor.py` como reserva sin ExifTool, y `core/metadata/video/` para los vídeos): una lista de campos declarativa, con su prioridad entre etiquetas (el XMP primero en el GPS, como Lightroom). `IMAGE_FIELDS_VERSION` 11 y `VIDEO_FIELDS_VERSION` 3: al subirlas, se relee solo. Detalle y recetas: [METADATOS.md](METADATOS.md) y [core/metadata/LEEME.md](../core/metadata/LEEME.md).
 - **Un extractor nunca escribe datos del usuario**: la valoración, la marca, el color y las palabras clave que trae el archivo viajan aparte y el procesador decide si se aplican.
 
 ## 7. Lo que se guarda en los archivos (`core/userdata/`)
@@ -125,7 +125,7 @@ Lo que falta del módulo, con los códigos de [PENDIENTE.md](PENDIENTE.md) (ahí
 | Fase | Qué | Notas |
 |---|---|---|
 | `IMG 1` | La tarjeta de Imagen | Sus líneas de información (dimensiones, duración...), con el perfil de tarjeta común (`GEN 16`) |
-| `IMG 2` | Verificar los RAW con ExifTool real | `inspect_cli --campos` con NEF, CR2/CR3, ARW, ORF, RW2, PEF, RAF y WebP, comparando con Lightroom |
+| `IMG 2` | Verificar los RAW con ExifTool real | Hecho el 21/11/2026 el tamaño y el objetivo de CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, ORF, RW2, RAF y DNG (iPhone, DJI, Ricoh), comparados con Lightroom. Falta: un PEF (Pentax) y un RAW vertical |
 | `IMG 3` | Reconocimiento facial | Personas como palabras clave especiales; importar las regiones de caras de Lightroom; por decidir, la detección propia |
 
 ### Fases de otras categorías que afectan a Imagen

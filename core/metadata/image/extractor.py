@@ -14,12 +14,13 @@ ORF, RW2, PEF, RAF...).
 Prueba rápida (usa datos REALES de ExifTool y un ExifTool simulado):
     python -m core.metadata.image.extractor
 
+1.0.5 Autoprueba: el área útil de los RAW de Nikon y Olympus y el objetivo sin códigos.
 1.0.4 Autoprueba: el giro de HEIC, HEIF y AVIF de su caja 'irot', con o sin orientación EXIF.
 1.0.3 Autoprueba: GPS con el XMP primero, con los casos comprobados en Lightroom.
 1.0.2 Autoprueba: la dirección de la cámara está en 'media_items' (migración 3).
 """
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 __all__ = ["ImageExtractor"]
 
 # Librerías estándar
@@ -180,6 +181,37 @@ sys.stdout.buffer.write(json.dumps(out, ensure_ascii=False).encode("utf-8"))
         not_heif, _ = run_rules({**heif, "File:FileType": "CR3"})  # fuera de HEIF, no cuenta
         assert (not_heif["width"], not_heif["height"], not_heif["orientation"]) == (4032, 3024, 1)
         print("Orientación: EXIF 6 y el 'irot' de HEIC, HEIF y AVIF, con un solo giro")
+
+        # RAW de Nikon y Olympus: el área útil de Lightroom, no el sensor (valores reales)
+        def size_of(tags: dict) -> tuple[int, int]:
+            values, _ = run_rules(tags, "x.nef")
+            return values["width"], values["height"]
+
+        df = {"Composite:ImageSize": "4992 3292", "Nikon:AFImageWidth": 4928,
+              "Nikon:AFImageHeight": 3280}
+        assert size_of(df) == (4928, 3280)  # Nikon Df
+        assert size_of({**df, "IFD0:Orientation": 8}) == (3280, 4928)  # vertical: se gira después
+        z6 = {"Composite:ImageSize": "6064 4040", "Nikon:CropArea": "8 8 6048 4024"}
+        assert size_of(z6) == (6048, 4024)  # Nikon Z6
+        assert size_of({"Composite:ImageSize": "5220 3912", "Olympus:CropWidth": 5184,
+                        "Olympus:CropHeight": 3888}) == (5184, 3888)  # OM System OM-1
+        assert size_of({**df, "Nikon:AFImageWidth": 640, "Nikon:AFImageHeight": 480}) == (4992, 3292)
+        assert size_of({**df, "Nikon:AFImageWidth": 5000}) == (4992, 3292)  # mayor que el sensor
+        assert size_of({**df, "SubIFD:DefaultCropSize": "3200 2128"}) == (3200, 2128)  # DNG
+        print("RAW de Nikon y Olympus: el área útil, como Lightroom")
+
+        # Objetivo: el nombre de la nota del fabricante; los códigos numéricos, fuera
+        def lens_of(tags: dict) -> str | None:
+            _, details = run_rules(tags)
+            return details["lens_model"]
+
+        assert lens_of({"Canon:LensModel": "EF70-200mm f/2.8L IS USM",
+                        "Composite:LensID": 224}) == "EF70-200mm f/2.8L IS USM"  # Canon EOS 7D
+        assert lens_of({"Panasonic:LensType": "LEICA DG 12-60/F2.8-4.0",
+                        "Composite:LensID": "2 30 10"}) == "LEICA DG 12-60/F2.8-4.0"  # G9
+        assert lens_of({"Composite:LensID": "31 1"}) is None  # Ricoh GR III: como Lightroom
+        assert lens_of({"ExifIFD:LensModel": "24-70mm", "Composite:LensID": 137}) == "24-70mm"
+        print("Objetivo: de la nota del fabricante, sin códigos numéricos")
 
         # Fecha: EXIF original con la zona horaria de otra etiqueta
         dated, _ = run_rules(
