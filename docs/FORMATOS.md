@@ -1,6 +1,6 @@
 # Arca Media — Formatos admitidos
 
-> Qué hace hoy la aplicación con cada formato, por biblioteca: si se cataloga, si tiene miniatura, si se leen sus metadatos y dónde se guardan los datos del usuario. Sacado del código el 19/11/2026.
+> Qué hace hoy la aplicación con cada formato, por biblioteca: si se cataloga, si tiene miniatura, si se leen sus metadatos y dónde se guardan los datos del usuario; y qué se ha probado con archivos reales. Sacado del código el 19/11/2026; las pruebas, al día el 21/11/2026. Criterio: los formatos estándar y los de las cámaras y móviles de uso común; los demás, cuando hagan falta ([DECISIONES.md](DECISIONES.md), 21/11/2026).
 > Índice: [INDEX.md](INDEX.md).
 
 **Columnas**
@@ -31,7 +31,7 @@ Las fotos con GPS salen en el mapa. El tamaño de la miniatura de un RAW es el d
 
 ## Vídeo
 
-Los vídeos de cámara o de móvil van a Imagen; las películas y las series, a Vídeo; los dudosos quedan «Sin clasificar» ([MOD_CATALOGO.md](MOD_CATALOGO.md)). En los dos módulos se tratan igual.
+Los vídeos de cámara o de móvil van a Imagen; las películas y las series, a Vídeo; los dudosos quedan «Sin clasificar» ([MOD_CATALOGO.md](MOD_CATALOGO.md)). Se decide por la carpeta, por el nombre o por los metadatos: con marca o modelo de cámara, GPS o una fecha que solo escribe una cámara, Imagen ([FLUJOS.md](FLUJOS.md)). En los dos módulos se tratan igual. La fecha de captura sale de la etiqueta de hora local de cada marca (iPhone, Sony, videocámaras AVCHD, Nikon, AVI de compactas, XMP) o, si no hay ninguna, de la de QuickTime en UTC pasada a la hora local (`core/metadata/video/rules.py`).
 
 | Formatos | Se cataloga | Miniatura | Metadatos | Datos del usuario |
 |---|---|---|---|---|
@@ -82,7 +82,35 @@ El módulo aún no existe: los libros se ven en el Catálogo ([MOD_EBOOKS.md](MO
 
 - † **Depende del sistema**: el detector mira primero su propia tabla de extensiones y después `mimetypes`, que en Windows lee el registro (los programas instalados registran extensiones). Lo que no está en ninguna de las dos solo entra si se reconoce por el contenido (`puremagic`). Todos los formatos de foto con miniatura o con datos en XMP están en la tabla propia o en la de Python: la autoprueba de `media_detector` lo comprueba.
 - ‡ La tabla interna de Python da `.3gp` como audio; en Windows, el registro lo da como vídeo.
-- **Probados con archivos reales**: JPEG, HEIC, DNG, NEF (su sidecar), PSD, los vídeos del iPhone y los GPX; AVIF, JPEG 2000 y TIFF (21/11/2026), convertidos con Pillow desde un HEIC vertical del iPhone (el AVIF, con el giro en su `irot`; el TIFF, con orientación 6): miniatura, vista individual y 1:1. El 21/11/2026, sin ventana (detector, metadatos y origen de la miniatura) y con el tamaño y el objetivo comparados con Lightroom: CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, ORF, RW2, RAF y DNG de iPhone, DJI y Ricoh (de raw.pixls.us), una captura PNG, un WebP y un `.jfif`. La escritura de los datos del usuario, verificada el 21/11/2026 en PNG, WebP, TIFF, un RAW (su `.xmp`) y un DNG (Lightroom la lee). Sin probar: PEF, un RAW vertical, la **escritura** en GIF y en el `.arca.json` de BMP y JP2, y los formatos poco comunes de la tabla, que no se buscarán mientras no hagan falta ([DECISIONES.md](DECISIONES.md), 21/11/2026).
+
+## Qué se ha probado con archivos reales
+
+Al día el 21/11/2026 (los archivos de prueba, en «3 Fotos/Pruebas de formatos» del catálogo del autor; los RAW de otras marcas, de raw.pixls.us). **Leer**: se cataloga, con sus metadatos y su miniatura (y la vista individual y el 1:1). **Escribir**: los datos del usuario, comprobados con Lightroom («Leer metadatos del archivo») o en el `.arca.json`.
+
+| Formato | Leer | Escribir | Notas |
+|---|---|---|---|
+| JPEG, HEIC | Sí | Sí | También en vertical: orientación EXIF y, en el HEIC, su `irot` |
+| `.jfif` | Sí | Sí | Un JPEG con otra extensión: la que pone Windows a algunas imágenes descargadas con Chrome o Edge |
+| PNG, WebP | Sí | Sí | Una captura de pantalla y una imagen de la web |
+| TIFF | Sí | Sí | Con orientación 6 (Pillow 12 lo endereza al cargarlo: [TRAMPAS.md](TRAMPAS.md)) |
+| AVIF | Sí | — | Con el giro solo en su `irot` |
+| JPEG 2000 | Sí | Sí (`.arca.json`) | Sin el perfil de color: algo más apagado |
+| PSD | Sí | — | Los de 8 bits con «Maximizar compatibilidad» |
+| DNG | Sí | Sí | De una Nikon Df, iPhone (vertical), DJI y Ricoh; el tamaño, como Lightroom |
+| NEF, CR3 | Sí | Sí (`.xmp` al lado) | Nikon Df y Z6, Canon EOS R y M50 |
+| CR2, CRW, ARW, ORF, RW2, RAF | Sí | Como los demás RAW | El tamaño y el objetivo, comparados con Lightroom |
+| NRW, SRF, SR2 | Sí | Como los demás RAW | El tamaño, el del sensor: entre un 0,5 % y un 3 % mayor que el de Lightroom (no traen el área útil) |
+| Vídeo: MOV del iPhone | Sí | Sí (`.arca.json`) | Horizontal y vertical |
+| Vídeo: MOV de una réflex Nikon (D3100) | Sí | Como los demás vídeos | La hora, de su nota del fabricante (la de QuickTime es la local) |
+| Vídeo: AVI de compactas (Canon, Ricoh) | Sí | Como los demás vídeos | La fecha, de `RIFF:DateTimeOriginal`; van a Imagen por ella |
+| GPX, audio | Sí (el audio, sin metadatos hasta `MUS 1`) | Sí (`.arca.json`) | |
+
+**Falta**, por orden de utilidad:
+
+- **GIF** (la miniatura y la escritura en el archivo) y un **RAW vertical** (un NEF de la Df: la miniatura y el tamaño en vertical).
+- **Vídeos**: uno de Android, uno de cámara (GoPro, DJI, Sony o Canon sin espejo, una videocámara `.MTS`) y una película (MKV o MP4): sobre todo, si la fecha es la local o la UTC ([ESTADO.md](ESTADO.md), «Comprobaciones sueltas»).
+- **BMP**: la escritura en el `.arca.json` (como el JPEG 2000).
+- Solo si aparecen: un `.hif` (HEIF de Canon o Fujifilm) y un PEF (Pentax). Los formatos poco comunes de las tablas (RAW antiguos o raros, PSB, SVG, ICO, JPEG XL...) no se buscan.
 
 ## Dónde se decide cada columna
 
