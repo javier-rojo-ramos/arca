@@ -87,7 +87,7 @@ Es el mismo en todos los módulos y depende solo de la selección ([FLUJOS.md](F
 ## 6. Datos
 
 - **Tablas**: `media_items` (lo común: título, creador, fecha, tamaño, GPS, ubicación, clasificación), `photo_details` (cámara, objetivo, exposición, recorte de Lightroom), `video_details` (los vídeos personales: cámara, objetivo, códec) y `keywords` / `media_keywords`. Esquema y quién escribe cada columna: [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md).
-- **Lectura** (`core/metadata/image/`: `fields.py`, `rules.py`, `extractor.py`; `pillow_extractor.py` como reserva sin ExifTool, y `core/metadata/video/` para los vídeos): una lista de campos declarativa, con su prioridad entre etiquetas (el XMP primero en el GPS, como Lightroom). `IMAGE_FIELDS_VERSION` 9 y `VIDEO_FIELDS_VERSION` 2: al subirlas, se relee solo. Detalle y recetas: [METADATOS.md](METADATOS.md) y [core/metadata/LEEME.md](../core/metadata/LEEME.md).
+- **Lectura** (`core/metadata/image/`: `fields.py`, `rules.py`, `extractor.py`; `pillow_extractor.py` como reserva sin ExifTool, y `core/metadata/video/` para los vídeos): una lista de campos declarativa, con su prioridad entre etiquetas (el XMP primero en el GPS, como Lightroom). `IMAGE_FIELDS_VERSION` 10 y `VIDEO_FIELDS_VERSION` 2: al subirlas, se relee solo. Detalle y recetas: [METADATOS.md](METADATOS.md) y [core/metadata/LEEME.md](../core/metadata/LEEME.md).
 - **Un extractor nunca escribe datos del usuario**: la valoración, la marca, el color y las palabras clave que trae el archivo viajan aparte y el procesador decide si se aplican.
 
 ## 7. Lo que se guarda en los archivos (`core/userdata/`)

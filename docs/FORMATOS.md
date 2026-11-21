@@ -82,7 +82,7 @@ El módulo aún no existe: los libros se ven en el Catálogo ([MOD_EBOOKS.md](MO
 
 - † **Depende del sistema**: el detector mira primero su propia tabla de extensiones y después `mimetypes`, que en Windows lee el registro (los programas instalados registran extensiones). Lo que no está en ninguna de las dos solo entra si se reconoce por el contenido (`puremagic`). Todos los formatos de foto con miniatura o con datos en XMP están en la tabla propia o en la de Python: la autoprueba de `media_detector` lo comprueba.
 - ‡ La tabla interna de Python da `.3gp` como audio; en Windows, el registro lo da como vídeo.
-- **Probados con archivos reales**: JPEG, HEIC, DNG, NEF (su sidecar), PSD, los vídeos del iPhone y los GPX. Los demás RAW, WebP, AVIF y JPEG 2000 no se han probado con archivos de verdad ([ESTADO.md](ESTADO.md), «Nunca probado»).
+- **Probados con archivos reales**: JPEG, HEIC, DNG, NEF (su sidecar), PSD, los vídeos del iPhone y los GPX; AVIF y JPEG 2000 (21/11/2026), convertidos con Pillow desde un HEIC vertical del iPhone (el AVIF, con el giro en su `irot`): miniatura, vista individual y 1:1. Los demás RAW y WebP no se han probado con archivos de verdad ([ESTADO.md](ESTADO.md), «Nunca probado»).
 
 ## Dónde se decide cada columna
 

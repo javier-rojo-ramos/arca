@@ -14,11 +14,12 @@ ORF, RW2, PEF, RAF...).
 Prueba rápida (usa datos REALES de ExifTool y un ExifTool simulado):
     python -m core.metadata.image.extractor
 
+1.0.4 Autoprueba: el giro de HEIC, HEIF y AVIF de su caja 'irot', con o sin orientación EXIF.
 1.0.3 Autoprueba: GPS con el XMP primero, con los casos comprobados en Lightroom.
 1.0.2 Autoprueba: la dirección de la cámara está en 'media_items' (migración 3).
 """
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 __all__ = ["ImageExtractor"]
 
 # Librerías estándar
@@ -166,6 +167,19 @@ sys.stdout.buffer.write(json.dumps(out, ensure_ascii=False).encode("utf-8"))
         # Alternativas para el tamaño cuando no hay Composite:ImageSize
         fallback, _ = run_rules({"File:ImageWidth": 640, "File:ImageHeight": 480})
         assert (fallback["width"], fallback["height"]) == (640, 480)
+        # HEIC, HEIF y AVIF: manda el giro de su caja 'irot' (cuartos de vuelta antihorarios)
+        heif = {"File:FileType": "AVIF", "Composite:ImageSize": "4032 3024", "QuickTime:Rotation": 3}
+        only_irot, _ = run_rules(heif)  # el AVIF que escribe Pillow: el giro, solo en el 'irot'
+        assert (only_irot["width"], only_irot["height"], only_irot["orientation"]) == (3024, 4032, 6)
+        iphone, _ = run_rules({**heif, "File:FileType": "HEIC", "IFD0:Orientation": 6})
+        assert (iphone["width"], iphone["height"], iphone["orientation"]) == (3024, 4032, 6)  # un giro
+        left, _ = run_rules({**heif, "File:FileType": "HEIF", "QuickTime:Rotation": 1})
+        assert (left["width"], left["height"], left["orientation"]) == (3024, 4032, 8)
+        upright, _ = run_rules({**heif, "QuickTime:Rotation": 0, "IFD0:Orientation": 6})
+        assert (upright["width"], upright["height"]) == (4032, 3024)  # el 'irot' manda sobre el EXIF
+        not_heif, _ = run_rules({**heif, "File:FileType": "CR3"})  # fuera de HEIF, no cuenta
+        assert (not_heif["width"], not_heif["height"], not_heif["orientation"]) == (4032, 3024, 1)
+        print("Orientación: EXIF 6 y el 'irot' de HEIC, HEIF y AVIF, con un solo giro")
 
         # Fecha: EXIF original con la zona horaria de otra etiqueta
         dated, _ = run_rules(

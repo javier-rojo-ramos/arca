@@ -19,6 +19,7 @@ No toca la base de datos ni decide QUÉ archivos procesar: eso es del trabajo en
 segundo plano (siguiente paso). Aquí solo hay una función por archivo, segura para
 llamar desde varios hilos a la vez.
 
+1.2.1 Autoprueba: un TIFF con orientación 6 sale vertical, girado una sola vez.
 1.2.0 'load_source_image' pública (antes, '_load_source_image'): la usa también
       'full_image.py' (el original a tamaño completo para la vista individual a 1:1).
 
@@ -26,7 +27,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.thumbnails.generator
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["THUMBNAIL_VERSION", "ThumbnailResult", "generate_thumbnails", "load_source_image"]
 
 # Librerías estándar
@@ -239,6 +240,20 @@ if __name__ == "__main__":
         with Image.open(result.thumbnails[0].path) as thumb:
             assert thumb.size == (107, 160) and thumb.format == "JPEG"
         print("JPEG con orientación 6: vertical y con los 4 tamaños", sizes_of(result))
+
+        # ---- 1b. TIFF apaisado con orientación 6: vertical, girado UNA vez (Pillow 12 ya
+        # endereza los TIFF al cargarlos). La marca roja de arriba a la izquierda, guardada,
+        # queda arriba a la DERECHA al girar 90° a la derecha ----
+        stored = Image.new("RGB", (300, 200), (120, 120, 120))
+        stored.paste((255, 0, 0), (0, 0, 40, 40))
+        stored.save(base / "paisaje.tif", tiffinfo={0x0112: 6}, compression="tiff_lzw")
+        result = generate("paisaje.tif")
+        assert result.original_size == (200, 300), result.original_size
+        assert sizes_of(result)[160] == (107, 160), sizes_of(result)
+        with Image.open(result.thumbnails[0].path) as thumb:
+            red, *_ = thumb.convert("RGB").getpixel((thumb.width - 5, 5))
+            assert red > 200, thumb.getpixel((thumb.width - 5, 5))
+        print("TIFF con orientación 6: vertical, girado una sola vez", sizes_of(result))
 
         # ---- 2. PNG con transparencia de 800 px: se aplana y el tamaño mayor sale a 800 ----
         rgba = Image.new("RGBA", (800, 600), (0, 0, 0, 0))  # todo transparente...

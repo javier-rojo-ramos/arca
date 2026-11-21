@@ -3,9 +3,9 @@
 Se ejecutan DESPUÉS de rellenar la lista de campos ('fields.py'), con los valores ya
 leídos, y los ajustan en el sitio. Son cinco:
 
-    1. Orientación y tamaño: las imágenes giradas (orientación EXIF 5 a 8) intercambian
-       ancho y alto. Se guarda el tamaño "de pantalla", que es la proporción real de
-       la miniatura.
+    1. Orientación y tamaño: las imágenes giradas (orientación EXIF 5 a 8 o, en HEIC, HEIF
+       y AVIF, el cuarto de vuelta de su caja 'irot') intercambian ancho y alto. Se
+       guarda el tamaño "de pantalla", que es la proporción real de la miniatura.
     1b. Recorte de Lightroom ("Dimensiones actuales"): se calcula con los ajustes de
        revelado del XMP ('crs:Crop*') y el tamaño, antes de girarlo.
     2. Fecha de captura: depende de varias etiquetas a la vez (fecha, zona horaria,
@@ -17,18 +17,22 @@ leídos, y los ajustan en el sitio. Son cinco:
 
 Si cambias algo aquí, sube 'IMAGE_FIELDS_VERSION' (en 'fields.py').
 
-Pendiente de comprobar con archivos reales: el tamaño de los HEIC (si ExifTool ya
-devuelve la imagen girada o no) y el de los RAW (varias imágenes dentro del archivo).
+Pendiente de comprobar con archivos reales: el tamaño de los RAW (varias imágenes dentro
+del archivo). El de los HEIC y AVIF, comprobado el 21/11/2026: ExifTool da el tamaño sin
+girar ('Composite:ImageSize' 4032 3024 en una foto vertical del iPhone).
 Con 'python -m core.metadata.inspect_cli archivo.heic --campos' se ve qué guarda
 la aplicación y se compara con Lightroom.
 
+1.4.0 HEIC, HEIF y AVIF: el giro de su caja 'irot' ('QuickTime:Rotation') decide si se
+      intercambian ancho y alto; un AVIF con el giro solo ahí salía apaisado
+      ('IMAGE_FIELDS_VERSION' 10).
 1.3.0 'gps_from_tags' y 'GPS_SOURCE_TAGS': el GPS de un archivo leído como el extractor, para
       comprobar lo escrito (core/userdata/xmp_writer.py). La lectura no cambia.
 1.2.0 GPS: pareja de coordenadas de una sola fuente (primero el XMP) y altitud del XMP con
       su referencia ('IMAGE_FIELDS_VERSION' 9).
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["GPS_COLUMNS", "GPS_SOURCE_TAGS", "apply_image_rules", "crop_size", "gps_from_tags"]
 
 # Librerías estándar
@@ -41,6 +45,7 @@ from typing import Any
 # Módulos del proyecto
 from core.metadata.field_spec import (
     common,
+    integer,
     lookup,
     orientation_code,
     parse_datetime,
@@ -78,6 +83,16 @@ _CAPTURE_DATE_SOURCES: tuple[tuple[str, str, str | None], ...] = (
 
 _ORIENTATION = common("orientation", ("IFD0:Orientation", "XMP-tiff:Orientation"), orientation_code)
 
+# HEIC, HEIF y AVIF ('File:FileType') guardan el giro en su propia caja 'irot', que ExifTool
+# da como 'QuickTime:Rotation': cuartos de vuelta en sentido antihorario, de 0 a 3 (con '-n').
+# Es el giro que aplican libheif y Pillow al decodificar (el de la miniatura), así que, si
+# está, manda sobre la orientación EXIF. Los HEIC del iPhone traen los dos, iguales; un AVIF
+# puede traer solo el 'irot' (Pillow, al escribirlo, pasa ahí la orientación y la quita del EXIF).
+_HEIF_FILE_TYPES = frozenset({"HEIC", "HEIF", "AVIF"})
+# Del 'irot' a la orientación EXIF que gira lo mismo. Sin espejo: la caja 'imir' no cambia el
+# tamaño, y ExifTool no la da
+_IROT_ORIENTATIONS: dict[int, int] = {0: 1, 1: 8, 2: 3, 3: 6}
+
 
 def apply_image_rules(
     tags: Mapping[str, Any], common_values: dict[str, Any], details: dict[str, Any], path: Path
@@ -93,16 +108,31 @@ def _orientation_and_size(
     tags: Mapping[str, Any], common_values: dict[str, Any], details: dict[str, Any]
 ) -> None:
     """Orientación (1 si no consta), tamaño y recorte ya girados."""
-    orientation = read_field(_ORIENTATION, tags) or 1
+    turns = _heif_rotation(tags)
+    # La orientación, la del EXIF o el XMP; si no consta, la que equivale al 'irot'
+    orientation = read_field(_ORIENTATION, tags) or (
+        _IROT_ORIENTATIONS[turns] if turns is not None else 1
+    )
     common_values["orientation"] = orientation
+    # Cuarto de vuelta: con 'irot', lo dice el 'irot' (aunque el EXIF diga otra cosa); si no,
+    # las orientaciones EXIF 5 a 8
+    quarter_turn = turns % 2 == 1 if turns is not None else orientation >= 5
     width, height = common_values.get("width"), common_values.get("height")
     # El recorte se calcula sobre el tamaño SIN girar (así lo guarda Lightroom)
     crop = crop_size(tags, width, height)
-    if orientation >= 5 and width and height:
+    if quarter_turn and width and height:
         common_values["width"], common_values["height"] = height, width
         if crop is not None:
             crop = (crop[1], crop[0])
     details["crop_width"], details["crop_height"] = crop if crop is not None else (None, None)
+
+
+def _heif_rotation(tags: Mapping[str, Any]) -> int | None:
+    """Cuartos de vuelta del 'irot' de un HEIC, HEIF o AVIF (0 a 3), o None si no lo trae."""
+    if lookup(tags, "File:FileType") not in _HEIF_FILE_TYPES:
+        return None
+    turns = integer(lookup(tags, "QuickTime:Rotation"))
+    return turns if turns in _IROT_ORIENTATIONS else None
 
 
 def _crop_number(tags: Mapping[str, Any], name: str) -> float | None:

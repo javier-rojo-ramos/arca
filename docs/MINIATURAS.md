@@ -26,7 +26,7 @@ Reglas:
 
 | Origen | Extensiones | Cómo |
 |---|---|---|
-| `pillow` | jpg, jpeg, jpe, jfif, png, gif, bmp, tif, tiff, webp, avif, jp2 | Pillow (AVIF y JPEG 2000, con las librerías que traen las ruedas oficiales de Pillow 12) |
+| `pillow` | jpg, jpeg, jpe, jfif, png, gif, bmp, tif, tiff, webp, avif, jp2 | Pillow (AVIF y JPEG 2000, con las librerías que traen las ruedas oficiales de Pillow 12). La orientación EXIF la aplica `load_pillow_image`, salvo en los TIFF, que Pillow 12 ya endereza al cargarlos ([TRAMPAS.md](TRAMPAS.md)) |
 | `heif` | heic, heif, hif | Pillow + `pillow-heif` o `pi-heif`; sin ellas, error con instrucciones. La rotación la aplica la librería (en un HEIC vive en `irot`) |
 | `psd` | psd, psb | Pillow: la **imagen combinada** que guarda Photoshop (con «Maximizar compatibilidad», activada de fábrica); las capas no se leen. Antes de abrirlo se mira la cabecera: los PSB, los de 16 y 32 bits y los guardados sin esa opción (recurso 1057) fallan con el motivo, sin miniatura. Un cuarto canal que no es transparencia (una selección guardada: capas no en negativo) se descarta |
 | `raw_preview` | dng y los RAW con sidecar: nef, nrw, cr2, cr3, crw, arw, srf, sr2, orf, rw2, raw, pef, raf, srw, x3f, 3fr, fff, iiq, rwl, mrw, erf, kdc, dcr, mos | La mayor vista previa JPEG incrustada, con **una** llamada a ExifTool por archivo (`-b -JpgFromRaw -PreviewImage -OtherImage -ThumbnailImage -Orientation`; en JSON salen en base64). Orientación: la del RAW, salvo que la vista previa traiga la suya |

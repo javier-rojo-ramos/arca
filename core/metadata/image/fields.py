@@ -24,13 +24,15 @@ Las etiquetas de esta lista están comprobadas con la salida real de ExifTool 13
 un JPEG de iPhone exportado desde Lightroom (grupos IFD0, ExifIFD, GPS, IPTC, XMP-*,
 Composite). Las de otros formatos (HEIC, RAW) se comprobarán con sus propias salidas.
 
+1.4.0 'IMAGE_FIELDS_VERSION' 10: el tamaño de los HEIC, HEIF y AVIF girados con su caja
+      'irot' (regla en 'rules.py'). La lista no cambia.
 1.3.0 GPS, altitud y dirección: primero el XMP (como Lightroom, y para que lo editado en
       un RAW, que va a su sidecar, se lea). 'IMAGE_FIELDS_VERSION' 9.
 1.2.0 'gps_direction' es una columna de 'media_items' (migración 3), junto al resto del
       GPS. Sin subir 'IMAGE_FIELDS_VERSION': la migración copia lo ya leído.
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["IMAGE_FIELDS", "IMAGE_FIELDS_VERSION", "IMAGE_USER_FIELDS"]
 
 # Módulos del proyecto
@@ -55,7 +57,8 @@ from core.metadata.field_spec import (
 # 7: dimensiones del recorte de Lightroom (regla en 'rules.py').
 # 8: palabras clave (se leen como datos del usuario: ver core/metadata/keyword_tags.py).
 # 9: GPS, altitud y dirección, primero del XMP; la altitud del XMP, con su referencia.
-IMAGE_FIELDS_VERSION = 9
+# 10: el tamaño de los HEIC, HEIF y AVIF girados con su caja 'irot' (regla en 'rules.py').
+IMAGE_FIELDS_VERSION = 10
 
 # Datos del USUARIO que viajan dentro del archivo (verificado con Lightroom Classic 15.6
 # sobre HEIC: valoración 3 y 5, etiqueta roja y azul, marca de rechazo y de aceptado).

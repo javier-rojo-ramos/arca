@@ -16,11 +16,15 @@ JPEG 2000 dependen de las librerías con que se compiló Pillow (las ruedas ofic
 Pillow 12 las traen: 'PIL.features.check("avif")'); sin ellas, el archivo da el error
 «formato no reconocido».
 
+1.2.0 Un TIFF con orientación salía girado dos veces (miniatura, vista individual y 1:1):
+      Pillow 12 ya lo endereza al cargarlo. Sin subir 'THUMBNAIL_VERSION' (decidido por
+      el autor el 21/11/2026): ningún TIFF del catálogo tenía una orientación distinta de 1;
+      si alguno tuviera ya miniatura, se arregla con «Regenerar miniaturas».
 1.1.0 AVIF y JPEG 2000 ('.jp2'), que ya se catalogaban como fotos. Comprobado el
       19/11/2026 con Pillow 12.3: los dos se leen, y el AVIF con su orientación.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["PillowSource", "load_pillow_image"]
 
 # Librerías estándar
@@ -91,9 +95,8 @@ def load_pillow_image(
         icc_profile = image.info.get("icc_profile")
 
         # La propia orientación de la imagen manda; si no trae ninguna (1), la de respaldo
-        orientation = read_orientation(image)
-        if orientation == 1:
-            orientation = fallback_orientation
+        own_orientation = read_orientation(image)
+        orientation = own_orientation if own_orientation != 1 else fallback_orientation
 
         original_size = image.size
         if orientation >= 5:  # giro de 90°: ancho y alto se intercambian
@@ -102,6 +105,15 @@ def load_pillow_image(
         # Decodificación reducida (solo hace algo con los JPEG; con el resto no tiene efecto)
         image.draft(image.mode, draft_size(image.size, target_side))
         image.load()
+
+        # Pillow endereza él mismo algunos formatos al cargarlos: con Pillow 12, los TIFF
+        # ('load_end' aplica 'exif_transpose' y quita la orientación). Si la orientación propia
+        # ha desaparecido al cargar, la imagen ya está derecha y no se gira otra vez (girada
+        # dos veces quedaba de lado o boca abajo); su tamaño ya es el de la imagen derecha y
+        # completa (los TIFF no se decodifican reducidos)
+        if own_orientation != 1 and read_orientation(image) == 1:
+            orientation = 1
+            original_size = image.size
         upright = apply_orientation(image, orientation)
 
     return LoadedImage(
