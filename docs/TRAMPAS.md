@@ -44,6 +44,16 @@
 
 - **Girar un marcador de Leaflet lo descoloca** (14/11/2026): Leaflet pone cada marcador en su sitio con un `transform` en su elemento; un `transform` o un `rotate` propios en ese mismo elemento se mezclan con el suyo. El dibujo girado va en un elemento de dentro (el rombo de los waypoints).
 
+- **En el mapa, lo que va en el lienzo queda debajo de todos los marcadores** (22/11/2026): con `preferCanvas`, líneas y `circleMarker` se pintan en el lienzo de `overlayPane` (z-index 400), y los marcadores (fotos y rombos de los waypoints) van en `markerPane` (600). El punto ámbar del track activo pasaba por debajo de los rombos y desaparecía. Lo que tenga que verse encima va en su propia capa (`map.createPane`, como `arcaCursor`, 620), con `pointerEvents = "none"`: el lienzo de esa capa cubre todo el mapa y, si no, se quedaría con el ratón de los marcadores de debajo.
+
+- **Un texto emergente de Leaflet que se puede partir se estrecha hasta su palabra más larga** (22/11/2026): Leaflet lo coloca en una capa sin ancho, así que, al quitarle el `white-space: nowrap`, el navegador lo deja con el ancho mínimo. Para partirlo a un ancho dado: `width: max-content` y `max-width` (`.arca-waypoint-tip` en `arca_map.css`).
+
+- **Cerca del track activo, el cursor del ratón no se ve** (22/11/2026): a menos de `HOVER_PX` de la línea se oculta y hace de cursor el punto ámbar, pegado a la línea. Lo que dependa de «qué hay bajo el ratón» ahí (el texto de un waypoint, el clic) tiene que mirar también dónde está el punto ámbar; si no, depende de la posición de un cursor que el usuario no ve (un clic «en el track» caía en el mapa vacío y quitaba la selección).
+
+- **Leaflet: `bindTooltip` hace que el marcador escuche los clics** (22/11/2026): en la 1.9.4 añade `click` (para abrir el texto). Con `bubblingMouseEvents: false`, eso es lo que evitaba que un clic en el rombo llegara al mapa (y quitara la selección). Sin `bindTooltip`, el marcador necesita su propio `on("click")`, aunque no haga nada.
+
+- **Al probar la página del mapa, un texto emergente cerrado sigue 200 ms en ella** (22/11/2026): Leaflet lo desvanece (opacidad 0) antes de quitarlo. Una prueba que cuenta los `.leaflet-tooltip` tiene que saltarse los de `style.opacity` 0.
+
 - **Arrastrar sobre las barras laterales: ni el desplazamiento ni el desplegado de Qt** (20/11/2026, `CAT 4.4c`): los árboles de las barras (`SidebarTreeView`) no tienen barra de desplazamiento propia (se desplaza el `QScrollArea` de la barra entera) y la barra atiende ella misma los eventos de arrastre en un `eventFilter`, así que `autoScroll` y `autoExpandDelay` de `QTreeView` no hacen nada. Los hace `ui_helpers/sidebars/folder_drag.py`, con temporizadores (con el ratón quieto en el borde no llegan eventos).
 
 - **Un filtro de eventos no debe preguntar a su vista por su `viewport()`** (20/11/2026): al cerrar la ventana le siguen llegando eventos cuando la vista ya se ha destruido, y `view.viewport()` da «Internal C++ object already deleted» (lo vio la prueba de humo con `folder_drag.py`). Se guarda el `viewport` al instalar el filtro y se compara con `is`.

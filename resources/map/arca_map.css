@@ -115,6 +115,18 @@ html, body, #map {
 .leaflet-tooltip::before {
   display: none;
 }
+/* El de un punto de interés: su descripción puede ser larga y traer saltos de línea. Se
+   respetan los saltos y se parte en varias líneas a partir de 300 px, borde incluido
+   (pedido por el autor el 22/11/2026). 'max-content' hace falta: Leaflet lo coloca en una
+   capa sin ancho y, sin él, un texto que se puede partir se estrecharía hasta su palabra
+   más larga */
+.leaflet-tooltip.arca-waypoint-tip {
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 300px;
+  white-space: pre-line;
+  overflow-wrap: break-word;
+}
 
 /* Una foto sin miniatura, suelta: recuadro más pequeño (no hay nada que enseñar) */
 .arca-photo.small {

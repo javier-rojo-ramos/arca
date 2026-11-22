@@ -262,7 +262,7 @@ class MapHit:                          # qué hay bajo el ratón (menú contextu
 | `marker_activated(int)` | Doble clic en un marcador | `CenterViewController.open_single` |
 | `media_dropped(MediaDrag, float, float)` | Se sueltan tarjetas (`MEDIA_IDS_MIME`) en un punto | `MapController` → cola de cambios |
 | `markers_moved(list[int], float, float)` | Se arrastra un marcador ya ubicado (o un grupo) a otro punto | Igual |
-| `track_clicked(int)` | Clic en la línea de un track | Selección / track activo |
+| `track_clicked(int)` | Clic en la línea de un track; en el track activo, también a menos de `HOVER_PX` de su línea (con el punto ámbar en ella) | Selección / track activo |
 | `track_hovered(int, int)` | El ratón pasa a menos de 24 px (`HOVER_PX`) de la línea del track activo: `(track_id, índice de punto)`; `-1` al salir | `TrackProfileController` → `ElevationProfile.set_cursor` |
 | `edit_requested(TrackEditIntent)` (**pendiente, fase 6: aún no existe**) | En modo edición: mover, insertar, borrar, cortar, añadir al final | `TrackEditController` |
 | `context_menu_requested(MapHit, QPoint)` | Botón derecho (qué hay debajo y dónde) | El controlador abre un `QMenu` nativo |

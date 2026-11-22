@@ -64,6 +64,9 @@ const arca = (() => {
   let ghost = null;              // señal del punto donde caería una tarjeta arrastrada
   let preview = null;            // marcadores provisionales (propuesta de la correlación)
   let waypoints = null;          // puntos de interés del track activo
+  let waypointList = [];         // los que tienen texto: {latlng, x, y (Mercator), lines}
+  let waypointTip = null;        // el texto emergente del que está bajo el punto o el ratón
+  let tipWaypoint = -1;          // su posición en 'waypointList' (-1 = ninguno)
 
   const MARKER_SIZE = 44;        // lado del recuadro de una foto o de un grupo, en px
   const SMALL_MARKER_SIZE = 18;  // una foto suelta sin miniatura: no hay nada que enseñar
@@ -73,8 +76,12 @@ const arca = (() => {
   // Sensibilidad del punto del track activo: a cuántos px de su línea, como mucho, lo
   // "engancha" el ratón (pedido por el autor el 14/11/2026: 24; antes, 12)
   const HOVER_PX = 24;
+  // A cuántos px de un punto de interés, como mucho, tienen que quedar el punto ámbar o el
+  // ratón para que salga su texto (el rombo mide unos 17 px de punta a punta)
+  const WAYPOINT_PX = 10;
   const DIMMED_OPACITY = 0.45;   // con un track activo, opacidad de los demás
   const MERC_WORLD = 40075016.686;  // metros de Mercator del mundo entero (zoom 0 = 256 px)
+  const CURSOR_PANE = "arcaCursor"; // capa del punto señalado de un track (ver 'init')
 
   // --- Arranque ----------------------------------------------------------------
 
@@ -94,6 +101,13 @@ const arca = (() => {
       zoomOutTitle: config.texts.zoom_out,
     }).addTo(map);
     map.setView([config.view[0], config.view[1]], config.view[2]);
+    // El punto señalado de un track, en su propia capa ENCIMA de los marcadores (600): en el
+    // lienzo de las líneas quedaba debajo y un punto de interés lo tapaba entero (visto por
+    // el autor el 22/11/2026). Debajo de los textos emergentes (650) y sin coger el ratón:
+    // lo que hay debajo se sigue pudiendo pulsar
+    const cursorPane = map.createPane(CURSOR_PANE);
+    cursorPane.style.zIndex = 620;
+    cursorPane.style.pointerEvents = "none";
     group = L.layerGroup().addTo(map);
     preview = L.layerGroup().addTo(map);
     waypoints = L.layerGroup().addTo(map);
@@ -103,7 +117,13 @@ const arca = (() => {
       reportViewport();
     });
     // Clic en el mapa vacío: se pide dejar la selección vacía (lo decide Python)
-    map.on("click", () => bridge.on_select("[]", false));
+    // Con el punto ámbar en el track activo, el clic es del track, aunque el ratón (oculto)
+    // no esté justo en la línea: si no, quitaba la selección (visto por el autor el
+    // 22/11/2026)
+    map.on("click", (e) => {
+      if (overActiveTrack(e.latlng)) bridge.on_track_click(activeTrack);
+      else bridge.on_select("[]", false);
+    });
     map.on("contextmenu", (e) => contextMenu("empty", e, {}));
     map.on("mousemove", (e) => {
       lastMouse = e.latlng;
@@ -456,7 +476,7 @@ const arca = (() => {
     const position = latlng || track.points[pointIndex];
     if (!trackCursor) {
       trackCursor = L.circleMarker(position, {
-        radius: 6, weight: 2, fillOpacity: 1, interactive: false,
+        radius: 6, weight: 2, fillOpacity: 1, interactive: false, pane: CURSOR_PANE,
         color: colors["text-on-accent"], fillColor: colors["accent"],
       });
     }
@@ -489,6 +509,15 @@ const arca = (() => {
     if (trackCursor) map.removeLayer(trackCursor);
   }
 
+  // ¿Ese punto está sobre el track activo, tal como se ve? A menos de HOVER_PX de su línea,
+  // el punto ámbar se pega a ella y el cursor del ratón se oculta
+  function overActiveTrack(latlng) {
+    const track = tracks.get(activeTrack);
+    if (!track) return false;
+    const nearest = nearestPoint(track, latlng);
+    return nearest.index >= 0 && nearest.pixels <= HOVER_PX;
+  }
+
   // El ratón sobre el track activo (a menos de HOVER_PX píxeles de su LÍNEA): el punto
   // ámbar lo sigue por la línea, en cada fotograma, y a Python se le avisa solo cuando
   // cambia el vértice que le toca. Con 10 000 puntos son unas decenas de miles de
@@ -510,6 +539,12 @@ const arca = (() => {
     } else if (lastHover >= 0) {
       hideTrackCursor();   // solo al salir: no quita un punto puesto desde Python (el perfil)
     }
+    // El texto de un punto de interés, con el punto ámbar o el ratón encima: cerca de la
+    // línea, el cursor del ratón está oculto y lo que se ve es el punto ámbar, pegado a la
+    // línea; si solo contara el ratón (como hace Leaflet), saldría o no según dónde quede
+    // un cursor que no se ve (visto por el autor el 22/11/2026)
+    const near = !lastMouse ? [] : (position ? [position, lastMouse] : [lastMouse]);
+    showWaypointTip(nearestWaypoint(near));
     if (found === lastHover) return;
     lastHover = found;
     // El punto ámbar ya hace de cursor: el del ratón se oculta para no taparlo
@@ -567,23 +602,67 @@ const arca = (() => {
   }
 
   // Puntos de interés del track activo. list: [[lat, lon, nombre, descripción], ...];
-  // vacía = quitarlos. Solo se miran: un rombo pequeño con su nombre al pasar el ratón
+  // vacía = quitarlos. Solo se miran: un rombo pequeño con su nombre y su descripción con
+  // el punto ámbar o el ratón encima ('hover'; no con el 'bindTooltip' de Leaflet)
   function setWaypoints(list) {
+    showWaypointTip(-1);
     waypoints.clearLayers();
+    waypointList = [];
     for (const item of list) {
       const marker = L.marker([item[0], item[1]], {
         // El rombo es el <i> de dentro: el elemento de fuera lo coloca Leaflet con un
         // 'transform', y girarlo a él lo movería de sitio
         icon: L.divIcon({ className: "arca-waypoint", html: "<i></i>", iconSize: [12, 12] }),
         keyboard: false,
-        // Un clic en él no cuenta como clic en el mapa (no quita la selección)
+        // Un clic en él no cuenta como clic en el mapa (no quita la selección). Hace falta
+        // que escuche el clic, aunque no haga nada: si no, Leaflet se lo da al mapa
         bubblingMouseEvents: false,
       });
-      if (item[2] || item[3]) {
-        marker.bindTooltip(textBlock([item[2], item[3]]), { direction: "top", offset: [0, -8] });
-      }
+      marker.on("click", () => {});
       waypoints.addLayer(marker);
+      if (item[2] || item[3]) {
+        const merc = L.CRS.EPSG3857.project(marker.getLatLng());
+        waypointList.push({
+          latlng: marker.getLatLng(), x: merc.x, y: merc.y, lines: [item[2], item[3]],
+        });
+      }
     }
+  }
+
+  // El punto de interés con texto más cercano a alguno de 'points' (LatLng), a menos de
+  // WAYPOINT_PX; -1 si ninguno. Son pocos: se miran todos en cada fotograma
+  function nearestWaypoint(points) {
+    if (!waypointList.length || !points.length) return -1;
+    const metersPerPixel = MERC_WORLD / (256 * Math.pow(2, map.getZoom()));
+    let best = (WAYPOINT_PX * metersPerPixel) ** 2, found = -1;
+    for (const point of points) {
+      const merc = L.CRS.EPSG3857.project(point);
+      waypointList.forEach((waypoint, i) => {
+        const dx = waypoint.x - merc.x, dy = waypoint.y - merc.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 <= best) { best = d2; found = i; }
+      });
+    }
+    return found;
+  }
+
+  // Enseña el texto del punto de interés 'i' de 'waypointList' (-1 = ninguno)
+  function showWaypointTip(i) {
+    if (i === tipWaypoint) return;
+    tipWaypoint = i;
+    if (waypointTip) {
+      map.removeLayer(waypointTip);
+      waypointTip = null;
+    }
+    if (i < 0) return;
+    const waypoint = waypointList[i];
+    waypointTip = L.tooltip({ direction: "top", offset: [0, -8], className: "arca-waypoint-tip" })
+      .setLatLng(waypoint.latlng)
+      .setContent(textBlock(waypoint.lines))
+      .addTo(map);
+    // El nombre del track, que sigue al ratón por la línea, quedaría encima o al lado
+    const track = tracks.get(activeTrack);
+    if (track) track.line.closeTooltip();
   }
 
   // list: [[id, lat, lon], ...]; vacía = quitarlos
