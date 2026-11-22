@@ -18,7 +18,7 @@
 ## En curso
 
 - **CATÁLOGO** (19/11/2026): hechas `CAT 3` (carpetas vacías), `CAT 4.1` a `4.4` (renombrar y mover en el mismo disco, nueva carpeta) y `CAT 5` (el árbol replica las carpetas del disco, también las vacías; no estaba en el plan: pedida por el autor y hecha en un paso, detalle en [HISTORIAL.md](HISTORIAL.md)); todas, verificadas por el autor. Hecho y verificado el `4.4c` (mover una carpeta arrastrándola, 20/11/2026). Lo que queda de `CAT 4`: `4.5` (mover entre discos) y `4.6` (renombrado múltiple). En marcha (20/11/2026), `CAT 6` (carpetas que faltan y «Localizar…»): hechos y verificados del `6.1` al `6.3`; el `6.4` («Localizar…» de una carpeta que falta), en espera.
-- **TRACKS**: terminadas las fases 4 y 5; lo siguiente del plan acordado es `TRK 6` (edición).
+- **TRACKS**: terminadas las fases 4 y 5, verificadas enteras por el autor el 22/11/2026 (con unos retoques de los waypoints); lo siguiente del plan acordado es `TRK 6` (edición), empezando por `TRK 6.1`.
 - **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
 - **Preparar el crecimiento** (16/11/2026): hechos `GEN 11` (el guion de autopruebas), `GEN 13` (una sola barra de biblioteca), `GEN 12` (una ficha por módulo), `GEN 14` (los escritores) y `GEN 15.1` a `15.3` (los trabajos, añadir carpetas y eliminar, fuera del controlador; 18/11/2026). De `GEN 15` queda `15.4`, en espera (en todo caso, antes de `VID 7`). `MUS 1` a `MUS 3` y `VID 1` a `VID 4` no dependen de nada de esto.
@@ -426,7 +426,7 @@ Plan revisado con el autor el 14/11/2026: lo básico, el perfil de elevación, l
 
 Imprescindibles (6.1 a 6.5) y útiles (6.6 a 6.8).
 
-- **TRK 6.1** Guardar sin pérdidas, sobre el propio GPX (D2, decidida el 16/11/2026). Incluye que la actividad editada vaya al `<type>` del GPX exportado.
+- **TRK 6.1** Guardar sin pérdidas, sobre el propio GPX (D2, decidida el 16/11/2026). Incluye que la actividad elegida en el inspector se escriba en el `<type>` del GPX, también sin editar el recorrido, con un escritor de GPX registrado en `core/userdata/writers.py` (decidido el 22/11/2026, [DECISIONES.md](DECISIONES.md): en todos los `<trk>`; «Sin actividad» lo quita; solo se toca el `<type>` y el resto queda byte a byte; sin migrar lo que ya está en el `.arca.json`). **Antes de empezar**, el autor recarga los GPX originales de `5 Tracks` (para quitar las actividades de prueba). Por resolver al empezar: las claves `activity` que queden en un `.arca.json` y los GPX 1.0.
 - **TRK 6.2** El modelo de edición, con deshacer y rehacer.
 - **TRK 6.3** Editar en el mapa: mover, borrar e insertar con el punto medio fantasma.
 - **TRK 6.4** Tramos: seleccionar, estadísticas, borrar, recortar el principio o el final.
