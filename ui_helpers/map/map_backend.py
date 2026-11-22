@@ -16,6 +16,8 @@ Reglas del contrato:
 
 Este módulo solo declara: no tiene lógica que probar (sin autoprueba).
 
+1.6.0 'set_track_cursor(..., waypoint_tip=)': con el punto sobre un punto de interés, su
+      texto (al recorrer el perfil de elevación; Opciones > Tracks).
 1.5.0 'fit_requested': se ha pulsado el botón «Encuadrar» del mapa.
 1.4.0 'set_track_colors': los colores de los tracks, los que elige el usuario.
 1.3.0 'set_track_range': el tramo elegido en el perfil, resaltado (docs/MOD_TRACKS.md, paso 5.3b).
@@ -24,7 +26,7 @@ Este módulo solo declara: no tiene lógica que probar (sin autoprueba).
       la edición de tracks se añadirá con la fase 7.
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = ["MapBackend"]
 
 # Librerías estándar
@@ -125,8 +127,11 @@ class MapBackend(QWidget):
         """Track resaltado, el único que avisa con 'track_hovered' (None = ninguno)."""
         raise NotImplementedError
 
-    def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
-        """Señala un punto de un track (None = quitar la señal)."""
+    def set_track_cursor(
+        self, track_id: int, point_index: int | None, *, waypoint_tip: bool = False
+    ) -> None:
+        """Señala un punto de un track (None = quitar la señal). Con 'waypoint_tip', si
+        queda sobre un punto de interés, sale también su texto."""
         raise NotImplementedError
 
     def set_track_range(self, track_id: int | None, first: int, last: int) -> None:

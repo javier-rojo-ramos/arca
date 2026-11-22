@@ -29,6 +29,7 @@ __all__ = [
     "SETTING_MAP_PROFILE",
     "SETTING_MAP_TRACK_COLORS",
     "SETTING_PROFILE_SLOPE_MODE",
+    "SETTING_PROFILE_WAYPOINT_TIPS",
     "SETTING_MAP_USER_LAYERS",
     "SETTING_MAIN_SPLITTER_STATE",
     "SETTING_SHOW_SUBFOLDER_ITEMS",
@@ -204,6 +205,10 @@ SETTING_MAP_TRACK_COLORS = "map_track_colors"
 # Cómo se ve la pendiente en el perfil de elevación (botón derecho sobre el perfil u
 # Opciones > Tracks): "area", "line" u "off" ('profile_style.SlopeMode')
 SETTING_PROFILE_SLOPE_MODE = "profile_slope_mode"
+
+# Si, al recorrer el perfil de elevación con el ratón, sale en el mapa el texto del punto
+# de interés (waypoint) por el que pasa el punto ámbar (Opciones > Tracks): bool
+SETTING_PROFILE_WAYPOINT_TIPS = "profile_waypoint_tips"
 
 # Orden, visibilidad y plegado de las secciones de las dos barras laterales, por modo:
 # {"version": 1, "modes": {"image": {"left": [{"id", "visible", "expanded"}...], "right": [...]}}}

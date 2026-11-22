@@ -460,14 +460,19 @@ const arca = (() => {
     if (trackCursor && map.hasLayer(trackCursor)) trackCursor.bringToFront();
   }
 
-  // index null = quitar la señal
-  function setTrackCursor(id, pointIndex) {
+  // El punto señalado desde Python (el ratón sobre el perfil); index null = quitar la
+  // señal. 'waypointTip': si queda sobre un punto de interés, también su texto, como con el
+  // ratón en el mapa (Opciones > Tracks). El ratón no está en el mapa: el texto que haya
+  // abierto es de aquí, y se va con la señal
+  function setTrackCursor(id, pointIndex, waypointTip) {
     const track = tracks.get(id);
     if (!track || pointIndex === null || pointIndex < 0 || pointIndex >= track.points.length) {
       hideTrackCursor();
+      showWaypointTip(-1);
       return;
     }
     showTrackCursor(track, pointIndex);
+    showWaypointTip(waypointTip ? nearestWaypoint([track.points[pointIndex]]) : -1);
   }
 
   // 'latlng' (opcional): dónde pintarlo, si no es justo en el vértice (el ratón sobre un

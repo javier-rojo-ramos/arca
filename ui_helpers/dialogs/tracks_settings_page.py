@@ -6,17 +6,23 @@
         [Restaurar los colores de fábrica]
     Perfil de elevación
         Colores de la pendiente   [ En el área ▾ ]
+        [✓] Mostrar información de puntos de interés también al recorrer el perfil...
 
 - Cada color es un botón con su muestra; al pulsarlo, el selector de colores de Qt.
 - Los de fábrica son los del tema ('track_appearance.default_track_colors').
 - La pendiente es la misma opción que el menú del botón derecho sobre el perfil.
+- La casilla: con el ratón sobre el perfil, el punto ámbar del mapa enseña el texto del
+  waypoint por el que pasa (como con el ratón en el mapa). Activada de partida.
 - Como el resto de la ventana, se guarda al pulsar «Aceptar» ('save'): settings.json,
-  'map_track_colors' (solo los colores que no son los del tema) y 'profile_slope_mode'.
-  El controlador del mapa los aplica al momento ('MapController.apply_settings').
+  'map_track_colors' (solo los colores que no son los del tema), 'profile_slope_mode' y
+  'profile_waypoint_tips'. El controlador del mapa los aplica al momento
+  ('MapController.apply_settings').
 
 Pedida por el autor el 15/11/2026, al cerrar la fase 5 de docs/MOD_TRACKS.md: más adelante
 puede crecer con el resto del estilo del perfil ('ProfileStyle').
 
+1.1.0 La casilla del texto de los waypoints al recorrer el perfil (el autor, 22/11/2026:
+      su texto, activada de partida y sin línea de ayuda).
 1.0.0 Primera versión (15/11/2026).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
@@ -24,7 +30,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
 La página se ve en la prueba de la ventana de opciones ('settings_dialog', abre una ventana).
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["TracksSettingsPage"]
 
 # Librerías estándar
@@ -34,6 +40,7 @@ from typing import Any
 from qtpy.QtCore import QSize, Signal
 from qtpy.QtGui import QColor, QIcon, QPainter, QPixmap
 from qtpy.QtWidgets import (
+    QCheckBox,
     QColorDialog,
     QComboBox,
     QGridLayout,
@@ -44,12 +51,18 @@ from qtpy.QtWidgets import (
 )
 
 # Módulos del proyecto
-from config.app_constants import SETTING_MAP_TRACK_COLORS, SETTING_PROFILE_SLOPE_MODE, AppIcons
+from config.app_constants import (
+    SETTING_MAP_TRACK_COLORS,
+    SETTING_PROFILE_SLOPE_MODE,
+    SETTING_PROFILE_WAYPOINT_TIPS,
+    AppIcons,
+)
 from ui_helpers.dialogs.settings_dialog import SettingsPage
 from ui_helpers.helpers.profile_style import SLOPE_MODE_LABELS, SLOPE_MODE_TITLE, SlopeMode
 from ui_helpers.helpers.track_appearance import (
     TrackColors,
     default_track_colors,
+    profile_waypoint_tips,
     slope_mode,
     track_colors,
     track_colors_to_settings,
@@ -69,6 +82,10 @@ _PROFILE_TITLE = "Perfil de elevación"
 _SLOPE_HELP = (
     "Cómo se ven, de verde a rojo, las pendientes del perfil, bajo el mapa del módulo "
     "Tracks. También se cambia con el botón derecho sobre el perfil."
+)
+# El del autor (22/11/2026), sin línea de ayuda: se entiende solo
+_WAYPOINT_TIPS = (
+    "Mostrar información de puntos de interés también al recorrer el perfil de elevación"
 )
 
 # Muestra del color en el botón (px)
@@ -164,6 +181,8 @@ class TracksSettingsPage(SettingsPage):
         slope_row.addStretch(1)
         self.body.addLayout(slope_row)
         self.body.addWidget(self._help(_SLOPE_HELP))
+        self.check_waypoint_tips = QCheckBox(_WAYPOINT_TIPS)
+        self.body.addWidget(self.check_waypoint_tips)
 
     @classmethod
     def _help(cls, text: str) -> QLabel:
@@ -189,6 +208,7 @@ class TracksSettingsPage(SettingsPage):
         self.button_active.set_color(colors.active)
         self.button_track.set_color(colors.track)
         self.combo_slope.setCurrentIndex(max(0, self.combo_slope.findData(slope_mode(self.config).value)))
+        self.check_waypoint_tips.setChecked(profile_waypoint_tips(self.config))
 
     def save(self) -> set[str]:
         changed: set[str] = set()
@@ -200,6 +220,10 @@ class TracksSettingsPage(SettingsPage):
         if mode is not slope_mode(self.config):
             self.config.set(SETTING_PROFILE_SLOPE_MODE, mode.value)
             changed.add(SETTING_PROFILE_SLOPE_MODE)
+        tips = self.check_waypoint_tips.isChecked()
+        if tips is not profile_waypoint_tips(self.config):
+            self.config.set(SETTING_PROFILE_WAYPOINT_TIPS, tips)
+            changed.add(SETTING_PROFILE_WAYPOINT_TIPS)
         return changed
 
 
@@ -226,6 +250,7 @@ if __name__ == "__main__":
     assert page.button_track.color() == default.track.lower()
     assert page.button_active.text() == default.active.lower()
     assert page._chosen_mode() is SlopeMode.AREA
+    assert page.check_waypoint_tips.isChecked()  # activada de partida
     assert page.save() == set() and config == {}
 
     # --- Otros colores y otro modo: se guarda solo lo que no es del tema
@@ -245,6 +270,17 @@ if __name__ == "__main__":
     page.load()
     assert page.button_track.color() == "#00aa55" and page._chosen_mode() is SlopeMode.LINE
 
+    # --- La casilla de los waypoints: desmarcada se guarda (un no); marcada otra vez, un sí
+    page.check_waypoint_tips.setChecked(False)
+    assert page.save() == {SETTING_PROFILE_WAYPOINT_TIPS}
+    assert config[SETTING_PROFILE_WAYPOINT_TIPS] is False
+    page = TracksSettingsPage(config, {})
+    page.load()
+    assert not page.check_waypoint_tips.isChecked()
+    page.check_waypoint_tips.setChecked(True)
+    assert page.save() == {SETTING_PROFILE_WAYPOINT_TIPS}
+    assert config[SETTING_PROFILE_WAYPOINT_TIPS] is True
+
     # --- Restaurar los de fábrica
     page.button_reset.click()
     assert page.button_active.color() == default.active.lower()
@@ -252,7 +288,12 @@ if __name__ == "__main__":
     assert page.save() == {SETTING_MAP_TRACK_COLORS} and config[SETTING_MAP_TRACK_COLORS] == {}
 
     # --- Algo raro guardado: los de partida, sin errores
-    page = TracksSettingsPage(_Config({SETTING_MAP_TRACK_COLORS: "x", SETTING_PROFILE_SLOPE_MODE: 3}), {})
+    page = TracksSettingsPage(
+        _Config({SETTING_MAP_TRACK_COLORS: "x", SETTING_PROFILE_SLOPE_MODE: 3,
+                 SETTING_PROFILE_WAYPOINT_TIPS: "no"}),
+        {},
+    )  # fmt: skip
     page.load()
     assert page.button_active.color() == default.active.lower() and page._chosen_mode() is SlopeMode.AREA
+    assert page.check_waypoint_tips.isChecked()
     print("Autoprueba finalizada correctamente.")

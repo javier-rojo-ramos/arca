@@ -29,6 +29,8 @@ Mover una foto: el mapa avisa con 'markers_moved' y la deja donde se soltó; qui
 guarda el cambio y lo confirma con 'update_markers' (o, si no se puede, la devuelve a
 su sitio con 'update_markers' y sus coordenadas de antes).
 
+1.7.0 'set_track_cursor(..., waypoint_tip=)': con el punto señalado sobre un punto de
+      interés, su texto (al recorrer el perfil; Opciones > Tracks, 22/11/2026).
 1.6.0 El botón «Encuadrar» (encima del zoom): la señal 'fit_requested' y los encuadres
       'fit_ids' (unos id: fotos y tracks), 'show_default_view' (el de partida) y
       'fit_preferred' (lo que hace el botón: lo elegido, si no todo, si no el de partida).
@@ -55,7 +57,7 @@ Con el mapa de verdad (abre una ventana y se queda abierta):
     python -m ui_helpers.map.map_view --ventana
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["MapView"]
 
 # Librerías estándar
@@ -293,11 +295,15 @@ class MapView(QWidget):
         """Id del track activo, o None."""
         return self._active_track
 
-    def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
+    def set_track_cursor(
+        self, track_id: int, point_index: int | None, *, waypoint_tip: bool = False
+    ) -> None:
         """Señala un punto de un track (p. ej. el que está bajo el ratón en el perfil de
-        elevación); None = quitar la señal. No se recuerda: es cosa del momento."""
+        elevación); None = quitar la señal. No se recuerda: es cosa del momento. Con
+        'waypoint_tip', si el punto queda sobre un punto de interés, sale su texto (como
+        con el ratón en el mapa); al quitar la señal, se va."""
         if self._ready and track_id in self._tracks:
-            self._backend.set_track_cursor(track_id, point_index)
+            self._backend.set_track_cursor(track_id, point_index, waypoint_tip=waypoint_tip)
 
     def set_track_range(self, track_id: int, first: int, last: int) -> None:
         """Resalta el tramo de un track entre dos de sus puntos (da igual el orden; p. ej.
@@ -572,8 +578,13 @@ def _run_logic_selftest() -> None:
         def set_active_track(self, track_id: int | None) -> None:
             self.calls.append(("active", track_id))
 
-        def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
-            self.calls.append(("cursor", track_id, point_index))
+        def set_track_cursor(
+            self, track_id: int, point_index: int | None, *, waypoint_tip: bool = False
+        ) -> None:
+            if waypoint_tip:
+                self.calls.append(("cursor", track_id, point_index, "tip"))
+            else:
+                self.calls.append(("cursor", track_id, point_index))
 
         def set_track_range(self, track_id: int | None, first: int, last: int) -> None:
             self.calls.append(("range", track_id, first, last))
@@ -727,7 +738,10 @@ def _run_logic_selftest() -> None:
     view.set_track_cursor(50, 2)
     view.set_track_cursor(50, None)
     view.set_track_cursor(99, 0)  # ese track no está: se ignora
-    assert backend.take() == [("geometry", 50, True, 4), ("cursor", 50, 2), ("cursor", 50, None)]
+    view.set_track_cursor(50, 3, waypoint_tip=True)  # con el texto de su punto de interés
+    assert backend.take() == [
+        ("geometry", 50, True, 4), ("cursor", 50, 2), ("cursor", 50, None), ("cursor", 50, 3, "tip")
+    ]
     assert [t.detailed for t in view.tracks()] == [True, False]
     assert view.set_active_track(50) is True and backend.take() == []  # ya lo era
     track = view.track(50)

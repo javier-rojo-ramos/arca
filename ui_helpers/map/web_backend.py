@@ -29,6 +29,7 @@ widget interno, que se queda con ellos (Chromium navegaría por el historial de 
 página). El mismo filtro los aparta y los reenvía a la vista, desde la que suben por sus
 padres hasta la página del mapa: allí el 'CenterViewController' cambia de vista.
 
+1.9.0 'set_track_cursor(..., waypoint_tip=)': el tercer argumento de 'setTrackCursor'.
 1.8.0 Botones laterales del ratón: no van a Chromium; '_WebView' los reenvía a la vista,
       para que lleguen a la página del mapa (cambiar de vista; lo pidió el autor).
 1.7.0 El botón «Encuadrar» (encima del zoom): su texto y su aviso ('fit_requested');
@@ -49,7 +50,7 @@ padres hasta la página del mapa: allí el 'CenterViewController' cambia de vist
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
@@ -450,8 +451,10 @@ class WebMapBackend(MapBackend):
     def set_active_track(self, track_id: int | None) -> None:
         self._call("setActiveTrack", track_id)
 
-    def set_track_cursor(self, track_id: int, point_index: int | None) -> None:
-        self._call("setTrackCursor", track_id, point_index)
+    def set_track_cursor(
+        self, track_id: int, point_index: int | None, *, waypoint_tip: bool = False
+    ) -> None:
+        self._call("setTrackCursor", track_id, point_index, waypoint_tip)
 
     def set_track_range(self, track_id: int | None, first: int, last: int) -> None:
         self._call("setTrackRange", track_id, first, last)

@@ -5,6 +5,8 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.21 Se añade 'profile_waypoint_tips' (el texto de los waypoints también al recorrer el
+      perfil de elevación; Opciones > Tracks).
 1.20 Se añade 'sidebars_visible' (si se ven las dos barras laterales).
 1.19 Se añaden 'map_track_colors' (colores de los tracks en el mapa) y
       'profile_slope_mode' (cómo se ve la pendiente en el perfil); Opciones > Tracks.
@@ -29,7 +31,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.20"
+__version__ = "1.21"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -61,6 +63,7 @@ from config.app_constants import (
     SETTING_MAP_TRACK_COLORS,
     SETTING_MAP_USER_LAYERS,
     SETTING_PROFILE_SLOPE_MODE,
+    SETTING_PROFILE_WAYPOINT_TIPS,
     SETTING_SECTION_LAYOUT,
     SETTING_SHOW_SUBFOLDER_ITEMS,
     SETTING_SIDEBAR_STATE,
@@ -126,6 +129,9 @@ class ConfigManager:
         SETTING_MAP_TRACK_COLORS: {},
         # Cómo se ve la pendiente en el perfil (botón derecho u Opciones > Tracks)
         SETTING_PROFILE_SLOPE_MODE: "area",
+        # El texto de los waypoints en el mapa, también al recorrer el perfil (Opciones >
+        # Tracks; activado de partida: el autor, 22/11/2026)
+        SETTING_PROFILE_WAYPOINT_TIPS: True,
         # Orden, visibilidad y plegado de las secciones de las barras laterales, por modo
         # (None = la colocación de partida; ver 'ui_helpers/layout/')
         SETTING_SECTION_LAYOUT: None,

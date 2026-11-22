@@ -3,25 +3,30 @@
 Se elige en Opciones > Tracks (y la pendiente, también con el botón derecho sobre el
 perfil) y se guarda en settings.json. Este módulo lee lo guardado y lo valida: lo que
 falte o no valga (un color mal escrito, un modo que no existe) se cambia por lo de
-partida, los colores del tema ('COLORS.map_track_active' y 'COLORS.map_track') y la
-pendiente en el área. Lo usan el controlador del mapa (los colores), la banda del perfil
-(la pendiente) y la página de Opciones.
+partida, los colores del tema ('COLORS.map_track_active' y 'COLORS.map_track'), la
+pendiente en el área y el texto de los waypoints al recorrer el perfil, activado. Lo usan
+el controlador del mapa (los colores), la banda del perfil (la pendiente y los waypoints)
+y la página de Opciones.
 
     track_colors(config)          -> TrackColors("#e5383b", "#2f6fd6")
     track_colors_to_settings(...) -> {} (si son los del tema) o {"active": ..., "track": ...}
     slope_mode(config)            -> SlopeMode.AREA
+    profile_waypoint_tips(config) -> True
 
+1.1.0 'profile_waypoint_tips': el texto de los waypoints también al recorrer el perfil
+      (22/11/2026).
 1.0.0 Primera versión (15/11/2026; Opciones > Tracks, tras el paso 5.3b).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.helpers.track_appearance
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "TrackColors",
     "default_track_colors",
     "is_hex_color",
+    "profile_waypoint_tips",
     "slope_mode",
     "track_colors",
     "track_colors_to_settings",
@@ -33,7 +38,11 @@ from dataclasses import dataclass
 from typing import Any
 
 # Módulos del proyecto
-from config.app_constants import SETTING_MAP_TRACK_COLORS, SETTING_PROFILE_SLOPE_MODE
+from config.app_constants import (
+    SETTING_MAP_TRACK_COLORS,
+    SETTING_PROFILE_SLOPE_MODE,
+    SETTING_PROFILE_WAYPOINT_TIPS,
+)
 from ui_helpers.helpers.profile_style import SlopeMode
 from ui_helpers.helpers.ui_theme import COLORS
 
@@ -95,6 +104,13 @@ def slope_mode(config: Any) -> SlopeMode:
         return SlopeMode.AREA
 
 
+def profile_waypoint_tips(config: Any) -> bool:
+    """Si, al recorrer el perfil con el ratón, sale en el mapa el texto del waypoint por el
+    que pasa el punto ámbar (sí, si no hay nada guardado o no es un sí o un no)."""
+    value = config.get(SETTING_PROFILE_WAYPOINT_TIPS)
+    return value if isinstance(value, bool) else True
+
+
 if __name__ == "__main__":
     # Autoprueba (sin ventanas). Ejecutar desde la raíz:
     #   python -m ui_helpers.helpers.track_appearance
@@ -130,4 +146,11 @@ if __name__ == "__main__":
     assert slope_mode(_Config()) is SlopeMode.AREA
     assert slope_mode(_Config({SETTING_PROFILE_SLOPE_MODE: "line"})) is SlopeMode.LINE
     assert slope_mode(_Config({SETTING_PROFILE_SLOPE_MODE: "zigzag"})) is SlopeMode.AREA
+
+    # El texto de los waypoints al recorrer el perfil: sí, salvo un no guardado
+    assert profile_waypoint_tips(_Config()) is True
+    assert profile_waypoint_tips(_Config({SETTING_PROFILE_WAYPOINT_TIPS: False})) is False
+    assert profile_waypoint_tips(_Config({SETTING_PROFILE_WAYPOINT_TIPS: True})) is True
+    for value in (0, "no", None, []):
+        assert profile_waypoint_tips(_Config({SETTING_PROFILE_WAYPOINT_TIPS: value})) is True
     print("Autoprueba finalizada correctamente.")

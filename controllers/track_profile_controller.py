@@ -22,7 +22,9 @@ Sincronizada con el mapa (paso 5.3b), en los dos sentidos y sin eco (los método
 llaman desde fuera no avisan):
     - El ratón sobre el track activo en el mapa ('MapView.track_hovered') pone el cursor
       del perfil en ese punto; el ratón sobre el perfil ('cursor_moved') pone el punto
-      ámbar del mapa ('MapView.set_track_cursor').
+      ámbar del mapa ('MapView.set_track_cursor') y, si se pide en Opciones > Tracks
+      ('profile_waypoint_tips', activado de partida), el texto del punto de interés por el
+      que pasa.
     - El tramo elegido en el perfil ('range_selected') se resalta en el mapa
       ('MapView.set_track_range'); un clic en el perfil o Esc (con el teclado en la página
       del mapa: el mapa o la tira) lo quitan de los dos.
@@ -39,6 +41,8 @@ Uso (lo crea 'MapController', que le dice cuándo se puede ver y qué hay selecc
     profile.reset()                  # al abrir o cerrar un catálogo
     profile.apply_settings(claves)   # tras la ventana de opciones
 
+1.3.0 Al recorrer el perfil, el texto de los puntos de interés en el mapa
+      ('profile_waypoint_tips', Opciones > Tracks; pedido por el autor el 22/11/2026).
 1.2.3 Con F10 (antes F7: F7 y F8 son ahora las barras laterales).
 1.2.2 El icono del botón, de 'BAR_ICON_SIZE' (el común: 18 px; antes, 16).
 1.2.1 Con la banda a la vista, el icono del botón en el color de acento (el autor, 15/11/2026).
@@ -53,7 +57,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.track_profile_controller
 """
 
-__version__ = "1.2.3"
+__version__ = "1.3.0"
 __all__ = ["TrackProfileController"]
 
 # Librerías estándar
@@ -68,11 +72,16 @@ from qtpy.QtGui import QActionGroup, QKeySequence, QShortcut
 from qtpy.QtWidgets import QBoxLayout, QMenu, QToolButton
 
 # Módulos del proyecto
-from config.app_constants import SETTING_MAP_PROFILE, SETTING_PROFILE_SLOPE_MODE, AppIcons
+from config.app_constants import (
+    SETTING_MAP_PROFILE,
+    SETTING_PROFILE_SLOPE_MODE,
+    SETTING_PROFILE_WAYPOINT_TIPS,
+    AppIcons,
+)
 from controllers.track_detail_controller import DetailFailure, TrackDetail, TrackDetailController
 from ui_helpers.helpers import card_glyphs
 from ui_helpers.helpers.profile_style import SLOPE_MODE_LABELS, SLOPE_MODE_TITLE, SlopeMode
-from ui_helpers.helpers.track_appearance import slope_mode
+from ui_helpers.helpers.track_appearance import profile_waypoint_tips, slope_mode
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_theme import BAR_ICON_SIZE, COLORS
 from ui_helpers.map.map_view import MapView
@@ -135,6 +144,8 @@ class TrackProfileController(QObject):
         self._detail: TrackDetail | None = None
         # El mapa (se crea la primera vez que se ve: 'attach_map')
         self._view: MapView | None = None
+        # Al recorrer el perfil, el texto de los puntos de interés en el mapa (Opciones)
+        self._waypoint_tips = profile_waypoint_tips(config)
 
         # El botón, oculto hasta que la banda esté disponible
         self._button = QToolButton()
@@ -217,9 +228,12 @@ class TrackProfileController(QObject):
         self._show_message(_NO_TRACK)
 
     def apply_settings(self, changed: set[str]) -> None:
-        """Se han cambiado opciones: cómo se ve la pendiente (Opciones > Tracks)."""
+        """Se han cambiado opciones (Opciones > Tracks): cómo se ve la pendiente y si, al
+        recorrer el perfil, sale el texto de los puntos de interés."""
         if SETTING_PROFILE_SLOPE_MODE in changed:
             self._apply_slope_mode(slope_mode(self._config))
+        if SETTING_PROFILE_WAYPOINT_TIPS in changed:
+            self._waypoint_tips = profile_waypoint_tips(self._config)
 
     def toggle(self) -> None:
         """El botón o F10: muestra u oculta la banda (solo donde se puede ver)."""
@@ -276,10 +290,13 @@ class TrackProfileController(QObject):
             self._page.profile.set_cursor(index if index >= 0 else None)
 
     def _on_profile_cursor(self, index: int) -> None:
-        """El ratón en el perfil (-1: se ha ido): el punto ámbar del mapa, en ese punto."""
+        """El ratón en el perfil (-1: se ha ido): el punto ámbar del mapa, en ese punto (y,
+        si se pide, el texto del punto de interés por el que pasa)."""
         track = self._synced_track()
         if track is not None and self._view is not None:
-            self._view.set_track_cursor(track, index if index >= 0 else None)
+            self._view.set_track_cursor(
+                track, index if index >= 0 else None, waypoint_tip=self._waypoint_tips
+            )
 
     def _on_profile_range(self, first: int, last: int) -> None:
         """Un tramo elegido en el perfil: resaltado en el mapa; Esc lo quitará."""
@@ -427,8 +444,8 @@ if __name__ == "__main__":
         def track(self, track_id: int) -> MapTrack | None:
             return self.tracks.get(track_id)
 
-        def set_track_cursor(self, track_id: int, index: int | None) -> None:
-            self.calls.append(("cursor", track_id, index))
+        def set_track_cursor(self, track_id: int, index: int | None, *, waypoint_tip: bool) -> None:
+            self.calls.append(("cursor", track_id, index, waypoint_tip))
 
         def set_track_range(self, track_id: int, first: int, last: int) -> None:
             self.calls.append(("range", track_id, first, last))
@@ -563,7 +580,17 @@ if __name__ == "__main__":
     assert profile.cursor_index() is None
     profile.cursor_moved.emit(4)
     profile.cursor_moved.emit(-1)
-    assert view.take() == [("cursor", 9, 4), ("cursor", 9, None)]
+    # Con el texto de los puntos de interés: activado de partida
+    assert view.take() == [("cursor", 9, 4, True), ("cursor", 9, None, True)]
+    # Desactivado en Opciones > Tracks: sin el texto; solo con su clave
+    config.data[SETTING_PROFILE_WAYPOINT_TIPS] = False
+    controller.apply_settings({"otra_clave"})
+    profile.cursor_moved.emit(4)
+    controller.apply_settings({SETTING_PROFILE_WAYPOINT_TIPS})
+    profile.cursor_moved.emit(5)
+    assert view.take() == [("cursor", 9, 4, True), ("cursor", 9, 5, False)]
+    config.data[SETTING_PROFILE_WAYPOINT_TIPS] = True
+    controller.apply_settings({SETTING_PROFILE_WAYPOINT_TIPS})
     # El tramo elegido en el perfil, resaltado en el mapa; Esc, ahora sí, lo quitará
     assert not controller._escape.isEnabled()
     profile.set_selection(2, 8)
@@ -623,6 +650,13 @@ if __name__ == "__main__":
     )  # fmt: skip
     assert other_page.profile_height() == 230 and other._button.toolTip() == _PROFILE_SHOW
     assert other_page.profile.profile_style().slope_mode is SlopeMode.OFF
+    assert other._waypoint_tips is True  # sin nada guardado: activado
+    off_page, off_holder = MapPage(), QWidget()
+    off = TrackProfileController(
+        off_page, QHBoxLayout(off_holder), _Config({SETTING_PROFILE_WAYPOINT_TIPS: False}),
+        source,  # type: ignore[arg-type]
+    )  # fmt: skip
+    assert off._waypoint_tips is False
     other.set_available(True)
     assert not other_page.profile_visible() and not other._button.isHidden()
     print("Autoprueba finalizada correctamente.")
