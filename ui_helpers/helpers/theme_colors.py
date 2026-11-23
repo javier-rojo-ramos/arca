@@ -39,6 +39,8 @@ Este módulo NO depende de Qt: solo define valores. 'ui_theme.py' los convierte 
 paleta de Qt (QPalette) y en la hoja de estilos (QSS), y da a los demás el juego activo
 ('COLORS', 'CARD_COLORS', 'MARK_COLORS').
 
+1.10.0 La chincheta del lugar encontrado, roja (antes, naranja), con 'map_search_pin_dark'
+       (borde y punto) y 'map_search_pin_halo' (el halo).
 1.9.0 'map_search_pin': la chincheta del lugar encontrado en el mapa (GEN 8.4c).
 1.8.0 Colores del perfil de elevación ('ProfileColors', 'DARK_PROFILE').
 1.7.0 Colores de los tracks en el mapa: 'map_track', 'map_track_active' y 'map_track_halo'.
@@ -59,7 +61,7 @@ Prueba rápida (contraste del texto sobre cada fondo):
     python -m ui_helpers.helpers.theme_colors
 """
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 __all__ = [
     "DARK",
     "DARK_CARDS",
@@ -111,7 +113,10 @@ class ThemeColors:
             cualquier fondo (como lo que va encima de las fotos: en un tema claro
             seguiría igual).
         map_search_pin: La chincheta del lugar encontrado con la caja de búsqueda del
-            mapa (la de las tarjetas, en este color).
+            mapa (la forma de la de las tarjetas, en este color).
+        map_search_pin_dark: Su borde fino y el punto de su cabeza.
+        map_search_pin_halo: El halo claro de alrededor, para que se vea sobre cualquier
+            capa (también sobre los edificios rojos del topográfico del IGN).
     """
 
     bg_base: str
@@ -139,6 +144,8 @@ class ThemeColors:
     map_track_active: str
     map_track_halo: str
     map_search_pin: str
+    map_search_pin_dark: str
+    map_search_pin_halo: str
 
 
 # Tema oscuro: grises neutros (R = G = B), tomados de LightTable, y un acento ámbar
@@ -168,8 +175,12 @@ DARK = ThemeColors(
     map_track="#2f6fd6",  # azul: propuesta del 13/11/2026, a confirmar por el autor
     map_track_active="#e5383b",  # rojo: el track elegido
     map_track_halo="#ffffff",
-    # Naranja, el mismo de 'missing' (el autor, 23/11/2026: «la de las tarjetas, pero naranja»)
-    map_search_pin="#e8833a",
+    # Rojo «Google», con borde y punto granates y halo blanco: el autor lo eligió el
+    # 23/11/2026 entre varias comparadas sobre el callejero, el topográfico y la ortofoto (la
+    # naranja de partida no se veía bastante)
+    map_search_pin="#ea4335",
+    map_search_pin_dark="#b31412",
+    map_search_pin_halo="#ffffff",
 )
 
 
@@ -449,8 +460,10 @@ if __name__ == "__main__":
     for name in ("map_track", "map_track_active"):
         assert contrast_ratio(getattr(theme, name), theme.map_track_halo) >= 3, name
     assert theme.map_track != theme.map_track_active
-    # La chincheta del lugar buscado: no se confunde con los tracks
-    assert theme.map_search_pin not in (theme.map_track, theme.map_track_active)
+    # La chincheta del lugar buscado: su borde y su punto se distinguen del relleno, y el
+    # relleno, de su halo
+    assert contrast_ratio(theme.map_search_pin, theme.map_search_pin_halo) >= 3
+    assert theme.map_search_pin_dark != theme.map_search_pin
     # Marcas: las estrellas y la marca se ven sobre la banda de la tarjeta (WCAG, 3); las
     # cinco etiquetas, distintas entre sí
     marks = DARK_MARKS

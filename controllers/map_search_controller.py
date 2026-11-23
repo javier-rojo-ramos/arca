@@ -4,27 +4,32 @@ Une la caja ('MapSearchBox', en la barra de filtros) con el mapa ('MapPage.map_v
 el servicio de búsqueda ('core/maps/geocoding_client.py'). Decidido por el autor el
 23/11/2026 (docs/DECISIONES.md):
     - La caja solo se ve con la vista Mapa, en cualquier módulo que la tenga.
-    - Intro (o la lupa) busca lo escrito y el mapa encuadra el PRIMER lugar que da el
-      servicio, como Lightroom; los lugares que se ven en el mapa salen antes. Si no es el
-      que se quería, se busca con más detalle («Santiago de Chile»).
+    - Intro (o la lupa) busca lo escrito y el mapa encuadra el lugar que mejor responde,
+      como Lightroom. Desde GEN 8.4d, en CartoCiudad (las direcciones de España) y en
+      Nominatim, con lo que se ve en el mapa primero: qué se pregunta y en qué orden, en
+      'core/maps/geocoding_client.py' ('GeocodingClient.find'). Si no es el que se quería,
+      se busca con más detalle («Santiago de Chile»).
     - Las 10 últimas búsquedas, con su lugar, en la lista de la caja (settings.json,
-      'map_search_history'). Elegir una, o volver a escribirla, encuadra su lugar SIN
-      preguntar a internet. «Borrar las búsquedas recientes» las quita todas.
+      'map_search_history'). Elegir una en la lista encuadra su lugar SIN preguntar a
+      internet; escribirla otra vez la busca de nuevo, con lo que se ve en ese momento
+      (decidido por el autor el 23/11/2026: si no, con el mapa en Madrid volvía el México
+      de una búsqueda hecha con el mapa sobre México). «Borrar las búsquedas recientes» las
+      quita todas.
     - En la barra de estado: «Buscando «…»…» mientras se espera; después, el nombre
       completo del lugar encontrado (así se ve si es el que se quería), «No se ha
       encontrado «…»», «Sin conexión: no se puede buscar» o «No se ha podido buscar: el
       servicio no responde».
     - Al buscar (y con Esc), el teclado vuelve al mapa: sus atajos siguen funcionando.
-    - Una chincheta en el lugar encontrado (GEN 8.4c; la de las tarjetas, en naranja): se
+    - Una chincheta en el lugar encontrado (GEN 8.4c; la de las tarjetas, roja): se
       mueve con cada búsqueda y se quita al vaciar la caja (con la «×» o borrando lo
       escrito). Sigue al cambiar de módulo, como lo escrito en la caja; no se guarda.
 
 La petición va en un hilo aparte: bloquea hasta 10 s, más la espera de su turno (una por
 segundo para toda la aplicación: 'geocoding_client.SHARED_GATE'). Si mientras tanto se
 busca otra cosa, lo que llegue tarde no mueve el mapa ni da su aviso (su lugar sí queda en
-la lista); si se deja el mapa, o se vacía la caja, da su aviso pero no lo mueve. No se vuelve a pedir una
-búsqueda igual a la que está en marcha, ni una que en esta sesión no encontró nada: las
-condiciones de Nominatim piden no repetir la misma consulta.
+la lista); si se deja el mapa, o se vacía la caja, da su aviso pero no lo mueve. No se
+vuelve a pedir una búsqueda igual a la que está en marcha, ni una que en esta sesión no
+encontró nada: las condiciones de Nominatim piden no repetir la misma consulta.
 
 El servicio: el de settings.json ('geocoding_url'; sin opción en la interfaz) o Nominatim.
 
@@ -35,6 +40,9 @@ Uso (en el controlador principal, solo la conexión):
                                           center_views=center_views, config=config,
                                           window=self, parent=self)
 
+1.3.0 Escribir busca siempre de nuevo ('search'); elegir una búsqueda reciente en la lista
+      ('recent_chosen' de la caja: 'go_to_recent') va a su lugar sin preguntar a internet.
+1.2.0 La búsqueda, con CartoCiudad y Nominatim ('GeocodingClient.find'; GEN 8.4d).
 1.1.0 La chincheta del lugar encontrado ('MapView.set_search_pin'), que se quita al vaciar
       la caja ('text_cleared'); lo que llega con la caja ya vacía no mueve el mapa (GEN 8.4c).
 1.0.0 Primera versión (GEN 8.4b).
@@ -43,7 +51,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana ni usa la r
     python -m controllers.map_search_controller
 """
 
-__version__ = "1.1.0"
+__version__ = "1.3.0"
 __all__ = [
     "FALLBACK_ZOOM",
     "NOT_FOUND_TEXT",
@@ -163,6 +171,7 @@ class MapSearchController(QObject):
         self._show_history()
 
         box.search_requested.connect(self.search)
+        box.recent_chosen.connect(self.go_to_recent)
         box.clear_history_requested.connect(self.clear_history)
         box.escape_pressed.connect(self._back_to_map)
         box.text_cleared.connect(self._on_text_cleared)
@@ -174,7 +183,8 @@ class MapSearchController(QObject):
     # -------------------------------------------------------------------------
 
     def search(self, text: str) -> None:
-        """Busca un lugar y lleva allí el mapa (ver el docstring del archivo)."""
+        """Busca lo escrito y lleva allí el mapa (ver el docstring del archivo). Siempre
+        pregunta a internet, con lo que se ve en ese momento, aunque esté en la lista."""
         query = normalize_query(text)
         if not query or not self._shown():
             return
@@ -183,15 +193,25 @@ class MapSearchController(QObject):
         if key == self._pending:
             return  # ya se está buscando: llegará enseguida
         self._generation += 1
-        place = recall_search(self._history, query)
-        if place is not None:  # una búsqueda reciente: sin preguntar a internet
-            self._remember(query, place)
-            self._go_to(place)
-            return
         if key in self._not_found:
             self._say(NOT_FOUND_TEXT.format(query=query), AppIcons.WARNING)
             return
         self._start(query, self._generation)
+
+    def go_to_recent(self, text: str) -> None:
+        """Una búsqueda reciente elegida en la lista: el mapa, a su lugar, sin preguntar a
+        internet (si ya no estuviera en la lista, se busca)."""
+        query = normalize_query(text)
+        if not query or not self._shown():
+            return
+        place = recall_search(self._history, query)
+        if place is None:
+            self.search(query)
+            return
+        self._back_to_map()
+        self._generation += 1  # lo que estuviera en marcha ya no mueve el mapa
+        self._remember(query, place)
+        self._go_to(place)
 
     def clear_history(self) -> None:
         """Quita todas las búsquedas recientes (también de settings.json)."""
@@ -315,9 +335,10 @@ class MapSearchController(QObject):
 
 
 def _search_online(service_url: str, query: str, viewbox: Bounds | None) -> list[Place]:
-    """La búsqueda de verdad, por internet (bloquea: desde el hilo aparte)."""
+    """La búsqueda de verdad, por internet: CartoCiudad y Nominatim, en el orden de
+    'GeocodingClient.find' (bloquea: desde el hilo aparte)."""
     client = GeocodingClient(user_agent(APP_VERSION), service_url=service_url)
-    return client.search(query, viewbox=viewbox)
+    return client.find(query, viewbox=viewbox)
 
 
 def _start_thread(task: Callable[[], None]) -> None:
@@ -462,11 +483,17 @@ if __name__ == "__main__":
     assert config.data[SETTING_MAP_SEARCH_HISTORY][0]["name"] == "Torla-Ordesa"
     assert box.history() == ["Torla"]
 
-    # 3. Otra vez (con otras mayúsculas): sin preguntar a internet; la chincheta, igual
+    # 3. Escrita otra vez (con otras mayúsculas): se busca de nuevo, con lo que se ve
+    # ahora, y su lugar sustituye al de antes en la lista
     ask(box, "TORLA")
-    assert len(asked) == 1 and page.view.calls[-1][0] == "fit" and len(page.view.calls) == 2
+    assert len(asked) == 2 and page.view.calls[-1][0] == "fit" and len(page.view.calls) == 2
     assert [entry.query for entry in controller.history()] == ["TORLA"]
     assert page.view.pin == (42.6277, -0.1121)
+    # Elegida en la lista (la lista da su texto tal cual): sin preguntar a internet
+    page.view.pin = None
+    box.recent_chosen.emit("TORLA")
+    assert len(asked) == 2 and len(page.view.calls) == 3 and page.view.pin == (42.6277, -0.1121)
+    assert status() == TORLA.label and box.history() == ["TORLA"]
 
     # 4. Un lugar sin rectángulo: se centra con el zoom de reserva; la chincheta se mueve;
     # arriba de la lista
@@ -488,7 +515,7 @@ if __name__ == "__main__":
     # 6. La caja, vacía (la «×» o borrando): fuera la chincheta; el mapa, donde estaba
     box.lineEdit().clear()
     assert page.view.pin is None and len(page.view.calls) == calls_before
-    ask(box, "museo del prado")  # una reciente: la chincheta vuelve
+    box.recent_chosen.emit("Museo del Prado")  # elegida en la lista: la chincheta vuelve
     assert page.view.pin == (40.4138, -3.6920)
 
     # 7. Errores: sin conexión, el servicio, y uno inesperado (se registra y no se cuelga)

@@ -29,6 +29,8 @@ widget interno, que se queda con ellos (Chromium navegaría por el historial de 
 página). El mismo filtro los aparta y los reenvía a la vista, desde la que suben por sus
 padres hasta la página del mapa: allí el 'CenterViewController' cambia de vista.
 
+1.10.1 La chincheta, con su relleno, su borde y su punto, y su halo ('search-pin',
+       'search-pin-dark' y 'search-pin-halo'; antes, 'pin-border').
 1.10.0 'set_search_pin' ('setSearchPin' de la página): la chincheta del lugar encontrado con
        la caja de búsqueda, con sus colores ('search-pin' y 'pin-border'; GEN 8.4c).
 1.9.0 'set_track_cursor(..., waypoint_tip=)': el tercer argumento de 'setTrackCursor'.
@@ -52,7 +54,7 @@ padres hasta la página del mapa: allí el 'CenterViewController' cambia de vist
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.10.0"
+__version__ = "1.10.1"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
@@ -144,9 +146,10 @@ def _theme_colors() -> dict[str, str]:
         "track": css_color(COLORS.map_track),
         "track-active": css_color(COLORS.map_track_active),
         "track-halo": css_color(COLORS.map_track_halo),
-        # La chincheta del lugar buscado: la de las tarjetas (su borde), en naranja
+        # La chincheta del lugar buscado: el relleno, el borde y el punto, y el halo
         "search-pin": css_color(COLORS.map_search_pin),
-        "pin-border": css_color(CARD_COLORS.overlay_border),
+        "search-pin-dark": css_color(COLORS.map_search_pin_dark),
+        "search-pin-halo": css_color(COLORS.map_search_pin_halo),
     }
 
 

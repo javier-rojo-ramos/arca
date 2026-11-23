@@ -107,8 +107,8 @@ python -m core.thumbnails.sizes
 # core.maps
 python -m core.maps.tile_layers                                (capas del mapa: claves, direcciones, teselas válidas; sin red)
 python -m core.maps.tile_store                                 (caché de teselas: rutas, caducidad, tope de tamaño; sin red)
-python -m core.maps.geocoding                                  (buscar lugares: la petición, la respuesta de Nominatim, el reparto de la dirección y el historial; sin red)
-python -m core.maps.geocoding_client                           (la petición con un transporte de mentira: cabeceras, errores, una por segundo desde varios hilos, cancelar; sin red, menos de 1 s)
+python -m core.maps.geocoding                                  (buscar lugares: las peticiones y las respuestas de Nominatim y de CartoCiudad, el reparto de la dirección, ¿lleva número de portal?, los nombres en mayúsculas y el historial; sin red)
+python -m core.maps.geocoding_client                           (con un transporte de mentira: cabeceras, errores, una por segundo desde varios hilos, cancelar; qué se pregunta y en qué orden con los dos servicios, también si uno falla; los certificados; sin red, menos de 1 s)
 
 # ui_helpers.map
 python -m ui_helpers.map.map_types                             (marcadores, tracks y rectángulos del mapa; sin Qt)

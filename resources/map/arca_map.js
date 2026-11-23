@@ -680,26 +680,29 @@ const arca = (() => {
     if (track) track.line.closeTooltip();
   }
 
-  // La chincheta del lugar encontrado con la caja de búsqueda: la de las tarjetas de la
-  // cuadrícula ('draw_location_pin' de ui_helpers/helpers/card_glyphs.py, con sus mismas
-  // proporciones y su borde), en naranja y más grande (SEARCH_PIN_SIZE). La punta queda en
-  // el lugar
+  // La chincheta del lugar encontrado con la caja de búsqueda: la forma de la de las
+  // tarjetas de la cuadrícula ('draw_location_pin' de ui_helpers/helpers/card_glyphs.py, con
+  // sus mismas proporciones), más grande (SEARCH_PIN_SIZE) y como la de Google Maps: roja,
+  // con borde y punto granates, y un halo blanco que la separa de cualquier capa (el autor,
+  // 23/11/2026). La punta queda en el lugar
   function searchPinIcon() {
     const s = SEARCH_PIN_SIZE;
     const cx = s / 2, r = s * 0.34, headY = s * 0.04 + r, tipY = s * 0.98;
     // Los lados de la punta salen de la cabeza a media altura de su radio (en la tarjeta,
     // a 0,86 r del centro; aquí, justo sobre la circunferencia, para que el arco cierre)
     const dx = r * Math.sqrt(0.75), dy = r * 0.5;
-    const hole = r * 0.38;
     const f = (value) => value.toFixed(2);
-    const d =
+    const outline =
       `M${f(cx - dx)} ${f(headY + dy)} A${f(r)} ${f(r)} 0 1 1 ${f(cx + dx)} ${f(headY + dy)} ` +
-      `L${f(cx)} ${f(tipY)} Z ` +
-      `M${f(cx - hole)} ${f(headY)} a${f(hole)} ${f(hole)} 0 1 0 ${f(2 * hole)} 0 ` +
-      `a${f(hole)} ${f(hole)} 0 1 0 ${f(-2 * hole)} 0 Z`;
+      `L${f(cx)} ${f(tipY)} Z`;
+    // El halo es un trazo ancho de la silueta, DEBAJO: su mitad de dentro la tapa el relleno
+    const svg =
+      `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">` +
+      `<path class="halo" d="${outline}"/><path class="body" d="${outline}"/>` +
+      `<circle class="dot" cx="${f(cx)}" cy="${f(headY)}" r="${f(r * 0.38)}"/></svg>`;
     return L.divIcon({
       className: "arca-search-pin",
-      html: `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}"><path d="${d}"/></svg>`,
+      html: svg,
       iconSize: [s, s],
       iconAnchor: [cx, tipY],
     });

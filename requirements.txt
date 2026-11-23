@@ -10,4 +10,5 @@ PySide6_Addons==6.11.2
 PySide6_Essentials==6.11.2
 QtPy==2.4.3
 shiboken6==6.11.2
+truststore==0.10.5
 win32_setctime==1.2.0

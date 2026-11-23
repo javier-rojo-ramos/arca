@@ -21,8 +21,19 @@ https://operations.osmfoundation.org/policies/nominatim/:
       solo trabajos puntuales, de uno en uno y con caché; nunca consultas sistemáticas
       (docs/TRAMPAS.md).
 
-Lo que devuelve es un 'Place': nombre corto, nombre completo, coordenadas, rectángulo y la
-dirección ya repartida en los campos de ubicación de la aplicación ('PlaceAddress').
+Desde GEN 8.4d, también CartoCiudad (IGN: los portales oficiales y los topónimos de toda
+España; decidido por el autor el 23/11/2026, docs/DECISIONES.md): 'cartociudad_url' y
+'parse_cartociudad'. Cuándo se pregunta a cada uno lo decide 'GeocodingClient.find'. Sus
+páginas no publican licencia ni límites de uso (leídas el 23/11/2026) y su API no pide clave:
+se usa con la misma moderación que Nominatim (solo al pulsar Intro, identificándose, con el
+historial como caché) y se cita en la caja. Sus nombres llegan a menudo EN MAYÚSCULAS y sin
+tildes («CALLE LOPEZ DE HOYOS 345»): se escriben como un nombre («Calle López de Hoyos»), con
+las tildes de lo escrito por el usuario si la palabra coincide.
+
+Lo que devuelve es un 'Place': nombre corto, nombre completo, coordenadas, rectángulo, la
+dirección ya repartida en los campos de ubicación de la aplicación ('PlaceAddress'), su
+tipo ('kind': el 'addresstype' de Nominatim o el 'type' de CartoCiudad, como «portal») y de
+qué servicio sale ('source').
 
 Reparto de la dirección ('address_from_nominatim'), PROVISIONAL hasta GEN 8.5, que lo
 comprobará con respuestas reales. Sigue lo que ya hay en las fotos del autor (escrito por
@@ -39,21 +50,31 @@ el país, en español:
 Uso:
     url = search_url(service_url_from_settings(valor), "Torla", viewbox=(s, w, n, e))
     places = parse_search(bytes_de_la_respuesta)       # [] si no se encuentra nada
+    url = cartociudad_url(CARTOCIUDAD_URL, "López de Hoyos, 345")
+    places = parse_cartociudad(bytes_de_la_respuesta, "López de Hoyos, 345")
     history = remember_search(history, "Torla", places[0])
     place = recall_search(history, "torla")            # el de antes, sin pedirlo otra vez
 
+1.1.0 CartoCiudad ('cartociudad_url', 'parse_cartociudad'); 'search_url(..., bounded=)':
+      solo lo que se ve; 'has_house_number'; 'Place.kind', 'source', 'importance' y
+      'street'; 'street_matches', 'inside' (GEN 8.4d).
 1.0.0 Primera versión (GEN 8.4a).
 
 Prueba rápida (desde la raíz del proyecto; sin red):
     python -m core.maps.geocoding
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
+    "CARTOCIUDAD_LIMIT",
+    "CARTOCIUDAD_URL",
     "DEFAULT_LANGUAGE",
     "DEFAULT_SERVICE_URL",
     "HISTORY_LIMIT",
+    "KIND_PORTAL",
     "MAX_QUERY_LENGTH",
+    "SOURCE_CARTOCIUDAD",
+    "SOURCE_NOMINATIM",
     "Bounds",
     "GeocodingError",
     "GeocodingResponseError",
@@ -61,19 +82,26 @@ __all__ = [
     "Place",
     "PlaceAddress",
     "address_from_nominatim",
+    "cartociudad_url",
+    "has_house_number",
     "history_from_settings",
     "history_to_settings",
+    "inside",
     "normalize_query",
+    "parse_cartociudad",
     "parse_search",
     "recall_search",
     "remember_search",
     "search_url",
     "service_url_from_settings",
+    "street_matches",
 ]
 
 # Librerías estándar
 import json
 import math
+import re
+import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from urllib.parse import urlencode, urlsplit
@@ -88,6 +116,42 @@ HISTORY_LIMIT = 10
 MAX_QUERY_LENGTH = 200
 # Nominatim no da más de 40 resultados por petición
 _MAX_RESULTS = 40
+
+# CartoCiudad (IGN): su geocodificador. Se le piden bastantes candidatos: los ordena sin
+# mirar dónde se está (los de una calle muy repetida, como «Calle Mayor 5», por provincia), y
+# entre ellos se elige primero uno que caiga en lo que se ve
+CARTOCIUDAD_URL = "https://www.cartociudad.es/geocoder/api/geocoder"
+CARTOCIUDAD_LIMIT = 30
+# De qué servicio sale un lugar ('Place.source')
+SOURCE_NOMINATIM = "nominatim"
+SOURCE_CARTOCIUDAD = "cartociudad"
+# El tipo de CartoCiudad de un portal (una dirección con su número)
+KIND_PORTAL = "portal"
+# Tipos de CartoCiudad que son una población o algo mayor (su nombre es la ciudad o la
+# región, no una sububicación); en minúsculas
+_CARTOCIUDAD_AREA_KINDS = frozenset({
+    "municipio", "provincia", "comunidad autonoma", "poblacion", "codpost",
+})
+# Un número de portal en lo escrito: de 1 a 4 cifras sueltas, quizá con una letra («221B»);
+# no cuentan un código postal (5 cifras) ni el número de una carretera («A-6», «M-30»)
+_HOUSE_NUMBER = re.compile(r"(?<![\w-])\d{1,4}[a-zA-Z]?(?!\w)")
+# Palabras que van en minúscula dentro de un nombre («Calle Luis de Salazar»)
+_LOWER_WORDS = frozenset({"de", "del", "la", "las", "los", "el", "y", "e", "o", "u", "a", "en"})
+# Claves de la dirección de Nominatim con la calle de un lugar, por orden de preferencia
+_STREET_KEYS = ("road", "pedestrian", "square", "footway", "path", "cycleway")
+# Palabras de una calle que no la distinguen: tipos de vía (en castellano, catalán, gallego,
+# euskera, portugués, francés e inglés, y sus abreviaturas) y partículas. Sin tildes y en
+# minúsculas, como las deja '_plain'
+_STREET_WORDS = frozenset({
+    "calle", "cl", "avenida", "av", "avda", "plaza", "pl", "pza", "paseo", "ps", "camino",
+    "cm", "carretera", "ctra", "ronda", "rda", "travesia", "trv", "glorieta", "gta", "via",
+    "callejon", "costanilla", "cuesta", "pasaje", "psje", "urbanizacion", "urb", "poligono",
+    "bulevar", "boulevard", "kalea", "etorbidea", "carrer", "avinguda", "passeig",
+    "placa", "rua", "praza", "avenue", "ave", "street", "st", "road", "rd", "lane", "way",
+    "drive", "place", "square", "rue", "chemin", "allee",
+    "de", "del", "la", "las", "los", "el", "y", "e", "d", "l", "dels", "da", "do", "das",
+    "dos", "des", "du", "of", "the",
+})
 
 # Rectángulo en grados: (sur, oeste, norte, este)
 Bounds = tuple[float, float, float, float]
@@ -141,6 +205,14 @@ class Place:
         bounds: Lo que ocupa (sur, oeste, norte, este), o None si el servicio no lo dice.
             Para encuadrarlo; en una dirección es un rectángulo diminuto.
         address: La dirección repartida en los campos de ubicación.
+        kind: Su tipo, como lo dice el servicio: el 'addresstype' de Nominatim («village»,
+            «road»...) o el 'type' de CartoCiudad en minúsculas («portal», «ngbe»...). ''
+            si no se sabe (p. ej. una búsqueda reciente).
+        source: De qué servicio sale ('SOURCE_NOMINATIM', 'SOURCE_CARTOCIUDAD'), o ''.
+        importance: Cuánto importa el lugar según Nominatim (de 0 a 1: una capital, 0,7;
+            una tienda, 0,0001); 0 si no lo dice. Con él se elige entre sus resultados.
+        street: La calle del lugar, si la tiene («Calle de López de Hoyos»); '' si no.
+            Con ella se comprueba que lo encontrado es lo escrito ('street_matches').
     """
 
     name: str
@@ -149,6 +221,10 @@ class Place:
     longitude: float
     bounds: Bounds | None = None
     address: PlaceAddress = field(default_factory=PlaceAddress)
+    kind: str = ""
+    source: str = ""
+    importance: float = 0.0
+    street: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,6 +266,7 @@ def search_url(
     query: str,
     *,
     viewbox: Bounds | None = None,
+    bounded: bool = False,
     language: str = DEFAULT_LANGUAGE,
     limit: int = 1,
 ) -> str:
@@ -199,7 +276,9 @@ def search_url(
         service_url: La del servicio ('service_url_from_settings').
         query: Lo que se busca (se normaliza).
         viewbox: Lo que se ve en el mapa (sur, oeste, norte, este): los lugares de dentro
-            salen antes, pero no se descartan los de fuera.
+            salen antes, pero no se descartan los de fuera (muy poco: con el mapa en Madrid,
+            «Luis de Salazar, 3» sigue saliendo en México).
+        bounded: Solo lo de dentro de 'viewbox' (sin 'viewbox', no hace nada).
         language: Idioma de los nombres.
         limit: Cuántos lugares (1 a 40). La caja del mapa va al primero: pide uno.
 
@@ -219,7 +298,36 @@ def search_url(
     box = _viewbox(viewbox)
     if box is not None:
         params["viewbox"] = box  # sin 'bounded': da preferencia, no filtra
+        if bounded:
+            params["bounded"] = "1"
     return f"{service_url.rstrip('/')}/search?{urlencode(params)}"
+
+
+def has_house_number(query: str) -> bool:
+    """True si lo escrito lleva un número de portal (de 1 a 4 cifras sueltas, quizá con una
+    letra: «López de Hoyos, 345», «Baker Street 221B»). Un código postal no cuenta."""
+    return _HOUSE_NUMBER.search(normalize_query(query)) is not None
+
+
+def street_matches(query: str, place: Place) -> bool:
+    """True si la calle del lugar es la escrita: todas las palabras que la distinguen
+    (sin el tipo de vía ni las partículas, sin tildes) están en lo escrito. «Avenida Vicente
+    C. Salazar» no es «Calle Luis de Salazar, 3» («Vicente» no está escrito); «Calle de
+    López de Hoyos» sí es «López de Hoyos, 345». Sin calle, no se puede saber: True."""
+    words = {_plain(word) for word in re.findall(r"\w+", place.street)}
+    distinctive = {word for word in words if len(word) > 1 and word not in _STREET_WORDS}
+    if not distinctive:
+        return True
+    written = {_plain(word) for word in re.findall(r"\w+", query)}
+    return distinctive <= written
+
+
+def inside(place: Place, bounds: Bounds | None) -> bool:
+    """True si el punto del lugar cae dentro de 'bounds' (sur, oeste, norte, este)."""
+    if bounds is None:
+        return False
+    south, west, north, east = bounds
+    return south <= place.latitude <= north and west <= place.longitude <= east
 
 
 def _viewbox(bounds: Bounds | None) -> str | None:
@@ -302,13 +410,18 @@ def _place_from_item(item: object) -> Place | None:
     name = _text(item.get("name")) or _fallback_name(address, label)
     if not name:
         name = f"{latitude:.5f}, {longitude:.5f}"
+    kind = _text(item.get("addresstype"))
     return Place(
         name=name,
         label=label or name,
         latitude=latitude,
         longitude=longitude,
         bounds=_bounds(item.get("boundingbox")),
-        address=address_from_nominatim(address, name=name, kind=_text(item.get("addresstype"))),
+        address=address_from_nominatim(address, name=name, kind=kind),
+        kind=kind,
+        source=SOURCE_NOMINATIM,
+        importance=_number(item.get("importance")) or 0.0,
+        street=_first(address, _STREET_KEYS),
     )
 
 
@@ -336,6 +449,120 @@ def _bounds(value: object) -> Bounds | None:
     if south > north or west > east:  # p. ej. un rectángulo que cruza el meridiano 180
         return None
     return (south, west, north, east)
+
+
+# -----------------------------------------------------------------------------
+# CartoCiudad (IGN)
+# -----------------------------------------------------------------------------
+
+
+def cartociudad_url(service_url: str, query: str, *, limit: int = CARTOCIUDAD_LIMIT) -> str:
+    """La dirección de la petición de candidatos de CartoCiudad ('candidates': da las
+    coordenadas de los portales y de los topónimos sin otra petición).
+
+    Raises:
+        ValueError: Si no hay nada que buscar.
+    """
+    text = normalize_query(query)
+    if not text:
+        raise ValueError("No hay nada que buscar")
+    params = {"q": text, "limit": str(max(1, int(limit)))}
+    return f"{service_url.rstrip('/')}/candidates?{urlencode(params)}"
+
+
+def parse_cartociudad(data: bytes | str, query: str = "") -> list[Place]:
+    """Los candidatos de CartoCiudad, en su orden. Los que no traen coordenadas (las calles
+    enteras, los municipios y los códigos postales llegan con 0, 0) se saltan.
+
+    Args:
+        data: La respuesta ('candidates').
+        query: Lo escrito: de ahí salen las tildes de los nombres en mayúsculas.
+
+    Raises:
+        GeocodingResponseError: Si la respuesta no es JSON o no es una lista.
+    """
+    try:
+        payload = json.loads(data)
+    except (TypeError, ValueError) as error:
+        raise GeocodingResponseError("La respuesta de CartoCiudad no es JSON") from error
+    if not isinstance(payload, list):
+        raise GeocodingResponseError("La respuesta de CartoCiudad no es una lista")
+    return [place for item in payload if (place := _cartociudad_place(item, query)) is not None]
+
+
+def _cartociudad_place(item: object, query: str) -> Place | None:
+    """Un candidato de CartoCiudad, o None si no tiene coordenadas."""
+    if not isinstance(item, Mapping):
+        return None
+    latitude, longitude = _number(item.get("lat")), _number(item.get("lng"))
+    if latitude is None or longitude is None or not _valid_position(latitude, longitude):
+        return None
+    if latitude == 0 and longitude == 0:  # así llegan los que no tienen un punto
+        return None
+    kind = _text(item.get("type")).casefold()
+    raw = _text(item.get("address"))
+    street = ""
+    if kind == KIND_PORTAL:
+        # «CALLE LUIS DE SALAZAR 3, Madrid» o «KALEA CALLE MAYOR 5 (Harana/Valle de Arana)»:
+        # la calle, sin el número del final, y el número aparte
+        street = re.split(r",| \(", raw, maxsplit=1)[0].strip()
+        street = re.sub(r"\s+\d+\s*[A-Za-z]?$", "", street)
+        number = _text(str(item.get("portalNumber") or "")) + _text(item.get("extension"))
+        street = _as_name(street, query)
+        name = f"{street}, {number}" if number else street
+    else:
+        # «Arroyo de la Chorrera de Mojonavalle (Curso natural de agua) (Canencia)»: sin lo
+        # que va entre paréntesis
+        name = _as_name(re.sub(r"\s*\([^)]*\)", "", raw).strip(), query)
+    if not name:
+        return None
+    town = _text(item.get("poblacion"))
+    municipality = _text(item.get("muni"))
+    province = _text(item.get("province"))
+    postal_code = _text(item.get("postalCode"))
+    city = town or municipality
+    parts = [name]
+    if city:
+        parts.append(f"{postal_code} {city}" if postal_code else city)
+    if municipality and municipality != city:
+        parts.append(municipality)
+    if province and province not in (city, municipality):
+        parts.append(province)
+    parts.append("España")
+    is_area = kind in _CARTOCIUDAD_AREA_KINDS
+    address = PlaceAddress(
+        sublocation="" if is_area else name,
+        city=city or (name if is_area else ""),
+        region=province,
+        country="España",
+        country_code="ES",
+    )
+    return Place(name, ", ".join(parts), latitude, longitude, None, address,
+                 kind=kind, source=SOURCE_CARTOCIUDAD, street=street)
+
+
+def _as_name(text: str, query: str) -> str:
+    """Un nombre que llega todo EN MAYÚSCULAS, como un nombre: «CALLE LOPEZ DE HOYOS» ->
+    «Calle López de Hoyos» (las tildes, de lo escrito por el usuario, si la palabra coincide
+    sin ellas). Lo que ya viene en minúsculas se deja como está."""
+    if not text or text != text.upper():
+        return text
+    spelled = {_plain(word): word for word in re.findall(r"\w+", query)}
+    words: list[str] = []
+    for position, word in enumerate(text.split()):
+        lower = word.lower()
+        if position > 0 and lower in _LOWER_WORDS:
+            words.append(lower)
+            continue
+        written = spelled.get(_plain(word), lower)
+        words.append(written[:1].upper() + written[1:].lower())
+    return " ".join(words)
+
+
+def _plain(word: str) -> str:
+    """Una palabra sin tildes y en minúsculas (para compararla)."""
+    decomposed = unicodedata.normalize("NFD", word)
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
 
 
 # -----------------------------------------------------------------------------
@@ -652,5 +879,118 @@ if __name__ == "__main__":
     assert restored[1].place.bounds is None and restored[0].place.label == "Repetida"
     assert history_from_settings(None) == () and history_from_settings({"a": 1}) == ()
     assert len(history_from_settings(stored, limit=1)) == 1
+
+    # 9. Nominatim: el tipo, el servicio y la importancia de cada lugar; 'bounded' solo con
+    # 'viewbox'
+    assert (torla.kind, torla.source, torla.importance) == ("village", SOURCE_NOMINATIM, 0.0)
+    ranked = parse_search('[{"lat": 1, "lon": 2, "name": "x", "importance": 0.7289}]')
+    assert ranked[0].importance == 0.7289
+    assert (prado.kind, street.kind) == ("tourism", "building")
+    madrid = (40.30, -3.85, 40.56, -3.52)
+    assert "bounded=1" in search_url(DEFAULT_SERVICE_URL, "x", viewbox=madrid, bounded=True)
+    assert "bounded" not in search_url(DEFAULT_SERVICE_URL, "x", viewbox=madrid)
+    assert "bounded" not in search_url(DEFAULT_SERVICE_URL, "x", bounded=True)  # sin vista
+
+    # 10. ¿Lleva número de portal?
+    for text in ("López de Hoyos, 345", "Luis de Salazar 3", "Baker Street 221B", "7 rue X"):
+        assert has_house_number(text), text
+    for text in ("Torla", "28043", "Calle Mayor", "A-6", "Santiago de Chile", "12345 Main"):
+        assert not has_house_number(text), text
+
+    # 11. CartoCiudad: la petición y la respuesta (respuestas reales del 23/11/2026)
+    url = cartociudad_url(CARTOCIUDAD_URL + "/", "  López de Hoyos,  345 ")
+    assert url.startswith("https://www.cartociudad.es/geocoder/api/geocoder/candidates?"), url
+    params = {key: values[0] for key, values in parse_qs(url.split("?", 1)[1]).items()}
+    assert params == {"q": "López de Hoyos, 345", "limit": str(CARTOCIUDAD_LIMIT)}, params
+    answer = json.dumps([
+        {"id": "280790120530", "province": "Madrid", "comunidadAutonoma": "Comunidad de Madrid",
+         "muni": "Madrid", "type": "portal", "address": "CALLE LOPEZ DE HOYOS 345, Madrid",
+         "postalCode": "28043", "poblacion": "Madrid", "geom": None, "tip_via": "CALLE",
+         "lat": 40.468555068562566, "lng": -3.652925857358877, "portalNumber": 345,
+         "noNumber": False, "stateMsg": "", "extension": None, "state": 0,
+         "countryCode": "011"},
+        {"type": "portal", "tip_via": "CALLE", "portalNumber": 3, "extension": None,
+         "address": "CALLE LUIS SALAZAR 3, Campanillas (Málaga)", "poblacion": "Campanillas",
+         "muni": "Málaga", "province": "Málaga", "postalCode": "29590",
+         "lat": 36.72705852009799, "lng": -4.5451492431338325},
+        {"type": "portal", "tip_via": "KALEA", "portalNumber": 5, "extension": "B",
+         "address": "KALEA CALLE MAYOR 5 (Harana/Valle de Arana)", "poblacion": None,
+         "muni": "Harana/Valle de Arana", "province": "Araba/Álava", "postalCode": "01117",
+         "lat": 42.74455600093116, "lng": -2.3617810000000676},
+        {"type": "ngbe", "tip_via": None, "portalNumber": None,
+         "address": "Arroyo de la Chorrera de Mojonavalle (Curso natural de agua) (Canencia)",
+         "poblacion": None, "muni": "Canencia", "province": "Madrid", "postalCode": "28743",
+         "lat": 40.86234141072097, "lng": -3.78750987596709},
+        {"type": "Codpost", "address": "28043", "postalCode": "28043", "lat": 0.0, "lng": 0.0},
+        {"type": "callejero", "address": "CALLE PABLO VIDAL, Madrid", "lat": 0.0, "lng": 0.0},
+        "no es un candidato",
+    ]).encode("utf-8")
+    places = parse_cartociudad(answer, "López de Hoyos, 345")
+    assert [place.name for place in places] == [
+        "Calle López de Hoyos, 345", "Calle Luis Salazar, 3", "Kalea Calle Mayor, 5B",
+        "Arroyo de la Chorrera de Mojonavalle"], [place.name for place in places]
+    hoyos, campanillas, mayor, chorrera = places
+    assert hoyos.label == "Calle López de Hoyos, 345, 28043 Madrid, España", hoyos.label
+    assert (hoyos.kind, hoyos.source, hoyos.bounds) == (KIND_PORTAL, SOURCE_CARTOCIUDAD, None)
+    assert hoyos.address == PlaceAddress(
+        "Calle López de Hoyos, 345", "Madrid", "Madrid", "España", "ES")
+    assert campanillas.label == "Calle Luis Salazar, 3, 29590 Campanillas, Málaga, España"
+    assert campanillas.address.city == "Campanillas" and campanillas.address.region == "Málaga"
+    assert mayor.label == (
+        "Kalea Calle Mayor, 5B, 01117 Harana/Valle de Arana, Araba/Álava, España")
+    assert chorrera.kind == "ngbe" and chorrera.label.startswith("Arroyo de la Chorrera")
+    assert chorrera.address.sublocation == chorrera.name and chorrera.address.city == "Canencia"
+    # Sin lo escrito, las palabras en mayúsculas quedan sin tildes
+    assert parse_cartociudad(answer)[0].name == "Calle Lopez de Hoyos, 345"
+    assert parse_cartociudad(b"[]") == []
+    for bad in (b"<html>", b'{"error": 1}', b""):
+        try:
+            parse_cartociudad(bad)
+        except GeocodingResponseError:
+            pass
+        else:
+            raise AssertionError(f"debería rechazarse: {bad!r}")
+
+    # 12. Un nombre en mayúsculas, como un nombre; lo que ya va en minúsculas, igual
+    assert _as_name("CALLE DE LA PRINCESA", "princesa") == "Calle de la Princesa"
+    assert _as_name("DE LOS REYES", "") == "De los Reyes"  # la primera, siempre en mayúscula
+    assert _as_name("Arroyo de la Fuente", "ARROYO") == "Arroyo de la Fuente"
+    # Para comparar, la «ñ» cuenta como «n»: «PENALARA» casa con «Peñalara» y sale con su
+    # «ñ»
+    assert _plain("Ñandú") == "nandu"
+    assert _as_name("PICO DE PENALARA", "peñalara") == "Pico de Peñalara"
+
+    # 13. Dentro de lo que se ve
+    assert inside(hoyos, madrid) and not inside(campanillas, madrid)
+    assert not inside(hoyos, None)
+
+    # 14. La calle de cada lugar, y si es la escrita
+    assert prado.street == "Paseo del Prado" and torla.street == ""
+    assert hoyos.street == "Calle López de Hoyos" and chorrera.street == ""
+
+    def place_on(road: str) -> Place:
+        return Place("x", "x", 0.0, 0.0, street=road)
+
+    for query, road in [
+        ("López de Hoyos, 345", "Calle de López de Hoyos"),
+        ("Calle Luis de Salazar, 3", "Calle de Luis de Salazar"),
+        ("lopez de hoyos 345", "Calle de López de Hoyos"),          # sin tildes
+        ("San Juan de la Cruz, 38, Colmenar Viejo", "Calle de San Juan de la Cruz"),
+        ("Castellana 100", "Paseo de la Castellana"),
+        ("Gran Vía, 1", "Gran Vía"),
+        ("Calle Mayor 5", "Calle Mayor"),
+        ("Rue de Rivoli 10, Paris", "Rue de Rivoli"),
+        ("Baker Street 221B", "Baker Street"),
+        ("Av. de la Paz 3", "Avenida de la Paz"),
+        ("Peñalara 3", "Calle de Penalara"),                       # la «ñ», como «n»
+        ("Cualquier cosa 3", ""),                                   # sin calle: no se sabe
+    ]:
+        assert street_matches(query, place_on(road)), (query, road)
+    for query, road in [
+        ("Calle Luis de Salazar, 3", "Avenida Vicente C. Salazar"),  # «Vicente», no escrito
+        ("López de Hoyos, 345", "Calle de Narciso López"),
+        ("Calle Mayor 5", "Calle Mayor Baja"),
+    ]:
+        assert not street_matches(query, place_on(road)), (query, road)
 
     print("Autoprueba finalizada correctamente.")

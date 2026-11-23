@@ -10,8 +10,9 @@ Va en la barra de filtros, a la derecha ('FilterBar.add_right_widget'), y solo s
 mapa (lo decide 'controllers/map_search_controller.py'). Solo muestra y avisa:
     - Intro o la lupa: 'search_requested(texto)'. Nunca mientras se escribe: las
       condiciones de Nominatim prohíben autocompletar con su servicio.
-    - Elegir una búsqueda reciente en la lista: también 'search_requested', con su texto
-      (el controlador ya tiene su lugar: no se vuelve a pedir).
+    - Elegir una búsqueda reciente en la lista: 'recent_chosen(texto)' (el controlador ya
+      tiene su lugar: va a él sin preguntar a internet). Escribir lo mismo y pulsar Intro es
+      'search_requested': busca de nuevo, con lo que se ve en el mapa en ese momento.
     - «Borrar las búsquedas recientes»: 'clear_history_requested()' (lo escrito se queda).
     - Esc con la lista cerrada: 'escape_pressed()' (el controlador devuelve el teclado al
       mapa).
@@ -33,6 +34,9 @@ Teclado: coge el foco solo al hacer clic, no con Tab. Los atajos de las fotos (�
 tiene el propio QComboBox, no su caja: Intro, Esc y las flechas se atienden en su
 'keyPressEvent' (ver allí; docs/TRAMPAS.md).
 
+1.2.0 'recent_chosen': elegir una búsqueda reciente ya no es 'search_requested' (escribir
+      busca siempre de nuevo; elegirla, no; decidido por el autor el 23/11/2026).
+1.1.1 El texto emergente cita también CartoCiudad (GEN 8.4d).
 1.1.0 'text_cleared': la caja se ha quedado vacía (para quitar la chincheta, GEN 8.4c).
 1.0.1 Intro, Esc y las flechas, en 'keyPressEvent' del QComboBox: con un filtro de eventos
       en la caja no llegaban (Intro no buscaba, Esc no devolvía el teclado al mapa y las
@@ -43,7 +47,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.map_search_box
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["CLEAR_HISTORY_TEXT", "PLACEHOLDER_TEXT", "TOOLTIP_TEXT", "MapSearchBox"]
 
 # Librerías estándar
@@ -64,7 +68,7 @@ from ui_helpers.helpers.ui_icons import tinted_icon
 PLACEHOLDER_TEXT = "Buscar un lugar o una dirección"
 TOOLTIP_TEXT = (
     "Escribe un lugar o una dirección y pulsa Intro.\n"
-    "Búsqueda: © colaboradores de OpenStreetMap (Nominatim)"
+    "Búsqueda: CartoCiudad (IGN) y © colaboradores de OpenStreetMap (Nominatim)"
 )
 CLEAR_HISTORY_TEXT = "Borrar las búsquedas recientes"
 
@@ -83,13 +87,15 @@ class MapSearchBox(QComboBox):
     """La caja de búsqueda del mapa (ver el docstring del archivo).
 
     Signals:
-        search_requested(str): Intro, la lupa o una búsqueda reciente elegida (el texto).
+        search_requested(str): Intro o la lupa (lo escrito).
+        recent_chosen(str): una búsqueda reciente elegida en la lista (su texto).
         clear_history_requested(): se ha elegido «Borrar las búsquedas recientes».
         escape_pressed(): Esc en la caja, con la lista cerrada.
         text_cleared(): la caja se ha quedado vacía (no al rehacer la lista: 'set_history').
     """
 
     search_requested = Signal(str)
+    recent_chosen = Signal(str)
     clear_history_requested = Signal()
     escape_pressed = Signal()
     text_cleared = Signal()
@@ -197,7 +203,7 @@ class MapSearchBox(QComboBox):
             self.setEditText(self._text_before_popup)
             self.clear_history_requested.emit()
             return
-        self.search_requested.emit(self.itemText(row))
+        self.recent_chosen.emit(self.itemText(row))
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # nombre de Qt
         """Intro busca; Esc avisa; las flechas (y Re Pág / Av Pág) abren la lista. Lo demás,
@@ -250,7 +256,9 @@ if __name__ == "__main__":
     clears: list[bool] = []
     escapes: list[bool] = []
     popups: list[bool] = []
+    recents: list[str] = []
     box.search_requested.connect(searches.append)
+    box.recent_chosen.connect(recents.append)
     box.clear_history_requested.connect(lambda: clears.append(True))
     box.escape_pressed.connect(lambda: escapes.append(True))
     # La lista de verdad abriría una ventana emergente: se apunta sin abrirla
@@ -300,11 +308,13 @@ if __name__ == "__main__":
     assert box.count() == 0 and box.text() == "Torla"
     box.set_history([("Torla", "Torla-Ordesa"), ("Museo del Prado", "Museo del Prado")])
 
-    # 4. Elegir una reciente: busca con su texto
+    # 4. Elegir una reciente: avisa con su texto (no es una búsqueda nueva)
+    searches_before = list(searches)
     box.showPopup()
     box.setCurrentIndex(1)  # como hace Qt al elegirla: su texto, en la caja
     box.activated.emit(1)
-    assert searches[-1] == "Museo del Prado" and box.text() == "Museo del Prado"
+    assert recents == ["Museo del Prado"] and box.text() == "Museo del Prado"
+    assert searches == searches_before
 
     # 5. «Borrar...»: avisa y deja en la caja lo que había (no su propio texto); no busca
     edit.setText("Rascafría")
@@ -313,7 +323,7 @@ if __name__ == "__main__":
     assert box.text() == CLEAR_HISTORY_TEXT  # lo que hace Qt al elegirla
     box.activated.emit(3)
     assert clears == [True] and box.text() == "Rascafría" and box.currentIndex() == -1
-    assert searches[-1] == "Museo del Prado"
+    assert recents == ["Museo del Prado"] and searches == searches_before
 
     # 6. Esc avisa (también mandado a la caja); las flechas abren la lista sin elegir nada:
     # ni buscan ni, al pasar por «Borrar...», borran
