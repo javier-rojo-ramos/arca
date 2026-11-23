@@ -84,7 +84,9 @@ const arca = (() => {
   const MERC_WORLD = 40075016.686;  // metros de Mercator del mundo entero (zoom 0 = 256 px)
   const CURSOR_PANE = "arcaCursor"; // capa del punto señalado de un track (ver 'init')
   const SEARCH_PANE = "arcaSearch"; // capa de la chincheta del lugar buscado (ver 'init')
-  const SEARCH_PIN_SIZE = 28;    // lado del cuadrado de la chincheta, en px (la de las tarjetas: 16)
+  // Lado del cuadrado de la chincheta, en px (la de las tarjetas: 16). 36 elegido por el autor
+  // el 23/11/2026, comparada sobre el callejero, el topográfico y la ortofoto (antes, 28)
+  const SEARCH_PIN_SIZE = 36;
 
   // --- Arranque ----------------------------------------------------------------
 
@@ -680,7 +682,8 @@ const arca = (() => {
 
   // La chincheta del lugar encontrado con la caja de búsqueda: la de las tarjetas de la
   // cuadrícula ('draw_location_pin' de ui_helpers/helpers/card_glyphs.py, con sus mismas
-  // proporciones y su borde), en naranja y más grande. La punta queda en el lugar
+  // proporciones y su borde), en naranja y más grande (SEARCH_PIN_SIZE). La punta queda en
+  // el lugar
   function searchPinIcon() {
     const s = SEARCH_PIN_SIZE;
     const cx = s / 2, r = s * 0.34, headY = s * 0.04 + r, tipY = s * 0.98;
