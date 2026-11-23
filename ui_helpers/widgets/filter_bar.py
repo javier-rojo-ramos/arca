@@ -23,11 +23,18 @@ pestañas sin panel todavía se pueden dejar sin pulsar ('set_available').
 
 Nada coge el foco: tras pulsar, el teclado sigue en la cuadrícula.
 
+Otros controles, a la derecha ('add_right_widget'): van delante del desplegable de los
+ajustes, en el orden en que se ponen; quien los pone decide cuándo se ven (p. ej. la caja
+de búsqueda del mapa, solo con el mapa a la vista: 'controllers/map_search_controller.py').
+
 Uso (en el .ui es un widget promocionado, 'widget_filter_bar', dentro de 'frame_main_top'):
     bar.add_panel("text", text_row)
     bar.set_available({"text"})
     bar.set_state(frozenset({"text"}), locked=False)
+    bar.add_right_widget(search_box)
 
+1.3.0 'add_right_widget': otros controles a la derecha, delante del desplegable de los
+      ajustes (la caja de búsqueda del mapa, GEN 8.4b).
 1.2.2 El icono del candado, de 'BAR_ICON_SIZE' (el común de los botones de las barras:
       18 px; antes, 16).
 1.2.1 La fila de las pestañas, de 34 px (antes, 30): 2 más arriba y 2 más abajo, con todo
@@ -43,7 +50,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.filter_bar
 """
 
-__version__ = "1.2.2"
+__version__ = "1.3.0"
 __all__ = ["LOCK_TOOLTIPS", "TAB_TEXTS", "TITLE_TEXT", "FilterBar"]
 
 # Librerías estándar
@@ -163,6 +170,7 @@ class FilterBar(QWidget):
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(_PRESET_LOCK_SPACING)
         right_layout.addStretch(1)
+        self._right_layout = right_layout  # 'add_right_widget' pone ahí más controles
         # El desplegable de los ajustes personalizados, antes del candado
         self._presets = FilterPresetButton(right)
         right_layout.addWidget(self._presets)
@@ -233,6 +241,12 @@ class FilterBar(QWidget):
         self._panel_layout.insertWidget(2 * before, line)
         self._panel_layout.insertWidget(2 * before + 1, panel)
         self._refresh()
+
+    def add_right_widget(self, widget: QWidget) -> None:
+        """Pone un control en la zona derecha, delante del desplegable de los ajustes (los
+        que se pongan después, a su derecha). Pasa a ser hijo de la barra; quien lo pone
+        decide cuándo se ve."""
+        self._right_layout.insertWidget(self._right_layout.indexOf(self._presets), widget)
 
     def set_available(self, keys: Iterable[str]) -> None:
         """Pestañas que se pueden pulsar (las demás, en gris: aún no tienen panel)."""
@@ -374,6 +388,14 @@ if __name__ == "__main__":
     right_layout = bar._lock.parentWidget().layout()
     assert right_layout.indexOf(bar.preset_button) == right_layout.indexOf(bar._lock) - 1
     assert right_layout.indexOf(bar._lock) == right_layout.count() - 1
+    # Otros controles a la derecha: delante del desplegable, en el orden en que se ponen
+    first_extra, second_extra = QWidget(holder), QWidget(holder)
+    bar.add_right_widget(first_extra)
+    bar.add_right_widget(second_extra)
+    positions = [right_layout.indexOf(w) for w in (first_extra, second_extra, bar.preset_button)]
+    assert positions[0] < positions[1] < positions[2], positions
+    assert right_layout.indexOf(bar._lock) == right_layout.count() - 1
+    assert first_extra.parentWidget() is bar._lock.parentWidget()
 
     # Nada coge el foco; un panel repetido o de una pestaña desconocida, rechazado
     buttons = (*bar._tabs.values(), bar._none, bar.preset_button, bar._lock)

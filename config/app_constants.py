@@ -20,6 +20,7 @@ __all__ = [
     "SETTING_FILTER_METADATA_HEIGHT",
     "SETTING_FILTER_PRESETS",
     "SETTING_GPU_RENDERING",
+    "SETTING_GEOCODING_URL",
     "SETTING_ACTIVE_MODULE",
     "SETTING_LAST_ADD_FOLDER_PARENT",
     "SETTING_MAP_CACHE_MB",
@@ -27,6 +28,7 @@ __all__ = [
     "SETTING_MAP_GPU_RENDERING",
     "SETTING_MAP_LAYER",
     "SETTING_MAP_PROFILE",
+    "SETTING_MAP_SEARCH_HISTORY",
     "SETTING_MAP_TRACK_COLORS",
     "SETTING_PROFILE_SLOPE_MODE",
     "SETTING_PROFILE_WAYPOINT_TIPS",
@@ -99,6 +101,7 @@ class AppIcons:
     PROFILE_HIDE = ":/img/profile_hide.svg"
     LOCK_CLOSED = ":/img/lock_closed.svg"
     LOCK_OPEN = ":/img/lock_open.svg"
+    SEARCH = ":/img/search.svg"  # la lupa de la caja de búsqueda del mapa
 
 
 # Constantes de UI
@@ -209,6 +212,16 @@ SETTING_PROFILE_SLOPE_MODE = "profile_slope_mode"
 # Si, al recorrer el perfil de elevación con el ratón, sale en el mapa el texto del punto
 # de interés (waypoint) por el que pasa el punto ámbar (Opciones > Tracks): bool
 SETTING_PROFILE_WAYPOINT_TIPS = "profile_waypoint_tips"
+
+# Las últimas búsquedas de la caja del mapa (GEN 8.4), cada una con su lugar: lista de
+# {query, name, label, latitude, longitude, bounds} ('core/maps/geocoding.history_to_settings').
+# Una para toda la aplicación; como mucho 10, la más reciente primero
+SETTING_MAP_SEARCH_HISTORY = "map_search_history"
+
+# Dirección del servicio de búsqueda de lugares (Nominatim o uno compatible, p. ej. propio).
+# Sin opción en la interfaz: está aquí para poder cambiar de servicio sin actualizar el
+# programa, como piden las condiciones de Nominatim. None (o una que no valga) = Nominatim
+SETTING_GEOCODING_URL = "geocoding_url"
 
 # Orden, visibilidad y plegado de las secciones de las dos barras laterales, por modo:
 # {"version": 1, "modes": {"image": {"left": [{"id", "visible", "expanded"}...], "right": [...]}}}

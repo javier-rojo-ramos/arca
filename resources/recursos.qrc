@@ -47,5 +47,6 @@
         <file alias="profile_hide.svg">images/profile_hide.svg</file>
         <file alias="lock_closed.svg">images/lock_closed.svg</file>
         <file alias="lock_open.svg">images/lock_open.svg</file>
+        <file alias="search.svg">images/search.svg</file>
     </qresource>
 </RCC>

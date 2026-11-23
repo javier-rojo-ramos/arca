@@ -5,6 +5,8 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.22 Se añaden 'map_search_history' (las últimas búsquedas de la caja del mapa) y
+      'geocoding_url' (la dirección del servicio de búsqueda de lugares; None = Nominatim).
 1.21 Se añade 'profile_waypoint_tips' (el texto de los waypoints también al recorrer el
       perfil de elevación; Opciones > Tracks).
 1.20 Se añade 'sidebars_visible' (si se ven las dos barras laterales).
@@ -31,7 +33,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.21"
+__version__ = "1.22"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -51,6 +53,7 @@ from config.app_constants import (
     SETTING_CONFIRM_MULTI_EDIT,
     SETTING_FILTER_METADATA_HEIGHT,
     SETTING_FILTER_PRESETS,
+    SETTING_GEOCODING_URL,
     SETTING_GPU_RENDERING,
     SETTING_INSPECTOR_METADATA_PRESET,
     SETTING_INSPECTOR_SECTIONS,
@@ -60,6 +63,7 @@ from config.app_constants import (
     SETTING_MAP_FILMSTRIP,
     SETTING_MAP_LAYER,
     SETTING_MAP_PROFILE,
+    SETTING_MAP_SEARCH_HISTORY,
     SETTING_MAP_TRACK_COLORS,
     SETTING_MAP_USER_LAYERS,
     SETTING_PROFILE_SLOPE_MODE,
@@ -137,6 +141,11 @@ class ConfigManager:
         SETTING_SECTION_LAYOUT: None,
         # Si se ven las dos barras laterales (menú «Ver», F7, F8 y Tab)
         SETTING_SIDEBARS_VISIBLE: {"left": True, "right": True},
+        # Las últimas búsquedas de la caja del mapa, con su lugar (la más reciente primero)
+        SETTING_MAP_SEARCH_HISTORY: [],
+        # Dirección del servicio de búsqueda de lugares (None = Nominatim; sin opción en la
+        # interfaz: para poder cambiar de servicio sin actualizar el programa)
+        SETTING_GEOCODING_URL: None,
         # Aquí se añaden nuevas variables
     }
 

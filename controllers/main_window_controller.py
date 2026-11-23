@@ -50,6 +50,7 @@ from controllers.inspector_controller import InspectorController
 from controllers.job_coordinator import JobCoordinator
 from controllers.locate_actions import LocateActions
 from controllers.map_controller import MapController
+from controllers.map_search_controller import MapSearchController
 from controllers.metadata_filter_controller import MetadataFilterController
 from controllers.remove_actions import RemoveActions
 from controllers.sidebar_visibility import SidebarVisibility
@@ -90,6 +91,7 @@ from ui_helpers.mixins.window_snap import WindowSnapMixin
 from ui_helpers.models.media_grid_model import QUICK_SELECTION_FIELD, MediaGridModel
 from ui_helpers.widgets.attribute_filter_row import AttributeFilterRow
 from ui_helpers.widgets.map_page import MapPage
+from ui_helpers.widgets.map_search_box import MapSearchBox
 from ui_helpers.widgets.metadata_filter_panel import MetadataFilterPanel
 from ui_helpers.widgets.text_filter_row import TextFilterRow
 
@@ -218,6 +220,9 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self.metadata_filters: MetadataFilterController | None = None
         # Vista «Mapa» del centro: se crea en '_conectar_vistas'
         self.map_controller: MapController | None = None
+        self.map_page: MapPage | None = None
+        # Caja de búsqueda del mapa (en la barra de filtros): se crea en '_conectar_filtros'
+        self.map_search: MapSearchController | None = None
         # Deshacer (Ctrl+Z en toda la ventana; hoy, lo hecho en el mapa)
         self.undo_history = UndoHistory(self)
         self.undo_history.undone.connect(lambda text: message_bar(self, f"Deshecho: {text}"))
@@ -807,6 +812,7 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         # La página del mapa (el mapa se crea la primera vez que se ve: ver 'MapPage')
         map_page = MapPage(self.stacked_widget_main)
         self.stacked_widget_main.addWidget(map_page)
+        self.map_page = map_page  # también la usa la caja de búsqueda ('_conectar_filtros')
         self.center_views = CenterViewController(
             self.module_host,
             buttons=buttons,
@@ -879,6 +885,21 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
             presets=presets,
             parent=self,
         )
+        # La caja de búsqueda del mapa, a la derecha, delante de los ajustes (solo se ve con
+        # el mapa a la vista; ver 'MapSearchController')
+        center_views = getattr(self, "center_views", None)  # no está si faltan las vistas
+        if self.map_page is not None and center_views is not None:
+            search_box = MapSearchBox(bar)
+            bar.add_right_widget(search_box)
+            self.map_search = MapSearchController(
+                self.module_host,
+                box=search_box,
+                map_page=self.map_page,
+                center_views=center_views,
+                config=self.config,
+                window=self,
+                parent=self,
+            )
 
     def _conectar_orden(self) -> None:
         """Conecta el control «Orden:» de la barra inferior con el orden del módulo activo.
