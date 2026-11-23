@@ -107,6 +107,8 @@ python -m core.thumbnails.sizes
 # core.maps
 python -m core.maps.tile_layers                                (capas del mapa: claves, direcciones, teselas válidas; sin red)
 python -m core.maps.tile_store                                 (caché de teselas: rutas, caducidad, tope de tamaño; sin red)
+python -m core.maps.geocoding                                  (buscar lugares: la petición, la respuesta de Nominatim, el reparto de la dirección y el historial; sin red)
+python -m core.maps.geocoding_client                           (la petición con un transporte de mentira: cabeceras, errores, una por segundo desde varios hilos, cancelar; sin red, menos de 1 s)
 
 # ui_helpers.map
 python -m ui_helpers.map.map_types                             (marcadores, tracks y rectángulos del mapa; sin Qt)

@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 22/11/2026.
+**Actualizado**: 23/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes: añadir y sincronizar carpetas, metadatos con ExifTool, miniaturas, cuadrícula y vista individual, clasificación (valoración, marca, color y selección rápida) guardada también en los archivos, palabras clave, colecciones (también inteligentes, con grupos de reglas), barra de filtros («Texto», «Atributos», «Metadatos» y ajustes personalizados) e inspector, que edita las palabras clave en todos los módulos y, en las fotos y vídeos de Imagen, el título, el pie, el creador, el copyright, la ubicación y el GPS (también guardados en los archivos). El módulo Imagen navega por carpetas, fechas y palabras clave. Vídeo, audio, GPX y ebooks se catalogan y se clasifican en bibliotecas; los módulos Vídeo y Audio muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas), a falta de su navegación propia. Lo siguiente, en [PENDIENTE.md](PENDIENTE.md).
 
@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| — | Nada pendiente (el 22/11/2026, el autor comprobó todo lo entregado) |
+| **Buscar un lugar en el mapa, paso 1: la búsqueda sin interfaz (`GEN 8.4a`)** (23/11/2026; `core/maps/geocoding.py` y `geocoding_client.py`, nuevos) | Nada en la aplicación: todavía no lo usa nada (la caja llega con el `8.4b`). Si se quiere, las dos autopruebas: `python -m core.maps.geocoding` y `python -m core.maps.geocoding_client` (sin red) |
 
 ## Comprobaciones sueltas
 
@@ -161,6 +161,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 23/11/2026: buscar un lugar en el mapa (`GEN 8.4`, pedido por el autor, como en Lightroom; antes de `TRK 6.1` y `MUS 1`): acordado el plan ([DECISIONES.md](DECISIONES.md)) y hecho el primer paso, la búsqueda sin interfaz, con Nominatim (`core/maps/geocoding.py` y `geocoding_client.py`). Preparado ya para la geocodificación inversa, anotada como `GEN 8.5`: un solo cliente sin Qt, un solo turno de una petición por segundo y la dirección repartida en los campos de ubicación. Comprobado con tres búsquedas reales.
 - 22/11/2026: al recorrer el perfil de elevación, el texto del waypoint por el que pasa el punto ámbar, con una casilla nueva en Opciones > Tracks (`profile_waypoint_tips`, activada de partida). Verificados por el autor, con el paso 4.3b de Tracks, todos los retoques de los waypoints de hoy (el texto emergente, el punto ámbar encima, el clic y el perfil); y también Opciones > Tracks con el menú de la pendiente, el punto que sigue la línea, los iconos (Paneles, Vídeo, Audio, Tracks) la sección «Track» del inspector (`TRK 4.4`, comparada con Wikiloc), el recorrido en la tarjeta (`TRK 4.5`) y la actividad leída del GPX (`TRK 4.6a`). Decidido para `TRK 6.1`: la actividad del inspector, en el `<type>` del propio GPX ([DECISIONES.md](DECISIONES.md)). Por último, los pasos 4.6b y 5.3b: no queda nada pendiente de verificar.
 - 22/11/2026: el punto ámbar encima de los rombos, verificado por el autor. El texto de un waypoint sale con el punto ámbar o el ratón a menos de 10 px del rombo, calculado en cada fotograma (antes, solo con el ratón encima del rombo: cerca de la línea el cursor está oculto y salía o no según dónde quedara). Comprobado sin ventana con la página real del mapa y cuatro waypoints. Con el punto ámbar en el track activo, un clic cuenta como clic en el track (antes caía en el mapa vacío y quitaba la selección).
 - 22/11/2026: waypoints (pedido por el autor al probar `TRK 4.3b`): su texto emergente, hasta 300 px de ancho y con los saltos de línea del archivo; el punto ámbar del track, en su propia capa encima de los rombos (antes pasaba por debajo y desaparecía). Comprobado con la página real del mapa sin ventana.
@@ -170,4 +171,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 21/11/2026: el DNG del DJI, verificado por el autor. Versión 12 de los campos de imagen y 5 de los de vídeo: los CRW (sin EXIF) con cámara, toma, fecha y número de serie; el objetivo de las réflex Nikon, compuesto con sus números como Lightroom («20.0 mm f/1.8»), en fotos y vídeos; y la fecha de un archivo sin fecha en sus metadatos ya no cambia al releerlo (escribirle la valoración le cambiaba la fecha). Releído el catálogo sin escribir en él: solo cambian el CRW, los dos NEF y el MOV de la D3100.
 - 21/11/2026: revisados con el autor los archivos de «Pruebas de formatos» (GIF, NEF vertical, una película MKV y los RAW con su lista de resultados previstos): bien, salvo tres fallos. Arreglado el primero: el DNG del DJI no se escribía (su nota del fabricante está dañada); se reintenta con `-m` solo cuando ese es el único error (`xmp_writer` 1.4.0; [DECISIONES.md](DECISIONES.md)). Pendientes, para la versión 12 de los campos de imagen: el CRW sin cámara ni fecha y los NEF sin objetivo.
 - 21/11/2026: los AVI de compactas, a Imagen: verificado por el autor. [FORMATOS.md](FORMATOS.md), con una sección nueva, «Qué se ha probado con archivos reales» (cada formato, si se lee y si se escribe, y lo que falta).
-- 21/11/2026: la hora de los vídeos de las Nikon (su nota del fabricante; la de QuickTime, que es local, salía con dos horas de más) y de los AVI de compactas (salían con la fecha del archivo); `VIDEO_FIELDS_VERSION` 4. El `.jfif` y el `.jp2`, verificados: la entrega de formatos del 19/11, a «Verificado».
