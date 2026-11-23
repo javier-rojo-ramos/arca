@@ -69,7 +69,7 @@ Dónde está cada pieza ya implementada. Qué hace cada archivo, en el mapa de [
 |---|---|---|
 | Componente de mapa | `ui_helpers/map/` (`map_view.py`, `map_backend.py`, `web_backend.py`, `web_bridge.py`, `map_scheme.py`, `map_types.py`); `resources/map/` (`index.html`, `arca_map.js`, `arca_map.css`, `vendor/`) | `MapView`, la fachada; detrás, la página con Leaflet y el esquema `arca-map://` |
 | Capas y teselas | `core/maps/` (`tile_layers.py`, `tile_store.py`); `ui_helpers/dialogs/map_layer_dialog.py` | Las capas, la caché en disco y las capas propias de Opciones > Mapa |
-| Buscar un lugar (`GEN 8.4`, 23/11/2026) | `core/maps/` (`geocoding.py`, `geocoding_client.py`); `controllers/map_search_controller.py`; `ui_helpers/widgets/map_search_box.py` | La caja de la barra de filtros con el mapa a la vista: busca en Nominatim y encuadra el primer lugar; las búsquedas recientes ([FLUJOS.md §16](FLUJOS.md)) |
+| Buscar un lugar (`GEN 8.4`, 23/11/2026) | `core/maps/` (`geocoding.py`, `geocoding_client.py`); `controllers/map_search_controller.py`; `ui_helpers/widgets/map_search_box.py` | La caja de la barra de filtros con el mapa a la vista: busca en Nominatim y encuadra el primer lugar, con una chincheta naranja (`MapView.set_search_pin`); las búsquedas recientes ([FLUJOS.md §16](FLUJOS.md)) |
 | Mapa en la ventana | `controllers/map_controller.py`, `controllers/map_framing.py`; `ui_helpers/widgets/map_page.py`, `map_filmstrip.py` | La vista «Mapa» del centro, el encuadre recordado por módulo y la tira de fotos |
 | Consultas y cambios | `core/catalog/map_queries.py`, `geotagging.py`, `track_stats.py`; `controllers/undo_history.py` | Lo que pinta el mapa, ubicar fotos (con deshacer) y los datos del inspector |
 | Lectura de los GPX | `core/metadata/track/` (`gpx_reader.py`, `extractor.py`); `core/tracks/gpx_document.py` | El resumen para el catálogo (`TRACK_EXTRACTOR_VERSION`) y el lector completo, sin pérdidas |
@@ -299,6 +299,9 @@ class MapView(QWidget):
     def set_track_colors(self, track: str, active: str) -> None: ...                  # Opciones > Tracks
     def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None: ...            # los del track activo
     def waypoints(self) -> tuple[MapWaypoint, ...]: ...
+    def set_search_pin(self, latitude: float, longitude: float) -> None: ...         # la chincheta del lugar buscado (GEN 8.4c); 'clear' no la quita
+    def clear_search_pin(self) -> None: ...
+    def search_pin(self) -> Position | None: ...
 
     # Encuadre (los 'fit_*' devuelven si había algo que encuadrar)
     def fit_bounds(self, bounds: MapBounds, *, animate: bool = True) -> None: ...

@@ -29,6 +29,8 @@ Mover una foto: el mapa avisa con 'markers_moved' y la deja donde se soltó; qui
 guarda el cambio y lo confirma con 'update_markers' (o, si no se puede, la devuelve a
 su sitio con 'update_markers' y sus coordenadas de antes).
 
+1.8.0 'set_search_pin', 'clear_search_pin' y 'search_pin': la chincheta del lugar
+      encontrado con la caja de búsqueda (GEN 8.4c); 'clear' no la quita.
 1.7.0 'set_track_cursor(..., waypoint_tip=)': con el punto señalado sobre un punto de
       interés, su texto (al recorrer el perfil; Opciones > Tracks, 22/11/2026).
 1.6.0 El botón «Encuadrar» (encima del zoom): la señal 'fit_requested' y los encuadres
@@ -57,7 +59,7 @@ Con el mapa de verdad (abre una ventana y se queda abierta):
     python -m ui_helpers.map.map_view --ventana
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = ["MapView"]
 
 # Librerías estándar
@@ -81,6 +83,7 @@ from ui_helpers.map.map_types import (
     MapTrack,
     MapViewport,
     MapWaypoint,
+    Position,
     bounds_of,
 )
 
@@ -151,6 +154,7 @@ class MapView(QWidget):
         self._drop_enabled = False
         self._preview: tuple[MapMarker, ...] = ()
         self._waypoints: tuple[MapWaypoint, ...] = ()
+        self._search_pin: Position | None = None  # el lugar encontrado con la caja de búsqueda
         self._layers: tuple[TileLayer, ...] = TILE_LAYERS
         self._layer_key = DEFAULT_LAYER_KEY
         # Último encuadre pedido antes de estar listo: ("bounds", rectángulo, animar) o
@@ -341,6 +345,29 @@ class MapView(QWidget):
         """Los puntos de interés que se ven."""
         return self._waypoints
 
+    def set_search_pin(self, latitude: float, longitude: float) -> None:
+        """Pone (o mueve) la chincheta del lugar encontrado con la caja de búsqueda, con la
+        punta en ese punto. Solo se mira y no coge el ratón. 'clear' no la quita: es de la
+        búsqueda, no de lo que se ve (la quita 'clear_search_pin')."""
+        position = (float(latitude), float(longitude))
+        if position == self._search_pin:
+            return
+        self._search_pin = position
+        if self._ready:
+            self._backend.set_search_pin(position)
+
+    def clear_search_pin(self) -> None:
+        """Quita la chincheta del lugar encontrado (si la hay)."""
+        if self._search_pin is None:
+            return
+        self._search_pin = None
+        if self._ready:
+            self._backend.set_search_pin(None)
+
+    def search_pin(self) -> Position | None:
+        """Dónde está la chincheta del lugar encontrado (latitud, longitud), o None."""
+        return self._search_pin
+
     # -------------------------------------------------------------------------
     # Encuadre
     # -------------------------------------------------------------------------
@@ -512,6 +539,8 @@ class MapView(QWidget):
             self._backend.set_preview_markers(self._preview)
         if self._waypoints:
             self._backend.set_waypoints(self._waypoints)
+        if self._search_pin is not None:
+            self._backend.set_search_pin(self._search_pin)
         pending, self._pending_view = self._pending_view, None
         if pending is not None:
             if pending[0] == "bounds":
@@ -594,6 +623,9 @@ def _run_logic_selftest() -> None:
 
         def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:
             self.calls.append(("waypoints", [w.name for w in waypoints]))
+
+        def set_search_pin(self, position: Position | None) -> None:
+            self.calls.append(("search_pin", position))
 
         def fit_bounds(self, bounds: MapBounds, *, animate: bool = True) -> None:
             self.calls.append(("fit", bounds, animate))
@@ -826,6 +858,21 @@ def _run_logic_selftest() -> None:
         raise AssertionError("debía rechazar unas coordenadas imposibles")
     except ValueError:
         pass
+
+    # La chincheta del lugar buscado: se pone, se mueve, no se repite, 'clear' no la quita
+    # (es de la búsqueda) y vuelve si el fondo arranca otra vez
+    view.set_search_pin(42.6277, -0.1121)
+    view.set_search_pin(42.6277, -0.1121)
+    assert backend.take() == [("search_pin", (42.6277, -0.1121))]
+    view.set_search_pin(40.4, -3.7)
+    view.clear()
+    assert backend.take() == [("search_pin", (40.4, -3.7)), ("clear",)]
+    assert view.search_pin() == (40.4, -3.7)
+    backend.ready.emit()
+    assert ("search_pin", (40.4, -3.7)) in backend.take()
+    view.clear_search_pin()
+    view.clear_search_pin()
+    assert backend.take() == [("search_pin", None)] and view.search_pin() is None
 
     # 16. Avisos de soltar, mover y botón derecho, reenviados tal cual
     seen.clear()

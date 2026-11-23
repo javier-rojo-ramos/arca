@@ -15,11 +15,14 @@ el servicio de búsqueda ('core/maps/geocoding_client.py'). Decidido por el auto
       encontrado «…»», «Sin conexión: no se puede buscar» o «No se ha podido buscar: el
       servicio no responde».
     - Al buscar (y con Esc), el teclado vuelve al mapa: sus atajos siguen funcionando.
+    - Una chincheta en el lugar encontrado (GEN 8.4c; la de las tarjetas, en naranja): se
+      mueve con cada búsqueda y se quita al vaciar la caja (con la «×» o borrando lo
+      escrito). Sigue al cambiar de módulo, como lo escrito en la caja; no se guarda.
 
 La petición va en un hilo aparte: bloquea hasta 10 s, más la espera de su turno (una por
 segundo para toda la aplicación: 'geocoding_client.SHARED_GATE'). Si mientras tanto se
 busca otra cosa, lo que llegue tarde no mueve el mapa ni da su aviso (su lugar sí queda en
-la lista); si se deja el mapa, da su aviso pero no lo mueve. No se vuelve a pedir una
+la lista); si se deja el mapa, o se vacía la caja, da su aviso pero no lo mueve. No se vuelve a pedir una
 búsqueda igual a la que está en marcha, ni una que en esta sesión no encontró nada: las
 condiciones de Nominatim piden no repetir la misma consulta.
 
@@ -32,13 +35,15 @@ Uso (en el controlador principal, solo la conexión):
                                           center_views=center_views, config=config,
                                           window=self, parent=self)
 
+1.1.0 La chincheta del lugar encontrado ('MapView.set_search_pin'), que se quita al vaciar
+      la caja ('text_cleared'); lo que llega con la caja ya vacía no mueve el mapa (GEN 8.4c).
 1.0.0 Primera versión (GEN 8.4b).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana ni usa la red):
     python -m controllers.map_search_controller
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "FALLBACK_ZOOM",
     "NOT_FOUND_TEXT",
@@ -160,6 +165,7 @@ class MapSearchController(QObject):
         box.search_requested.connect(self.search)
         box.clear_history_requested.connect(self.clear_history)
         box.escape_pressed.connect(self._back_to_map)
+        box.text_cleared.connect(self._on_text_cleared)
         host.view_changed.connect(self._on_view_changed)
         self._on_view_changed()
 
@@ -248,19 +254,27 @@ class MapSearchController(QObject):
         logger.info(f"Mapa: «{query}» -> {place.label}")
         self._remember(query, place)
         if latest:
-            if self._shown():
+            if self._shown() and self._box.text().strip():
                 self._go_to(place)
             else:
-                self._say(place.label, AppIcons.CHECK_CIRCLE)  # el mapa ya no se ve
+                # El mapa ya no se ve, o se ha vaciado la caja (se ha desistido): sin moverlo
+                self._say(place.label, AppIcons.CHECK_CIRCLE)
 
     def _go_to(self, place: Place) -> None:
-        """Encuadra el lugar (su rectángulo o, si no lo tiene, su punto) y dice cuál es."""
+        """Encuadra el lugar (su rectángulo o, si no lo tiene, su punto), le pone la
+        chincheta y dice cuál es."""
         view = self._page.map_view()
         if place.bounds is not None:
             view.fit_bounds(MapBounds(*place.bounds))
         else:
             view.center_on(place.latitude, place.longitude, FALLBACK_ZOOM)
+        view.set_search_pin(place.latitude, place.longitude)
         self._say(place.label, AppIcons.CHECK_CIRCLE)
+
+    def _on_text_cleared(self) -> None:
+        """La caja se ha vaciado: fuera la chincheta (si el mapa ya existe)."""
+        if self._page.has_map():
+            self._page.map_view().clear_search_pin()
 
     def _viewbox(self) -> Bounds | None:
         """Lo que se ve en el mapa (sur, oeste, norte, este): sus lugares salen antes."""
@@ -339,13 +353,20 @@ if __name__ == "__main__":
 
     class FakeMapView:
         def __init__(self) -> None:
-            self.calls: list[tuple] = []
+            self.calls: list[tuple] = []  # los encuadres
+            self.pin: tuple[float, float] | None = None  # la chincheta
 
         def fit_bounds(self, bounds: MapBounds) -> None:
             self.calls.append(("fit", bounds))
 
         def center_on(self, latitude: float, longitude: float, zoom: float | None) -> None:
             self.calls.append(("center", latitude, longitude, zoom))
+
+        def set_search_pin(self, latitude: float, longitude: float) -> None:
+            self.pin = (latitude, longitude)
+
+        def clear_search_pin(self) -> None:
+            self.pin = None
 
         def viewport(self) -> MapViewport:
             return MapViewport(40.4, -3.7, 6.0, MapBounds(36.0, -9.5, 43.8, 3.3))
@@ -413,63 +434,81 @@ if __name__ == "__main__":
                                          run_in_background=runner)
         return controller, host, page, views, box
 
+    def ask(box: MapSearchBox, text: str) -> None:
+        """Como el usuario: escribir en la caja y pulsar Intro."""
+        box.lineEdit().setText(text)
+        box.search_requested.emit(text)
+
     # 1. La caja, solo con el mapa a la vista; fuera del mapa no se busca
     config = FakeConfig({})
     controller, host, page, views, box = make(config)
     assert box.isHidden()
-    controller.search("Torla")
-    assert asked == [] and page.view.calls == []
+    ask(box, "Torla")
+    assert asked == [] and page.view.calls == [] and page.view.pin is None
     host.show(CenterView.MAP)
     assert not box.isHidden()
     host.show(CenterView.SINGLE)
     assert box.isHidden()
     host.show(CenterView.MAP)
 
-    # 2. Encontrado: encuadra su rectángulo, dice cuál es, lo recuerda y el teclado, al mapa
-    controller.search("  Torla ")
+    # 2. Encontrado: encuadra su rectángulo, la chincheta en su punto, dice cuál es, lo
+    # recuerda y el teclado, al mapa
+    ask(box, "  Torla ")
     assert asked == [(DEFAULT_SERVICE_URL, "Torla", (36.0, -9.5, 43.8, 3.3))], asked
     assert page.view.calls == [("fit", MapBounds(42.5954, -0.2076, 42.7984, 0.0214))]
+    assert page.view.pin == (42.6277, -0.1121)
     assert status() == TORLA.label and views.focused == 1
     assert [entry.query for entry in controller.history()] == ["Torla"]
     assert config.data[SETTING_MAP_SEARCH_HISTORY][0]["name"] == "Torla-Ordesa"
     assert box.history() == ["Torla"]
 
-    # 3. Otra vez (con otras mayúsculas): sin preguntar a internet
-    controller.search("TORLA")
+    # 3. Otra vez (con otras mayúsculas): sin preguntar a internet; la chincheta, igual
+    ask(box, "TORLA")
     assert len(asked) == 1 and page.view.calls[-1][0] == "fit" and len(page.view.calls) == 2
     assert [entry.query for entry in controller.history()] == ["TORLA"]
+    assert page.view.pin == (42.6277, -0.1121)
 
-    # 4. Un lugar sin rectángulo: se centra con el zoom de reserva; arriba de la lista
-    controller.search("Museo del Prado")
+    # 4. Un lugar sin rectángulo: se centra con el zoom de reserva; la chincheta se mueve;
+    # arriba de la lista
+    ask(box, "Museo del Prado")
     assert page.view.calls[-1] == ("center", 40.4138, -3.6920, FALLBACK_ZOOM)
+    assert page.view.pin == (40.4138, -3.6920)
     assert box.history() == ["Museo del Prado", "TORLA"]
 
-    # 5. No encontrado: el aviso; la segunda vez, sin volver a pedirlo; el mapa no se mueve
+    # 5. No encontrado: el aviso; la segunda vez, sin volver a pedirlo; el mapa y la
+    # chincheta no se mueven
     calls_before = len(page.view.calls)
-    controller.search("Nada")
+    ask(box, "Nada")
     assert status() == NOT_FOUND_TEXT.format(query="Nada") == "No se ha encontrado «Nada»"
-    controller.search("nada")
+    ask(box, "nada")
     assert sum(1 for item in asked if item[1].casefold() == "nada") == 1
     assert len(page.view.calls) == calls_before and box.history()[0] == "Museo del Prado"
+    assert page.view.pin == (40.4138, -3.6920)
 
-    # 6. Errores: sin conexión, el servicio, y uno inesperado (se registra y no se cuelga)
-    controller.search("sin red")
+    # 6. La caja, vacía (la «×» o borrando): fuera la chincheta; el mapa, donde estaba
+    box.lineEdit().clear()
+    assert page.view.pin is None and len(page.view.calls) == calls_before
+    ask(box, "museo del prado")  # una reciente: la chincheta vuelve
+    assert page.view.pin == (40.4138, -3.6920)
+
+    # 7. Errores: sin conexión, el servicio, y uno inesperado (se registra y no se cuelga)
+    ask(box, "sin red")
     assert status() == OFFLINE_TEXT
-    controller.search("saturado")
+    ask(box, "saturado")
     assert status() == SERVICE_ERROR_TEXT
     print("Un error de programación, a propósito (sale en el registro con su traza):")
-    controller.search("fallo")
+    ask(box, "fallo")
     assert status() == SERVICE_ERROR_TEXT and controller._pending is None
     # Un error no se apunta como «no encontrado»: se puede volver a intentar
-    controller.search("sin red")
+    ask(box, "sin red")
     assert sum(1 for item in asked if item[1] == "sin red") == 2
 
-    # 7. Borrar las búsquedas recientes
+    # 8. Borrar las búsquedas recientes (la chincheta no se toca: es de lo escrito)
     controller.clear_history()
     assert controller.history() == () and config.data[SETTING_MAP_SEARCH_HISTORY] == []
-    assert box.history() == []
+    assert box.history() == [] and page.view.pin == (40.4138, -3.6920)
 
-    # 8. Lo guardado se lee al empezar; el servicio, el de los ajustes
+    # 9. Lo guardado se lee al empezar; el servicio, el de los ajustes
     config = FakeConfig({
         SETTING_MAP_SEARCH_HISTORY: history_to_settings([HistoryEntry("Torla", TORLA)]),
         SETTING_GEOCODING_URL: "http://localhost:8080/",
@@ -478,43 +517,55 @@ if __name__ == "__main__":
     controller, host, page, views, box = make(config, runner=queued.append)
     host.show(CenterView.MAP)
     assert box.history() == ["Torla"]
-    controller.search("Museo del Prado")
+    ask(box, "Museo del Prado")
     assert status() == SEARCHING_TEXT.format(query="Museo del Prado")
     assert len(queued) == 1 and asked == []  # en marcha (aún no ha respondido)
 
-    # 9. La misma, otra vez mientras está en marcha: no se vuelve a pedir
-    controller.search("museo del prado")
+    # 10. La misma, otra vez mientras está en marcha: no se vuelve a pedir
+    ask(box, "museo del prado")
     assert len(queued) == 1
     queued.pop()()
     assert asked[0][0] == "http://localhost:8080"
     assert page.view.calls == [("center", 40.4138, -3.6920, FALLBACK_ZOOM)]
+    assert page.view.pin == (40.4138, -3.6920)
 
-    # 10. Se busca otra cosa antes de que llegue la primera: la que llega tarde no mueve el
-    # mapa (pero queda en la lista); la última, sí
+    # 11. Se busca otra cosa antes de que llegue la primera: la que llega tarde no mueve el
+    # mapa ni la chincheta (pero queda en la lista); la última, sí
     answers["madrid"] = [Place("Madrid", "Madrid, España", 40.4, -3.7, (40.3, -3.8, 40.6, -3.5))]
     controller.clear_history()
     page.view.calls.clear()
     answers["valencia"] = [Place("Valencia", "Valencia, España", 39.47, -0.38)]
-    controller.search("Madrid")
-    controller.search("Valencia")
+    ask(box, "Madrid")
+    ask(box, "Valencia")
     first, second = queued.pop(0), queued.pop(0)
     first()
     assert page.view.calls == [] and box.history() == ["Madrid"]
+    assert page.view.pin == (40.4138, -3.6920)
     assert status() == SEARCHING_TEXT.format(query="Valencia")  # sigue esperando la última
     second()
     assert page.view.calls == [("center", 39.47, -0.38, FALLBACK_ZOOM)]
+    assert page.view.pin == (39.47, -0.38)
     assert box.history() == ["Valencia", "Madrid"] and status() == "Valencia, España"
 
-    # 11. Se deja el mapa antes de que llegue: da su aviso, pero no lo mueve
+    # 12. Se deja el mapa antes de que llegue: da su aviso, pero no lo mueve
     answers["sevilla"] = [Place("Sevilla", "Sevilla, España", 37.39, -5.99)]
     page.view.calls.clear()
-    controller.search("Sevilla")
+    ask(box, "Sevilla")
     host.show(CenterView.GRID)
     queued.pop()()
     assert page.view.calls == [] and status() == "Sevilla, España"
-    assert box.history()[0] == "Sevilla"
+    assert box.history()[0] == "Sevilla" and page.view.pin == (39.47, -0.38)
 
-    # 12. Esc en la caja: el teclado, al mapa
+    # 13. Se vacía la caja antes de que llegue (se desiste): ni encuadre ni chincheta
+    answers["bilbao"] = [Place("Bilbao", "Bilbao, España", 43.26, -2.93)]
+    host.show(CenterView.MAP)
+    ask(box, "Bilbao")
+    box.lineEdit().clear()
+    queued.pop()()
+    assert page.view.calls == [] and page.view.pin is None
+    assert status() == "Bilbao, España" and box.history()[0] == "Bilbao"
+
+    # 14. Esc en la caja: el teclado, al mapa
     host.show(CenterView.MAP)
     focused = views.focused
     box.escape_pressed.emit()

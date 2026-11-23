@@ -15,6 +15,8 @@ mapa (lo decide 'controllers/map_search_controller.py'). Solo muestra y avisa:
     - «Borrar las búsquedas recientes»: 'clear_history_requested()' (lo escrito se queda).
     - Esc con la lista cerrada: 'escape_pressed()' (el controlador devuelve el teclado al
       mapa).
+    - La caja se queda vacía (con la «×» o borrando lo escrito): 'text_cleared()' (el
+      controlador quita la chincheta del lugar encontrado).
 Las búsquedas recientes las pone el controlador ('set_history'), cada una con el nombre
 completo de su lugar en el texto emergente.
 
@@ -31,6 +33,7 @@ Teclado: coge el foco solo al hacer clic, no con Tab. Los atajos de las fotos (�
 tiene el propio QComboBox, no su caja: Intro, Esc y las flechas se atienden en su
 'keyPressEvent' (ver allí; docs/TRAMPAS.md).
 
+1.1.0 'text_cleared': la caja se ha quedado vacía (para quitar la chincheta, GEN 8.4c).
 1.0.1 Intro, Esc y las flechas, en 'keyPressEvent' del QComboBox: con un filtro de eventos
       en la caja no llegaban (Intro no buscaba, Esc no devolvía el teclado al mapa y las
       flechas iban eligiendo búsquedas recientes, hasta «Borrar...»). Lo vio el autor.
@@ -40,7 +43,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.map_search_box
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = ["CLEAR_HISTORY_TEXT", "PLACEHOLDER_TEXT", "TOOLTIP_TEXT", "MapSearchBox"]
 
 # Librerías estándar
@@ -83,11 +86,13 @@ class MapSearchBox(QComboBox):
         search_requested(str): Intro, la lupa o una búsqueda reciente elegida (el texto).
         clear_history_requested(): se ha elegido «Borrar las búsquedas recientes».
         escape_pressed(): Esc en la caja, con la lista cerrada.
+        text_cleared(): la caja se ha quedado vacía (no al rehacer la lista: 'set_history').
     """
 
     search_requested = Signal(str)
     clear_history_requested = Signal()
     escape_pressed = Signal()
+    text_cleared = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -101,6 +106,8 @@ class MapSearchBox(QComboBox):
         self.setToolTip(TOOLTIP_TEXT)
         # Lo escrito al abrir la lista: vuelve a la caja si se elige «Borrar...»
         self._text_before_popup = ""
+        # True mientras 'set_history' rehace la lista (vacía la caja y la repone: no avisa)
+        self._updating = False
 
         edit = self.lineEdit()
         edit.setPlaceholderText(PLACEHOLDER_TEXT)
@@ -116,6 +123,7 @@ class MapSearchBox(QComboBox):
         # Intro, Esc y las flechas, en 'keyPressEvent' (ver allí por qué no con
         # 'returnPressed' ni con un filtro de eventos en la caja)
         self.activated.connect(self._on_activated)
+        edit.textChanged.connect(self._on_text_changed)
 
     # -------------------------------------------------------------------------
     # Interfaz pública
@@ -135,6 +143,7 @@ class MapSearchBox(QComboBox):
         """
         text = self.text()
         self.blockSignals(True)
+        self._updating = True  # la caja se vacía un momento: no es el usuario
         try:
             self.clear()
             for query, label in entries:
@@ -147,6 +156,7 @@ class MapSearchBox(QComboBox):
             self.setCurrentIndex(-1)
             self.setEditText(text)
         finally:
+            self._updating = False
             self.blockSignals(False)
 
     def history(self) -> list[str]:
@@ -174,6 +184,10 @@ class MapSearchBox(QComboBox):
 
     def _request_search(self) -> None:
         self.search_requested.emit(self.text())
+
+    def _on_text_changed(self, text: str) -> None:
+        if not text and not self._updating:
+            self.text_cleared.emit()
 
     def _on_activated(self, row: int) -> None:
         """Una opción de la lista: una búsqueda reciente o «Borrar...»."""
@@ -325,7 +339,23 @@ if __name__ == "__main__":
     QTest.keyClicks(box, "a")
     assert box.text() == "Rascafría"
 
-    # 7. La lupa, a la izquierda de la caja, busca como Intro (si el icono está en el .qrc)
+    # 7. La caja vacía avisa: con la «×» o borrando; rehacer la lista (que la vacía un
+    # momento) no avisa, ni escribir
+    cleared: list[bool] = []
+    box.text_cleared.connect(lambda: cleared.append(True))
+    box.set_history([("Torla", "Torla-Ordesa")])
+    box.set_history([])
+    assert cleared == [] and box.text() == "Rascafría"
+    edit.clear()  # lo que hace la «×»
+    assert cleared == [True]
+    QTest.keyClicks(box, "Ab")
+    assert cleared == [True]
+    QTest.keyClick(box, Qt.Key.Key_Backspace)
+    QTest.keyClick(box, Qt.Key.Key_Backspace)
+    assert cleared == [True, True] and box.text() == ""
+    edit.setText("Rascafría")
+
+    # 8. La lupa, a la izquierda de la caja, busca como Intro (si el icono está en el .qrc)
     actions = edit.actions()
     if QFile.exists(AppIcons.SEARCH):
         lupa = [a for a in actions if a.toolTip() == TOOLTIP_TEXT]

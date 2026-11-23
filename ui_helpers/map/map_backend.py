@@ -16,6 +16,7 @@ Reglas del contrato:
 
 Este módulo solo declara: no tiene lógica que probar (sin autoprueba).
 
+1.7.0 'set_search_pin': la chincheta del lugar encontrado con la caja de búsqueda (GEN 8.4c).
 1.6.0 'set_track_cursor(..., waypoint_tip=)': con el punto sobre un punto de interés, su
       texto (al recorrer el perfil de elevación; Opciones > Tracks).
 1.5.0 'fit_requested': se ha pulsado el botón «Encuadrar» del mapa.
@@ -26,7 +27,7 @@ Este módulo solo declara: no tiene lógica que probar (sin autoprueba).
       la edición de tracks se añadirá con la fase 7.
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = ["MapBackend"]
 
 # Librerías estándar
@@ -46,6 +47,7 @@ from ui_helpers.map.map_types import (
     MapTrack,
     MapViewport,
     MapWaypoint,
+    Position,
 )
 
 
@@ -147,6 +149,12 @@ class MapBackend(QWidget):
     def set_waypoints(self, waypoints: Sequence[MapWaypoint]) -> None:
         """Los puntos de interés que se ven (los del track activo); vacío = ninguno. Solo
         se miran: su nombre sale al pasar el ratón."""
+        raise NotImplementedError
+
+    def set_search_pin(self, position: Position | None) -> None:
+        """La chincheta del lugar encontrado con la caja de búsqueda (latitud, longitud),
+        con la punta en ese punto; None = quitarla. Solo se mira: encima de todo y sin
+        coger el ratón (lo de debajo se sigue pudiendo pulsar)."""
         raise NotImplementedError
 
     # --- Encuadre ---

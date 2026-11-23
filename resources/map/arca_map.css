@@ -146,6 +146,21 @@ html, body, #map {
   box-shadow: 0 0 3px var(--arca-shadow);
 }
 
+/* La chincheta del lugar encontrado con la caja de búsqueda: la de las tarjetas (con su
+   hueco y su borde oscuro fino), en naranja. El dibujo, en 'searchPinIcon' de arca_map.js */
+.arca-search-pin svg {
+  display: block;
+  overflow: visible;
+}
+
+.arca-search-pin path {
+  fill: var(--arca-search-pin);
+  fill-rule: evenodd;
+  stroke: var(--arca-pin-border);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+
 /* Con el punto del track bajo el ratón, el cursor se oculta (el punto hace de cursor) */
 .arca-hide-cursor,
 .arca-hide-cursor * {

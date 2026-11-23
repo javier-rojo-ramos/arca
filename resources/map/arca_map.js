@@ -67,6 +67,7 @@ const arca = (() => {
   let waypointList = [];         // los que tienen texto: {latlng, x, y (Mercator), lines}
   let waypointTip = null;        // el texto emergente del que está bajo el punto o el ratón
   let tipWaypoint = -1;          // su posición en 'waypointList' (-1 = ninguno)
+  let searchPin = null;          // la chincheta del lugar encontrado con la caja de búsqueda
 
   const MARKER_SIZE = 44;        // lado del recuadro de una foto o de un grupo, en px
   const SMALL_MARKER_SIZE = 18;  // una foto suelta sin miniatura: no hay nada que enseñar
@@ -82,6 +83,8 @@ const arca = (() => {
   const DIMMED_OPACITY = 0.45;   // con un track activo, opacidad de los demás
   const MERC_WORLD = 40075016.686;  // metros de Mercator del mundo entero (zoom 0 = 256 px)
   const CURSOR_PANE = "arcaCursor"; // capa del punto señalado de un track (ver 'init')
+  const SEARCH_PANE = "arcaSearch"; // capa de la chincheta del lugar buscado (ver 'init')
+  const SEARCH_PIN_SIZE = 28;    // lado del cuadrado de la chincheta, en px (la de las tarjetas: 16)
 
   // --- Arranque ----------------------------------------------------------------
 
@@ -108,6 +111,11 @@ const arca = (() => {
     const cursorPane = map.createPane(CURSOR_PANE);
     cursorPane.style.zIndex = 620;
     cursorPane.style.pointerEvents = "none";
+    // La chincheta del lugar buscado, encima de todo (fotos, tracks y su punto) salvo los
+    // textos emergentes, y sin coger el ratón: lo de debajo se sigue pudiendo pulsar
+    const searchPane = map.createPane(SEARCH_PANE);
+    searchPane.style.zIndex = 630;
+    searchPane.style.pointerEvents = "none";
     group = L.layerGroup().addTo(map);
     preview = L.layerGroup().addTo(map);
     waypoints = L.layerGroup().addTo(map);
@@ -670,6 +678,42 @@ const arca = (() => {
     if (track) track.line.closeTooltip();
   }
 
+  // La chincheta del lugar encontrado con la caja de búsqueda: la de las tarjetas de la
+  // cuadrícula ('draw_location_pin' de ui_helpers/helpers/card_glyphs.py, con sus mismas
+  // proporciones y su borde), en naranja y más grande. La punta queda en el lugar
+  function searchPinIcon() {
+    const s = SEARCH_PIN_SIZE;
+    const cx = s / 2, r = s * 0.34, headY = s * 0.04 + r, tipY = s * 0.98;
+    // Los lados de la punta salen de la cabeza a media altura de su radio (en la tarjeta,
+    // a 0,86 r del centro; aquí, justo sobre la circunferencia, para que el arco cierre)
+    const dx = r * Math.sqrt(0.75), dy = r * 0.5;
+    const hole = r * 0.38;
+    const f = (value) => value.toFixed(2);
+    const d =
+      `M${f(cx - dx)} ${f(headY + dy)} A${f(r)} ${f(r)} 0 1 1 ${f(cx + dx)} ${f(headY + dy)} ` +
+      `L${f(cx)} ${f(tipY)} Z ` +
+      `M${f(cx - hole)} ${f(headY)} a${f(hole)} ${f(hole)} 0 1 0 ${f(2 * hole)} 0 ` +
+      `a${f(hole)} ${f(hole)} 0 1 0 ${f(-2 * hole)} 0 Z`;
+    return L.divIcon({
+      className: "arca-search-pin",
+      html: `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}"><path d="${d}"/></svg>`,
+      iconSize: [s, s],
+      iconAnchor: [cx, tipY],
+    });
+  }
+
+  // position: [lat, lon] o null (quitarla). Solo se mira: no coge el ratón
+  function setSearchPin(position) {
+    if (searchPin) {
+      map.removeLayer(searchPin);
+      searchPin = null;
+    }
+    if (!position) return;
+    searchPin = L.marker(position, {
+      icon: searchPinIcon(), pane: SEARCH_PANE, interactive: false, keyboard: false,
+    }).addTo(map);
+  }
+
   // list: [[id, lat, lon], ...]; vacía = quitarlos
   function setPreviewMarkers(list) {
     preview.clearLayers();
@@ -731,7 +775,7 @@ const arca = (() => {
   return {
     init, setLayers, setBaseLayer, setMarkers, updateMarkers, removeMarkers, setSelected,
     setTracks, setTrackGeometry, setActiveTrack, setTrackCursor, setTrackRange, setWaypoints,
-    setTrackColors,
+    setTrackColors, setSearchPin,
     setDropEnabled, setDropCursor, dropPoint, setPreviewMarkers,
     fitBounds, setView, refreshSize, clear,
   };

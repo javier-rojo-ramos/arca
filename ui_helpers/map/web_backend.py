@@ -29,6 +29,8 @@ widget interno, que se queda con ellos (Chromium navegaría por el historial de 
 página). El mismo filtro los aparta y los reenvía a la vista, desde la que suben por sus
 padres hasta la página del mapa: allí el 'CenterViewController' cambia de vista.
 
+1.10.0 'set_search_pin' ('setSearchPin' de la página): la chincheta del lugar encontrado con
+       la caja de búsqueda, con sus colores ('search-pin' y 'pin-border'; GEN 8.4c).
 1.9.0 'set_track_cursor(..., waypoint_tip=)': el tercer argumento de 'setTrackCursor'.
 1.8.0 Botones laterales del ratón: no van a Chromium; '_WebView' los reenvía a la vista,
       para que lleguen a la página del mapa (cambiar de vista; lo pidió el autor).
@@ -50,7 +52,7 @@ padres hasta la página del mapa: allí el 'CenterViewController' cambia de vist
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
@@ -84,6 +86,7 @@ from ui_helpers.map.map_types import (
     MapTrack,
     MapViewport,
     MapWaypoint,
+    Position,
     is_valid_position,
 )
 from ui_helpers.map.web_bridge import MapBridge
@@ -141,6 +144,9 @@ def _theme_colors() -> dict[str, str]:
         "track": css_color(COLORS.map_track),
         "track-active": css_color(COLORS.map_track_active),
         "track-halo": css_color(COLORS.map_track_halo),
+        # La chincheta del lugar buscado: la de las tarjetas (su borde), en naranja
+        "search-pin": css_color(COLORS.map_search_pin),
+        "pin-border": css_color(CARD_COLORS.overlay_border),
     }
 
 
@@ -467,6 +473,12 @@ class WebMapBackend(MapBackend):
             "setWaypoints",
             [[round(w.latitude, 6), round(w.longitude, 6), w.name, w.description] for w in waypoints],
         )
+
+    def set_search_pin(self, position: Position | None) -> None:
+        if position is None:
+            self._call("setSearchPin", None)
+        else:
+            self._call("setSearchPin", [round(position[0], 7), round(position[1], 7)])
 
     def fit_bounds(self, bounds: MapBounds, *, animate: bool = True) -> None:
         self._call("fitBounds", bounds.south, bounds.west, bounds.north, bounds.east, animate)
