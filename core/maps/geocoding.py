@@ -57,7 +57,8 @@ Uso:
 
 1.1.0 CartoCiudad ('cartociudad_url', 'parse_cartociudad'); 'search_url(..., bounded=)':
       solo lo que se ve; 'has_house_number'; 'Place.kind', 'source', 'importance' y
-      'street'; 'street_matches', 'inside' (GEN 8.4d).
+      'street' y 'house_number'; 'match_score' (¿lo encontrado es lo escrito? calle y
+      pueblo, con una errata), 'written_number', 'zone', 'inside' (GEN 8.4d).
 1.0.0 Primera versión (GEN 8.4a).
 
 Prueba rápida (desde la raíz del proyecto; sin red):
@@ -75,6 +76,7 @@ __all__ = [
     "MAX_QUERY_LENGTH",
     "SOURCE_CARTOCIUDAD",
     "SOURCE_NOMINATIM",
+    "ZONE_HALF_DEGREES",
     "Bounds",
     "GeocodingError",
     "GeocodingResponseError",
@@ -87,6 +89,7 @@ __all__ = [
     "history_from_settings",
     "history_to_settings",
     "inside",
+    "match_score",
     "normalize_query",
     "parse_cartociudad",
     "parse_search",
@@ -94,7 +97,8 @@ __all__ = [
     "remember_search",
     "search_url",
     "service_url_from_settings",
-    "street_matches",
+    "written_number",
+    "zone",
 ]
 
 # Librerías estándar
@@ -132,6 +136,8 @@ KIND_PORTAL = "portal"
 _CARTOCIUDAD_AREA_KINDS = frozenset({
     "municipio", "provincia", "comunidad autonoma", "poblacion", "codpost",
 })
+# La zona de lo que se ve: al menos estos grados a cada lado de su centro (unos 30 km)
+ZONE_HALF_DEGREES = 0.3
 # Un número de portal en lo escrito: de 1 a 4 cifras sueltas, quizá con una letra («221B»);
 # no cuentan un código postal (5 cifras) ni el número de una carretera («A-6», «M-30»)
 _HOUSE_NUMBER = re.compile(r"(?<![\w-])\d{1,4}[a-zA-Z]?(?!\w)")
@@ -212,7 +218,8 @@ class Place:
         importance: Cuánto importa el lugar según Nominatim (de 0 a 1: una capital, 0,7;
             una tienda, 0,0001); 0 si no lo dice. Con él se elige entre sus resultados.
         street: La calle del lugar, si la tiene («Calle de López de Hoyos»); '' si no.
-            Con ella se comprueba que lo encontrado es lo escrito ('street_matches').
+            Con ella se comprueba que lo encontrado es lo escrito ('match_score').
+        house_number: Su número de portal, si lo tiene («345», «5B»); '' si no.
     """
 
     name: str
@@ -225,6 +232,7 @@ class Place:
     source: str = ""
     importance: float = 0.0
     street: str = ""
+    house_number: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,17 +317,100 @@ def has_house_number(query: str) -> bool:
     return _HOUSE_NUMBER.search(normalize_query(query)) is not None
 
 
-def street_matches(query: str, place: Place) -> bool:
-    """True si la calle del lugar es la escrita: todas las palabras que la distinguen
-    (sin el tipo de vía ni las partículas, sin tildes) están en lo escrito. «Avenida Vicente
-    C. Salazar» no es «Calle Luis de Salazar, 3» («Vicente» no está escrito); «Calle de
-    López de Hoyos» sí es «López de Hoyos, 345». Sin calle, no se puede saber: True."""
-    words = {_plain(word) for word in re.findall(r"\w+", place.street)}
-    distinctive = {word for word in words if len(word) > 1 and word not in _STREET_WORDS}
-    if not distinctive:
-        return True
-    written = {_plain(word) for word in re.findall(r"\w+", query)}
-    return distinctive <= written
+def match_score(query: str, place: Place) -> int | None:
+    """Cuánto se aparta el lugar de lo escrito: 0, es lo escrito; 1, 2..., con alguna errata;
+    None, es otra cosa. Se comparan las palabras que distinguen (sin el tipo de vía, las
+    partículas, los números ni las tildes):
+        - La calle del lugar, si la tiene: todas sus palabras tienen que estar escritas.
+          «Avenida Vicente C. Salazar» no es «Calle Luis de Salazar, 3» («Vicente» no está
+          escrito), ni «Calle Mastelero» es «Castelar, 7».
+        - Lo demás escrito (el pueblo, la ciudad, el barrio: «..., Madrid»), en el nombre
+          completo del lugar. «Calle Mayor 5, Torla» no es la Calle Mayor de Madrid.
+    Una errata se perdona en las palabras de 5 letras o más: una letra de más, de menos o
+    cambiada, o dos al revés («Slaazar» por «Salazar»). Cada una suma 1."""
+    written = _distinctive_words(query)
+    street = _distinctive_words(place.street)
+    score = 0
+    matched: set[str] = set()
+    for word in street:
+        found = _closest_word(word, written)
+        if found is None:
+            return None
+        matched.add(found[0])
+        score += found[1]
+    rest = written - matched
+    if rest:
+        full_name = {_plain(word) for word in re.findall(r"\w+", place.label or place.name)}
+        for word in rest:
+            found = _closest_word(word, full_name)
+            if found is None:
+                return None
+            score += found[1]
+    return score
+
+
+def written_number(query: str) -> str:
+    """El número de portal escrito («345», «221b»; en minúsculas), o '' si no hay."""
+    found = _HOUSE_NUMBER.search(normalize_query(query))
+    return found.group(0).casefold() if found else ""
+
+
+def zone(bounds: Bounds | None, half_size: float = ZONE_HALF_DEGREES) -> Bounds | None:
+    """La zona de lo que se ve: lo que se ve, agrandado alrededor de su centro hasta al
+    menos 'half_size' grados a cada lado (unos 30 km: la ciudad que se está mirando). Así,
+    mover un poco el mapa dentro de la ciudad no deja fuera la calle que se busca."""
+    if bounds is None:
+        return None
+    south, west, north, east = bounds
+    center_lat, center_lon = (south + north) / 2, (west + east) / 2
+    half_lat = max((north - south) / 2, half_size)
+    half_lon = max((east - west) / 2, half_size)
+    return (max(center_lat - half_lat, -90.0), max(center_lon - half_lon, -180.0),
+            min(center_lat + half_lat, 90.0), min(center_lon + half_lon, 180.0))
+
+
+def _distinctive_words(text: str) -> set[str]:
+    """Las palabras que distinguen un nombre o una dirección: sin tildes, sin letras sueltas,
+    sin tipos de vía ni partículas, y sin las que llevan cifras (el número de portal, «221B»,
+    o el código postal)."""
+    words = {_plain(word) for word in re.findall(r"\w+", text)}
+    return {word for word in words
+            if len(word) > 1 and not any(c.isdigit() for c in word)
+            and word not in _STREET_WORDS}
+
+
+def _closest_word(word: str, candidates: set[str]) -> tuple[str, int] | None:
+    """La palabra de 'candidates' que es 'word' (distancia 0) o, en las de 5 letras o más,
+    la que solo tiene una errata (distancia 1); None si ninguna."""
+    if word in candidates:
+        return word, 0
+    if len(word) < 5:
+        return None
+    for candidate in sorted(candidates):
+        if len(candidate) >= 5 and _edit_distance(word, candidate) == 1:
+            return candidate, 1
+    return None
+
+
+def _edit_distance(first: str, second: str) -> int:
+    """Cuántas erratas separan dos palabras: letras de más, de menos o cambiadas, y dos
+    seguidas al revés (distancia de Damerau-Levenshtein, la de «alineamiento óptimo»)."""
+    rows = len(first) + 1
+    columns = len(second) + 1
+    distance = [[0] * columns for _ in range(rows)]
+    for i in range(rows):
+        distance[i][0] = i
+    for j in range(columns):
+        distance[0][j] = j
+    for i in range(1, rows):
+        for j in range(1, columns):
+            cost = 0 if first[i - 1] == second[j - 1] else 1
+            distance[i][j] = min(distance[i - 1][j] + 1, distance[i][j - 1] + 1,
+                                 distance[i - 1][j - 1] + cost)
+            if (i > 1 and j > 1 and first[i - 1] == second[j - 2]
+                    and first[i - 2] == second[j - 1]):
+                distance[i][j] = min(distance[i][j], distance[i - 2][j - 2] + 1)
+    return distance[-1][-1]
 
 
 def inside(place: Place, bounds: Bounds | None) -> bool:
@@ -422,6 +513,7 @@ def _place_from_item(item: object) -> Place | None:
         source=SOURCE_NOMINATIM,
         importance=_number(item.get("importance")) or 0.0,
         street=_first(address, _STREET_KEYS),
+        house_number=_text(address.get("house_number")),
     )
 
 
@@ -501,7 +593,7 @@ def _cartociudad_place(item: object, query: str) -> Place | None:
         return None
     kind = _text(item.get("type")).casefold()
     raw = _text(item.get("address"))
-    street = ""
+    street = number = ""
     if kind == KIND_PORTAL:
         # «CALLE LUIS DE SALAZAR 3, Madrid» o «KALEA CALLE MAYOR 5 (Harana/Valle de Arana)»:
         # la calle, sin el número del final, y el número aparte
@@ -538,7 +630,7 @@ def _cartociudad_place(item: object, query: str) -> Place | None:
         country_code="ES",
     )
     return Place(name, ", ".join(parts), latitude, longitude, None, address,
-                 kind=kind, source=SOURCE_CARTOCIUDAD, street=street)
+                 kind=kind, source=SOURCE_CARTOCIUDAD, street=street, house_number=number)
 
 
 def _as_name(text: str, query: str) -> str:
@@ -964,33 +1056,69 @@ if __name__ == "__main__":
     assert inside(hoyos, madrid) and not inside(campanillas, madrid)
     assert not inside(hoyos, None)
 
-    # 14. La calle de cada lugar, y si es la escrita
+    # 14. La calle y el número de cada lugar
     assert prado.street == "Paseo del Prado" and torla.street == ""
     assert hoyos.street == "Calle López de Hoyos" and chorrera.street == ""
+    assert (hoyos.house_number, mayor.house_number, chorrera.house_number) == ("345", "5B", "")
+    assert street.house_number == "42" and prado.house_number == ""
+    assert written_number("López de Hoyos, 345") == "345"
+    assert written_number("Baker Street 221B") == "221b" and written_number("Torla") == ""
 
-    def place_on(road: str) -> Place:
-        return Place("x", "x", 0.0, 0.0, street=road)
+    # 15. ¿Lo encontrado es lo escrito? La calle y lo demás escrito (el pueblo...)
+    def place_on(road: str, full_name: str = "") -> Place:
+        return Place("x", full_name or road, 0.0, 0.0, street=road)
 
-    for query, road in [
-        ("López de Hoyos, 345", "Calle de López de Hoyos"),
-        ("Calle Luis de Salazar, 3", "Calle de Luis de Salazar"),
-        ("lopez de hoyos 345", "Calle de López de Hoyos"),          # sin tildes
-        ("San Juan de la Cruz, 38, Colmenar Viejo", "Calle de San Juan de la Cruz"),
-        ("Castellana 100", "Paseo de la Castellana"),
-        ("Gran Vía, 1", "Gran Vía"),
-        ("Calle Mayor 5", "Calle Mayor"),
-        ("Rue de Rivoli 10, Paris", "Rue de Rivoli"),
-        ("Baker Street 221B", "Baker Street"),
-        ("Av. de la Paz 3", "Avenida de la Paz"),
-        ("Peñalara 3", "Calle de Penalara"),                       # la «ñ», como «n»
-        ("Cualquier cosa 3", ""),                                   # sin calle: no se sabe
+    for query, road, full_name, expected in [
+        ("López de Hoyos, 345", "Calle de López de Hoyos", "", 0),
+        ("Calle Luis de Salazar, 3", "Calle de Luis de Salazar", "", 0),
+        ("lopez de hoyos 345", "Calle de López de Hoyos", "", 0),        # sin tildes
+        ("Castellana 100", "Paseo de la Castellana", "", 0),
+        ("Gran Vía, 1", "Gran Vía", "", 0),
+        ("Rue de Rivoli 10", "Rue de Rivoli", "", 0),
+        ("Baker Street 221B", "Baker Street", "", 0),
+        ("Av. de la Paz 3", "Avenida de la Paz", "", 0),
+        ("Peñalara 3", "Calle de Penalara", "", 0),                      # la «ñ», como «n»
+        ("Castelar, 7, Madrid", "Calle Castelar", "Calle Castelar, 7, 28028 Madrid, España", 0),
+        ("San Juan de la Cruz, 38, Colmenar Viejo", "Calle de San Juan de la Cruz",
+         "38, Calle de San Juan de la Cruz, Colmenar Viejo, Comunidad de Madrid, España", 0),
+        ("Calle Mayor 5, Torla", "Calle Mayor", "Calle Mayor, 5, 22376 Torla-Ordesa, Huesca", 0),
+        # Una errata en una palabra larga: vale, con su punto
+        ("Calle Luis de Slaazar, 3", "Calle Luis de Salazar", "", 1),     # dos letras al revés
+        ("Castelar 7", "Calle Castellar", "", 1),                          # una de más
+        # Sin calle (un lugar sin ella): lo escrito, en su nombre completo
+        ("Cualquier cosa 3", "", "Cualquier cosa, 3, Sitio", 0),
     ]:
-        assert street_matches(query, place_on(road)), (query, road)
-    for query, road in [
-        ("Calle Luis de Salazar, 3", "Avenida Vicente C. Salazar"),  # «Vicente», no escrito
-        ("López de Hoyos, 345", "Calle de Narciso López"),
-        ("Calle Mayor 5", "Calle Mayor Baja"),
+        score = match_score(query, place_on(road, full_name))
+        assert score == expected, (query, road, score)
+    for query, road, full_name in [
+        ("Calle Luis de Salazar, 3", "Avenida Vicente C. Salazar", ""),    # «Vicente», no
+        ("Castelar, 7, Madrid", "Calle Mastelero", "Calle Mastelero, 7, 28033 Madrid"),
+        ("Castelar, 7, Madrid", "Calle Castelló", "Calle Castelló, 7, 28001 Madrid"),
+        ("Castelar, 7", "Calle Castell de Castells", "Calle Castell de Castells, 7, Pego"),
+        ("López de Hoyos, 345", "Calle de Narciso López", ""),
+        ("Calle Mayor 5", "Calle Mayor Baja", ""),
+        # El pueblo escrito no es el del lugar
+        ("Calle Mayor 5, Torla", "Calle Mayor", "Calle Mayor, 5, 28013 Madrid, España"),
+        ("Castelar, 7, Madrid", "Calle Castelar", "Calle Castelar, 7, 04711 Albondón"),
+        # Las palabras cortas no admiten erratas («Goya» no es «Soya»)
+        ("Goya 17", "Calle Soya", ""),
     ]:
-        assert not street_matches(query, place_on(road)), (query, road)
+        assert match_score(query, place_on(road, full_name)) is None, (query, road)
+    # Las erratas: Damerau-Levenshtein
+    assert _edit_distance("salazar", "slaazar") == 1 and _edit_distance("castelar", "castell") == 2
+    assert _edit_distance("mastelero", "castelar") > 1 and _edit_distance("abc", "abc") == 0
+
+    # 16. La zona de lo que se ve: agrandada hasta unos 30 km a cada lado de su centro; lo
+    # que ya es más grande, igual
+    small = zone((40.44, -3.69, 40.46, -3.66))
+    assert small is not None and abs(small[0] - 40.15) < 1e-9 and abs(small[3] + 3.375) < 1e-9
+    assert inside(hoyos, small)  # el 345, a unos kilómetros de lo que se ve, en la zona
+    def same(first: object, second: Bounds) -> bool:
+        return first is not None and all(abs(a - b) < 1e-9 for a, b in zip(first, second,
+                                                                            strict=True))
+
+    assert same(zone((36.0, -9.5, 43.8, 3.3)), (36.0, -9.5, 43.8, 3.3))
+    assert zone(None) is None
+    assert same(zone((89.9, 179.9, 90.0, 180.0)), (89.65, 179.65, 90.0, 180.0))
 
     print("Autoprueba finalizada correctamente.")

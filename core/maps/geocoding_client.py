@@ -16,16 +16,24 @@ Aquí se cumplen las condiciones de uso de Nominatim (ver 'geocoding.py'):
     - Un tiempo máximo de espera y un tamaño máximo de la respuesta.
 
 Qué se pregunta y en qué orden ('find'; decidido por el autor el 23/11/2026, GEN 8.4d):
-    Con número de portal («López de Hoyos, 345»):
-        1. CartoCiudad (los portales oficiales de España). Un portal que caiga en lo que
-           se ve en el mapa: ese.
-        2. Si no, Nominatim SOLO en lo que se ve ('bounded'): de sus 5 primeros, el primero
-           cuya calle sea la escrita ('geocoding.street_matches'). Sin esa comprobación, con
-           el mapa sobre México, «Calle Luis de Salazar, 3» daba «Avenida Vicente C.
-           Salazar, 3» antes que el portal de Madrid (el autor, 23/11/2026).
-        3. Si no, el primer portal de CartoCiudad, esté donde esté (lo escrito dice dónde:
+    Con número de portal («López de Hoyos, 345»), solo vale lo que ES LO ESCRITO
+    ('geocoding.match_score'): su calle (CartoCiudad y Nominatim dan también calles que se le
+    parecen: «Castelar, 7, Madrid» daba «Calle Mastelero, 7») y, si se escribe, el pueblo o
+    la ciudad (que decide: «Calle Mayor 5, Torla» da la de Torla, mire donde mire el mapa);
+    una errata en una palabra larga se perdona, y lo exacto va antes. Y sin pueblo escrito,
+    manda la ZONA del mapa ('geocoding.zone': unos 30 km alrededor de su centro, la ciudad
+    que se mira), no solo lo que hay en pantalla:
+        1. Un portal de CartoCiudad (los oficiales de España) en la zona.
+        2. Si no, Nominatim SOLO en la zona ('bounded'), con el número escrito.
+        3. Si no, Nominatim en la zona, la calle aunque no tenga ese número (en un pueblo, a
+           OpenStreetMap le faltan números): lo de la zona va antes que un portal lejano.
+        4. Si no, un portal de CartoCiudad, esté donde esté (el pueblo escrito dice dónde:
            «López de Hoyos, 345, Madrid» con el mapa en otra parte).
-        4. Si no, como un nombre (abajo), sin volver a preguntar a CartoCiudad.
+        5. Si no, como un nombre (abajo), sin volver a preguntar a CartoCiudad; de lo que dé
+           Nominatim, antes lo que es lo escrito.
+    Historia (23/11/2026, el autor): primero se miraba solo lo que había en pantalla y sin
+    comprobar nada; con el mapa sobre México, «Calle Luis de Salazar, 3» daba «Avenida Vicente
+    C. Salazar, 3», y moviendo un poco el mapa, «Castelar, 7» acababa en Pego.
     Sin número (un nombre de lugar: «Torla», «Londres», «Santiago de Chile»):
         1. Nominatim en todo el mundo, por importancia (lo que se ve, solo como preferencia):
            limitarlo, o preguntar antes a CartoCiudad, daría la calle de Londres de Madrid.
@@ -33,8 +41,8 @@ Qué se pregunta y en qué orden ('find'; decidido por el autor el 23/11/2026, G
            ('RELEVANCE_SHARE'): la preferencia por lo que se ve sube cosas pequeñas («Santiago
            de Chile», con el mapa en España, daba un local de Barcelona; «Toledo», viendo
            Madrid, la Puerta de Toledo), pero «Santiago» sigue dando el de Galicia.
-        2. Si no encuentra nada, CartoCiudad (sus topónimos: parajes, arroyos, picos...),
-           antes lo que caiga en lo que se ve.
+        2. Si no encuentra nada, CartoCiudad (sus topónimos: parajes, arroyos, picos...), lo
+           que sea lo escrito, antes lo que caiga en lo que se ve.
     Si CartoCiudad falla (sin conexión, un certificado...), se sigue sin él, como si no
     hubiera encontrado nada (se apunta en el registro). Si falla Nominatim y CartoCiudad
     tiene algo, vale eso; si no, el error de Nominatim.
@@ -60,8 +68,9 @@ Uso (en un hilo secundario):
     places = client.cartociudad("Torla")    # solo CartoCiudad
 
 1.1.0 CartoCiudad ('cartociudad', con su turno 'CARTOCIUDAD_GATE'); 'find', la búsqueda
-      con los dos servicios (en lo que se ve, solo si la calle es la escrita); 'search(...,
-      bounded=)'; los certificados, con 'truststore' si está instalada (GEN 8.4d).
+      con los dos servicios (solo lo que es lo escrito; sin pueblo escrito, la zona del
+      mapa); 'search(..., bounded=)'; los certificados, con 'truststore' si está instalada
+      (GEN 8.4d).
 1.0.0 Primera versión (GEN 8.4a).
 
 Prueba rápida (desde la raíz del proyecto; sin red):
@@ -118,11 +127,13 @@ from core.maps.geocoding import (
     cartociudad_url,
     has_house_number,
     inside,
+    match_score,
     normalize_query,
     parse_cartociudad,
     parse_search,
     search_url,
-    street_matches,
+    written_number,
+    zone,
 )
 
 # Lo más que se espera la respuesta del servicio
@@ -303,28 +314,34 @@ class GeocodingClient:
         if not text:
             return []
         spain: list[Place] | None = None  # lo que ha dicho CartoCiudad (None = sin preguntar)
-        if has_house_number(text):
+        numbered = has_house_number(text)
+        if numbered:
             spain = self._cartociudad_quietly(text, cancel_event)
-            portals = [place for place in spain if place.kind == KIND_PORTAL]
-            nearby = [place for place in portals if inside(place, viewbox)]
+            # Solo los portales que son lo escrito, lo exacto antes
+            portals = _written(text, [place for place in spain if place.kind == KIND_PORTAL])
+            area = zone(viewbox)
+            nearby = [place for place in portals if inside(place, area)]
             if nearby:
                 return nearby[:1]
-            if viewbox is not None:
+            local: list[Place] = []
+            if area is not None:
                 try:
-                    places = self.search(text, viewbox=viewbox, bounded=True,
-                                         language=language, limit=NAME_RESULTS,
-                                         cancel_event=cancel_event)
+                    local = _written(text, self.search(
+                        text, viewbox=area, bounded=True, language=language,
+                        limit=NAME_RESULTS, cancel_event=cancel_event))
                 except GeocodingCancelled:
                     raise
                 except GeocodingError:
                     if portals:
                         return portals[:1]
                     raise
-                # Solo lo que de verdad está en la calle escrita: Nominatim, limitado a lo que
-                # se ve, da también calles que se le parecen
-                matching = [place for place in places if street_matches(text, place)]
-                if matching:
-                    return matching[:1]
+                number = written_number(text)
+                with_number = [place for place in local
+                               if place.house_number.casefold() == number]
+                if with_number:
+                    return with_number[:1]
+                if local:  # la calle escrita, en la zona, aunque sin ese número
+                    return local[:1]
             if portals:
                 return portals[:1]
         try:
@@ -333,17 +350,19 @@ class GeocodingClient:
         except GeocodingCancelled:
             raise
         except GeocodingError:
-            # Nominatim no responde: si CartoCiudad tiene algo, vale eso
+            # Nominatim no responde: si CartoCiudad tiene algo que es lo escrito, vale eso
             if spain is None:
                 spain = self._cartociudad_quietly(text, cancel_event)
-            if spain:
-                return _nearest_first(spain, viewbox)[:1]
+            if found := _nearest_first(_written(text, spain), viewbox):
+                return found[:1]
             raise
         if places:
+            if numbered and (written := _written(text, places)):
+                return written[:1]
             return [_most_relevant(places)]
         if spain is None:
             spain = self._cartociudad_quietly(text, cancel_event)
-        return _nearest_first(spain, viewbox)[:1]
+        return _nearest_first(_written(text, spain), viewbox)[:1]
 
     def search(
         self,
@@ -431,6 +450,14 @@ class GeocodingClient:
         if len(data) > MAX_RESPONSE_BYTES:
             raise GeocodingResponseError("La respuesta del servicio es demasiado grande")
         return data
+
+
+def _written(query: str, places: Sequence[Place]) -> list[Place]:
+    """Los lugares que son lo escrito ('match_score'), lo exacto antes que lo que tiene una
+    errata; entre iguales, en su orden."""
+    scored = [(score, position, place) for position, place in enumerate(places)
+              if (score := match_score(query, place)) is not None]
+    return [place for _score, _position, place in sorted(scored, key=lambda item: item[:2])]
 
 
 def _most_relevant(places: Sequence[Place]) -> Place:
@@ -667,12 +694,15 @@ if __name__ == "__main__":
                 "province": province, "lat": lat, "lng": lng}
 
     def osm(name: str, lat: float, lon: float, kind: str = "road", importance: float = 0,
-            road: str | None = None) -> dict:
+            road: str | None = None, number: str = "", full_name: str = "") -> dict:
         """Un lugar de Nominatim; su calle, la que se diga o, si es una calle, su nombre."""
         street = road if road is not None else (name if kind == "road" else "")
-        return {"lat": str(lat), "lon": str(lon), "name": name, "display_name": name,
-                "addresstype": kind, "importance": importance,
-                "address": {"road": street} if street else {}}
+        address = {"road": street} if street else {}
+        if number:
+            address["house_number"] = number
+        return {"lat": str(lat), "lon": str(lon), "name": name,
+                "display_name": full_name or name, "addresstype": kind,
+                "importance": importance, "address": address}
 
     in_spain: dict[str, object] = {
         "luis de salazar, 3": [
@@ -688,6 +718,28 @@ if __name__ == "__main__":
         "rue de rivoli 10, paris": [], "torla": [],
     }
     in_spain["calle luis de salazar, 3"] = in_spain["luis de salazar, 3"]
+    # Los casos del autor del 23/11/2026 (lo que daba CartoCiudad)
+    in_spain["castelar, 7, madrid"] = [
+        candidate("portal", "CALLE CASTELLO 7, Madrid", 40.4230, -3.6800, 7),
+        candidate("portal", "CALLE MASTELERO 7, Madrid", 40.4700, -3.6400, 7),
+        candidate("portal", "CALLE CASTELAR 7, Madrid", 40.4330, -3.6680, 7),
+    ]
+    in_spain["castelar, 7"] = [
+        candidate("portal", "CALLE CASTELL DE CASTELLS 7, Pego", 38.8430, -0.1170, 7,
+                  "Pego", "Alacant/Alicante"),
+        candidate("portal", "CALLE CASTELAR 7, Albondón", 36.8270, -3.2100, 7,
+                  "Albondón", "Granada"),
+    ]
+    in_spain["calle mayor 5, torla"] = [
+        candidate("portal", "KALEA CALLE MAYOR 5 (Harana)", 42.7446, -2.3618, 5, "Harana",
+                  "Araba/Álava"),
+        candidate("portal", "CALLE MAYOR 5, Torla-Ordesa", 42.6270, -0.1110, 5,
+                  "Torla-Ordesa", "Huesca"),
+    ]
+    in_spain["calle luis de slaazar, 3"] = [
+        candidate("portal", "CALLE LUIS DE SALAZAR 3, Madrid", 40.4478, -3.6670, 3)]
+    in_spain["calle lópez de hoyos, 345"] = [
+        candidate("portal", "CALLE LOPEZ DE HOYOS 345, Madrid", 40.4686, -3.6529, 345)]
     in_osm: dict[tuple[str, bool], object] = {
         ("luis de salazar, 3", True): [],
         ("luis de salazar, 3", False): [osm("Avenida Vicente C. Salazar", 21.99, -99.02)],
@@ -700,6 +752,11 @@ if __name__ == "__main__":
         ("rue de rivoli 10, paris", False): [osm("Rue de Rivoli", 48.8606, 2.3376)],
         ("torla", False): [osm("Torla-Ordesa", 42.6277, -0.1121, "village")],
         ("chorrera de mojonavalle", False): [],
+        ("castelar, 7", True): [osm("7", 40.4331, -3.6679, "place", road="Calle de Castelar",
+                                    number="7", full_name="7, Calle de Castelar, Guindalera, "
+                                    "Salamanca, Madrid, Comunidad de Madrid, 28028, España")],
+        ("calle mayor 5, torla", True): [osm("Calle Mayor", 40.4155, -3.7090, number="5",
+                                             full_name="Calle Mayor, Sol, Madrid, España")],
         # Nombres: lo que daba Nominatim el 23/11/2026, con la vista como preferencia
         ("santiago de chile", False): [
             osm("Santiago de Chile", 41.3852, 2.1429, "amenity", 0.0001),  # un local
@@ -732,6 +789,12 @@ if __name__ == "__main__":
             bounded = "bounded" in query
             calls.append(("nominatim, en lo que se ve" if bounded else "nominatim", text))
             answer = in_osm[(text, bounded)]
+            if bounded and isinstance(answer, list):
+                # Como el servicio: limitado, solo lo de dentro del 'viewbox' pedido
+                west, south, east, north = (float(v) for v in query["viewbox"][0].split(","))
+                answer = [item for item in answer
+                          if south <= float(item["lat"]) <= north
+                          and west <= float(item["lon"]) <= east]
         if isinstance(answer, Exception):
             raise answer
         return json.dumps(answer).encode("utf-8")
@@ -760,6 +823,24 @@ if __name__ == "__main__":
     MEXICO = (21.5, -99.5, 22.5, -98.5)
     assert find("Calle Luis de Salazar, 3", MEXICO) == (
         "Calle Luis de Salazar, 3", ["cartociudad", "nominatim, en lo que se ve"])
+    # Lo que es lo escrito, no lo que se le parece; y sin pueblo escrito, la zona del mapa
+    MASTELERO = (40.465, -3.645, 40.475, -3.635)  # en pantalla, Mastelero; Castelar, no
+    assert find("Castelar, 7, Madrid", MASTELERO) == ("Calle Castelar, 7", ["cartociudad"])
+    MADRID_MOVED = (40.445, -3.665, 40.455, -3.655)  # Madrid, pero sin Castelar en pantalla
+    assert find("Castelar, 7", MADRID_MOVED) == (
+        "7", ["cartociudad", "nominatim, en lo que se ve"])  # el de Madrid, por la zona
+    VALENCIA = (39.44, -0.40, 39.50, -0.34)
+    assert both.find("Castelar, 7", viewbox=VALENCIA)[0].label.startswith(
+        "Calle Castelar, 7, Albondón")  # sin pueblo y lejos: el exacto, no Castell de Castells
+    # El pueblo escrito decide, mire donde mire el mapa
+    assert both.find("Calle Mayor 5, Torla", viewbox=MADRID)[0].address.city == "Torla-Ordesa"
+    # Una errata en una palabra larga: vale
+    assert find("Calle Luis de Slaazar, 3", MADRID) == (
+        "Calle Luis de Salazar, 3", ["cartociudad"])
+    # El portal, aunque no esté en pantalla, si está en la zona
+    CHAMARTIN = (40.445, -3.685, 40.455, -3.675)
+    assert find("Calle López de Hoyos, 345", CHAMARTIN) == (
+        "Calle López de Hoyos, 345", ["cartociudad"])
     # Una dirección extranjera: CartoCiudad no la tiene; en lo que se ve, tampoco; en el mundo
     assert find("Rue de Rivoli 10, Paris", MADRID) == (
         "Rue de Rivoli", ["cartociudad", "nominatim, en lo que se ve", "nominatim"])
