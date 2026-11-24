@@ -30,6 +30,8 @@ De dónde saca el modelo: de 'context["section_layout"]' (lo pone el controlador
 que se muestra al abrir es 'context["active_mode"]' (el activo). Sin modelo en el contexto
 (la prueba suelta de la ventana), crea uno propio con la configuración recibida.
 
+1.1.3 La negrita de sus textos con HTML ('<b>'), en SemiBold (600) con
+      'theme_fonts.rich_text': un '<b>' pide 700, que FreeType (Linux) engorda (GEN 21.2).
 1.1.2 Autoprueba: Vídeo ya tiene barra (la de Tracks).
 1.1.1 Los botones de subir y bajar, cuadrados (pedido por el autor).
 1.1.0 «Subir» y «Bajar», con flechas en lugar de texto ('AppIcons.ARROW_UP' / 'ARROW_DOWN')
@@ -41,7 +43,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
 La página se ve en la prueba de la ventana de opciones ('settings_dialog', abre una ventana).
 """
 
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 __all__ = ["SectionLayoutPage"]
 
 # Librerías estándar
@@ -64,6 +66,7 @@ from qtpy.QtWidgets import (
 # Módulos del proyecto
 from config.app_constants import SETTING_SECTION_LAYOUT, AppIcons
 from ui_helpers.dialogs.settings_dialog import SettingsPage
+from ui_helpers.helpers.theme_fonts import rich_text
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.layout.section_layout import SectionLayout
 from ui_helpers.layout.section_layout_model import SectionLayoutModel
@@ -122,7 +125,7 @@ class SectionLayoutPage(SettingsPage):
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(4)
         for column, sidebar in enumerate(Sidebar):
-            grid.addWidget(QLabel(f"<b>{_SIDEBAR_TITLES[sidebar]}</b>"), 0, column)
+            grid.addWidget(QLabel(rich_text(f"<b>{_SIDEBAR_TITLES[sidebar]}</b>")), 0, column)
             section_list = QListWidget()
             section_list.setFixedHeight(_LIST_HEIGHT)
             # Reordenar arrastrando las filas (solo dentro de su lista: las secciones no

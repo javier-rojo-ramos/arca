@@ -71,6 +71,9 @@ las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
 seleccionada, solo cambia ella. La chincheta no cambia nada: solo avisa. Con Ctrl, Alt o
 Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
 
+2.20.0 El nombre (y la extensión) y la duración, en Inter con los tamaños de
+       'theme_fonts' (11 px; la duración, 10 px en SemiBold), en lugar de Arial 8 y 7 pt
+       (GEN 21.2). Las estrellas siguen con su carácter: se dibujarán en GEN 21.3.
 2.19.0 Una foto con la miniatura PENDIENTE de generar lleva el marcador del paisaje (antes,
        el hueco gris liso, a veces durante minutos al añadir una carpeta grande), como la
        vista individual y las que fallaron (pedido por el autor, 18/11/2026). El gris liso
@@ -111,7 +114,7 @@ Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.19.0"
+__version__ = "2.20.0"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -125,6 +128,7 @@ from qtpy.QtWidgets import QStyle, QStyledItemDelegate, QToolTip
 
 # Módulos del proyecto
 from ui_helpers.helpers import card_glyphs, card_marks
+from ui_helpers.helpers.theme_fonts import FONT_SIZES, ui_font
 from ui_helpers.helpers.track_outline import draw_track_outline
 from ui_helpers.helpers.ui_color_labels import blend, label_color
 from ui_helpers.helpers.ui_theme import CARD_COLORS
@@ -233,10 +237,11 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         # Chincheta en la tarjeta normal: solo en los módulos con mapa (la pone al día
         # 'MapController'); la compacta (la tira del mapa) la lleva siempre
         self.location_pin = False
-        self._name_font = QFont("Arial", 8)
+        self._name_font = ui_font(FONT_SIZES.card_name)
+        # Las estrellas, aún con el carácter ★ (Arial no lo tiene: sale de otra fuente);
+        # se dibujarán en GEN 21.3
         self._star_font = QFont("Arial", 9)
-        self._duration_font = QFont("Arial", 7)
-        self._duration_font.setBold(True)
+        self._duration_font = ui_font(FONT_SIZES.card_duration, semibold=True)
 
     def sizeHint(self, option, index) -> QSize:
         return self.item_size

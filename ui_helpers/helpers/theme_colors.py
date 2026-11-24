@@ -39,6 +39,9 @@ Este módulo NO depende de Qt: solo define valores. 'ui_theme.py' los convierte 
 paleta de Qt (QPalette) y en la hoja de estilos (QSS), y da a los demás el juego activo
 ('COLORS', 'CARD_COLORS', 'MARK_COLORS').
 
+1.12.0 Las tarjetas, otra vez con el gris secundario del tema ('text_dim', #999999): el
+       borde al pasar el ratón y el nombre de una rechazada o no disponible (antes, fijados
+       en #8c8c8c; el autor, 24/11/2026, para que sea coherente con el resto; GEN 21.2).
 1.11.0 Los grises del texto, más claros con la fuente Inter (GEN 21; el autor, 24/11/2026):
        'text_dim' #999999 (antes, #8c8c8c) y 'text_disabled' #787878 (antes, #5e5e5e; es
        también el de los textos de ayuda); los textos del perfil, como 'text_dim'. Las
@@ -65,7 +68,7 @@ Prueba rápida (contraste del texto sobre cada fondo):
     python -m ui_helpers.helpers.theme_colors
 """
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 __all__ = [
     "DARK",
     "DARK_CARDS",
@@ -266,18 +269,16 @@ DARK_CARDS = CardColors(
     band_hover="#303030",
     band_selected="#383838",
     line=DARK.line_dark,
-    # El gris de antes de aclarar 'text_dim' (24/11/2026): las tarjetas se repasan cuando
-    # pasen a Inter (GEN 21.2)
-    line_hover="#8c8c8c",
+    line_hover=DARK.text_dim,
     line_selected=DARK.accent,
     placeholder_bg="#333333",
     placeholder_glyph="#707070",
     text=DARK.text,
     text_highlighted="#ffffff",
-    text_rejected="#8c8c8c",  # como 'line_hover': el gris de antes, hasta GEN 21.2
+    text_rejected=DARK.text_dim,
     text_rejected_highlighted="#aaaaaa",
     text_unavailable="#707070",
-    text_unavailable_highlighted="#8c8c8c",
+    text_unavailable_highlighted=DARK.text_dim,
     # Encima de la imagen (iguales en cualquier tema: van sobre la foto, no sobre la ventana)
     overlay_text="#ffffff",
     overlay_bg="#a5000000",  # negro, opacidad 165

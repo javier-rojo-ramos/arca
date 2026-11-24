@@ -19,6 +19,15 @@ Por qué Inter y en px (decidido por el autor el 24/11/2026; docs/DECISIONES.md,
 Cuidado: con la fuente en px, 'font.pointSize()' y 'font.pointSizeF()' devuelven -1. Nada
 de 'pointSize() + 2': se pide el tamaño por su nombre (docs/TRAMPAS.md).
 
+La negrita se pide SIEMPRE como 600 (la SemiBold), nunca como «bold» (700): con solo la
+SemiBold registrada, Windows da la SemiBold, pero FreeType (Linux) la engorda por su cuenta
+(comprobado el 24/11/2026; docs/TRAMPAS.md). Por eso:
+    - en el código, 'ui_font(..., semibold=True)' o 'font.setWeight(SEMIBOLD)', no
+      'setBold(True)';
+    - en el QSS, 'font-weight: {SEMIBOLD_CSS}', no 'bold';
+    - en un texto enriquecido (QLabel con HTML), 'QLabel(rich_text("... <b>...</b> ..."))':
+      cambia cada '<b>' por un 'span' de peso 600.
+
 Uso:
     # Al arrancar, antes de crear la ventana (lo hace 'ui_theme.apply_theme()'):
     apply_app_font()
@@ -39,6 +48,9 @@ Los símbolos que la interfaz escribe dentro de un texto ('UI_SYMBOLS') tienen q
 Inter, o el sistema los pondría con otra fuente; la autoprueba lo comprueba. Las marcas que
 se dibujan muchas veces (estrellas, marca...) se dibujan con QPainter ('card_marks.py').
 
+1.2.0 Los tamaños que se fijaban a mano (GEN 21.2): el nombre y la duración de las tarjetas
+      (antes, Arial), el nombre del inspector, su extensión y el signo «+» de las barras
+      (antes, en el QSS); la negrita, siempre 600: 'SEMIBOLD', 'SEMIBOLD_CSS' y 'rich_text'.
 1.1.0 También la cursiva ('Inter-Italic.ttf'): la de los textos de ayuda (<i>), igual en
       todos los sistemas (pedido por el autor).
 1.0.0 Primera versión (GEN 21.1, 24/11/2026): Inter Regular y SemiBold; el texto normal, a
@@ -49,17 +61,20 @@ Prueba rápida (sin ventana):
     python -m ui_helpers.helpers.theme_fonts
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "FONTS_DIR",
     "FONT_FAMILY",
     "FONT_FILES",
     "FONT_SIZES",
+    "SEMIBOLD",
+    "SEMIBOLD_CSS",
     "UI_SYMBOLS",
     "FontSizes",
     "apply_app_font",
     "load_fonts",
     "register_fonts",
+    "rich_text",
     "ui_font",
 ]
 
@@ -87,6 +102,12 @@ FONT_FILES = ("Inter-Regular.ttf", "Inter-SemiBold.ttf", "Inter-Italic.ttf")
 # en Inter: se dibuja (GEN 21.3)
 UI_SYMBOLS = "«»©·×–—•…›→↑↓−≤≥★☆⚠"
 
+# La negrita: la SemiBold, pedida siempre por su peso (600), nunca como «bold» (700; ver la
+# cabecera). 'SEMIBOLD' para el código ('font.setWeight') y 'SEMIBOLD_CSS' para el QSS y el
+# HTML ('font-weight')
+SEMIBOLD = QFont.Weight.DemiBold
+SEMIBOLD_CSS = 600
+
 
 @dataclass(frozen=True)
 class FontSizes:
@@ -102,6 +123,13 @@ class FontSizes:
             más que el normal: 13,3 px).
         drag_badge: El número de la insignia al arrastrar varias tarjetas (antes, el 85 %
             del normal: 10,2 px).
+        card_name: El nombre y la extensión en la banda de la tarjeta (antes, Arial 8 pt).
+        card_duration: La duración de vídeos y canciones sobre la imagen de la tarjeta, en
+            SemiBold (antes, Arial 7 pt en negrita).
+        inspector_name: El nombre del archivo arriba del inspector, en SemiBold.
+        inspector_extension: La extensión del inspector, en su recuadro.
+        sidebar_add_sign: El signo «+» de las cabeceras de «Carpetas» y «Colecciones» (solo
+            se ve si falta su icono).
     """
 
     base: int
@@ -109,9 +137,25 @@ class FontSizes:
     settings_header: int
     notice: int
     drag_badge: int
+    card_name: int
+    card_duration: int
+    inspector_name: int
+    inspector_extension: int
+    sidebar_add_sign: int
 
 
-FONT_SIZES = FontSizes(base=12, dialog_title=16, settings_header=16, notice=13, drag_badge=10)
+FONT_SIZES = FontSizes(
+    base=12,
+    dialog_title=16,
+    settings_header=16,
+    notice=13,
+    drag_badge=10,
+    card_name=11,
+    card_duration=10,
+    inspector_name=13,
+    inspector_extension=10,
+    sidebar_add_sign=15,
+)
 
 # Si Inter está registrada: None mientras no se ha intentado (ver 'load_fonts')
 _loaded: bool | None = None
@@ -163,8 +207,19 @@ def ui_font(size: int, *, semibold: bool = False) -> QFont:
     font = QFont(family)
     font.setPixelSize(size)
     if semibold:
-        font.setWeight(QFont.Weight.DemiBold)
+        font.setWeight(SEMIBOLD)
     return font
+
+
+def rich_text(html: str) -> str:
+    """El HTML de una etiqueta con su negrita en SemiBold: cada '<b>' pasa a ser un 'span'
+    de peso 600 (un '<b>' pide 700, que FreeType engorda: ver la cabecera).
+
+    Ejemplo: QLabel(rich_text("<b>Capas propias</b>")).
+    """
+    return html.replace("<b>", f'<span style="font-weight:{SEMIBOLD_CSS}">').replace(
+        "</b>", "</span>"
+    )
 
 
 def apply_app_font() -> QFont:
@@ -253,5 +308,16 @@ if __name__ == "__main__":
     for name, value in vars(FONT_SIZES).items():
         assert isinstance(value, int) and value > 0, (name, value)
     print("6. Tamaños: enteros positivos")
+
+    # 7. La negrita del HTML, en SemiBold: '<b>' pasa a un 'span' de peso 600 (y lo demás,
+    # tal cual)
+    converted = rich_text("<b>RAW</b> (CR2...): en un archivo <i>.xmp</i>, <b>junto</b>")
+    assert converted == (
+        '<span style="font-weight:600">RAW</span> (CR2...): en un archivo <i>.xmp</i>, '
+        '<span style="font-weight:600">junto</span>'
+    ), converted
+    assert rich_text("sin negrita") == "sin negrita"
+    assert SEMIBOLD.value == SEMIBOLD_CSS == 600
+    print("7. rich_text: la negrita del HTML, en SemiBold (600)")
 
     print("Autoprueba finalizada correctamente.")

@@ -13,13 +13,15 @@ cerrarse. No guarda nada: quien la abre recoge la capa con 'layer()'.
     (aviso en rojo si algo no vale)
                                    [Aceptar] [Cancelar]
 
+1.0.1 La negrita de sus textos con HTML ('<b>'), en SemiBold (600) con
+      'theme_fonts.rich_text': un '<b>' pide 700, que FreeType (Linux) engorda (GEN 21.2).
 1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 2.4).
 
 Prueba rápida (desde la raíz del proyecto; abre la ventana):
     python -m ui_helpers.dialogs.map_layer_dialog
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["MapLayerDialog"]
 
 # Librerías de terceros (Qt)
@@ -36,6 +38,7 @@ from qtpy.QtWidgets import (
 
 # Módulos del proyecto
 from core.maps.tile_layers import MAX_ZOOM_LIMIT, TileLayer, user_layer
+from ui_helpers.helpers.theme_fonts import rich_text
 
 # Zoom máximo que se propone para una capa nueva (el de casi todos los servicios)
 _DEFAULT_MAX_ZOOM = 19
@@ -83,7 +86,7 @@ class MapLayerDialog(QDialog):
         form.addRow("Atribución", self.edit_attribution)
         form.addRow("Zoom máximo", self.spin_max_zoom)
 
-        hint = QLabel(_HELP)
+        hint = QLabel(rich_text(_HELP))
         hint.setObjectName("lbl_dialog_hint")  # en gris (ui_theme.py)
         hint.setWordWrap(True)
         self.label_error = QLabel()

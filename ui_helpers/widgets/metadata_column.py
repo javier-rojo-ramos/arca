@@ -39,6 +39,8 @@ Uso (lo crea el panel de «Metadatos»):
     column.set_values(fetch_metadata_values(...), chosen)
     column.values_changed.connect(...)
 
+1.2.2 El título de cada grupo del menú de campos, en SemiBold (600) y no «bold»: con
+      solo la SemiBold, FreeType (Linux) engordaría la de 700 (GEN 21.2).
 1.2.1 Los nombres de los meses y de los días, de 'formatting' ('MONTH_NAMES',
       'WEEKDAY_NAMES'; también los usa la sección «Fechas»). Se ven igual que antes.
 1.2.0 Al volver a poner los valores del mismo campo (un recuento nuevo), la lista se
@@ -53,7 +55,7 @@ Vista de ejemplo (abre una ventana y espera a que se cierre): tres columnas con 
     python -m ui_helpers.widgets.metadata_column --ventana
 """
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 __all__ = [
     "ADD_COLUMN_TEXT",
     "ALL_TEXT",
@@ -100,6 +102,7 @@ from core.catalog.smart_fields import (
     browse_fields,
 )
 from core.catalog.smart_rules import format_value
+from ui_helpers.helpers.theme_fonts import SEMIBOLD
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_theme import COLORS
 from ui_helpers.inspector.formatting import (
@@ -385,7 +388,7 @@ class MetadataColumnWidget(QWidget):
                     title = submenu.addAction(spec.section)
                     title.setEnabled(False)
                     font = QFont(title.font())
-                    font.setBold(True)
+                    font.setWeight(SEMIBOLD)
                     title.setFont(font)
                     section = spec.section
                 action = submenu.addAction(f"    {spec.label}")

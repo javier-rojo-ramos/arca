@@ -22,6 +22,8 @@ leerlo en 'load()' y guardarlo en 'save()' (y añadir la clave a
 
 Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 
+1.7.2 La negrita de sus textos con HTML ('<b>'), en SemiBold (600) con
+      'theme_fonts.rich_text': un '<b>' pide 700, que FreeType (Linux) engorda (GEN 21.2).
 1.7.1 La cabecera de cada página, con el tamaño de 'theme_fonts' (16 px, en SemiBold),
       en lugar de 1,3 veces la fuente normal: con la fuente en px, 'pointSizeF()' es -1
       y perdía el aumento (GEN 21.1).
@@ -46,7 +48,7 @@ Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 1.1.0 Sección "Catálogo": mostrar o no los elementos de las subcarpetas.
 """
 
-__version__ = "1.7.1"
+__version__ = "1.7.2"
 __all__ = [
     "PAGES",
     "CatalogPage",
@@ -106,7 +108,7 @@ from core.maps.tile_layers import (
 from core.maps.tile_store import TileStorageError, TileStore
 from ui_helpers.dialogs.map_layer_dialog import MapLayerDialog
 from ui_helpers.helpers.gpu_composition import default_gpu_setting, map_gpu_allowed
-from ui_helpers.helpers.theme_fonts import FONT_SIZES, ui_font
+from ui_helpers.helpers.theme_fonts import FONT_SIZES, rich_text, ui_font
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.inspector.formatting import format_size
@@ -165,7 +167,7 @@ class SettingsPage(QWidget):
     @staticmethod
     def make_help_label(text: str) -> QLabel:
         """Texto explicativo de una opción: más pequeño, atenuado y con saltos de línea."""
-        label = QLabel(text)
+        label = QLabel(rich_text(text))
         label.setWordWrap(True)
         label.setTextFormat(Qt.TextFormat.RichText)
         label.setContentsMargins(22, 0, 0, 4)  # alineado con el texto del QCheckBox
@@ -203,7 +205,7 @@ class GeneralPage(SettingsPage):
             ("Versión", app_paths.APP_VERSION),
         )
         for caption, value in rows:
-            label = QLabel(f"<b>{caption}</b><br>{_escape(value)}")
+            label = QLabel(rich_text(f"<b>{caption}</b><br>{_escape(value)}"))
             label.setWordWrap(True)
             # Se puede seleccionar y copiar la ruta
             label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -398,7 +400,7 @@ class MapSettingsPage(SettingsPage):
         self._clear_relay.done.connect(self._on_cleared)
 
         # --- Capas propias ---
-        self.body.addWidget(QLabel("<b>Capas propias</b>"))
+        self.body.addWidget(QLabel(rich_text("<b>Capas propias</b>")))
         self.list_layers = QListWidget()
         self.list_layers.setFixedHeight(110)
         self.list_layers.itemDoubleClicked.connect(lambda _item: self._edit_layer())
@@ -427,7 +429,7 @@ class MapSettingsPage(SettingsPage):
 
         # --- Caché ---
         self.body.addSpacing(6)
-        self.body.addWidget(QLabel("<b>Caché de los mapas</b>"))
+        self.body.addWidget(QLabel(rich_text("<b>Caché de los mapas</b>")))
         self.spin_cache = QSpinBox()
         self.spin_cache.setRange(_CACHE_MB_MIN, _CACHE_MB_MAX)
         self.spin_cache.setSingleStep(_CACHE_MB_STEP)

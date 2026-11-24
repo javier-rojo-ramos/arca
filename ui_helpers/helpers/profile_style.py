@@ -28,6 +28,8 @@ Uso:
     style = replace(style, colors=replace(style.colors, background="#101010"))
     profile.set_style(style)
 
+1.2.0 'font_px' (en px) en lugar de 'font_point_size' (en puntos): con la fuente de la
+      aplicación en px, los puntos variarían con el sistema (GEN 21.2).
 1.1.0 'SLOPE_MODE_TITLE' y 'SLOPE_MODE_LABELS': los textos de los modos, en un solo
       sitio (menú del perfil, Opciones > Tracks, ventana de prueba).
 1.0.1 'slope_mode' admite el texto del modo ('"line"') y lo convierte en 'SlopeMode': desde
@@ -39,7 +41,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.helpers.profile_style
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "GRID_PATTERNS",
     "SLOPE_MODE_LABELS",
@@ -104,7 +106,7 @@ class ProfileStyle:
         cursor_width: Grosor de la línea vertical del cursor (px; lleva además un borde
             oscuro de 1 px a cada lado).
         cursor_radius: Radio del círculo del cursor sobre la curva (px).
-        font_point_size: Tamaño de la letra (puntos); None, el de la aplicación.
+        font_px: Tamaño de la letra (px); None, el de la aplicación.
         show_header: Si se ve la línea de los totales (o del tramo elegido) arriba.
         show_segment_breaks: Si se marca con una raya dónde empieza otro segmento.
     """
@@ -120,7 +122,7 @@ class ProfileStyle:
     grid_width: float = 1.0
     cursor_width: float = 1.0
     cursor_radius: float = 4.5
-    font_point_size: float | None = None
+    font_px: int | None = None
     show_header: bool = True
     show_segment_breaks: bool = True
 

@@ -21,6 +21,10 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.25.0 Los tamaños de letra del QSS (el nombre del inspector, su extensión y el signo «+»
+       de las barras), de 'theme_fonts.FONT_SIZES' (los mismos px); la negrita, 600
+       ('SEMIBOLD_CSS'), no «bold»: con solo la SemiBold, FreeType engordaría la de 700
+       (GEN 21.2).
 1.24.0 La fuente de la aplicación (Inter, 12 px) se pone en 'apply_theme', con
        'theme_fonts.apply_app_font' (GEN 21.1).
 1.23.1 Fuera '#scroll_image_sidebar' y '#widget_image_sidebar_content': la barra de Imagen
@@ -75,7 +79,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.24.0"
+__version__ = "1.25.0"
 __all__ = [
     "ACCENT_COLOR",
     "BAR_ICON_SIZE",
@@ -112,7 +116,7 @@ from ui_helpers.helpers.theme_colors import (
     ProfileColors,
     ThemeColors,
 )
-from ui_helpers.helpers.theme_fonts import apply_app_font
+from ui_helpers.helpers.theme_fonts import FONT_SIZES, SEMIBOLD_CSS, apply_app_font
 from ui_helpers.helpers.theme_qss import general_stylesheet
 from ui_helpers.helpers.theme_style import ThemeStyle
 
@@ -449,7 +453,7 @@ QFrame#frame_section_header {{
 QToolButton#btn_section_header {{
     border: none;
     background: transparent;
-    font-weight: bold;
+    font-weight: {SEMIBOLD_CSS};
     padding: 4px 2px;
 }}
 /* Raya que dice dónde va a quedar una sección mientras se arrastra su cabecera
@@ -466,8 +470,8 @@ QToolButton#btn_sidebar_add_folder,
 QToolButton#btn_sidebar_add_collection {{
     border: none;
     background: transparent;
-    font-weight: bold;
-    font-size: 15px;
+    font-weight: {SEMIBOLD_CSS};
+    font-size: {FONT_SIZES.sidebar_add_sign}px;
     padding: 0px;
 }}
 QToolButton#btn_sidebar_add_folder:hover,
@@ -492,17 +496,17 @@ QFrame#line_inspector_separator {{
 }}
 
 QLabel#lbl_inspector_name {{
-    font-weight: bold;
-    font-size: 13px;
+    font-weight: {SEMIBOLD_CSS};
+    font-size: {FONT_SIZES.inspector_name}px;
 }}
 QLabel#lbl_inspector_extension {{
     border: 1px solid palette(mid);
     border-radius: 3px;
     padding: 0px 4px;
-    font-size: 10px;
+    font-size: {FONT_SIZES.inspector_extension}px;
 }}
 QLabel#lbl_inspector_library_icon {{
-    font-weight: bold;
+    font-weight: {SEMIBOLD_CSS};
 }}
 /* Cajas editables del inspector (ui_helpers/inspector/editable_row.py; título, pie...):
    parecen texto, sin fondo ni borde, hasta pasar el ratón (borde fino) o entrar en ellas

@@ -17,6 +17,8 @@ Cómo está hecha (para ampliarla sin tocarla):
 
 La usa 'ui_helpers/dialogs/smart_collection_dialog.py' (una fila por regla).
 
+1.0.1 El título de cada grupo del menú de campos, en SemiBold (600) y no «bold»: con
+      solo la SemiBold, FreeType (Linux) engordaría la de 700 (GEN 21.2).
 1.0.0 Separada del diálogo de colecciones inteligentes, sin cambios de comportamiento
       ('_RuleRow' pasa a ser 'SmartRuleRow'; antes de los grupos de reglas).
 
@@ -30,7 +32,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.smart_rule_row
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["DEFAULT_RULE", "SmartRuleRow"]
 
 # Librerías estándar
@@ -70,6 +72,7 @@ from core.catalog.smart_fields import (
     visible_groups,
 )
 from core.catalog.smart_rules import Rule, validate_rule
+from ui_helpers.helpers.theme_fonts import SEMIBOLD
 
 # Regla con la que empieza una fila nueva
 DEFAULT_RULE = Rule("rating", "gte", 1)
@@ -303,7 +306,7 @@ class SmartRuleRow(QWidget):
                     header = submenu.addAction(spec.section)
                     header.setEnabled(False)
                     font = QFont(header.font())
-                    font.setBold(True)
+                    font.setWeight(SEMIBOLD)
                     header.setFont(font)
                     section = spec.section
                 action = submenu.addAction(f"    {spec.label}")

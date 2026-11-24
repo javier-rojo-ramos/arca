@@ -23,6 +23,8 @@ Prueba suelta (sin el resto de la aplicación):
 Los nombres de las bibliotecas salen de 'core/catalog/libraries.LIBRARY_NAMES'. Si alguno
 lleva '&', en los botones y menús de Qt hay que escribirlo doble: 'qt_text()' lo hace.
 
+1.2.2 La negrita de sus textos con HTML ('<b>'), en SemiBold (600) con
+      'theme_fonts.rich_text': un '<b>' pide 700, que FreeType (Linux) engorda (GEN 21.2).
 1.2.1 «Detectar automáticamente», de 'FOLDER_AUTO_NAME' (lo usa también el resumen de
       «Carpeta añadida»). Sin cambio a la vista.
 1.2.0 Pulsar la explicación de una opción también la elige (antes solo el círculo y el
@@ -36,7 +38,7 @@ Uso:
         ...  # 'auto', 'image', 'video', 'audio', 'ebook' o 'tracks'
 """
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 __all__ = ["FOLDER_CONTENT_TEXTS", "FolderContentDialog", "qt_text"]
 
 # Librerías estándar
@@ -63,6 +65,7 @@ from core.catalog.libraries import (
     LIBRARY_NAMES,
     Library,
 )
+from ui_helpers.helpers.theme_fonts import rich_text
 
 # Texto de cada opción: (título, explicación). Las claves son las de 'FOLDER_CONTENTS'
 FOLDER_CONTENT_TEXTS: dict[str, tuple[str, str]] = {
@@ -154,7 +157,7 @@ class FolderContentDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # --- Carpeta (la ruta puede ser larga: se parte en varias líneas) ---
-        label_folder = QLabel(f"<b>Carpeta:</b> {Path(folder)}")
+        label_folder = QLabel(rich_text(f"<b>Carpeta:</b> {Path(folder)}"))
         label_folder.setWordWrap(True)
         layout.addWidget(label_folder)
         label_hint = QLabel("Vale también para sus subcarpetas.")

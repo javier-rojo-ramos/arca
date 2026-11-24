@@ -21,6 +21,8 @@
 Pedida por el autor el 15/11/2026, al cerrar la fase 5 de docs/MOD_TRACKS.md: más adelante
 puede crecer con el resto del estilo del perfil ('ProfileStyle').
 
+1.1.1 La negrita de sus textos con HTML ('<b>'), en SemiBold (600) con
+      'theme_fonts.rich_text': un '<b>' pide 700, que FreeType (Linux) engorda (GEN 21.2).
 1.1.0 La casilla del texto de los waypoints al recorrer el perfil (el autor, 22/11/2026:
       su texto, activada de partida y sin línea de ayuda).
 1.0.0 Primera versión (15/11/2026).
@@ -30,7 +32,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
 La página se ve en la prueba de la ventana de opciones ('settings_dialog', abre una ventana).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __all__ = ["TracksSettingsPage"]
 
 # Librerías estándar
@@ -59,6 +61,7 @@ from config.app_constants import (
 )
 from ui_helpers.dialogs.settings_dialog import SettingsPage
 from ui_helpers.helpers.profile_style import SLOPE_MODE_LABELS, SLOPE_MODE_TITLE, SlopeMode
+from ui_helpers.helpers.theme_fonts import rich_text
 from ui_helpers.helpers.track_appearance import (
     TrackColors,
     default_track_colors,
@@ -150,7 +153,7 @@ class TracksSettingsPage(SettingsPage):
         super().__init__(config, context, parent)
 
         # --- Colores en el mapa ---
-        self.body.addWidget(QLabel(f"<b>{_COLORS_TITLE}</b>"))
+        self.body.addWidget(QLabel(rich_text(f"<b>{_COLORS_TITLE}</b>")))
         self.button_active = _ColorButton(f"{_COLORS_TITLE}: {_ACTIVE_LABEL.lower()}")
         self.button_track = _ColorButton(f"{_COLORS_TITLE}: {_TRACK_LABEL.lower()}")
         grid = QGridLayout()
@@ -170,7 +173,7 @@ class TracksSettingsPage(SettingsPage):
 
         # --- Perfil de elevación ---
         self.body.addSpacing(6)
-        self.body.addWidget(QLabel(f"<b>{_PROFILE_TITLE}</b>"))
+        self.body.addWidget(QLabel(rich_text(f"<b>{_PROFILE_TITLE}</b>")))
         self.combo_slope = QComboBox()
         for mode, label in SLOPE_MODE_LABELS.items():
             # El valor, como texto: así vuelve del desplegable (docs/TRAMPAS.md)

@@ -34,6 +34,7 @@ Uso:
     profile.clear("Selecciona un track para ver su perfil")
     profile.set_style(replace(profile.profile_style(), slope_mode=SlopeMode.LINE))
 
+1.1.2 El tamaño de la letra del estilo, en px ('ProfileStyle.font_px'; GEN 21.2).
 1.1.1 Ventana de prueba: los textos de los modos de la pendiente, los de la aplicación
       ('profile_style.SLOPE_MODE_LABELS').
 1.1.0 'message()': el aviso que se ve (para quien lo contiene y sus pruebas; paso 5.3a).
@@ -48,7 +49,7 @@ con un track inventado):
     python -m ui_helpers.widgets.elevation_profile --ventana [archivo.gpx]
 """
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 __all__ = ["ElevationProfile"]
 
 # Librerías de terceros (Qt)
@@ -268,8 +269,8 @@ class ElevationProfile(QWidget):
 
     def _font(self) -> QFont:
         font = QFont(self.font())
-        if self._style.font_point_size is not None:
-            font.setPointSizeF(self._style.font_point_size)
+        if self._style.font_px is not None:
+            font.setPixelSize(self._style.font_px)
         return font
 
     def _invalidate(self) -> None:
@@ -484,7 +485,7 @@ def _self_test() -> None:
 
     # --- Los otros modos de la pendiente y otro estilo: bajo la curva, el área en su color
     for mode in (SlopeMode.LINE, SlopeMode.OFF):
-        profile.set_style(replace(style, slope_mode=mode, grid_pattern="dash", font_point_size=8))
+        profile.set_style(replace(style, slope_mode=mode, grid_pattern="dash", font_px=11))
         image = profile.grab().toImage()
         new_layout = profile._layout
         assert new_layout is not None
