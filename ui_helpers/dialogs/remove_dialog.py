@@ -37,6 +37,8 @@ Uso:
     if to_trash is not None:
         ...  # False = eliminar del catálogo; True = también del disco (papelera)
 
+1.3.2 El título, con el tamaño de 'theme_fonts' (16 px), en lugar de sumar 3 puntos a la fuente
+      normal: con la fuente en px, 'pointSize()' es -1 (GEN 21.1).
 1.3.1 La explicación ya no menciona el sidecar .xmp de los RAW (se entiende que va con su
       archivo; lo pidió el autor).
 1.3.0 Sin el párrafo de las carpetas que se quedarán vacías: ya no se eliminan (CAT 5).
@@ -47,7 +49,7 @@ Uso:
       opciones y un botón de confirmar).
 """
 
-__version__ = "1.3.1"
+__version__ = "1.3.2"
 __all__ = ["RemoveDialog", "explanation_text"]
 
 # Librerías estándar
@@ -65,6 +67,7 @@ from qtpy.QtWidgets import (
 
 # Módulos del proyecto
 from core.catalog.media_removal import RemovalPlan
+from ui_helpers.helpers.theme_fonts import FONT_SIZES, ui_font
 from ui_helpers.helpers.ui_theme import ACCENT_COLOR
 
 # Nombre de la papelera del sistema, para la explicación
@@ -74,9 +77,6 @@ TRASH_NAME = "la Papelera de reciclaje" if sys.platform == "win32" else "la Pape
 DISK_BUTTON_TEXT = "Eliminar del disco"
 CATALOG_BUTTON_TEXT = "Eliminar del catálogo"
 CANCEL_BUTTON_TEXT = "Cancelar"
-
-# El título va algo más grande que el texto normal (puntos de diferencia)
-_TITLE_EXTRA_POINTS = 3
 
 
 def explanation_text(plan: RemovalPlan) -> str:
@@ -125,9 +125,7 @@ class RemoveDialog(QDialog):
         # --- Título: "Eliminar N archivos del catálogo", más grande y en color de acento ---
         what = "1 archivo" if plan.total == 1 else f"{plan.total} archivos"
         title = QLabel(f"Eliminar {what} del catálogo")
-        font = title.font()
-        font.setPointSize(font.pointSize() + _TITLE_EXTRA_POINTS)
-        title.setFont(font)
+        title.setFont(ui_font(FONT_SIZES.dialog_title))
         title.setStyleSheet(f"color: {ACCENT_COLOR};")
         texts.addWidget(title)
         texts.addSpacing(8)

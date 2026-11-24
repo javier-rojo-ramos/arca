@@ -27,6 +27,8 @@ es el botón por defecto (Intro) y se desactiva si el nombre no vale; Esc = «Ca
 Uso:
     answer = NewFolderDialog.ask(parent, "Viaje", 3)     # (nombre, incluir) o None
 
+1.2.2 El título, con el tamaño de 'theme_fonts' (16 px), en lugar de sumar 3 puntos a la fuente
+      normal: con la fuente en px, 'pointSize()' es -1 (GEN 21.1).
 1.2.1 El aviso ya no menciona el .xmp de los RAW (se entiende que va con su archivo; lo
       pidió el autor).
 1.2.0 Otra vez con la casilla «Incluir los N archivos seleccionados» (marcada si hay algo
@@ -40,7 +42,7 @@ Prueba rápida (sin abrir ninguna ventana; desde la raíz del proyecto):
     python -m ui_helpers.dialogs.new_folder_dialog
 """
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 __all__ = ["DEFAULT_NAME", "NewFolderDialog", "explanation_text"]
 
 # Librerías de terceros (Qt)
@@ -58,6 +60,7 @@ from qtpy.QtWidgets import (
 
 # Módulos del proyecto
 from core.file_ops.naming import clean_name, name_problem
+from ui_helpers.helpers.theme_fonts import FONT_SIZES, ui_font
 from ui_helpers.helpers.ui_theme import ACCENT_COLOR
 
 # El nombre que se propone (como el Explorador)
@@ -65,9 +68,6 @@ DEFAULT_NAME = "Nueva carpeta"
 
 CREATE_BUTTON_TEXT = "Crear"
 CANCEL_BUTTON_TEXT = "Cancelar"
-
-# El título va algo más grande que el texto normal (puntos de diferencia), como en «Eliminar»
-_TITLE_EXTRA_POINTS = 3
 
 
 def explanation_text(selected: int, include: bool = True) -> str:
@@ -126,9 +126,7 @@ class NewFolderDialog(QDialog):
         # --- Título, más grande y en color de acento ---
         title = QLabel(f"Nueva carpeta dentro de «{parent_name}»")
         title.setWordWrap(True)
-        font = title.font()
-        font.setPointSize(font.pointSize() + _TITLE_EXTRA_POINTS)
-        title.setFont(font)
+        title.setFont(ui_font(FONT_SIZES.dialog_title))
         title.setStyleSheet(f"color: {ACCENT_COLOR};")
         layout.addWidget(title)
         layout.addSpacing(8)

@@ -167,6 +167,7 @@ python -m ui_helpers.helpers.track_outline                     (el recorrido de 
 python -m ui_helpers.helpers.card_marks                        (dibuja las marcas en una imagen; necesita PySide6)
 python -m ui_helpers.helpers.keyword_menu                      (lógica del menú de los árboles de palabras clave; sin ventana)
 python -m ui_helpers.helpers.theme_colors                      (contraste y formato de los colores del tema; marcas legibles sobre la banda)
+python -m ui_helpers.helpers.theme_fonts                       (Inter registrada, en px, la SemiBold como negrita y los símbolos de la interfaz; sin ventana)
 python -m ui_helpers.helpers.theme_qss                         (la hoja general, solo con colores del tema)
 python -m ui_helpers.helpers.theme_style                       (colores de los indicadores y una ventana con todos sus estados)
 python -m ui_helpers.helpers.zoom_geometry                     (cuentas del zoom 1:1 de la vista individual; sin Qt)

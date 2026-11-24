@@ -32,6 +32,9 @@ individual). Solo cuando el modelo ha terminado de cargar sin nada ('rows_loaded
 se han quitado todas las tarjetas: no mientras carga ni sin catálogo (al vaciarse la lista
 con 'modelReset' se esconde hasta que el modelo diga cuántas hay).
 
+1.5.1 El número de la insignia al arrastrar, con el tamaño de 'theme_fonts' (10 px, en
+      SemiBold), en lugar del 85 % de la fuente normal: con la fuente en px,
+      'pointSizeF()' es -1 (GEN 21.1).
 1.5.0 Los botones laterales del ratón no seleccionan: se ignoran para que suban a quien
       contiene la vista (el controlador de las vistas los usa para cambiar de vista).
 1.4.0 'set_drag_image(False)': arrastrar sin imagen (solo el cursor). La usa la tira de
@@ -43,7 +46,7 @@ con 'modelReset' se esconde hasta que el modelo diga cuántas hay).
       sobre el ámbar no se leía).
 """
 
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 __all__ = ["MediaGridView"]
 
 # Librerías de terceros
@@ -54,7 +57,6 @@ from qtpy.QtCore import QAbstractItemModel, QEvent, QPoint, QRectF, Qt
 from qtpy.QtGui import (
     QColor,
     QDrag,
-    QFont,
     QIcon,
     QImage,
     QMouseEvent,
@@ -66,6 +68,7 @@ from qtpy.QtGui import (
 from qtpy.QtWidgets import QListView, QWidget
 
 # Módulos del proyecto
+from ui_helpers.helpers.theme_fonts import FONT_SIZES, ui_font
 from ui_helpers.helpers.ui_theme import ACCENT_COLOR, CARD_COLORS, COLORS, GRID_BG
 from ui_helpers.widgets.single_media_view import EMPTY_TEXT
 
@@ -285,9 +288,7 @@ class MediaGridView(QListView):
         stack = min(count - 1, DRAG_STACK_MAX)
         stack_offset = stack * DRAG_STACK_STEP
         badge_text = str(count) if count > 1 else ""
-        badge_font = QFont(self.font())
-        badge_font.setBold(True)
-        badge_font.setPointSizeF(max(7.0, badge_font.pointSizeF() * 0.85))
+        badge_font = ui_font(FONT_SIZES.drag_badge, semibold=True)
         badge_h = 18 if badge_text else 0
         badge_w = max(badge_h, 10 + len(badge_text) * 8) if badge_text else 0
 

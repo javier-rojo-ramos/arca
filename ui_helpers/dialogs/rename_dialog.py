@@ -35,6 +35,8 @@ Uso:
     stem = RenameDialog.ask(parent, "IMG_0001.CR3")       # None si se cancela
     name = RenameDialog.ask(parent, "Viaje", folder_files=12)
 
+1.2.1 El título, con el tamaño de 'theme_fonts' (16 px), en lugar de sumar 3 puntos a la fuente
+      normal: con la fuente en px, 'pointSize()' es -1 (GEN 21.1).
 1.2.0 El aviso ya no menciona el .xmp de los RAW (se entiende que cambia con su archivo; lo
       pidió el autor): 'explanation_text' ya no recibe el nombre del archivo.
 1.1.0 También para carpetas ('folder_files', 'folder_explanation_text'; CAT 4.3).
@@ -46,7 +48,7 @@ Prueba rápida (sin abrir ninguna ventana; desde la raíz del proyecto):
     python -m ui_helpers.dialogs.rename_dialog
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["RenameDialog", "explanation_text", "folder_explanation_text"]
 
 # Librerías de terceros (Qt)
@@ -63,14 +65,12 @@ from qtpy.QtWidgets import (
 
 # Módulos del proyecto
 from core.file_ops.naming import clean_name, name_problem, split_extension
+from ui_helpers.helpers.theme_fonts import FONT_SIZES, ui_font
 from ui_helpers.helpers.ui_theme import ACCENT_COLOR
 
 # Textos de los botones
 RENAME_BUTTON_TEXT = "Cambiar nombre"
 CANCEL_BUTTON_TEXT = "Cancelar"
-
-# El título va algo más grande que el texto normal (puntos de diferencia), como en «Eliminar»
-_TITLE_EXTRA_POINTS = 3
 
 
 def explanation_text() -> str:
@@ -131,9 +131,7 @@ class RenameDialog(QDialog):
         what = "la carpeta " if is_folder else ""
         title = QLabel(f"Cambiar el nombre de {what}«{file_name}»")
         title.setWordWrap(True)
-        font = title.font()
-        font.setPointSize(font.pointSize() + _TITLE_EXTRA_POINTS)
-        title.setFont(font)
+        title.setFont(ui_font(FONT_SIZES.dialog_title))
         title.setStyleSheet(f"color: {ACCENT_COLOR};")
         layout.addWidget(title)
         layout.addSpacing(8)

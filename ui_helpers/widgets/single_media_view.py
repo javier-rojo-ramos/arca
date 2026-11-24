@@ -36,6 +36,9 @@ Solo carga imágenes cuando se dibuja: oculta (en la cuadrícula) no lee nada.
 Uso (en el .ui es un widget promocionado, 'widget_single_view', dentro de 'page_single'):
     self.widget_single_view.attach(self.list_view_grid, self.mosaico_model)
 
+1.3.1 El aviso de archivo no disponible, con el tamaño de 'theme_fonts' (13 px), en
+      lugar de un punto más que la fuente normal: con la fuente en px, 'pointSizeF()'
+      es -1 (GEN 21.1).
 1.3.0 Rueda: foto anterior o siguiente en la vista ajustada ('step_requested').
 1.2.1 Al zoom, también el tamaño de la imagen de la caché que se ve (sin lupa si no hay
       nada mayor que leer).
@@ -52,7 +55,7 @@ Prueba rápida (desde la raíz del proyecto; dibuja en una imagen, no abre venta
     python -m ui_helpers.widgets.single_media_view
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = ["SingleMediaView"]
 
 # Librerías estándar
@@ -62,7 +65,6 @@ from typing import Any
 from qtpy.QtCore import QModelIndex, QPointF, QRect, QRectF, QSize, QSizeF, Qt, QTimer, Signal
 from qtpy.QtGui import (
     QColor,
-    QFont,
     QImage,
     QPainter,
     QPaintEvent,
@@ -75,6 +77,7 @@ from qtpy.QtWidgets import QListView, QWidget
 # Módulos del proyecto
 from ui_helpers.delegates.thumbnails_delegate import ThumbnailsDelegate
 from ui_helpers.helpers import card_glyphs
+from ui_helpers.helpers.theme_fonts import FONT_SIZES, ui_font
 from ui_helpers.helpers.ui_theme import CARD_COLORS, COLORS
 from ui_helpers.helpers.zoom_geometry import wheel_steps
 from ui_helpers.models.full_image_loader import FullImageLoader
@@ -376,9 +379,7 @@ class SingleMediaView(QWidget):
         card_glyphs.draw_availability_badge(painter, badge, availability)
 
         text = UNAVAILABLE_TEXTS.get(availability, "")
-        font = QFont(painter.font())
-        font.setPointSizeF(font.pointSizeF() + 1)
-        painter.setFont(font)
+        painter.setFont(ui_font(FONT_SIZES.notice))
         metrics = painter.fontMetrics()
         label = QRectF(
             badge.right() + 8, badge.center().y() - metrics.height() / 2 - _LABEL_PAD_Y,

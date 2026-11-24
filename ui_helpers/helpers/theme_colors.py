@@ -39,6 +39,10 @@ Este módulo NO depende de Qt: solo define valores. 'ui_theme.py' los convierte 
 paleta de Qt (QPalette) y en la hoja de estilos (QSS), y da a los demás el juego activo
 ('COLORS', 'CARD_COLORS', 'MARK_COLORS').
 
+1.11.0 Los grises del texto, más claros con la fuente Inter (GEN 21; el autor, 24/11/2026):
+       'text_dim' #999999 (antes, #8c8c8c) y 'text_disabled' #787878 (antes, #5e5e5e; es
+       también el de los textos de ayuda); los textos del perfil, como 'text_dim'. Las
+       tarjetas conservan su gris (#8c8c8c) hasta pasar a Inter (GEN 21.2).
 1.10.0 La chincheta del lugar encontrado, roja (antes, naranja), con 'map_search_pin_dark'
        (borde y punto) y 'map_search_pin_halo' (el halo).
 1.9.0 'map_search_pin': la chincheta del lugar encontrado en el mapa (GEN 8.4c).
@@ -61,7 +65,7 @@ Prueba rápida (contraste del texto sobre cada fondo):
     python -m ui_helpers.helpers.theme_colors
 """
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 __all__ = [
     "DARK",
     "DARK_CARDS",
@@ -161,8 +165,11 @@ DARK = ThemeColors(
     line_dark="#0e0e0e",
     divider="#2e2e2e",
     text="#d8d8d8",
-    text_dim="#8c8c8c",
-    text_disabled="#5e5e5e",
+    # Los dos grises del texto, más claros desde que la fuente es Inter (sus trazos, más
+    # finos que los de Segoe UI, apagaban el gris): antes, #8c8c8c y #5e5e5e (el autor,
+    # 24/11/2026; GEN 21)
+    text_dim="#999999",
+    text_disabled="#787878",
     text_on_accent="#1a1a1a",
     accent="#eca531",
     link="#6ea4ef",
@@ -259,16 +266,18 @@ DARK_CARDS = CardColors(
     band_hover="#303030",
     band_selected="#383838",
     line=DARK.line_dark,
-    line_hover=DARK.text_dim,
+    # El gris de antes de aclarar 'text_dim' (24/11/2026): las tarjetas se repasan cuando
+    # pasen a Inter (GEN 21.2)
+    line_hover="#8c8c8c",
     line_selected=DARK.accent,
     placeholder_bg="#333333",
     placeholder_glyph="#707070",
     text=DARK.text,
     text_highlighted="#ffffff",
-    text_rejected=DARK.text_dim,
+    text_rejected="#8c8c8c",  # como 'line_hover': el gris de antes, hasta GEN 21.2
     text_rejected_highlighted="#aaaaaa",
     text_unavailable="#707070",
-    text_unavailable_highlighted=DARK.text_dim,
+    text_unavailable_highlighted="#8c8c8c",
     # Encima de la imagen (iguales en cualquier tema: van sobre la foto, no sobre la ventana)
     overlay_text="#ffffff",
     overlay_bg="#a5000000",  # negro, opacidad 165
@@ -382,9 +391,9 @@ DARK_PROFILE = ProfileColors(
     background="#161616",  # el de la cuadrícula y la tira de fotos
     grid="#2c2c2c",
     axis="#3a3a3a",
-    axis_text="#8c8c8c",
+    axis_text="#999999",  # el texto secundario del tema ('text_dim'; antes, #8c8c8c)
     header_text="#d8d8d8",
-    message_text="#8c8c8c",
+    message_text="#999999",
     area="#383838",
     line="#d8d8d8",
     cursor="#eca531",  # el acento
@@ -431,6 +440,12 @@ if __name__ == "__main__":
         print(f"{name:10} texto {main:5.1f}   secundario {dim:4.1f}")
         assert main >= 7, (name, main)  # texto principal: nivel AAA
         assert dim >= 3.5, (name, dim)  # secundario: legible (etiquetas en gris)
+    # Etiquetas en gris: legibles como texto normal (WCAG, 4,5) en los paneles. El gris de
+    # lo desactivado (también el de los textos de ayuda), legible en el panel y más oscuro
+    # que el de las etiquetas, para que lo desactivado se siga viendo apagado
+    assert contrast_ratio(theme.text_dim, theme.bg_panel) >= 4.5
+    assert contrast_ratio(theme.text_disabled, theme.bg_panel) >= 3.5
+    assert _luminance(theme.text_disabled) < _luminance(theme.text_dim) < _luminance(theme.text)
     # Las capas, de más oscura a más clara (la profundidad se ve sin bordes)
     order = [theme.bg_base, theme.bg_panel, theme.bg_raised, theme.bg_hover]
     assert order == sorted(order, key=_luminance), order

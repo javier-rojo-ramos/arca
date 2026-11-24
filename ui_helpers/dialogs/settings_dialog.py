@@ -22,6 +22,9 @@ leerlo en 'load()' y guardarlo en 'save()' (y añadir la clave a
 
 Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 
+1.7.1 La cabecera de cada página, con el tamaño de 'theme_fonts' (16 px, en SemiBold),
+      en lugar de 1,3 veces la fuente normal: con la fuente en px, 'pointSizeF()' es -1
+      y perdía el aumento (GEN 21.1).
 1.7.0 "General": opción «Usar aceleración por GPU en los mapas si está disponible»
       (SETTING_MAP_GPU_RENDERING; activada mientras no se elija; al volver a abrir la
       aplicación), debajo de la de la ventana. Textos del autor.
@@ -43,7 +46,7 @@ Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 1.1.0 Sección "Catálogo": mostrar o no los elementos de las subcarpetas.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.7.1"
 __all__ = [
     "PAGES",
     "CatalogPage",
@@ -65,7 +68,6 @@ from loguru import logger
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QObject, QSize, Qt, Signal
-from qtpy.QtGui import QFont
 from qtpy.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -104,6 +106,7 @@ from core.maps.tile_layers import (
 from core.maps.tile_store import TileStorageError, TileStore
 from ui_helpers.dialogs.map_layer_dialog import MapLayerDialog
 from ui_helpers.helpers.gpu_composition import default_gpu_setting, map_gpu_allowed
+from ui_helpers.helpers.theme_fonts import FONT_SIZES, ui_font
 from ui_helpers.helpers.ui_icons import tinted_icon
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.inspector.formatting import format_size
@@ -138,11 +141,7 @@ class SettingsPage(QWidget):
         layout.setSpacing(10)
 
         header = QLabel(self.title)
-        font = QFont(header.font())
-        if font.pointSizeF() > 0:  # -1 si la fuente se definió en píxeles
-            font.setPointSizeF(font.pointSizeF() * 1.3)
-        font.setBold(True)
-        header.setFont(font)
+        header.setFont(ui_font(FONT_SIZES.settings_header, semibold=True))
         layout.addWidget(header)
 
         line = QFrame()

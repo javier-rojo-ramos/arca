@@ -13,11 +13,16 @@ fondo de panel, texto secundario, acento...) y se aplican de dos formas:
 Los botones de opción y las casillas los dibuja un estilo propio sobre Fusion
 ('theme_style.ThemeStyle'): con la paleta oscura, Fusion los deja casi invisibles.
 
+La fuente (Inter, en px) y sus tamaños salen de 'theme_fonts.py', como los colores de
+'theme_colors.py'.
+
 Todo se aplica de una vez con apply_theme(), que se llama una sola vez al
 arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.24.0 La fuente de la aplicación (Inter, 12 px) se pone en 'apply_theme', con
+       'theme_fonts.apply_app_font' (GEN 21.1).
 1.23.1 Fuera '#scroll_image_sidebar' y '#widget_image_sidebar_content': la barra de Imagen
        es ya la común ('#scroll_library_sidebar'; docs/PENDIENTE.md, GEN 13).
 1.23.0 'TOOLBAR_ICON_SIZE': el lado del icono de los botones de la toolbar lateral (los
@@ -70,7 +75,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.23.1"
+__version__ = "1.24.0"
 __all__ = [
     "ACCENT_COLOR",
     "BAR_ICON_SIZE",
@@ -107,6 +112,7 @@ from ui_helpers.helpers.theme_colors import (
     ProfileColors,
     ThemeColors,
 )
+from ui_helpers.helpers.theme_fonts import apply_app_font
 from ui_helpers.helpers.theme_qss import general_stylesheet
 from ui_helpers.helpers.theme_style import ThemeStyle
 
@@ -656,7 +662,9 @@ def apply_theme() -> None:
     crear la ventana principal.
 
     Instala el estilo propio (Fusion con los botones de opción y las casillas del tema)
-    ANTES de la paleta: cambiar de estilo reinicia la paleta de la aplicación.
+    ANTES de la paleta: cambiar de estilo reinicia la paleta de la aplicación. La fuente, al
+    final (después de la hoja de estilos) y antes de crear ningún widget, para que todos la
+    hereden.
     """
     global _app_style
     app = QApplication.instance()
@@ -671,3 +679,6 @@ def apply_theme() -> None:
     app.setPalette(build_palette(COLORS))
     apply_tooltip_style()
     app.setStyleSheet(STYLESHEET)
+    # La fuente, lo último: 'setStyleSheet' devuelve a algunas clases (menús, listas, textos
+    # emergentes, barra de estado) la fuente propia del sistema (docs/TRAMPAS.md)
+    apply_app_font()
