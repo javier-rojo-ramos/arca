@@ -17,7 +17,7 @@
 
 ## En curso
 
-- **Aspecto: una fuente para todos los sistemas** (24/11/2026; pedido por el autor, antes de `TRK 6.1` y `MUS 1`): `GEN 21`, Inter a 12 px, incluida en la aplicación. Hechos el `21.0` (la comparativa con capturas), el `21.1` (la fuente común), el `21.2` (las tarjetas y la negrita) y el `21.3` (las estrellas y la flecha), verificados, y el `21.4` (el mapa, pendiente de verificar); lo siguiente, `21.5` (el repaso y la regla en `CLAUDE.md`).
+- **Aspecto: una fuente para todos los sistemas** (24/11/2026; pedido por el autor): `GEN 21` terminada (Inter a 12 px en toda la aplicación y en el mapa; las estrellas y la flecha, dibujadas; la regla, en `CLAUDE.md`; detalle en [HISTORIAL.md](HISTORIAL.md)). Lo siguiente del plan, `TRK 6.1` o `MUS 1`.
 - **CATÁLOGO** (19/11/2026): hechas `CAT 3` (carpetas vacías), `CAT 4.1` a `4.4` (renombrar y mover en el mismo disco, nueva carpeta) y `CAT 5` (el árbol replica las carpetas del disco, también las vacías; no estaba en el plan: pedida por el autor y hecha en un paso, detalle en [HISTORIAL.md](HISTORIAL.md)); todas, verificadas por el autor. Hecho y verificado el `4.4c` (mover una carpeta arrastrándola, 20/11/2026). Lo que queda de `CAT 4`: `4.5` (mover entre discos) y `4.6` (renombrado múltiple). En marcha (20/11/2026), `CAT 6` (carpetas que faltan y «Localizar…»): hechos y verificados del `6.1` al `6.3`; el `6.4` («Localizar…» de una carpeta que falta), en espera.
 - **Mapa** (23/11/2026): `GEN 8.4` (buscar un lugar en el mapa, con CartoCiudad y Nominatim) terminada y verificada por el autor; queda para más adelante `GEN 8.5` (la ubicación a partir del GPS). Lo siguiente del plan, `TRK 6.1` o `MUS 1`.
 - **TRACKS**: terminadas las fases 4 y 5, verificadas enteras por el autor el 22/11/2026 (con unos retoques de los waypoints); lo siguiente del plan acordado es `TRK 6` (edición), empezando por `TRK 6.1`.
@@ -121,18 +121,6 @@ Las columnas de cada módulo, en su fase (`MUS 5`, `EBK 5.3`).
 
 Vídeo, Ebooks y Música descargarán datos, cada uno de su proveedor, y los tres necesitan lo mismo: identificarse, limitar las peticiones, guardar en caché, la clave en Opciones y un trabajo cancelable. Antes del primero (`VID 7`).
 
-### Fase GEN 21 — Una fuente para todos los sistemas
-
-Pedida por el autor el 24/11/2026, para que la aplicación se vea casi igual en Windows, macOS y Linux. Decidido tras comparar capturas ([DECISIONES.md](DECISIONES.md), 24/11/2026): Inter, incluida en la aplicación, a 12 px, con SemiBold como negrita; las estrellas y la flecha «▾», dibujadas. Hecho el `21.0`: la comparativa (la ventana real con Segoe UI, Inter 11 e Inter 12, y muestras de las estrellas, la flecha y la negrita; detalle en [HISTORIAL.md](HISTORIAL.md)).
-
-- ~~**GEN 21.1** Inter en `resources/fonts/` (Regular y SemiBold, con su licencia) y `ui_helpers/helpers/theme_fonts.py` (la fuente y sus tamaños en px, como `theme_colors.py`), aplicada a toda la aplicación desde `apply_theme()`. Con ella, los sitios que suman puntos a la fuente (`pointSize() + 3` en los títulos de tres ventanas, la cabecera de Opciones, el aviso de la vista individual y la insignia al arrastrar), que con una fuente en px dejarían de funcionar~~ (hecho el 24/11/2026; con un retoque pedido por el autor al verlo: la cursiva incluida y los grises del texto, más claros).
-- ~~**GEN 21.2** Lo que fija la fuente a mano: Arial en las tarjetas (el nombre y la duración), los tamaños del QSS, el perfil de elevación (en puntos) y la negrita, todo con los tamaños de `theme_fonts`~~ (hecho el 24/11/2026; la negrita, pedida siempre como 600: [TRAMPAS.md](TRAMPAS.md); el gris de las tarjetas, el secundario del tema, #999999).
-- ~~**GEN 21.3** Las estrellas dibujadas (`card_marks.draw_stars`: la tarjeta, la barra inferior y «Atributos»), de punta fina y ajustadas al píxel, y la flecha «▾» dibujada (como el triángulo de los desplegables)~~ (hecho el 24/11/2026; la flecha, la propia de Fusion, puesta por el QSS).
-- ~~**GEN 21.4** El mapa: Inter en `arca_map.css` (servida por el esquema del mapa) y por encima de las fuentes de Leaflet~~ (hecho el 24/11/2026; la familia, los tamaños y la negrita, variables `--arca-font-*` del tema, como los colores).
-- **GEN 21.5** Repaso al píxel con capturas (los textos que se cortan antes, como el objetivo en el inspector) y la regla en `CLAUDE.md`: ninguna fuente suelta.
-
-Después, si hace falta: una opción «Tamaño del texto» en Opciones; las cifras de igual ancho de Inter (`tnum`) en los recuentos y la duración.
-
 ### Mejoras menores (GENERAL)
 
 - **Cuadrícula**: recordar el desplazamiento exacto de cada módulo (desde el 12/11/2026 cada módulo recuerda su archivo actual, que queda a la vista al volver, pero no la posición; al recargar con el mismo origen, la posición se conserva); refresco por filas al terminar los metadatos (hoy recarga entera); recargar una colección inteligente que se está viendo cuando un elemento deja de cumplir las reglas; un módulo sin cuadrícula oculta el deslizador (y el orden, si no ofrece campos).
@@ -141,8 +129,8 @@ Después, si hace falta: una opción «Tamaño del texto» en Opciones; las cifr
 - **Palabras clave**: fusionar dos palabras (hoy, renombrar una con el nombre de otra hermana avisa); arrastrar una palabra a otra para moverla; «Mover a…» con un árbol filtrable si la lista se hace larga; «Conjuntos de palabras clave» personalizables (como Lightroom) junto a «Últimas palabras clave»; quitar una palabra de «Últimas» sin borrarla. Opcional: importar el `.txt` de *Metadatos > Exportar palabras clave* de Lightroom (palabras sin usar, categorías entre corchetes → `include_on_export = 0`, sinónimos entre llaves); importador de solo lectura del catálogo de Lightroom (`.lrcat`) para traer palabras, valoraciones y colecciones de los vídeos.
 - **Secciones de las barras** (personalizables desde el 14/11/2026; [FLUJOS.md §9](FLUJOS.md)): si se quiere, mover una sección de una barra a la otra (el registro ya lo admite: `SectionSpec.sidebars`; faltaría que la sección sirva en las dos y revisar `reset` de una sola barra); un icono propio para la página «Paneles».
 - **«Abrir en su módulo»**: atajo de navegación («ver esta foto en su línea de tiempo»), con baja prioridad.
-- **Mapa**: si se quiere, la distancia a la que el punto ámbar engancha la línea del track activo (`HOVER_PX`, 24 px), como opción en Opciones > Mapa.
-- **Aspecto**: esquinas redondeadas de los menús; si el autor lo pide, una opción para que la etiqueta de color sea una franja inferior en lugar de teñir la tarjeta.
+- **Mapa**: si se quiere, la distancia a la que el punto ámbar engancha la línea del track activo (`HOVER_PX`, 24 px), como opción en Opciones > Mapa. La ventana «Capa propia» (Opciones > Mapa > «Añadir…»): sus cajas de texto y la del zoom son tan bajas que el texto se corta por abajo (visto el 24/11/2026 al repasar las ventanas con Inter; ya pasaba con Segoe UI).
+- **Aspecto**: una opción «Tamaño del texto» en Opciones (desde `GEN 21` la fuente es fija, en px: no sigue el tamaño elegido en el sistema); las cifras de igual ancho de Inter (`tnum`) en los recuentos y la duración, para que no bailen; esquinas redondeadas de los menús; si el autor lo pide, una opción para que la etiqueta de color sea una franja inferior en lugar de teñir la tarjeta.
 - **Omitido a propósito de la v1 del esquema**: borrado suave (`deleted_at`), `dominant_color`, milisegundos y zona de las fechas secundarias, normalización de `country_code` (el XMP admite 2 o 3 letras; hoy se guarda tal cual).
 
 ---

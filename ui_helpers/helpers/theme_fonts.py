@@ -48,6 +48,7 @@ Los símbolos que la interfaz escribe dentro de un texto ('UI_SYMBOLS') tienen q
 Inter, o el sistema los pondría con otra fuente; la autoprueba lo comprueba. Las marcas que
 se dibujan muchas veces (estrellas, marca...) se dibujan con QPainter ('card_marks.py').
 
+1.3.1 Autoprueba: comprueba que no hay ninguna fuente suelta en la interfaz (GEN 21.5).
 1.3.0 Los tamaños del mapa ('map_count', 'map_zoom_sign'): la página los recibe como
       variables CSS, como los colores (GEN 21.4).
 1.2.1 Comentario: la flecha «▾», la de Fusion (GEN 21.3).
@@ -64,7 +65,7 @@ Prueba rápida (sin ventana):
     python -m ui_helpers.helpers.theme_fonts
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = [
     "FONTS_DIR",
     "FONT_FAMILY",
@@ -329,5 +330,40 @@ if __name__ == "__main__":
     assert rich_text("sin negrita") == "sin negrita"
     assert SEMIBOLD.value == SEMIBOLD_CSS == 600
     print("7. rich_text: la negrita del HTML, en SemiBold (600)")
+
+    # 8. Ninguna fuente suelta en la interfaz (la regla de CLAUDE.md): ni una fuente por su
+    # nombre ('QFont("Arial", ...)'), ni puntos, ni la negrita de 700 ('setBold'), ni tamaños
+    # o negritas fijos en un QSS o en la página del mapa (allí van por sus variables)
+    import re
+
+    root = Path(__file__).resolve().parents[2]
+    loose = re.compile(
+        r"QFont\(\s*[\"']|\.setPointSizeF?\(|\.setBold\(|QFont\.Weight\.Bold\b"
+        r"|font-weight:\s*(bold|\d)|font-size:\s*\d|fontWeight\s*=\s*[\"']bold"
+    )
+    files = [
+        *(root / "ui_helpers").rglob("*.py"),
+        *(root / "controllers").rglob("*.py"),
+        root / "resources" / "map" / "arca_map.css",
+        root / "resources" / "map" / "arca_map.js",
+    ]
+
+    def checked_lines(path: Path) -> list[str]:
+        """Las líneas del archivo, con los '@font-face' del CSS en blanco (sus pesos
+        describen los archivos de la fuente: son los únicos que valen ahí)."""
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(r"@font-face\s*\{.*?\}", lambda m: "\n" * m.group(0).count("\n"),
+                      text, flags=re.DOTALL)
+        return text.splitlines()
+
+    found = [
+        f"{path.relative_to(root)}:{number}: {line.strip()}"
+        for path in files
+        if path.resolve() != Path(__file__).resolve()  # este archivo los nombra al explicarlos
+        for number, line in enumerate(checked_lines(path), 1)
+        if loose.search(line)
+    ]
+    assert not found, "Fuentes sueltas (usar 'theme_fonts'):\n" + "\n".join(found)
+    print(f"8. Ninguna fuente suelta en los {len(files)} archivos de la interfaz")
 
     print("Autoprueba finalizada correctamente.")

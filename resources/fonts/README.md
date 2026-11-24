@@ -1,8 +1,8 @@
 # Arca Media — fuente de la aplicación
 
 La aplicación usa **Inter** en toda la interfaz, para que se vea igual en Windows, macOS y
-Linux (decidido el 24/11/2026: [DECISIONES.md](../../docs/DECISIONES.md); fase `GEN 21` de
-[PENDIENTE.md](../../docs/PENDIENTE.md)). La registra y la aplica
+Linux (decidido el 24/11/2026: [DECISIONES.md](../../docs/DECISIONES.md); fase `GEN 21`, en
+[HISTORIAL.md](../../docs/HISTORIAL.md); la regla, en [CLAUDE.md](../../CLAUDE.md)). La registra y la aplica
 `ui_helpers/helpers/theme_fonts.py`, que también fija los tamaños, en px.
 
 ## Contenido
