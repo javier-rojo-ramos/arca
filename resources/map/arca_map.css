@@ -2,7 +2,33 @@
 
    NINGÚN color suelto: todos son variables '--arca-*' que pone 'arca.init' con los colores
    del tema (ui_helpers/helpers/theme_colors.py). Mientras no llegan, el fondo es el que
-   Qt le da a la página (también del tema). */
+   Qt le da a la página (también del tema).
+
+   La fuente, la de la aplicación (Inter): sus archivos, abajo ('@font-face', servidos por
+   ui_helpers/map/map_scheme.py desde resources/fonts/); la familia, los tamaños y la
+   negrita, variables '--arca-font-*' de ui_helpers/helpers/theme_fonts.py. La negrita,
+   siempre 600 (la SemiBold), y sin negrita ni cursiva inventadas ('font-synthesis'):
+   así se ve igual que en el resto de la aplicación y en todos los sistemas. */
+
+/* El nombre de la familia, el de 'theme_fonts.FONT_FAMILY' */
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+}
 
 html, body, #map {
   height: 100%;
@@ -12,12 +38,31 @@ html, body, #map {
 
 .leaflet-container {
   background: var(--arca-bg);
-  font: 12px "Segoe UI", system-ui, sans-serif;
+  font-family: var(--arca-font-family, sans-serif);
+  font-size: var(--arca-font-size, 12px);
+  line-height: normal;
+  font-synthesis: none;
   color: var(--arca-text);
   outline: none;
 }
 
 /* --- Controles de Leaflet (zoom y atribución) con los colores del tema --- */
+
+/* El «+» y el «−» del zoom, con la fuente de la aplicación (Leaflet los pone en «Lucida
+   Console», que no está en macOS ni en Linux) y su tamaño de siempre */
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out,
+.leaflet-touch .leaflet-control-zoom-in,
+.leaflet-touch .leaflet-control-zoom-out {
+  font-family: var(--arca-font-family, sans-serif);
+  font-weight: var(--arca-font-weight-semibold, 600);
+  font-size: var(--arca-font-size-zoom, 22px);
+}
+
+/* La primera línea de un texto emergente con varias (arca_map.js, 'textBlock') */
+.arca-tip-title {
+  font-weight: var(--arca-font-weight-semibold, 600);
+}
 
 .leaflet-bar {
   border: 1px solid var(--arca-line) !important;
@@ -93,8 +138,8 @@ html, body, #map {
   right: 0;
   bottom: 0;
   padding: 0 4px;
-  font-weight: bold;
-  font-size: 11px;
+  font-weight: var(--arca-font-weight-semibold, 600);
+  font-size: var(--arca-font-size-count, 11px);
   line-height: 15px;
   color: var(--arca-text-on-accent);
   background: var(--arca-accent);

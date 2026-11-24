@@ -29,6 +29,9 @@ widget interno, que se queda con ellos (Chromium navegaría por el historial de 
 página). El mismo filtro los aparta y los reenvía a la vista, desde la que suben por sus
 padres hasta la página del mapa: allí el 'CenterViewController' cambia de vista.
 
+1.11.0 La fuente de la página, del tema: '_theme_fonts' (la familia, los tamaños y la
+       negrita de 'theme_fonts', como variables '--arca-font-*'), en 'init' junto a los
+       colores (GEN 21.4).
 1.10.1 La chincheta, con su relleno, su borde y su punto, y su halo ('search-pin',
        'search-pin-dark' y 'search-pin-halo'; antes, 'pin-border').
 1.10.0 'set_search_pin' ('setSearchPin' de la página): la chincheta del lugar encontrado con
@@ -54,7 +57,7 @@ padres hasta la página del mapa: allí el 'CenterViewController' cambia de vist
       miniatura, selección, encuadre.
 """
 
-__version__ = "1.10.1"
+__version__ = "1.11.0"
 __all__ = ["DEFAULT_VIEW", "WebMapBackend", "css_color", "marker_payload", "track_payload"]
 
 # Librerías estándar
@@ -76,6 +79,7 @@ from qtpy.QtWidgets import QVBoxLayout, QWidget
 
 # Módulos del proyecto
 from core.maps.tile_layers import TileLayer
+from ui_helpers.helpers.theme_fonts import FONT_FAMILY, FONT_SIZES, SEMIBOLD_CSS
 from ui_helpers.helpers.ui_theme import CARD_COLORS, COLORS
 from ui_helpers.map.map_backend import MapBackend
 from ui_helpers.map.map_scheme import SCHEME, START_URL, shared_handler
@@ -150,6 +154,19 @@ def _theme_colors() -> dict[str, str]:
         "search-pin": css_color(COLORS.map_search_pin),
         "search-pin-dark": css_color(COLORS.map_search_pin_dark),
         "search-pin-halo": css_color(COLORS.map_search_pin_halo),
+    }
+
+
+def _theme_fonts() -> dict[str, str]:
+    """Variables CSS de la fuente de la página ('--arca-<nombre>'), de 'theme_fonts': la
+    familia (sus archivos los declara 'arca_map.css' y los sirve 'map_scheme'), los
+    tamaños en px y la negrita, siempre 600 (docs/TRAMPAS.md)."""
+    return {
+        "font-family": f'"{FONT_FAMILY}", sans-serif',
+        "font-size": f"{FONT_SIZES.base}px",
+        "font-size-count": f"{FONT_SIZES.map_count}px",
+        "font-size-zoom": f"{FONT_SIZES.map_zoom_sign}px",
+        "font-weight-semibold": str(SEMIBOLD_CSS),
     }
 
 
@@ -339,7 +356,13 @@ class WebMapBackend(MapBackend):
 
     def _on_page_loaded(self) -> None:
         self._call(
-            "init", {"colors": _theme_colors(), "texts": _TEXTS, "view": list(DEFAULT_VIEW)}
+            "init",
+            {
+                "colors": _theme_colors(),
+                "fonts": _theme_fonts(),
+                "texts": _TEXTS,
+                "view": list(DEFAULT_VIEW),
+            },
         )
 
     def _on_map_ready(self) -> None:

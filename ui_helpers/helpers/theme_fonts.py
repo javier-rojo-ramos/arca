@@ -48,6 +48,8 @@ Los símbolos que la interfaz escribe dentro de un texto ('UI_SYMBOLS') tienen q
 Inter, o el sistema los pondría con otra fuente; la autoprueba lo comprueba. Las marcas que
 se dibujan muchas veces (estrellas, marca...) se dibujan con QPainter ('card_marks.py').
 
+1.3.0 Los tamaños del mapa ('map_count', 'map_zoom_sign'): la página los recibe como
+      variables CSS, como los colores (GEN 21.4).
 1.2.1 Comentario: la flecha «▾», la de Fusion (GEN 21.3).
 1.2.0 Los tamaños que se fijaban a mano (GEN 21.2): el nombre y la duración de las tarjetas
       (antes, Arial), el nombre del inspector, su extensión y el signo «+» de las barras
@@ -62,7 +64,7 @@ Prueba rápida (sin ventana):
     python -m ui_helpers.helpers.theme_fonts
 """
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 __all__ = [
     "FONTS_DIR",
     "FONT_FAMILY",
@@ -131,6 +133,9 @@ class FontSizes:
         inspector_extension: La extensión del inspector, en su recuadro.
         sidebar_add_sign: El signo «+» de las cabeceras de «Carpetas» y «Colecciones» (solo
             se ve si falta su icono).
+        map_count: En el mapa, el número de fotos de un grupo, en SemiBold.
+        map_zoom_sign: En el mapa, el «+» y el «−» de los botones del zoom, en SemiBold
+            (el tamaño que les daba Leaflet).
     """
 
     base: int
@@ -143,6 +148,8 @@ class FontSizes:
     inspector_name: int
     inspector_extension: int
     sidebar_add_sign: int
+    map_count: int
+    map_zoom_sign: int
 
 
 FONT_SIZES = FontSizes(
@@ -156,6 +163,8 @@ FONT_SIZES = FontSizes(
     inspector_name=13,
     inspector_extension=10,
     sidebar_add_sign=15,
+    map_count=11,
+    map_zoom_sign=22,
 )
 
 # Si Inter está registrada: None mientras no se ha intentado (ver 'load_fonts')

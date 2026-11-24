@@ -189,7 +189,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
     map_backend.py                     MapBackend (con set_track_range: el tramo resaltado): contrato del fondo del mapa (lo que MapView pide a la tecnología que pinta: señales y métodos); solo declara
     web_backend.py                     WebMapBackend: el fondo con QtWebEngine + Leaflet (al verse y al cambiar de tamaño, la página vuelve a medir su espacio; página de resources/map/, colores del tema como variables CSS, sin foco; recoge los arrastres de tarjetas con un filtro en los widgets internos de la vista); css_color, marker_payload, track_payload
     web_bridge.py                      MapBridge: lo que la página puede decirle a Python (QWebChannel): cargada, lista, encuadre, selección, doble clic, clic en un track y punto bajo el ratón, fotos arrastradas, botón derecho y botón «Encuadrar»
-    map_scheme.py                      Esquema arca-map:// (MapSchemeHandler: recursos de la página, teselas con caché y descarga, miniaturas); register_map_scheme (antes de QApplication), shared_handler
+    map_scheme.py                      Esquema arca-map:// (MapSchemeHandler: recursos de la página, la fuente de la aplicación de resources/fonts/, teselas con caché y descarga, miniaturas); register_map_scheme (antes de QApplication), shared_handler
   helpers/ui_file_manager.py         "Mostrar en el Explorador/Finder" multiplataforma (reveal_in_file_manager) y papelera del sistema (move_to_trash, con QFile.moveToTrash)
 core/
   catalog/                           ── Crear, abrir y llenar el catálogo ──

@@ -5,8 +5,8 @@
 // argumentos en JSON) y recibe los avisos por 'bridge' (ui_helpers/map/web_bridge.py).
 // JavaScript llano, sin cadena de construcción: lo que se lee aquí es lo que se ejecuta.
 //
-// Arranque: la página avisa con 'on_loaded' -> Python llama a 'init' (colores del tema,
-// textos y encuadre inicial) -> se crea el mapa -> 'on_ready'.
+// Arranque: la página avisa con 'on_loaded' -> Python llama a 'init' (colores y fuente del
+// tema, textos y encuadre inicial) -> se crea el mapa -> 'on_ready'.
 "use strict";
 
 // El punto de un recorrido más cercano a (x, y), mirando sus TRAMOS y no solo sus vértices:
@@ -94,6 +94,10 @@ const arca = (() => {
     colors = config.colors;
     const style = document.documentElement.style;
     for (const [name, value] of Object.entries(colors)) {
+      style.setProperty("--arca-" + name, value);
+    }
+    // La fuente: familia, tamaños y negrita (las usa arca_map.css)
+    for (const [name, value] of Object.entries(config.fonts || {})) {
       style.setProperty("--arca-" + name, value);
     }
     map = L.map("map", { preferCanvas: true, zoomControl: false });
@@ -610,7 +614,7 @@ const arca = (() => {
     shown.forEach((line, i) => {
       const row = document.createElement("div");
       row.textContent = line;
-      if (i === 0 && shown.length > 1) row.style.fontWeight = "bold";
+      if (i === 0 && shown.length > 1) row.className = "arca-tip-title"; // en SemiBold
       block.appendChild(row);
     });
     return block;

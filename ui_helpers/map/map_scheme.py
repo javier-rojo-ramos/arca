@@ -5,6 +5,8 @@ este esquema propio, que atiende Python. Diseño en docs/MOD_TRACKS.md (§3.2).
 
     arca-map://app/<archivo>               recursos de la página (resources/map/) y
                                            'qwebchannel.js', que viene dentro de Qt
+    arca-map://app/fonts/<archivo>         la fuente de la aplicación (Inter), de
+                                           resources/fonts/ ('theme_fonts.FONT_FILES')
     arca-map://tiles/<capa>/<z>/<x>/<y>    una tesela: de la caché ('TileStore') si está;
                                            si no, se descarga, se guarda y se devuelve
     arca-map://thumb/<media_id>            la miniatura de un marcador (la da una función:
@@ -29,6 +31,9 @@ Uso:
     handler = shared_handler()              # el único de la aplicación (lo crea 'WebMapBackend')
     handler.set_thumbnail_provider(funcion) # al abrir un catálogo
 
+1.2.0 La fuente de la aplicación, en 'app/fonts/<archivo>' (solo los de
+      'theme_fonts.FONT_FILES', de resources/fonts/: un solo juego para Qt y la página;
+      GEN 21.4).
 1.1.1 Las miniaturas se leen con 'ThumbnailCache.read', que reintenta si el archivo está
       bloqueado (en Windows, al coincidir con su sustitución al regenerarla).
 1.1.0 El tipo de cada tesela se mira en sus bytes (las capas propias no dicen si sirven
@@ -36,7 +41,7 @@ Uso:
 1.0.0 Primera versión (docs/MOD_TRACKS.md, paso 1.3).
 """
 
-__version__ = "1.1.1"
+__version__ = "1.2.0"
 __all__ = ["SCHEME", "START_URL", "MapSchemeHandler", "register_map_scheme", "shared_handler"]
 
 # Librerías estándar
@@ -62,6 +67,7 @@ from config import app_paths
 from core.maps.tile_layers import TILE_LAYERS, TileLayer, is_valid_tile, tile_url, user_agent
 from core.maps.tile_store import TileStorageError, TileStore, image_mime
 from core.thumbnails.cache import ThumbnailCache
+from ui_helpers.helpers.theme_fonts import FONT_FILES, FONTS_DIR
 
 SCHEME = "arca-map"
 START_URL = f"{SCHEME}://app/index.html"
@@ -76,6 +82,10 @@ _ASSET_MIME_TYPES = {
     ".png": "image/png",
     ".svg": "image/svg+xml",
 }
+# La fuente de la aplicación: la página la pide en 'fonts/<archivo>' (desde su CSS), y se
+# sirve de resources/fonts/, no de resources/map/ (un solo juego de archivos)
+_FONTS_PATH = "fonts"
+_FONT_MIME_TYPE = "font/ttf"
 # Tipo MIME de una miniatura, por su extensión (la caché las guarda en JPEG)
 _THUMBNAIL_MIME_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
 
@@ -121,6 +131,7 @@ class MapSchemeHandler(QWebEngineUrlSchemeHandler):
         *,
         assets_dir: Path,
         agent: str,
+        fonts_dir: Path = FONTS_DIR,
         parent: QObject | None = None,
     ) -> None:
         """
@@ -128,11 +139,13 @@ class MapSchemeHandler(QWebEngineUrlSchemeHandler):
             store: Caché de teselas.
             assets_dir: Carpeta de los recursos de la página (resources/map).
             agent: Identificación ante los servidores de teselas ('User-Agent').
+            fonts_dir: Carpeta de la fuente de la aplicación (resources/fonts).
             parent: Objeto padre.
         """
         super().__init__(parent)
         self._store = store
         self._assets_dir = assets_dir.resolve()
+        self._fonts_dir = fonts_dir.resolve()
         self._agent = agent.encode("ascii", "replace")
         self._network = QNetworkAccessManager(self)
         self._layers: dict[str, TileLayer] = {layer.key: layer for layer in TILE_LAYERS}
@@ -204,6 +217,9 @@ class MapSchemeHandler(QWebEngineUrlSchemeHandler):
                 logger.error("No se encuentra qwebchannel.js en los recursos de Qt.")
                 self._fail(job, _Job.Error.UrlNotFound)
             return
+        if len(parts) == 2 and parts[0] == _FONTS_PATH:
+            self._serve_font(job, parts[1])
+            return
         path = self._assets_dir.joinpath(*parts).resolve()
         # Nada de fuera de la carpeta de recursos ('..')
         if self._assets_dir not in path.parents or not path.is_file():
@@ -214,6 +230,19 @@ class MapSchemeHandler(QWebEngineUrlSchemeHandler):
             self._reply(job, mime, path.read_bytes())
         except OSError as error:
             logger.error(f"No se pudo leer un recurso del mapa ({path.name}): {error}")
+            self._fail(job)
+
+    def _serve_font(self, job: _Job, name: str) -> None:
+        """Un archivo de la fuente de la aplicación (solo los de 'FONT_FILES': nada más
+        de esa carpeta, y nada de fuera)."""
+        path = self._fonts_dir / name
+        if name not in FONT_FILES or not path.is_file():
+            self._fail(job, _Job.Error.UrlNotFound)
+            return
+        try:
+            self._reply(job, _FONT_MIME_TYPE, path.read_bytes())
+        except OSError as error:
+            logger.error(f"No se pudo leer la fuente del mapa ({name}): {error}")
             self._fail(job)
 
     # --- Teselas ---

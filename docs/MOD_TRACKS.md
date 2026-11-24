@@ -388,7 +388,7 @@ La página no habla con Internet. Todo lo pide a un esquema propio que atiende `
 
 | Dirección | Qué devuelve |
 |---|---|
-| `arca-map://app/...` | Los recursos de `resources/map/` (página, JS, CSS, Leaflet) y `qwebchannel.js`, que viene dentro de Qt |
+| `arca-map://app/...` | Los recursos de `resources/map/` (página, JS, CSS, Leaflet) y `qwebchannel.js`, que viene dentro de Qt; en `app/fonts/`, la fuente de la aplicación (Inter, de `resources/fonts/`; desde el 24/11/2026, `GEN 21.4`) |
 | `arca-map://tiles/<capa>/<z>/<x>/<y>` | La tesela: de la caché si está y vale; si no, se descarga (`QNetworkAccessManager`), se guarda y se devuelve |
 | `arca-map://thumb/<media_id>` | La miniatura del marcador: la da una función que se le pasa al abrir el catálogo (`set_thumbnail_provider`), que la saca de la caché de miniaturas |
 
