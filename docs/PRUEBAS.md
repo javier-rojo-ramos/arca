@@ -164,7 +164,7 @@ python -m ui_helpers.helpers.track_appearance                  (colores de los t
 python -m ui_helpers.helpers.profile_style                     (estilo del perfil: franjas de la pendiente por inclinación, con y sin histéresis; estilos que no se pueden dibujar)
 python -m ui_helpers.helpers.profile_format                    (marcas redondas de los ejes, números en español, textos de los totales, del tramo y del cursor)
 python -m ui_helpers.helpers.track_outline                     (el recorrido de un track en su tarjeta: encaje con su proporción y dibujo sobre una imagen; sin ventana)
-python -m ui_helpers.helpers.card_marks                        (dibuja las marcas en una imagen; necesita PySide6)
+python -m ui_helpers.helpers.card_marks                        (dibuja las marcas en una imagen; las estrellas, en el cuadrado del carácter de antes, al 100 % y al 150 %; sin ventana)
 python -m ui_helpers.helpers.keyword_menu                      (lógica del menú de los árboles de palabras clave; sin ventana)
 python -m ui_helpers.helpers.theme_colors                      (contraste y formato de los colores del tema; marcas legibles sobre la banda)
 python -m ui_helpers.helpers.theme_fonts                       (Inter registrada, en px, la SemiBold como negrita y los símbolos de la interfaz; sin ventana)

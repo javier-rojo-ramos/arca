@@ -25,6 +25,7 @@ Uso (lo crea el controlador principal y se lo pasa al 'FilterController'):
     row.set_media_types(("photo", "video"))
     row.attribute_filter_changed.connect(...)
 
+1.1.0 Las estrellas, dibujadas por 'card_marks' (GEN 21.3): sin la fuente Arial 12 pt.
 1.0.2 De 34 px de alto (antes, 30), como la fila de las pestañas; los iconos, las
       estrellas y el fondo bajo el ratón, del mismo tamaño que antes y centrados
       ('_STAR_HEIGHT', '_HOVER_HEIGHT'; pedido por el autor el 12/11/2026).
@@ -36,7 +37,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.attribute_filter_row
 """
 
-__version__ = "1.0.2"
+__version__ = "1.1.0"
 __all__ = ["OPERATOR_TEXTS", "OPERATOR_TOOLTIP", "TYPE_TEXTS", "AttributeFilterRow"]
 
 # Librerías estándar
@@ -45,7 +46,7 @@ from dataclasses import replace
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QEvent, QPoint, QRect, QRectF, QSize, Qt, Signal
-from qtpy.QtGui import QColor, QFont, QHelpEvent, QMouseEvent, QPainter, QPen
+from qtpy.QtGui import QColor, QHelpEvent, QMouseEvent, QPainter, QPen
 from qtpy.QtWidgets import QComboBox, QHBoxLayout, QToolTip, QWidget
 
 # Módulos del proyecto
@@ -203,7 +204,6 @@ class AttributeFilterRow(QWidget):
         self.setFixedHeight(ROW_HEIGHT)
         self._filter = AttributeFilter()
         self._media_types: tuple[str, ...] = ()
-        self._star_font = QFont("Arial", 12)  # la de la barra inferior
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -304,7 +304,6 @@ class AttributeFilterRow(QWidget):
     def _paint_rest(self, painter: QPainter, zones: dict[str, QRect], _hovered: str | None) -> None:
         attributes = self._filter
         # Estrellas: rellenas hasta la valoración elegida; las demás, vacías
-        painter.setFont(self._star_font)
         first = zones["star:1"]
         card_marks.draw_stars(
             painter, QRect(first.left(), first.top(), _STAR_W * 5, first.height()),

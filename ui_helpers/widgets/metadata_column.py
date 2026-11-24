@@ -39,6 +39,9 @@ Uso (lo crea el panel de «Metadatos»):
     column.set_values(fetch_metadata_values(...), chosen)
     column.values_changed.connect(...)
 
+1.3.0 El botón del campo, solo con su nombre: la flecha detrás del nombre, la de Fusion (la de los desplegables), que pone
+      el QSS ('::menu-indicator', a la derecha del texto) con el color del texto; antes,
+      un «▾» en el propio texto, que Inter no tiene (GEN 21.3).
 1.2.2 El título de cada grupo del menú de campos, en SemiBold (600) y no «bold»: con
       solo la SemiBold, FreeType (Linux) engordaría la de 700 (GEN 21.2).
 1.2.1 Los nombres de los meses y de los días, de 'formatting' ('MONTH_NAMES',
@@ -55,7 +58,7 @@ Vista de ejemplo (abre una ventana y espera a que se cierre): tres columnas con 
     python -m ui_helpers.widgets.metadata_column --ventana
 """
 
-__version__ = "1.2.2"
+__version__ = "1.3.0"
 __all__ = [
     "ADD_COLUMN_TEXT",
     "ALL_TEXT",
@@ -118,7 +121,6 @@ ALL_TEXT = "Todo ({count})"
 ADD_COLUMN_TEXT = "Añadir columna"
 REMOVE_COLUMN_TEXT = "Quitar esta columna"
 _SETTINGS_TOOLTIP = "Columnas"
-_FIELD_ARROW = " ▾"  # tras el nombre del campo: se puede pulsar (sin la flecha de Fusion)
 _UNKNOWN_TEXT = "Desconocido"
 # Los campos que tienen su propio texto para «sin el dato» (el mismo que en otros sitios:
 # «Sin clasificar» es la fila de la barra izquierda, decidido por el autor el 09/11/2026)
@@ -338,7 +340,7 @@ class MetadataColumnWidget(QWidget):
             self._expanded.clear()
         self._field = field_key
         group = next(g.label for g in GROUPS if g.key == spec.group)
-        self._field_button.setText(spec.label + _FIELD_ARROW)
+        self._field_button.setText(spec.label)  # la flecha, detrás, la pone el QSS
         self._field_button.setToolTip(f"{group} › {spec.section} › {spec.label}")
         self._tree.setRootIsDecorated(spec.kind == KIND_DATE)
         self._chosen = frozenset()
@@ -548,7 +550,7 @@ if __name__ == "__main__":
 
     # 2. Campo y valores: «Todo (N)» con el total; lo elegido que no aparece, atenuado
     column.set_field("city")
-    assert column._field_button.text() == "Ciudad ▾" and column._tree.topLevelItemCount() == 0
+    assert column._field_button.text() == "Ciudad" and column._tree.topLevelItemCount() == 0
     city = MetadataValues("city", 317, (
         MetadataValue("Boltaña", 14), MetadataValue("Huesca", 4), MetadataValue("Pau", 0),
         MetadataValue(None, 2),

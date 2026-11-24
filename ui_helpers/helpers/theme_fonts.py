@@ -48,6 +48,7 @@ Los símbolos que la interfaz escribe dentro de un texto ('UI_SYMBOLS') tienen q
 Inter, o el sistema los pondría con otra fuente; la autoprueba lo comprueba. Las marcas que
 se dibujan muchas veces (estrellas, marca...) se dibujan con QPainter ('card_marks.py').
 
+1.2.1 Comentario: la flecha «▾», la de Fusion (GEN 21.3).
 1.2.0 Los tamaños que se fijaban a mano (GEN 21.2): el nombre y la duración de las tarjetas
       (antes, Arial), el nombre del inspector, su extensión y el signo «+» de las barras
       (antes, en el QSS); la negrita, siempre 600: 'SEMIBOLD', 'SEMIBOLD_CSS' y 'rich_text'.
@@ -61,7 +62,7 @@ Prueba rápida (sin ventana):
     python -m ui_helpers.helpers.theme_fonts
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = [
     "FONTS_DIR",
     "FONT_FAMILY",
@@ -99,7 +100,7 @@ FONT_FILES = ("Inter-Regular.ttf", "Inter-SemiBold.ttf", "Inter-Italic.ttf")
 
 # Los símbolos que la interfaz escribe como caracteres, dentro de un texto. Al usar uno
 # nuevo, se añade aquí: la autoprueba comprueba que Inter lo tiene. La flecha «▾» no está
-# en Inter: se dibuja (GEN 21.3)
+# en Inter: la de los botones con menú la dibuja Fusion, puesta por el QSS (GEN 21.3)
 UI_SYMBOLS = "«»©·×–—•…›→↑↓−≤≥★☆⚠"
 
 # La negrita: la SemiBold, pedida siempre por su peso (600), nunca como «bold» (700; ver la

@@ -21,6 +21,9 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.26.0 La flecha de «Personalizado» y del campo de una columna de «Metadatos», la de
+       Fusion ('::menu-indicator' a la derecha del texto, con su color; 'MENU_ARROW_*'),
+       en lugar de un «▾» en el texto, que Inter no tiene (GEN 21.3).
 1.25.0 Los tamaños de letra del QSS (el nombre del inspector, su extensión y el signo «+»
        de las barras), de 'theme_fonts.FONT_SIZES' (los mismos px); la negrita, 600
        ('SEMIBOLD_CSS'), no «bold»: con solo la SemiBold, FreeType engordaría la de 700
@@ -79,7 +82,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.25.0"
+__version__ = "1.26.0"
 __all__ = [
     "ACCENT_COLOR",
     "BAR_ICON_SIZE",
@@ -88,6 +91,8 @@ __all__ = [
     "GRID_BG",
     "GRID_LINE",
     "MARK_COLORS",
+    "MENU_ARROW_PADDING",
+    "MENU_ARROW_RIGHT",
     "PROFILE_COLORS",
     "SIDEBAR_ICON_COLOR",
     "SIDEBAR_ICON_OPEN_COLOR",
@@ -161,6 +166,13 @@ VIEW_BUTTON_RADIUS = 4
 # casi toca el borde de los botones de 22). Decidido por el autor el 15/11/2026
 BAR_ICON_SIZE = 18
 
+# La flecha de Fusion detrás del texto de un botón con menú («Personalizado ▾», el campo
+# de una columna de «Metadatos»): el hueco que se le deja a la derecha (px) y su
+# distancia al borde. Medido para que el hueco entre el texto y la flecha sea el del «▾»
+# que llevaba antes el texto (GEN 21.3)
+MENU_ARROW_PADDING = 11
+MENU_ARROW_RIGHT = 2
+
 # Fondo de la cuadrícula de miniaturas, algo más hundido que las tarjetas (paso T3); también
 # es el fondo de la barra inferior ('frame_main_bottom'), para que formen un solo bloque.
 # Se mantiene el nombre porque lo importan varios módulos: el valor está en 'theme_colors'
@@ -221,12 +233,13 @@ QToolButton#btn_filter_lock:hover {{
     background: {COLORS.bg_raised};
 }}
 /* Desplegable de los ajustes personalizados (filter_preset_button.py): texto como las
-   pestañas («Ubicación ▾»; la flecha la lleva el texto, sin la de Fusion) */
+   pestañas y, detrás, la flecha de Fusion (la de los desplegables), con el color del
+   texto: «Ubicación ▾» */
 QToolButton#btn_filter_presets {{
     border: none;
     background: transparent;
     color: {COLORS.text_dim};
-    padding: 2px 2px;
+    padding: 2px {MENU_ARROW_PADDING}px 2px 2px;
 }}
 QToolButton#btn_filter_presets:hover {{
     color: {COLORS.text};
@@ -235,8 +248,9 @@ QToolButton#btn_filter_presets:disabled {{
     color: {COLORS.text_disabled};
 }}
 QToolButton#btn_filter_presets::menu-indicator {{
-    image: none;
-    width: 0px;
+    subcontrol-origin: padding;
+    subcontrol-position: right center;
+    right: {MENU_ARROW_RIGHT}px;
 }}
 
 /* Textos de las ventanas (p. ej. «Gestionar ajustes personalizados»): la ayuda, en gris;
@@ -282,7 +296,8 @@ QFrame#line_filter_panel {{
 
 /* Columnas de «Metadatos» (ui_helpers/widgets/metadata_column.py): la cabecera, con el
    fondo de los paneles y una raya debajo; el campo, en texto (sin caja; con el ratón, en
-   el acento) y sin la flecha de Fusion (la lleva el texto: «Ciudad ▾»); la lista, sin
+   el acento) y, detrás, la flecha de Fusion, con el color del texto («Ciudad ▾»); la
+   lista, sin
    marco, sobre el fondo de la franja */
 QWidget#widget_metadata_header {{
     background-color: {COLORS.bg_panel};
@@ -292,14 +307,15 @@ QToolButton#btn_metadata_field {{
     border: none;
     background: transparent;
     color: {COLORS.text};
-    padding: 2px 2px;
+    padding: 2px {MENU_ARROW_PADDING}px 2px 2px;
 }}
 QToolButton#btn_metadata_field:hover {{
     color: {COLORS.accent};
 }}
 QToolButton#btn_metadata_field::menu-indicator {{
-    image: none;
-    width: 0px;
+    subcontrol-origin: padding;
+    subcontrol-position: right center;
+    right: {MENU_ARROW_RIGHT}px;
 }}
 QToolButton#btn_metadata_settings {{
     border: none;

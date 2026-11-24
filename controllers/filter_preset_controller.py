@@ -36,6 +36,7 @@ Uso (en el controlador principal, solo la conexión):
                                      config=self.config, window=self, parent=self)
     FilterController(..., presets=presets, ...)
 
+1.3.1 Autoprueba: el texto del botón, sin «▾» (la flecha la pone el QSS; GEN 21.3).
 1.3.0 «Gestionar…»: abre la ventana de gestión y guarda lo que devuelve (paso A.3,
       filtros personalizados, subpaso 3).
 1.2.0 Pasa al botón si hay algo encendido ('filtering'): sin ajuste que coincida, dice
@@ -49,7 +50,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m controllers.filter_preset_controller
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = [
     "REPLACE_BUTTONS",
     "SAVE_LABEL",
@@ -354,7 +355,7 @@ if __name__ == "__main__":
     # 1. «Ninguno» en Imagen: los cinco de fábrica, «Sin filtro», sin guardar ni restaurar
     # (gestionar, sí)
     apply(NO_FILTER)
-    assert button.text() == "Sin filtro ▾"
+    assert button.text() == "Sin filtro"
     assert preset_names() == [
         "Columnas de partida", "Ubicación", "Sin ubicación", "Datos de exposición", "Valoradas",
         "Marcadas",
@@ -364,7 +365,7 @@ if __name__ == "__main__":
 
     # 2. Encender «Metadatos» sin tocar nada: coincide con «Columnas de partida»
     apply(NO_FILTER.with_panel(FILTER_METADATA, True))
-    assert button.text() == "Columnas de partida ▾", button.text()
+    assert button.text() == "Columnas de partida", button.text()
     assert actions()["Guardar filtro activo como nuevo ajuste personalizado…"]
     assert not actions()["Restaurar filtro activo a sus valores por defecto"]
 
@@ -376,14 +377,14 @@ if __name__ == "__main__":
     location = ["country", "region", "city", "sublocation"]
     assert [c.field for c in chosen.metadata.columns] == location
     apply(chosen)
-    assert button.text() == "Ubicación ▾"
+    assert button.text() == "Ubicación"
     # Hay algo que restaurar: «boda» y otras columnas que las de partida
     assert actions()["Restaurar filtro activo a sus valores por defecto"]
     # Elegir un valor en una columna: sigue «Ubicación»; cambiar el campo de una, ya no
     apply(replace(chosen, metadata=chosen.metadata.with_values(0, ["España"])))
-    assert button.text() == "Ubicación ▾"
+    assert button.text() == "Ubicación"
     apply(replace(chosen, metadata=chosen.metadata.with_field(0, "keyword")))
-    assert button.text() == "Personalizado ▾"
+    assert button.text() == "Personalizado"
     apply(chosen)
 
     # 4. Restaurar: todo vacío, mismas pestañas y candado
@@ -392,18 +393,18 @@ if __name__ == "__main__":
     assert restored.active == chosen.active and restored.locked
     assert restored.text == TextFilter() and restored.metadata.columns == ()
     apply(restored)
-    assert button.text() == "Columnas de partida ▾"
+    assert button.text() == "Columnas de partida"
 
     # 5. Guardar: se pide el nombre; cancelar no guarda nada
     stars = replace(restored, active=frozenset({FILTER_ATTRIBUTES, FILTER_TEXT}),
                     attributes=AttributeFilter(rating=4), text=TextFilter(text="playa"))
     apply(stars)
-    assert button.text() == "Personalizado ▾"
+    assert button.text() == "Personalizado"
     button.save_requested.emit()
     assert config.writes == 0
     answers["name"] = "  Playa   buena "
     button.save_requested.emit()
-    assert config.writes == 1 and button.text() == "Playa buena ▾"
+    assert config.writes == 1 and button.text() == "Playa buena"
     saved = config.data[SETTING_FILTER_PRESETS]
     factory_count = len(presets_from_config(None))
     assert [p["name"] for p in saved][-1] == "Playa buena" and len(saved) == factory_count + 1
@@ -414,12 +415,12 @@ if __name__ == "__main__":
     answers["name"] = "PLAYA BUENA"
     button.save_requested.emit()
     assert answers["asked"] == ["Playa buena"] and config.writes == 1
-    assert button.text() == "Personalizado ▾"
+    assert button.text() == "Personalizado"
     # «Reemplazar»: en su lugar, con el nombre como se ha escrito ahora
     answers["replace"] = True
     button.save_requested.emit()
     assert config.writes == 2 and len(controller.presets) == factory_count + 1
-    assert controller.presets[-1].name == "PLAYA BUENA" and button.text() == "PLAYA BUENA ▾"
+    assert controller.presets[-1].name == "PLAYA BUENA" and button.text() == "PLAYA BUENA"
 
     # 6b. Dos con las mismas columnas («Ubicación» y «Mi país», con España): con otro valor,
     # el último elegido
@@ -427,19 +428,19 @@ if __name__ == "__main__":
     apply(spain)
     answers["name"] = "Mi país"
     button.save_requested.emit()
-    assert button.text() == "Mi país ▾"  # el que coincide del todo
+    assert button.text() == "Mi país"  # el que coincide del todo
     france = replace(chosen, metadata=chosen.metadata.with_values(0, ["Francia"]))
     apply(france)
-    assert button.text() == "Mi país ▾"  # el último guardado
+    assert button.text() == "Mi país"  # el último guardado
     button.preset_chosen.emit(1)  # «Ubicación»
     apply(requested[-1])
     apply(france)
-    assert button.text() == "Ubicación ▾"
+    assert button.text() == "Ubicación"
     button.preset_chosen.emit(preset_names().index("Mi país"))
     apply(requested[-1])
-    assert button.text() == "Mi país ▾"
+    assert button.text() == "Mi país"
     apply(france)
-    assert button.text() == "Mi país ▾"
+    assert button.text() == "Mi país"
 
     # 7. Un módulo sin fotos: «Datos de exposición» no sale; las posiciones son las de su lista
     host.types, host.fields = ("audio",), ("media_type",)
@@ -471,9 +472,9 @@ if __name__ == "__main__":
     button.manage_requested.emit()
     stored = [p["name"] for p in config.data[SETTING_FILTER_PRESETS]]
     assert config.writes == 4 and "Columnas de partida" not in stored and "Mi tierra" in stored
-    assert button.text() == "Mi tierra ▾" and "Columnas de partida" not in preset_names()
+    assert button.text() == "Mi tierra" and "Columnas de partida" not in preset_names()
     apply(france)  # otro valor: «Mi tierra» (el último elegido), no «Ubicación»
-    assert button.text() == "Mi tierra ▾", button.text()
+    assert button.text() == "Mi tierra", button.text()
 
     # 8. Barra desactivada (sin catálogo): nada se puede pulsar ni pedir (el nombre, sí)
     controller.show_filter(chosen, enabled=False)

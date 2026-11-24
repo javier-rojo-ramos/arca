@@ -29,6 +29,7 @@ Comportamiento (el mismo que los atajos de teclado):
 Uso (en el .ui es un widget promocionado, 'widget_organize_bar'):
     self.widget_organize_bar.attach(self.list_view_grid, self.mosaico_model)
 
+1.2.0 Las estrellas, dibujadas por 'card_marks' (GEN 21.3): sin la fuente Arial 12 pt.
 1.1.0 El fondo bajo el ratón y el anillo del color activo, los mismos que la fila
       «Atributos» de la barra de filtros (del tema: 'bg_hover' y 'text'; antes, blanco
       translúcido y blanco, que en un tema claro no se verían). Decidido por el autor el
@@ -36,7 +37,7 @@ Uso (en el .ui es un widget promocionado, 'widget_organize_bar'):
 1.0.0 Primera versión (barra inferior, paso 2).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["MIXED", "OrganizeBar", "common_value", "toggled_value"]
 
 # Librerías estándar
@@ -45,7 +46,7 @@ from typing import Any
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QEvent, QPoint, QRect, QRectF, QSize, Qt, QTimer
-from qtpy.QtGui import QColor, QFont, QPainter, QPen
+from qtpy.QtGui import QColor, QPainter, QPen
 from qtpy.QtWidgets import QListView, QSizePolicy, QToolTip, QWidget
 
 # Módulos del proyecto
@@ -113,7 +114,6 @@ class OrganizeBar(QWidget):
         self.setMouseTracking(True)  # para resaltar la zona bajo el ratón
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)  # los atajos siguen en la cuadrícula
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self._star_font = QFont("Arial", 12)
 
         self._view: QListView | None = None
         self._model: MediaGridModel | None = None
@@ -275,7 +275,6 @@ class OrganizeBar(QWidget):
 
         # Estrellas: las rellenas si todo tiene la misma valoración; las vacías, siempre
         rating = self._state.get("rating")
-        painter.setFont(self._star_font)
         first = self._zones["star1"]
         card_marks.draw_stars(
             painter, QRect(first.left(), 0, _STAR_W * 5, _HEIGHT),

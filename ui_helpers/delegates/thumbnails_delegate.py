@@ -71,6 +71,7 @@ las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
 seleccionada, solo cambia ella. La chincheta no cambia nada: solo avisa. Con Ctrl, Alt o
 Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
 
+2.21.0 Las estrellas, dibujadas por 'card_marks' (GEN 21.3): sin la fuente Arial 9 pt.
 2.20.0 El nombre (y la extensión) y la duración, en Inter con los tamaños de
        'theme_fonts' (11 px; la duración, 10 px en SemiBold), en lugar de Arial 8 y 7 pt
        (GEN 21.2). Las estrellas siguen con su carácter: se dibujarán en GEN 21.3.
@@ -114,7 +115,7 @@ Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.20.0"
+__version__ = "2.21.0"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -123,7 +124,7 @@ from typing import ClassVar
 
 # Librerías de terceros (Qt)
 from qtpy.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, Signal
-from qtpy.QtGui import QColor, QFont, QPainter, QPen, QPixmap
+from qtpy.QtGui import QColor, QPainter, QPen, QPixmap
 from qtpy.QtWidgets import QStyle, QStyledItemDelegate, QToolTip
 
 # Módulos del proyecto
@@ -238,9 +239,6 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         # 'MapController'); la compacta (la tira del mapa) la lleva siempre
         self.location_pin = False
         self._name_font = ui_font(FONT_SIZES.card_name)
-        # Las estrellas, aún con el carácter ★ (Arial no lo tiene: sale de otra fuente);
-        # se dibujarán en GEN 21.3
-        self._star_font = QFont("Arial", 9)
         self._duration_font = ui_font(FONT_SIZES.card_duration, semibold=True)
 
     def sizeHint(self, option, index) -> QSize:
@@ -580,7 +578,6 @@ class ThumbnailsDelegate(QStyledItemDelegate):
             )
 
         # --- Estrellas (las rellenas siempre; las vacías, al pasar el ratón) ---
-        painter.setFont(self._star_font)
         card_marks.draw_stars(
             painter, stars_rect, rating, star_width=self.STAR_W,
             show_empty=is_hovered, rejected=is_rejected,

@@ -13,7 +13,8 @@
 
 Un botón de texto (como las pestañas de la barra): el nombre del ajuste con el que
 coincide el filtro; si no coincide con ninguno, «Personalizado» o, con «Ninguno» (nada
-encendido), «Sin filtro»; detrás, «▾». Al pulsarlo, el
+encendido), «Sin filtro»; detrás, la flecha de los desplegables (la pone el QSS). Al
+pulsarlo, el
 menú: las acciones arriba y la lista de ajustes del módulo abajo (decidido por el autor el
 09/11/2026), con ✓ en el que coincide.
 
@@ -31,6 +32,9 @@ Uso:
                      can_save=True, can_reset=True, can_manage=True)
     button.preset_chosen.connect(...)
 
+1.2.0 El texto, solo el nombre: la flecha detrás del nombre, la de Fusion (la de los desplegables), que pone
+      el QSS ('::menu-indicator', a la derecha del texto) con el color del texto; antes,
+      un «▾» en el propio texto, que Inter no tiene (GEN 21.3).
 1.1.0 Sin ajuste que coincida: «Personalizado» si hay algo encendido y «Sin filtro» con
       «Ninguno» ('set_state(..., filtering=)'); lo pidió el autor el 09/11/2026.
 1.0.1 «Sin filtro» en lugar de «Ajustes» cuando no coincide ningún ajuste (lo pidió el
@@ -41,7 +45,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.filter_preset_button
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "CUSTOM_TEXT",
     "MANAGE_TEXT",
@@ -69,7 +73,6 @@ RESET_TEXT = "Restaurar filtro activo a sus valores por defecto"
 CUSTOM_TEXT = "Personalizado"
 NO_FILTER_TEXT = "Sin filtro"
 TOOLTIP_TEXT = "Ajustes personalizados del filtro"
-_ARROW = " ▾"  # tras el nombre: se puede pulsar (sin la flecha de Fusion)
 
 # Nombre de objeto (lo usa el QSS de 'ui_theme.py')
 PRESET_OBJECT_NAME = "btn_filter_presets"
@@ -148,7 +151,7 @@ class FilterPresetButton(QToolButton):
             return  # se llama en cada cambio del filtro: el menú solo se rehace si cambia
         self._state = state
         self._names, self._current, self._filtering = names, current, bool(filtering)
-        self.setText(self.current_name + _ARROW)
+        self.setText(self.current_name)  # la flecha, detrás, la pone el QSS
         self._rebuild_menu(can_save=can_save, can_reset=can_reset, can_manage=can_manage)
 
     # -------------------------------------------------------------------------
@@ -208,7 +211,7 @@ if __name__ == "__main__":
         return ["—" if a.isSeparator() else a.text() for a in button.menu().actions()]
 
     # 1. Al principio: «Sin filtro», las tres acciones desactivadas y sin lista
-    assert button.text() == "Sin filtro ▾" and button.current_name == NO_FILTER_TEXT
+    assert button.text() == "Sin filtro" and button.current_name == NO_FILTER_TEXT
     assert texts() == [SAVE_TEXT, MANAGE_TEXT, RESET_TEXT], texts()
     assert not any(a.isEnabled() for a in button.menu().actions())
     assert button.focusPolicy() == Qt.FocusPolicy.NoFocus and button.toolTip() == TOOLTIP_TEXT
@@ -216,7 +219,7 @@ if __name__ == "__main__":
     # 2. Con ajustes: acciones arriba, raya y la lista con ✓ en el que coincide
     names = ["Columnas de partida", "Ubicación", "Valoradas"]
     button.set_state(names, 1, can_save=True, can_reset=False, can_manage=True)
-    assert button.text() == "Ubicación ▾"
+    assert button.text() == "Ubicación"
     assert texts() == [SAVE_TEXT, MANAGE_TEXT, RESET_TEXT, "—", *names], texts()
     save, manage, reset = button.menu().actions()[:3]
     assert save.isEnabled() and manage.isEnabled() and not reset.isEnabled()
@@ -231,22 +234,22 @@ if __name__ == "__main__":
     button._preset_actions()[1].trigger()  # el que ya está marcado: sigue marcado
     assert events[-1] == 1 and button._preset_actions()[1].isChecked()
     button.set_state(names, 2, can_save=True, can_reset=True, can_manage=True)
-    assert button.text() == "Valoradas ▾" and button.menu().actions()[2].isEnabled()
+    assert button.text() == "Valoradas" and button.menu().actions()[2].isEnabled()
     button.menu().actions()[2].trigger()
     assert events[-1] == "reset"
 
     # 4. Ninguno coincide (o una posición que no existe): «Personalizado» con algo
     # encendido, «Sin filtro» con «Ninguno»; sin ✓
     button.set_state(names, None, filtering=True, can_save=True, can_reset=True, can_manage=True)
-    assert button.text() == "Personalizado ▾"
+    assert button.text() == "Personalizado"
     assert not any(a.isChecked() for a in button._preset_actions())
     button.set_state(names, 7, filtering=True, can_save=True, can_reset=True, can_manage=True)
     assert button.current_name == CUSTOM_TEXT
     button.set_state(names, None, can_save=True, can_reset=True, can_manage=True)
-    assert button.text() == "Sin filtro ▾" and button.current_name == NO_FILTER_TEXT
+    assert button.text() == "Sin filtro" and button.current_name == NO_FILTER_TEXT
     # Con un ajuste que coincide, su nombre (encendido o no)
     button.set_state(names, 0, can_save=True, can_reset=True, can_manage=True)
-    assert button.text() == "Columnas de partida ▾"
+    assert button.text() == "Columnas de partida"
 
     # 5. El mismo estado otra vez: el menú no se rehace (las acciones son las mismas)
     before = button.menu().actions()
