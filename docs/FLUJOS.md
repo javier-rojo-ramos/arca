@@ -38,7 +38,7 @@ Al **abrir el catálogo** y **al terminar la lectura de metadatos**, `classify_p
 ## 4. Leer los metadatos (trabajo en segundo plano)
 `JobManager.start("metadata", process_pending_metadata)` → ejecuta en un hilo del gestor de BD → `process_pending_metadata(conn, progress, cancel_event)`:
 
-1. `default_registry()`: si ExifTool funciona → `ImageExtractor` y `VideoExtractor`; si no → extractor de imagen con Pillow (los vídeos quedan pendientes). Siempre `TrackExtractor`.
+1. `default_registry()`: si ExifTool funciona → `ImageExtractor` y `VideoExtractor`; si no → extractor de imagen con Pillow (los vídeos quedan pendientes). Siempre `TrackExtractor` y, si mutagen está instalado, `AudioExtractor` (sin él, las canciones quedan pendientes).
 2. Pide los pendientes por `id`, en lotes de **100**; entre lotes comprueba la cancelación.
 3. `_extract_rows`: agrupa por tipo, comprueba que la unidad esté conectada y llama a `extractor.extract_batch(rutas)`.
 4. `ExifToolExtractor.extract_batch`: busca los **sidecars** `.xmp` → **una** llamada a ExifTool por lote (si un lote hace caer ExifTool, se reintenta por mitades para aislar al archivo culpable) → combina el XMP del sidecar (manda sobre el incrustado) → aplica la lista de campos (`IMAGE_FIELDS`) → `apply_rules` → lee los **datos del usuario** (`IMAGE_USER_FIELDS`: rating, marca y color) de donde la aplicación los escribe —el sidecar en los RAW (si existe), el propio archivo en los demás— y los devuelve aparte, en `ExtractionResult.user_data` (el extractor nunca escribe el bloque C). Si un sidecar no se leyó (cancelado) el archivo cuenta como no leído; si falló, `user_data` queda vacío y no se toca nada.

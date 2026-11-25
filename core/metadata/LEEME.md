@@ -32,7 +32,9 @@ core/metadata/
 │   │                        objetivo de las réflex Nikon
 │   └── extractor.py         VideoExtractor (tabla de detalles: video_details)
 ├── track/                   Tracks GPS (GPX), sin ExifTool
-├── audio/  (futuro)
+├── audio/                   Canciones, con mutagen (sin ExifTool): extractor.py (AudioExtractor y
+│                            AUDIO_FIELDS_VERSION) e inspect_cli.py; la tabla campo ↔ etiqueta y el
+│                            lector, en core/audio/
 └── inspect_cli.py           Herramienta de diagnóstico: qué lee ExifTool y qué se guardaría
 ```
 

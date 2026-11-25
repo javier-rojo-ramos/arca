@@ -40,6 +40,8 @@ La tasa de bits es la MEDIA, como la de Mp3tag (comparado con las 75 canciones d
 la que da mutagen, salvo en Ogg Vorbis, donde mutagen da la nominal de la cabecera y se
 calcula con el tamaño del archivo sin las etiquetas.
 
+1.3.0 La huella de cada imagen ('AudioPicture.digest', BLAKE2) y la familia de la etiqueta
+      ('AudioInfo.tag_family'), para el extractor (MUS 1.3).
 1.2.0 Las imágenes de un MP4 (M4A), como portadas (antes, sin tipo), como Mp3tag.
 1.1.0 Ogg Vorbis: la tasa de bits media, no la nominal (mutagen daba 160 kbps en todas;
       Mp3tag, de 127 a 147, como ahora, con 1 kbps de diferencia como mucho).
@@ -50,8 +52,11 @@ temporal):
     python -m core.audio.tag_reader
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
+    "ID3_FAMILY",
+    "MP4_FAMILY",
+    "VORBIS_FAMILY",
     "AudioInfo",
     "AudioPicture",
     "AudioReadError",
@@ -59,6 +64,7 @@ __all__ = [
     "AudioTechnical",
     "UnsupportedAudioError",
     "parse_pair",
+    "picture_digest",
     "pictures_from_flac",
     "pictures_from_id3",
     "pictures_from_mp4",
@@ -72,6 +78,7 @@ __all__ = [
 # Librerías estándar
 import base64
 import binascii
+import hashlib
 import io
 import re
 import struct
@@ -102,6 +109,13 @@ from core.audio.tag_map import (
     TAG_FIELDS,
     TagField,
 )
+
+# Familias de etiquetas ('AudioInfo.tag_family'; las de 'tag_map.py')
+ID3_FAMILY = "id3"
+VORBIS_FAMILY = "vorbis"
+MP4_FAMILY = "mp4"
+# Bytes de la huella de una imagen ('picture_digest')
+_DIGEST_BYTES = 16
 
 # Códec según la clase de mutagen que abre el archivo (MP4 y MP3 se afinan aparte)
 _CODEC_BY_CLASS: dict[str, str] = {
@@ -233,6 +247,7 @@ class AudioPicture:
         width, height: Tamaño en píxeles; None si no se ha podido leer.
         size_bytes: Peso de la imagen.
         description: La descripción que trae (casi siempre vacía).
+        digest: Su huella ('picture_digest'): dos imágenes con la misma son la misma.
     """
 
     type_key: str | None
@@ -241,6 +256,7 @@ class AudioPicture:
     height: int | None
     size_bytes: int
     description: str = ""
+    digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,12 +269,15 @@ class AudioInfo:
         tag_type: Tipo de etiqueta, como la columna «Tag» de Mp3tag («ID3v2.3 + ID3v1»,
             «Vorbis», «MP4»); vacío si no tiene.
         pictures: Sus imágenes, en el orden del archivo.
+        tag_family: La familia de la etiqueta de la que salen los campos ('id3', 'vorbis'
+            o 'mp4', las de 'tag_map.py'); None si no hay ninguna que se traduzca.
     """
 
     tags: AudioTags
     technical: AudioTechnical
     tag_type: str = ""
     pictures: tuple[AudioPicture, ...] = ()
+    tag_family: str | None = None
 
     @property
     def cover(self) -> AudioPicture | None:
@@ -289,15 +308,19 @@ def read_audio(path: Path) -> AudioInfo:
         raise UnsupportedAudioError(f"Formato de audio no reconocido: «{path.name}»")
 
     tags = audio.tags
+    family: str | None = None
     if isinstance(tags, ID3):  # MP3, WAV, AIFF
-        audio_tags, pictures = tags_from_id3(tags), pictures_from_id3(tags)
+        audio_tags, pictures, family = tags_from_id3(tags), pictures_from_id3(tags), ID3_FAMILY
     elif isinstance(audio, FLAC):  # con o sin bloque de comentarios
         audio_tags = tags_from_vorbis(tags if tags is not None else {})
         pictures = pictures_from_flac(audio.pictures)
+        family = VORBIS_FAMILY if tags is not None else None
     elif isinstance(tags, VComment):  # Ogg Vorbis, Opus
         audio_tags, pictures = tags_from_vorbis(tags), pictures_from_vorbis(tags)
+        family = VORBIS_FAMILY
     elif isinstance(tags, MP4Tags):  # M4A
         audio_tags, pictures = tags_from_mp4(tags), pictures_from_mp4(tags.get("covr", ()))
+        family = MP4_FAMILY
     else:  # sin etiquetas, o de un formato que no se traduce (WMA...)
         audio_tags, pictures = AudioTags(), ()
     return AudioInfo(
@@ -305,6 +328,7 @@ def read_audio(path: Path) -> AudioInfo:
         technical=_technical(audio, path),
         tag_type=_tag_type(audio, path),
         pictures=pictures,
+        tag_family=family,
     )
 
 
@@ -465,7 +489,14 @@ def _picture(
         height=height or None,
         size_bytes=len(data),
         description=_clean(description) or "",
+        digest=picture_digest(data),
     )
+
+
+def picture_digest(data: bytes) -> str:
+    """La huella de una imagen: BLAKE2 de sus bytes, 32 caracteres hexadecimales. Rápida
+    y suficiente para saber si dos carátulas son la misma (no es una firma de seguridad)."""
+    return hashlib.blake2b(data, digest_size=_DIGEST_BYTES).hexdigest()
 
 
 def _id3_mime(mime: str) -> str | None:
@@ -727,12 +758,16 @@ if __name__ == "__main__":
 
     # --- Imágenes en memoria
     covers = pictures_from_mp4([MP4Cover(PNG, MP4Cover.FORMAT_PNG)])
-    assert covers == (AudioPicture(FRONT_COVER, "image/png", 12, 12, len(PNG)),), covers
+    assert covers == (
+        AudioPicture(FRONT_COVER, "image/png", 12, 12, len(PNG), digest=picture_digest(PNG)),
+    ), covers
     block = Picture()
     block.type, block.mime, block.data = 4, "image/jpeg", JPEG
     encoded = base64.b64encode(block.write()).decode("ascii")
     pictures = pictures_from_vorbis({"metadata_block_picture": [encoded, "no-es-base64!"]})
-    assert pictures == (AudioPicture("cover_back", "image/jpeg", 30, 20, len(JPEG)),), pictures
+    back = AudioPicture("cover_back", "image/jpeg", 30, 20, len(JPEG), digest=picture_digest(JPEG))
+    assert pictures == (back,), pictures
+    assert len(picture_digest(JPEG)) == 32 and picture_digest(JPEG) != picture_digest(PNG)
     # Una imagen que Pillow no entiende: sin tamaño (o el que diga el archivo)
     assert _picture(b"nada", None, None).width is None
     assert _picture(b"nada", None, None, width=600, height=600).width == 600
@@ -764,7 +799,10 @@ if __name__ == "__main__":
         assert technical.duration and 0.9 < technical.duration < 1.2, technical.duration
         assert len(info.pictures) == 2 and info.pictures[0].type_key == "cover_back"
         cover = info.cover  # la portada, aunque no sea la primera
-        assert cover == AudioPicture(FRONT_COVER, "image/jpeg", 30, 20, len(JPEG), "Portada")
+        assert cover == AudioPicture(
+            FRONT_COVER, "image/jpeg", 30, 20, len(JPEG), "Portada", picture_digest(JPEG)
+        )
+        assert info.tag_family == ID3_FAMILY
 
         # El mismo MP3 en ID3v2.4, sin ID3v1; y otro solo con ID3v1
         id3.save(mp3, v2_version=4, v1=0)
@@ -801,7 +839,10 @@ if __name__ == "__main__":
         technical = info.technical
         assert (technical.codec, technical.lossless, technical.bit_depth) == ("flac", True, 16)
         assert (technical.sample_rate, technical.channels, technical.duration) == (44100, 2, 2.0)
-        assert info.cover == AudioPicture(FRONT_COVER, "image/jpeg", 30, 20, len(JPEG))
+        assert info.cover == AudioPicture(
+            FRONT_COVER, "image/jpeg", 30, 20, len(JPEG), digest=picture_digest(JPEG)
+        )
+        assert info.tag_family == VORBIS_FAMILY
 
         # --- Lo que no se puede leer
         unknown = root / "pista.mka"

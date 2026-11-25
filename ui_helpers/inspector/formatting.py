@@ -19,6 +19,8 @@ Tracks (sección «Track»):
     altitud       '1.200 – 2.100 m'            velocidad      '2,6 km/h'
     número        '2.566'
 
+1.7.1 Orígenes de la fecha de las canciones ('id3', 'vorbis', 'mp4'): «etiquetas de la
+      canción (ID3)»... (MUS 1.3).
 1.7.0 'format_camera': si el modelo empieza por una marca conocida, solo el modelo
       (('Ricoh', 'PENTAX K-70') -> 'PENTAX K-70'; core/metadata/camera_makers.py).
 1.6.2 Origen de la fecha de los CRW ('crw'): «metadatos de la cámara (CRW)».
@@ -39,7 +41,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.formatting
 """
 
-__version__ = "1.7.0"
+__version__ = "1.7.1"
 __all__ = [
     "DATE_SOURCE_TEXTS",
     "EXPOSURE_PROGRAMS",
@@ -108,7 +110,9 @@ DATE_SOURCE_TEXTS: dict[str, str] = {
     "makernote": "metadatos de la cámara (nota del fabricante)",
     "riff": "metadatos del vídeo (AVI)",
     "gpx": "primer punto del track",
-    "id3": "etiquetas de audio",
+    "id3": "etiquetas de la canción (ID3)",
+    "vorbis": "etiquetas de la canción (Vorbis)",
+    "mp4": "etiquetas de la canción (MP4)",
     "filename": "nombre del archivo",
     "file_mtime": "fecha de modificación del archivo (no hay fecha en los metadatos)",
 }

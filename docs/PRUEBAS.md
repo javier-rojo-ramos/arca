@@ -92,6 +92,7 @@ python -m core.metadata.processor
 python -m core.metadata.track.extractor
 python -m core.metadata.track.gpx_reader
 python -m core.metadata.track.inspect_cli ruta.gpx    (diagnóstico de GPX: resumen y desnivel con varios umbrales)
+python -m core.metadata.audio.extractor                       (con mutagen: las fechas, de lo leído a las columnas y, de punta a punta, un catálogo con un MP3 y un FLAC mínimos)
 python -m core.metadata.audio.inspect_cli canción_o_carpeta [--resumen] [--bruto] [--json salida.json]   (diagnóstico de canciones, para comparar con Mp3tag; sin autoprueba)
 python -m core.metadata.video.extractor
 python -m core.metadata.video.fields

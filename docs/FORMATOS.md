@@ -46,8 +46,10 @@ Los vídeos con GPS salen en el mapa. El fotograma como miniatura, en `VID 4`.
 
 | Formatos | Se cataloga | Miniatura | Metadatos | Datos del usuario |
 |---|---|---|---|---|
-| MP3, M4A, AAC, FLAC, OGG, OPUS, WAV, AIFF, AIF, MKA | Sí | Genérica, sin duración | **No** (`MUS 1`) | `.arca.json` |
-| WMA | Solo si el sistema conoce la extensión † | Genérica | No | `.arca.json` |
+| MP3, M4A, FLAC, OGG, OPUS, WAV, AIFF, AIF | Sí | Genérica, con la duración (la carátula, en `MUS 3`) | Sí, con mutagen (`MUS 1.3`): etiquetas (ID3, Vorbis o MP4), datos técnicos y carátula | `.arca.json` (las etiquetas, en el archivo desde `MUS 6`) |
+| AAC (sin contenedor) | Sí | Genérica, con la duración | Solo los datos técnicos (mutagen no lee sus etiquetas) | `.arca.json` |
+| MKA | Sí | Genérica | No (mutagen no lee Matroska: «sin soporte todavía») | `.arca.json` |
+| WMA | Solo si el sistema conoce la extensión † | Genérica | Solo los datos técnicos (sus etiquetas ASF no se traducen) | `.arca.json` |
 | APE, DSF, M4B (audiolibro) | No | — | — | — |
 
 Las etiquetas del propio archivo (ID3...) no se escriben hasta `MUS 6`; las carátulas, en `MUS 3` y `MUS 9`.
@@ -107,7 +109,8 @@ Al día el 21/11/2026 (los archivos de prueba, en «3 Fotos/Pruebas de formatos�
 | Vídeo: MOV de una réflex Nikon (D3100) | Sí | Sí (`.arca.json`) | La hora, de su nota del fabricante (la de QuickTime es la local); el objetivo, con sus números, como en las fotos («18.0-55.0 mm f/3.5-5.6») |
 | Vídeo: AVI de compactas (Canon, Ricoh) | Sí | Sí (`.arca.json`) | La fecha, de `RIFF:DateTimeOriginal`; van a Imagen por ella |
 | Vídeo: película MKV | Sí, sin el códec (`VID 1.1`) | Sí (`.arca.json`) | Va a Vídeo; la fecha, la del archivo |
-| GPX, audio | Sí (el audio, sin metadatos hasta `MUS 1`) | Sí (`.arca.json`) | |
+| GPX | Sí | Sí (`.arca.json`) | |
+| Audio: MP3 (CBR y VBR), M4A (AAC LC), FLAC y Ogg Vorbis | Sí (las 75 canciones del autor, comparadas con Mp3tag el 25/11/2026) | Sí (`.arca.json`) | Los títulos, artistas, álbumes, años, pistas, géneros, duraciones y tasas de bits, como Mp3tag; en Ogg Vorbis, la tasa media (mutagen da la nominal: [TRAMPAS.md](TRAMPAS.md)). Sin probar: Opus, WAV, AIFF, ALAC |
 
 **Falta**, por orden de utilidad:
 

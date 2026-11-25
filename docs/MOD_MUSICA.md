@@ -1,7 +1,7 @@
 # Arca Media — Módulo Música: arquitectura y plan
 
 > Documento del módulo Música (en el código y en la interfaz, el módulo **Audio**: `AudioModule`, biblioteca `audio`). Tiene dos partes: **I, arquitectura** (cómo está hecho y cómo encaja con el resto) y **II, planificación** (fases y pasos, con los códigos `MUS` de [PENDIENTE.md](PENDIENTE.md)).
-> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`, sin conectar a la aplicación) y `MUS 1.2` (la tabla `audio_details`, vacía). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
+> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
 > Índice: [INDEX.md](INDEX.md). Decisiones: [DECISIONES.md](DECISIONES.md) (16/11/2026).
 
 ## Resumen
@@ -30,7 +30,7 @@
 
 - **Catalogación**: las canciones se catalogan como `MediaType.AUDIO` y van a la biblioteca Música (`library = 'audio'`). El detector (`core/catalog/media_detector.py`) reconoce MP3, M4A, FLAC, Ogg y Opus. En el catálogo del autor hay 20 canciones, todas MP3 (16/11/2026).
 - **Módulo**: `controllers/app_modules/audio_module.py` (`AudioModule`, sobre `LibraryModule`), con la barra común (`ui_helpers/sidebars/library_sidebar.py`: biblioteca, carpetas y fechas). La cuadrícula y la vista individual (desde el 19/11/2026, pedida por el autor para entrar y salir como en los demás módulos; hoy, la corchea y el nombre; la carátula en grande, cuando se lea en `MUS 3`). Orden: `VIDEO_AUDIO_SORT_FIELDS` (`core/catalog/grid_orders.py`). Filtros: su tipo y, en «Metadatos», fecha y palabras clave.
-- **Sin etiquetas**: no hay extractor de audio (`core/metadata/registry.py` ignora los tipos sin extractor). De cada canción solo se sabe lo del archivo (nombre, tamaño, fechas).
+- **Etiquetas**: desde `MUS 1.3` (25/11/2026), el extractor de audio (`core/metadata/audio/extractor.py`, con `core/audio/`) lee las etiquetas, los datos técnicos y la carátula de cada canción al abrir el catálogo. Antes no había extractor y de cada canción solo se sabía lo del archivo.
 - **Sin miniatura**: la tarjeta dibuja el marcador. El registro de orígenes (`core/thumbnails/registry.py`) tiene anotado el hueco para las carátulas.
 - **Datos del usuario**: valoración, marca, color y palabras clave, en el `.arca.json` de la carpeta (destino `FOLDER_FILE` de `core/userdata/policy.py`).
 - **Edición**: el mecanismo «un campo, varios escritores» (14/11/2026; [core/userdata/LEEME.md](../core/userdata/LEEME.md)) ya admite campos sin XMP, de tablas de detalles y solo de algunos tipos de archivo. El grupo «Audio» de las colecciones inteligentes existe vacío (`core/catalog/smart_fields.py`).
@@ -43,7 +43,7 @@ Como en Tracks: lo que no necesita ni Qt ni la base de datos, en un paquete de `
 | Qué | Dónde | Notas |
 |---|---|---|
 | Tabla campo ↔ etiqueta de cada formato; leer y escribir etiquetas y carátulas con mutagen | `core/audio/` (sin Qt ni BD): `tag_map.py` (la tabla), `tag_reader.py` (`read_audio`), `picture_types.py` (los tipos de imagen); desde `MUS 1.1` | **Una sola tabla** para el extractor y para el escritor: los dos entienden lo mismo |
-| Extractor | `core/metadata/audio/` (nuevo): `extractor.py`, `fields.py`, `inspect_cli.py` | `MetadataExtractor` con `details_table = "audio_details"`, como `TrackExtractor`; se registra en `core/metadata/registry.py` |
+| Extractor | `core/metadata/audio/`: `extractor.py` (con `AUDIO_FIELDS_VERSION`; no hace falta un `fields.py`: la tabla es `core/audio/tag_map.py`) e `inspect_cli.py` | `MetadataExtractor` con `details_table = "audio_details"`, como `TrackExtractor`; registrado en `core/metadata/registry.py` (si mutagen está instalado) |
 | Tabla de detalles | `core/catalog/catalog_schema.py`, la siguiente migración libre (la 5 fue el registro de operaciones de `CAT 4` y la 6, las carpetas de `CAT 5`) | `audio_details` (§3) |
 | Consultas | `core/catalog/` | Datos de la sección del inspector (como `track_stats.py`), valores de las secciones de la barra, filas de la vista de lista |
 | Origen de la miniatura | `core/thumbnails/sources/audio_cover_source.py` (nuevo) | Se registra en `core/thumbnails/registry.py` |
@@ -65,7 +65,7 @@ Lo que ya tiene columna común se guarda ahí, para que el filtro de texto, el o
 |---|---|---|
 | Título | `title` | Si la canción no lo tiene, se queda el nombre del archivo (como en las fotos) |
 | Artista | `creator` | |
-| Año (o fecha) | `content_created_at` | Con `content_date_precision` según lo que traiga la etiqueta (`year` casi siempre). A comprobar en `MUS 1`: cómo ordena y cómo muestra «Fechas» una fecha de solo año |
+| Año (o fecha) | `content_created_at` | Con `content_date_precision` según lo que traiga la etiqueta (`year` casi siempre); sin año, sin fecha (§4). Ordena bien y «Selección» la muestra como el año; la sección «Fechas» la pone hoy en el 1 de enero: se arregla en `MUS 4.2` |
 | Comentario | `description` | |
 | Duración | `duration` | Segundos |
 
@@ -131,7 +131,8 @@ Un archivo puede traer varios géneros o varios artistas. En la primera versión
 
 ## 4. Lectura
 
-- `AudioExtractor.extract(path)` abre el archivo con mutagen, traduce las etiquetas con la tabla de §3.3 y entrega las columnas comunes y las de `audio_details`. No usa ExifTool (como el de tracks).
+- `AudioExtractor.extract(path)` abre el archivo con mutagen (`read_audio`), traduce las etiquetas con la tabla de §3.3 y entrega las columnas comunes y las de `audio_details`. No usa ExifTool (como el de tracks).
+- **La fecha** (decidido con el autor el 25/11/2026): «2001» se guarda como el 1 de enero de 2001 con precisión `year`; «2001-05», `month`; «2001-05-04», con o sin hora, `day` (la hora de una etiqueta no es la de la grabación: iTunes pone la medianoche en UTC). Su origen, la familia de la etiqueta (`id3`, `vorbis` o `mp4`). **Sin año, sin fecha**: no se usa la del archivo, como en las fotos, porque es cuándo se copió o se convirtió la canción, no el año del disco.
 - Un archivo sin etiquetas no es un error: se guardan los datos técnicos y el título queda como el nombre del archivo. Un archivo dañado o que mutagen no entiende, a `scan_errors`, como los demás.
 - **Un extractor nunca escribe datos del usuario**: valoración, marca, color y palabras clave siguen saliendo del `.arca.json`.
 - **Datos técnicos** (duración, formato, kbps, kHz, canales, bits): de mutagen, que ya se necesita para las etiquetas; basta para las filas de §7.1. **MediaInfo** (propuesta del autor el 25/11/2026) no se usa por ahora: añadiría una biblioteca nativa que empaquetar en tres sistemas (`GEN 5`) sin nada nuevo que mostrar. Si se elige para Vídeo (`VID 1.1`), podría servir aquí de respaldo (MKA, que mutagen no lee; WMA) o para unos «datos técnicos ampliados» (codificador, VBR o CBR...). Por eso, en `AudioInfo` los datos técnicos van aparte: otra fuente los podría rellenar sin tocar el resto.
@@ -218,7 +219,7 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 |---|---|---|---|
 | ~~**MUS 1.1** Base de audio~~ (hecho el 25/11/2026) | mutagen instalada (el autor); la tabla campo ↔ etiqueta y `read_audio(path)` (campos, datos técnicos, tipo de etiqueta e imágenes), sin BD; los tipos de imagen | `core/audio/` (`tag_map.py`, `tag_reader.py`, `picture_types.py`); `core/metadata/audio/inspect_cli.py` | Autoprueba con un MP3 y un FLAC mínimos; `inspect_cli` con las 75 canciones del autor, comparado con Mp3tag |
 | ~~**MUS 1.2** Tabla de detalles~~ (hecho el 25/11/2026) | `audio_details` (la siguiente migración libre) | `catalog_schema.py`; [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md), [INDEX.md](INDEX.md) | Un catálogo existente pasa solo al esquema siguiente (hoy, v7) |
-| **MUS 1.3** Extractor | `AudioExtractor` con `AUDIO_FIELDS_VERSION`, registrado | Nuevo: `core/metadata/audio/`; `registry.py` | Al abrir el catálogo, las canciones se leen solas; título, artista y duración, en el catálogo |
+| ~~**MUS 1.3** Extractor~~ (hecho el 25/11/2026) | `AudioExtractor` con `AUDIO_FIELDS_VERSION`, registrado | Nuevo: `core/metadata/audio/`; `registry.py` | Al abrir el catálogo, las canciones se leen solas; título, artista y duración, en el catálogo |
 | **MUS 1.4** Recuento | Cuántas canciones traen varios géneros o artistas, y qué tipos de etiqueta hay | Un guion de solo lectura | Decide §3.4 |
 
 ### Fase MUS 2 — Verlas

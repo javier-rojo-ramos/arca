@@ -255,7 +255,8 @@ core/
     track/gpx_reader.py                read_gpx -> GpxSummary (distancia 2D haversine, desnivel con umbral, fechas, caja, actividad; con collect_points, los puntos por segmentos en arrays compactos)
     track/extractor.py                 TrackExtractor (GPX -> track_details, también su contorno 'overview'; TRACK_EXTRACTOR_VERSION = 3)
     track/inspect_cli.py               Diagnóstico de GPX (resumen y desnivel con varios umbrales)
-    audio/inspect_cli.py               Diagnóstico de canciones para comparar con Mp3tag: campos traducidos, datos técnicos e imágenes (--resumen, --bruto, --json); el extractor de audio llegará aquí (MUS 1.3)
+    audio/extractor.py                 AudioExtractor (mutagen; las canciones -> media_items y audio_details; AUDIO_FIELDS_VERSION; parse_tag_date: el año con su precisión)
+    audio/inspect_cli.py               Diagnóstico de canciones para comparar con Mp3tag: campos traducidos, datos técnicos e imágenes (--resumen, --bruto, --json)
     inspect_cli.py                     Herramienta de diagnóstico (qué lee ExifTool / qué se guardaría; --campos elige imagen o vídeo según el archivo)
   userdata/                          ── Datos del usuario fuera del catálogo ── (ver core/userdata/LEEME.md)
     policy.py                        ► destino de cada formato: XMP incrustado, sidecar .xmp o archivo de carpeta
