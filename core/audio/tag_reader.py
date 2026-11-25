@@ -27,9 +27,10 @@ Cómo se traduce (los detalles de cada campo, en 'tag_map.py'):
     - Pasar las etiquetas a campos ('tags_from_id3', 'tags_from_vorbis', 'tags_from_mp4')
       va separado de abrir el archivo: se prueba sin archivos y lo usará el escritor.
 
-Las imágenes: su tipo (la clave de 'picture_types.py'; None en MP4, que no tiene), su
-formato, su tamaño en píxeles (de la cabecera de la imagen, con Pillow: ID3 no lo guarda)
-y su peso. Sus bytes no se guardan en 'AudioInfo' (la miniatura, en MUS 3, los pedirá).
+Las imágenes: su tipo (la clave de 'picture_types.py'; en MP4, que no tiene tipos, la
+portada, como Mp3tag: su átomo 'covr' es la carátula), su formato, su tamaño en píxeles
+(de la cabecera de la imagen, con Pillow: ID3 no lo guarda) y su peso. Sus bytes no se
+guardan en 'AudioInfo' (la miniatura, en MUS 3, los pedirá).
 
 Los datos técnicos ('AudioTechnical') salen de mutagen y van APARTE: si un día hace falta
 otra fuente (MediaInfo, docs/MOD_MUSICA.md §4), se rellena esa parte sin tocar las demás.
@@ -39,6 +40,7 @@ La tasa de bits es la MEDIA, como la de Mp3tag (comparado con las 75 canciones d
 la que da mutagen, salvo en Ogg Vorbis, donde mutagen da la nominal de la cabecera y se
 calcula con el tamaño del archivo sin las etiquetas.
 
+1.2.0 Las imágenes de un MP4 (M4A), como portadas (antes, sin tipo), como Mp3tag.
 1.1.0 Ogg Vorbis: la tasa de bits media, no la nominal (mutagen daba 160 kbps en todas;
       Mp3tag, de 127 a 147, como ahora, con 1 kbps de diferencia como mucho).
 1.0.0 Primera versión (25/11/2026; docs/MOD_MUSICA.md, paso MUS 1.1).
@@ -48,7 +50,7 @@ temporal):
     python -m core.audio.tag_reader
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "AudioInfo",
     "AudioPicture",
@@ -225,7 +227,8 @@ class AudioPicture:
     """Una imagen de la canción (sin sus bytes).
 
     Attributes:
-        type_key: Su tipo ('picture_types.py'); None si el formato no tiene (MP4).
+        type_key: Su tipo ('picture_types.py'); en MP4, siempre la portada. None si el
+            archivo trae un número que no es ningún tipo.
         mime: Tipo MIME («image/jpeg»); None si no se sabe.
         width, height: Tamaño en píxeles; None si no se ha podido leer.
         size_bytes: Peso de la imagen.
@@ -430,9 +433,12 @@ def pictures_from_vorbis(comments: Mapping[str, Sequence[str]] | Any) -> tuple[A
 
 
 def pictures_from_mp4(covers: Iterable[bytes]) -> tuple[AudioPicture, ...]:
-    """Las imágenes de una etiqueta MP4 (átomo 'covr'): sin tipo."""
+    """Las imágenes de una etiqueta MP4 (átomo 'covr'). MP4 no guarda el tipo: se leen
+    como portadas, como hace Mp3tag (decidido por el autor el 25/11/2026)."""
     return tuple(
-        _picture(bytes(cover), None, _MP4_IMAGE_MIMES.get(getattr(cover, "imageformat", None)))
+        _picture(
+            bytes(cover), FRONT_COVER, _MP4_IMAGE_MIMES.get(getattr(cover, "imageformat", None))
+        )
         for cover in covers
     )
 
@@ -721,7 +727,7 @@ if __name__ == "__main__":
 
     # --- Imágenes en memoria
     covers = pictures_from_mp4([MP4Cover(PNG, MP4Cover.FORMAT_PNG)])
-    assert covers == (AudioPicture(None, "image/png", 12, 12, len(PNG)),), covers
+    assert covers == (AudioPicture(FRONT_COVER, "image/png", 12, 12, len(PNG)),), covers
     block = Picture()
     block.type, block.mime, block.data = 4, "image/jpeg", JPEG
     encoded = base64.b64encode(block.write()).decode("ascii")

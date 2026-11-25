@@ -28,7 +28,7 @@
 ## 1. Qué es un catálogo
 
 - **Una carpeta autónoma**: `catalogo.db` (SQLite en modo WAL), `cache/<tipo>/` (las miniaturas) y `media_assets/` (`backdrops`, `covers`, `posters`). La crea `core/catalog/catalog_builder.py`; la abre `catalog_opener.py` (comprueba que es SQLite y de esta aplicación, `APPLICATION_ID`, y aplica las migraciones).
-- **Esquema**: `core/catalog/catalog_schema.py` (`MIGRATIONS`, solo se añade al final; hoy, v6). Tablas, bloques de columnas y quién escribe cada uno: [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md).
+- **Esquema**: `core/catalog/catalog_schema.py` (`MIGRATIONS`, solo se añade al final; hoy, v7). Tablas, bloques de columnas y quién escribe cada uno: [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md).
 - **Lo que no está en el catálogo**: la configuración (`settings.json`, en la carpeta de la aplicación; el catálogo abierto, el estado de cada barra por catálogo) y la caché de teselas del mapa.
 - **Sobrevive a recrearlo**: lo que el usuario pone en los archivos (valoración, marca, color, palabras clave, metadatos editados; `core/userdata/`) vuelve al añadir de nuevo las carpetas. Las colecciones, no: solo están en la base de datos.
 - **Acceso a la base de datos**: la interfaz nunca la toca en el hilo principal. Consultas con `db.execute_async` (`core/database/db_manager.py`); trabajos largos con `JobManager` (`core/workers/job_manager.py`), que lanza y encadena `JobCoordinator` (`controllers/job_coordinator.py`). Qué corre en cada hilo: [ARQUITECTURA.md](ARQUITECTURA.md).

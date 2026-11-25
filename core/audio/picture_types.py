@@ -4,7 +4,8 @@ Este módulo NO depende de Qt, de la base de datos ni de mutagen: es una lista d
 
 Una canción puede llevar varias imágenes, cada una con su TIPO. ID3 (MP3, WAV, AIFF) y
 FLAC (también Ogg y Opus) usan los mismos 21 tipos, numerados del 0 al 20 (los del marco
-APIC de ID3). MP4 (M4A) no tiene tipos: sus imágenes se quedan sin clave (None).
+APIC de ID3). MP4 (M4A) no tiene tipos: sus imágenes se leen como portadas ('FRONT_COVER'),
+como hace Mp3tag (decidido por el autor el 25/11/2026), y no se les puede cambiar el tipo.
 
 Como las actividades de los tracks ('core/tracks/activities.py'), el tipo se GUARDA como
 una CLAVE en inglés (el nombre del tipo en mutagen, en minúsculas: 'cover_front') y se
@@ -27,13 +28,14 @@ Uso:
 
 Las claves no se cambian nunca: estarán en los catálogos.
 
+1.0.1 Las imágenes de MP4, como portadas (solo el docstring: lo hace 'tag_reader').
 1.0.0 Primera versión (25/11/2026; docs/MOD_MUSICA.md, paso MUS 1.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.audio.picture_types
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = [
     "FRONT_COVER",
     "PICTURE_TYPES",

@@ -25,6 +25,8 @@ de una canción...) van en tablas 1:1 con 'media_items' (photo_details,
 video_details, audio_details...), no en la tabla general. Las que falten se
 añadirán como migraciones nuevas, una por una.
 
+2.7.0 Migración 7: tabla 'audio_details', los datos propios de las canciones (campos,
+      datos técnicos y carátula; docs/MOD_MUSICA.md §3.2, MUS 1.2), vacía hasta MUS 1.3.
 2.6.0 Migración 6: tabla 'folders', las carpetas del catálogo (también las que no tienen
       archivos que se catalogan; CAT 5), rellenada con las de los archivos que ya había.
 2.5.0 Migración 5: tabla 'file_operations', el registro de las operaciones con archivos
@@ -58,7 +60,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.catalog_schema
 """
 
-__version__ = "2.6.0"
+__version__ = "2.7.0"
 __all__ = [
     "APPLICATION_ID",
     "BUSY_TIMEOUT_SECONDS",
@@ -612,6 +614,53 @@ CREATE TABLE folders (
     + _FOLDERS_FROM_ITEMS_SQL
 )
 
+# Migración 7 (25/11/2026): los datos propios de las canciones (docs/MOD_MUSICA.md §3.2,
+# paso MUS 1.2). Se crea vacía: la rellena el extractor de audio (MUS 1.3).
+_MIGRATION_007_AUDIO_DETAILS = """
+-- Canciones (MP3, M4A, FLAC, Ogg...). La rellena el extractor de audio
+-- (core/metadata/audio/, con core/audio/tag_reader.py). Lo común va en 'media_items': el
+-- título en 'title', el artista en 'creator', el año en 'content_created_at' (con su
+-- precisión), el comentario en 'description' y la duración en 'duration'.
+CREATE TABLE audio_details (
+    media_id            INTEGER PRIMARY KEY,
+
+    -- Campos de la canción: los escribe el extractor y, desde MUS 7, también el usuario
+    -- (lo pendiente de escribir en el archivo no se pisa al releer). Varios valores (varios
+    -- géneros), unidos en un texto con «; » (core/audio/tag_map.py)
+    album               TEXT,
+    album_artist        TEXT,
+    track_number        INTEGER CHECK(track_number > 0),
+    track_total         INTEGER CHECK(track_total > 0),
+    disc_number         INTEGER CHECK(disc_number > 0),
+    disc_total          INTEGER CHECK(disc_total > 0),
+    genre               TEXT,
+    composer            TEXT,
+
+    -- Datos técnicos: solo del extractor
+    codec               TEXT,             -- 'mp3', 'aac', 'alac', 'flac', 'vorbis', 'opus', 'pcm'...
+    codec_detail        TEXT,             -- la descripción del formato, si la hay ('AAC LC')
+    bitrate             INTEGER CHECK(bitrate > 0),        -- bits por segundo (la media)
+    bitrate_mode        TEXT CHECK(bitrate_mode IN ('cbr', 'vbr', 'abr')),  -- solo MP3
+    sample_rate         INTEGER CHECK(sample_rate > 0),    -- Hz
+    channels            INTEGER CHECK(channels > 0),
+    bit_depth           INTEGER CHECK(bit_depth > 0),      -- solo en los formatos sin pérdida
+    lossless            INTEGER NOT NULL DEFAULT 0 CHECK(lossless IN (0, 1)),
+    tag_type            TEXT,             -- como la columna «Tag» de Mp3tag ('ID3v2.3 + ID3v1')
+
+    -- La carátula (la primera portada o, si no hay, la primera imagen): solo del extractor.
+    -- Las demás imágenes no se guardan: se leen del archivo cuando hacen falta
+    picture_count       INTEGER NOT NULL DEFAULT 0 CHECK(picture_count >= 0),  -- 0 = sin carátula
+    cover_type          TEXT,             -- clave de core/audio/picture_types.py ('cover_front')
+    cover_mime          TEXT,             -- 'image/jpeg', 'image/png'
+    cover_width         INTEGER CHECK(cover_width > 0),
+    cover_height        INTEGER CHECK(cover_height > 0),
+    cover_bytes         INTEGER CHECK(cover_bytes >= 0),   -- peso de la imagen
+    cover_hash          TEXT,             -- huella de sus bytes: la misma = la misma carátula
+
+    FOREIGN KEY (media_id) REFERENCES media_items(id) ON DELETE CASCADE
+);
+"""
+
 # Lista ORDENADA de migraciones: la posición (empezando en 1) es la versión a la
 # que lleva cada una. Para evolucionar el esquema, añadir elementos AL FINAL.
 MIGRATIONS: tuple[str, ...] = (
@@ -621,6 +670,7 @@ MIGRATIONS: tuple[str, ...] = (
     _MIGRATION_004_TRACK_OVERVIEW,
     _MIGRATION_005_FILE_OPERATIONS,
     _MIGRATION_006_FOLDERS,
+    _MIGRATION_007_AUDIO_DETAILS,
 )
 
 # Versión actual del esquema: se deduce sola del número de migraciones, así no
@@ -769,7 +819,7 @@ if __name__ == "__main__":
 
     # 1. Un catálogo vacío pasa de la versión 0 a la actual, con la marca de la aplicación
     assert db.execute("PRAGMA user_version").fetchone()[0] == 0
-    assert apply_migrations(db) == SCHEMA_VERSION == 6
+    assert apply_migrations(db) == SCHEMA_VERSION == 7
     assert db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert db.execute("PRAGMA application_id").fetchone()[0] == APPLICATION_ID
     print(f"Esquema creado: v{SCHEMA_VERSION}, application_id = {APPLICATION_ID:#x}")
@@ -792,7 +842,7 @@ if __name__ == "__main__":
     # 4. Están todas las tablas
     expected_tables = {
         "storage_locations", "media_items", "scan_errors", "folder_libraries",
-        "photo_details", "video_details", "track_details", "keywords",
+        "photo_details", "video_details", "track_details", "audio_details", "keywords",
         "media_keywords", "collections", "collection_items", "file_operations", "folders",
     }  # fmt: skip
     assert tables_of(db) == expected_tables, tables_of(db) ^ expected_tables
@@ -862,6 +912,19 @@ if __name__ == "__main__":
     db.execute("INSERT INTO track_details(media_id, distance_m) VALUES (1, 12345.6)")
     assert "overview" in columns_of(db, "track_details")  # migración 4
     assert rejected(db, "UPDATE track_details SET min_latitude = 95")
+    db.execute("INSERT INTO audio_details(media_id, album) VALUES (1, 'Destrangis')")
+    assert db.execute("SELECT lossless, picture_count FROM audio_details").fetchone() == (0, 0)
+    for column, value in (
+        ("track_number", 0), ("track_total", -1), ("disc_number", 0), ("bitrate", 0),
+        ("bitrate_mode", "VBR"), ("sample_rate", 0), ("channels", 0), ("bit_depth", 0),
+        ("lossless", 2), ("lossless", None), ("picture_count", -1), ("picture_count", None),
+        ("cover_width", 0), ("cover_bytes", -1),
+    ):  # fmt: skip
+        assert rejected(db, f"UPDATE audio_details SET {column} = ?", (value,)), (column, value)
+    db.execute(
+        "UPDATE audio_details SET track_number = 2, track_total = 13, bitrate_mode = 'vbr', "
+        "lossless = 1, picture_count = 3, cover_width = 600, cover_bytes = 0"
+    )
     db.execute("INSERT INTO folder_libraries(storage_location_id, folder, content) "
                "VALUES (1, 'Musica', 'audio')")  # fmt: skip
     assert rejected(db, "INSERT INTO folder_libraries(storage_location_id, folder, content) "
@@ -889,8 +952,8 @@ if __name__ == "__main__":
     db.execute("INSERT INTO keywords(name, name_folded) VALUES ('Playa', 'playa')")
     db.execute("INSERT INTO media_keywords(media_id, keyword_id) VALUES (1, last_insert_rowid())")
     db.execute("DELETE FROM media_items WHERE id = 1")
-    for table in ("photo_details", "video_details", "track_details", "collection_items",
-                  "media_keywords"):  # fmt: skip
+    for table in ("photo_details", "video_details", "track_details", "audio_details",
+                  "collection_items", "media_keywords"):  # fmt: skip
         assert db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
     db.execute("DELETE FROM collections WHERE id = 1")
     assert db.execute("SELECT COUNT(*) FROM collections").fetchone()[0] == 0
@@ -1030,7 +1093,7 @@ if __name__ == "__main__":
             (location, path),
         )
     old.commit()
-    assert apply_migrations(old) == SCHEMA_VERSION == 6
+    assert apply_migrations(old) == SCHEMA_VERSION
     folders = set(old.execute("SELECT storage_location_id, relative_path FROM folders"))
     assert folders == {(1, "2024"), (1, "2024/Viaje"), (1, "2024/Viaje/Día 1"), (1, "2024b"),
                        (2, "Pirineo")}, folders  # fmt: skip
@@ -1040,5 +1103,29 @@ if __name__ == "__main__":
     assert old.execute("SELECT COUNT(*) FROM folders WHERE storage_location_id = 2").fetchone()[0] == 0
     old.close()
     print("Migración 6: catálogo v5 al día, con las carpetas de sus archivos")
+
+    # 18. Un catálogo v6 pasa a la v7: la tabla de las canciones, vacía (la llena el
+    #     extractor de audio al releerlas); lo que ya había, igual
+    old = sqlite3.connect(":memory:")
+    configure_connection(old)
+    for number, script in enumerate(MIGRATIONS[:6], start=1):
+        mark = f"PRAGMA application_id = {APPLICATION_ID};\n" if number == 1 else ""
+        old.executescript(f"BEGIN;\n{script}\n{mark}PRAGMA user_version = {number};\nCOMMIT;")
+    old.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('P', '/p')")
+    old.execute(
+        """INSERT INTO media_items(storage_location_id, relative_path, file_name, media_type,
+               mime_type, file_size, file_mtime_ns, title, rating)
+           VALUES (1, 'Estopa/vino.m4a', 'vino.m4a', 'audio', 'audio/mp4', 1, 0, 'vino', 5)"""
+    )
+    old.commit()
+    assert "audio_details" not in tables_of(old)
+    assert apply_migrations(old) == SCHEMA_VERSION == 7
+    assert old.execute("SELECT COUNT(*) FROM audio_details").fetchone()[0] == 0
+    assert old.execute("SELECT title, rating FROM media_items").fetchone() == ("vino", 5)
+    old.execute("INSERT INTO audio_details(media_id, album) VALUES (1, 'Destrangis')")
+    old.execute("DELETE FROM media_items WHERE id = 1")
+    assert old.execute("SELECT COUNT(*) FROM audio_details").fetchone()[0] == 0
+    old.close()
+    print("Migración 7: catálogo v6 al día, con la tabla de las canciones (vacía)")
 
     print("Autoprueba finalizada correctamente.")

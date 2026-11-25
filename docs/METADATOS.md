@@ -1,7 +1,136 @@
-# Arca Media — Metadatos de imagen, vídeo y tracks
+# Arca Media — Metadatos
 
-> Qué se lee de cada archivo, de qué etiqueta y con qué prioridad, y dónde se ve cada dato ([mapa de campos](#mapa-de-campos-qué-se-extrae-y-dónde-se-ve)); equivalencias con Lightroom. Las recetas para añadir campos están en [core/metadata/LEEME.md](../core/metadata/LEEME.md).
+> Qué datos tiene cada módulo y dónde se guarda cada uno ([mapa de campos por módulo](#mapa-de-campos-por-módulo)); de qué etiqueta se lee cada uno y con qué prioridad; equivalencias con Lightroom. Las recetas para añadir campos están en [core/metadata/LEEME.md](../core/metadata/LEEME.md); las tablas y sus columnas, en [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md).
 > Índice: [INDEX.md](INDEX.md).
+
+## Dónde se guarda cada dato
+
+- **`media_items`, la ficha de cada archivo**: lo que tiene sentido en cualquier tipo de archivo (nombre, carpeta, tamaño, fecha, título, autor, descripción, ubicación, duración...) y los datos del usuario (valoración, marca, color, selección rápida). Así el filtro de texto, el orden, la barra de filtros, las colecciones inteligentes y la sección «Fechas» funcionan igual en todos los módulos. Por eso un mismo dato puede llamarse distinto en cada módulo: `creator` es el «Creador» de una foto, el autor de un GPX y el «Artista» de una canción.
+- **Una tabla de detalles por tipo de archivo** (`photo_details`, `video_details`, `track_details` y `audio_details`, una fila por archivo): lo que solo tiene sentido en ese tipo (el objetivo de una foto, el desnivel de un track, el álbum de una canción).
+- **Las palabras clave**, en sus propias tablas (`keywords` y `media_keywords`).
+- **Fuera del catálogo**: lo que el usuario cambia se guarda también en el propio archivo (el XMP de una foto; desde `MUS 6`, las etiquetas de una canción) o en el `.arca.json` de su carpeta (vídeos, tracks y formatos sin XMP). Qué va dónde en cada formato: [FORMATOS.md](FORMATOS.md).
+
+## Mapa de campos por módulo
+
+> **Al añadir un dato, mostrarlo en otro sitio o cambiar dónde se guarda, actualizar su fila.** Revisado con el código el 25/11/2026 (`image/fields.py`, `video/fields.py`, `track/extractor.py`, `core/audio/tag_map.py`, `metadata_fields.py`, `smart_fields.py`, `editable_fields.py` y `grid_orders.py`). Las columnas sin tabla delante son de `media_items`. Las fuentes se prueban de izquierda a derecha («…» = hay más; las de las imágenes, enteras, en [Campos de imagen](#campos-de-imagen)); «Regla» = lo calcula el extractor con varias etiquetas. En «Dónde se ve»: «Insp.» es el inspector; «Colección», un campo de las colecciones inteligentes; «Filtro», una columna de «Metadatos» de la barra de filtros; «Orden», un campo del orden de la cuadrícula. El **Catálogo** muestra los de todos los módulos: en su inspector, la sección de una biblioteca sale cuando todo lo seleccionado es de ella.
+
+### Comunes a todos los módulos
+
+| Dato | Dónde se guarda | De dónde sale | Dónde se ve | ¿Se cambia? |
+|---|---|---|---|---|
+| Nombre y extensión | `file_name`, `file_extension` | El disco | Tarjeta; Insp. «Selección»; filtro de texto; Colección «Nombre de archivo» y «Extensión»; Filtro «Extensión»; Orden «Nombre» y «Extensión» | «Cambiar nombre…» (`CAT 4.2`): el archivo |
+| Carpeta | `storage_location_id` y `relative_path` | El disco | Insp. «Selección» («Carpeta»); barra «Carpetas»; Colección «Carpeta (ruta)» | Mover (`CAT 4.4`): el archivo |
+| Tamaño | `file_size` | El disco | Insp. «Selección»; Colección «Tamaño»; Orden «Tamaño» | — |
+| Fecha de modificación | `file_mtime_ns` | El disco | Orden «Fecha de modificación» | — |
+| Fecha de importación | `added_at` | Al añadirlo al catálogo | Colección y Filtro «Fecha de importación»; Orden | — |
+| Fecha | `content_created_at`, con `content_date_precision`, `content_date_source` y `timezone_offset` | La de cada módulo (abajo); sin fecha, la del archivo la primera vez que se lee | Insp. «Selección» («Fecha»; su origen y su zona, en el texto emergente); barra «Fechas»; Colección y Filtro «Fecha de captura»; Orden «Hora de captura» | — (`GEN 2.1`) |
+| Tipo de archivo | `media_type` | La extensión y el contenido (`media_detector.py`) | «Atributos»; Colección y Filtro «Tipo de archivo» | — |
+| Biblioteca | `library` (`library_manual`: elegida a mano) | Las reglas de `libraries.py` | Insp. «Selección»; Colección y Filtro «Biblioteca» | Menú «Biblioteca»: solo el catálogo |
+| Valoración, marca y color | `rating`, `flag`, `color_label` | Las imágenes, su XMP; lo demás, el `.arca.json` | Tarjeta; barra inferior; «Atributos»; Colección y Filtro | Sí: en el XMP o en el `.arca.json` |
+| Selección rápida | `in_quick_selection` | — | Tarjeta; «Atributos»; Colección y Filtro | Sí: solo el catálogo |
+| Palabras clave | `keywords` y `media_keywords` | Las imágenes, su XMP (`lr:HierarchicalSubject`, `dc:subject`); lo demás, el `.arca.json` | Insp. «Palabras clave» y «Lista de palabras clave»; barra «Lista de palabras clave» (Imagen); Colección y Filtro «Palabra clave» | Sí: en el XMP o en el `.arca.json` |
+| Ausente | `is_missing` | La comprobación del disco | Aviso naranja de la tarjeta; Insp. «Selección» («Estado»); Colección y Filtro «Archivo ausente» | — |
+
+### Imagen (fotos y vídeos personales)
+
+En el orden de la sección «Metadatos» del inspector. Los vídeos de Imagen son los clips de cámara o de móvil; las películas van al módulo Vídeo (abajo).
+
+| Dato | Dónde se guarda | Foto: de dónde sale | Vídeo: de dónde sale | Dónde se ve | ¿Se cambia? |
+|---|---|---|---|---|---|
+| Dimensiones | `width`, `height` (ya girados) | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageWidth` …; HEIC con su `irot`; el área útil de algunos RAW ([cómo se lee](#imagen-cómo-se-lee)) | `Composite:ImageSize` → `ImageWidth` → `SourceImageWidth` | Insp. «Dimensiones» (todas las vistas); Colección «Ancho» y «Alto»; Colección y Filtro «Orientación» (horizontal, vertical o cuadrada, de las dos); proporción de la tarjeta | — |
+| Orientación EXIF | `orientation` | Regla (`IFD0:Orientation`; el `irot` de un HEIC) | Siempre 1 | Giro de la miniatura | — |
+| Recorte | `photo_details.crop_width`, `crop_height` | Regla (`XMP-crs:Crop*`) | — | Insp. «Recorte» (todas) | — |
+| Fecha de captura | `content_created_at` (y su precisión, su origen y su zona) | Regla: EXIF `DateTimeOriginal` → … ([cómo se lee](#imagen-cómo-se-lee)) | Regla (`video/rules.py`): la hora local de Keys, XML, H264 o XMP, o la de QuickTime (UTC) pasada a local | Insp. «Captura» (todas); lo común, arriba | — |
+| Digitalización | `photo_details.digitized_at` | `ExifIFD:CreateDate` → `XMP-xmp:CreateDate` | — | Insp. «Digitalización» (todas) | — |
+| Modificación (EXIF) | `photo_details.exif_modified_at` | `IFD0:ModifyDate` → `XMP-xmp:ModifyDate` | — | Insp. «Modificación» (todas) | — |
+| Cámara: marca | `photo_details.camera_make`, `video_details.camera_make` | `IFD0:Make` → `XMP-tiff:Make` → `CanonRaw:Make`, con el nombre corto («Nikon»: `camera_makers.py`) | `Keys:Make` → `UserData:Make` → `XML:DeviceManufacturer` …, con el nombre corto | Insp. «Cámara» (Por defecto, EXIF); Colección y Filtro «Marca de la cámara» (solo fotos) | — |
+| Cámara: modelo | `photo_details.camera_model`, `video_details.camera_model` | `IFD0:Model` → `XMP-tiff:Model` → `CanonRaw:Model` | `Keys:Model` → `UserData:Model` → `XML:DeviceModelName` … | Insp. «Cámara»; Colección y Filtro «Modelo de la cámara» (solo fotos) | — |
+| Objetivo | `photo_details.lens_model`, `video_details.lens_model` | `ExifIFD:LensModel` → `XMP-exifEX:LensModel` → `XMP-aux:Lens` … → `Nikon:Lens` (regla) | `VideoKeys:LensModel` → `Keys:LensModel` → `LensModel` → `Composite:LensID` → `Nikon:Lens` (regla) | Insp. «Objetivo» (Por defecto, EXIF); Colección y Filtro «Objetivo» (solo fotos) | — |
+| Focal | `photo_details.focal_length_mm` | `ExifIFD:FocalLength` → `XMP-exif:FocalLength` | — | Insp. «Focal»; Colección y Filtro «Distancia focal» | — |
+| Focal 35 mm | `photo_details.focal_length_35mm`, `video_details.focal_length_35mm` | `ExifIFD:FocalLengthIn35mmFormat` → `XMP-exif:FocalLengthIn35mmFilm` | `VideoKeys:FocalLengthIn35mmFormat` → `Keys:FocalLengthIn35mmFormat` → `FocalLengthIn35mmFormat` | Insp. «Focal 35 mm» (Por defecto, EXIF) | — |
+| Exposición: tiempo | `photo_details.exposure_time_s` (el exacto) | `ExifIFD:ExposureTime` → `XMP-exif:ExposureTime` → `Canon:ExposureTime` (CRW) | — | Insp. «Exposición» (redondeada, como Lightroom; el exacto, en el texto emergente); Colección y Filtro «Tiempo de exposición» | — |
+| Exposición: apertura | `photo_details.f_number`, `video_details.f_number` | `ExifIFD:FNumber` → `XMP-exif:FNumber` | `VideoKeys:CameraLensIrisfnumber` → `Keys:CameraLensIrisfnumber` → `CameraLensIrisfnumber` → `FNumber` | Insp. «Exposición» (solo fotos); Colección y Filtro «Apertura (f/)» (solo fotos) | — |
+| Sensibilidad | `photo_details.iso` | `ExifIFD:ISO` → `XMP-exif:ISO` → `Composite:ISO` (CRW) | — | Insp. «Sensibilidad»; Colección y Filtro «ISO» | — |
+| Compensación | `photo_details.exposure_bias_ev` | `ExifIFD:ExposureCompensation` → `XMP-exif:ExposureBiasValue` → `Canon:ExposureCompensation` (CRW) | — | Insp. «Compensación» | — |
+| Flash | `photo_details.flash_fired` (regla: el bit 0 de `flash_code`) y `flash_code` | `ExifIFD:Flash` | — | Insp. «Flash» («Disparado» / «No disparado»); Colección y Filtro «Flash disparado» | — |
+| Programa | `photo_details.exposure_program` (código EXIF) | `ExifIFD:ExposureProgram` → `XMP-exif:ExposureProgram` | — | Insp. «Programa» | — |
+| Medición | `photo_details.metering_mode` (código EXIF) | `ExifIFD:MeteringMode` → `XMP-exif:MeteringMode` | — | Insp. «Medición» | — |
+| Duración | `duration` | — | `QuickTime:Duration` → `Composite:Duration` → `Duration` | Insp. «Duración» (EXIF); la tarjeta | — |
+| Fotogramas | `video_details.frame_rate` | — | `VideoFrameRate` → `FrameRate` | Insp. «Fotogramas» (EXIF) | — |
+| Códec | `video_details.video_codec` | — | `CompressorID` → `VideoCodec` → `CompressorName` | Insp. «Códec» (EXIF) | — |
+| Título | `title` (sin título, el nombre del archivo) | `XMP-dc:Title` → `IPTC:ObjectName` | `XMP-dc:Title` → `ItemList:Title` → `UserData:Title` → `QuickTime:Title` | Insp. «Título» (Por defecto, Ubicación; en blanco si es el nombre del archivo); filtro de texto; Colección «Título» | Sí ¹ |
+| Pie | `description` | `XMP-dc:Description` → `IPTC:Caption-Abstract` → `IFD0:ImageDescription` | `XMP-dc:Description` → `ItemList:Description` → `UserData:Description` → `QuickTime:Description` | Insp. «Pie»; Colección «Descripción» | Sí ¹ |
+| Creador | `creator` | `XMP-dc:Creator` → `IPTC:By-line` → `IFD0:Artist` | `XMP-dc:Creator` → `ItemList:Artist` → `UserData:Artist` → `QuickTime:Author` | Insp. «Creador»; Colección y Filtro «Autor» | Sí ¹ |
+| Copyright | `copyright` | `XMP-dc:Rights` → `IPTC:CopyrightNotice` → `IFD0:Copyright` | `XMP-dc:Rights` → `ItemList:Copyright` → `UserData:Copyright` | Insp. «Copyright»; Colección y Filtro «Copyright» | Sí ¹ |
+| Lugar | `sublocation` | `XMP-iptcCore:Location` → `IPTC:Sub-location` | — | Insp. «Lugar»; Colección y Filtro «Lugar» | Sí ¹ |
+| Ciudad | `city` | `XMP-photoshop:City` → `IPTC:City` | — | Insp. «Ciudad»; Colección y Filtro «Ciudad» | Sí ¹ |
+| Región | `region` | `XMP-photoshop:State` → `IPTC:Province-State` | — | Insp. «Región»; Colección y Filtro «Región o provincia» | Sí ¹ |
+| País | `country` | `XMP-photoshop:Country` → `IPTC:Country-PrimaryLocationName` | — | Insp. «País»; Colección y Filtro «País» | Sí ¹ |
+| Código del país | `country_code` | `XMP-iptcCore:CountryCode` → `IPTC:Country-PrimaryLocationCode` | — | Insp. «Código país» | Sí ¹ |
+| GPS | `latitude`, `longitude` (la pareja, de la misma fuente) | `XMP-exif:GPSLatitude` → `Composite:GPSLatitude` | `Composite:GPSLatitude` → `XMP-exif:GPSLatitude` → `GPSLatitude` | Insp. «GPS»; el mapa; la chincheta de la tarjeta; Colección y Filtro «Tiene coordenadas GPS» | Sí ¹ (también en el mapa: ubicar, mover y quitar) |
+| Altitud | `altitude` | `XMP-exif:GPSAltitude` (con su referencia) → `Composite:GPSAltitude` → `GPS:GPSAltitude` | `Composite:GPSAltitude` → `XMP-exif:GPSAltitude` → `GPSAltitude` | Insp. «Altitud» | Sí ¹ |
+| Dirección | `gps_direction` | `XMP-exif:GPSImgDirection` → `GPS:GPSImgDirection` | — | Insp. «Dirección» | Sí ¹ |
+
+¹ En la sección «Metadatos» del inspector (vistas «Por defecto» y «Ubicación»). Se guarda en el catálogo y se escribe en el archivo: en una foto, en su XMP (incrustado o en el sidecar `.xmp` de un RAW) y en las etiquetas antiguas que ya tenga ([escritura](#escritura-de-los-metadatos-descriptivos)); en un vídeo o en un formato sin XMP, en el `.arca.json` de su carpeta. Lo pendiente de escribir no se pisa al releer.
+
+**Se leen pero no se ven en ningún sitio**: `intellectual_genre`, `scene`, `iptc_created_at`, `photo_details.body_serial_number`, `software` (foto y vídeo), `photo_details.user_comment`, `brightness_value`, `flash_code` (el detalle del flash: modo, retorno), `has_xmp_sidecar` y, en los vídeos, `f_number` (la fila «Exposición» solo lee fotos). Candidatos para las vistas IPTC y «Personalizada» del inspector (mejoras menores de [PENDIENTE.md](PENDIENTE.md)).
+
+### Tracks
+
+Del lector de GPX (`core/metadata/track/`, sin ExifTool), en el orden de la sección «Track» del inspector. Los puntos y los waypoints no se guardan: el GPX es la fuente y se lee cuando hace falta (el mapa y el perfil).
+
+| Dato | Dónde se guarda | De dónde sale (GPX) | Dónde se ve | ¿Se cambia? |
+|---|---|---|---|---|
+| Distancia | `track_details.distance_m` | La suma de los tramos de cada segmento, en 2D (como Wikiloc) | Insp. «Distancia»; Colección «Distancia»; Orden «Distancia» | — |
+| Desnivel | `track_details.elevation_gain_m`, `elevation_loss_m` | La altitud de los puntos, con un umbral de 8 m contra el ruido del GPS | Insp. «Desnivel» (↑ y ↓); Colección «Desnivel positivo» y «negativo»; Orden «Desnivel positivo»; el perfil | — |
+| Altitud | `track_details.elevation_min_m`, `elevation_max_m` | La de los puntos | Insp. «Altitud» (mínima y máxima); Colección «Altitud máxima» | — |
+| Duración | `duration` | Del primer punto con hora al último | Insp. «Duración»; la tarjeta; Orden «Duración» | — |
+| Velocidad | No se guarda: la distancia entre la duración (`track_stats.py`) | — | Insp. «Velocidad» | — |
+| Puntos | `track_details.point_count`, `segment_count`, `waypoint_count`, `is_planned_route` (y `track_count`, `route_count`) | `<trkpt>`, `<trkseg>`, `<wpt>`; una ruta planificada (`<rte>`) solo si no hay recorrido grabado | Insp. «Puntos» | — |
+| Actividad | `track_details.activity_type` (la clave de `core/tracks/activities.py`) | `<trk><type>` («Hike» → `hiking`; lo que no se reconoce, `generic`) | Insp. «Actividad» (desplegable); Colección y Filtro «Actividad» | Sí: en el `.arca.json` (en el `<type>` del GPX, con `TRK 6.1`) |
+| Creado con | `track_details.creator_app` | El atributo `creator` de `<gpx>` | Insp. «Creado con»; Colección y Filtro «Creado con» | — |
+| Nombre | `title` (sin nombre, el del archivo) | `<trk><name>` o el de `<metadata>` | Filtro de texto; Colección «Título» | — |
+| Descripción | `description` | `<desc>` del track o del archivo | Colección «Descripción»; filtro de texto | — |
+| Autor | `creator` | `<metadata><author><name>` (GPX 1.0: `<author>`) | Colección y Filtro «Autor» | — |
+| Fecha de salida | `content_created_at` (hora LOCAL, con la zona del equipo); `track_details.started_at` y `ended_at` (UTC) | El primer y el último punto con hora | Lo común (arriba) | — |
+| Salida y llegada | `latitude`, `longitude`, `altitude` (salida); `track_details.end_latitude`, `end_longitude` | El primer y el último punto | El mapa | — |
+| Recuadro | `track_details.min_latitude`, `max_latitude`, `min_longitude`, `max_longitude` | Todos los puntos | El mapa (qué tracks caen en lo que se ve) | — |
+| Contorno | `track_details.overview` (como mucho 1 000 puntos, en polilínea codificada) | El recorrido, simplificado (`core/tracks/simplify.py`) | El mapa (todos los tracks a la vez); la forma del recorrido en la tarjeta | — |
+
+### Música
+
+**Estado (25/11/2026)**: la tabla `audio_details` existe (`MUS 1.2`) y la llenará el extractor de audio (`MUS 1.3`); el inspector, en `MUS 2.1`; el orden, en `MUS 2.2`; los filtros y las colecciones, en `MUS 2.3`; las barras, en `MUS 4`. Las filas del inspector, en el orden acordado ([MOD_MUSICA.md](MOD_MUSICA.md) §7.1). La tabla campo ↔ etiqueta es `core/audio/tag_map.py`.
+
+| Dato | Dónde se guarda | ID3 (MP3, WAV, AIFF) | Vorbis (FLAC, Ogg, Opus) | MP4 (M4A) | Dónde se verá | ¿Se cambiará? |
+|---|---|---|---|---|---|---|
+| Título | `title` (sin título, el nombre del archivo) | `TIT2` | `TITLE` | `©nam` | Insp. «Título»; filtro de texto; Colección «Título» | ² |
+| Artista | `creator` | `TPE1` | `ARTIST` | `©ART` | Insp. «Artista»; Colección y Filtro «Autor»; barra «Artistas» (`MUS 4.1`) | ² |
+| Álbum | `audio_details.album` | `TALB` | `ALBUM` | `©alb` | Insp. «Álbum»; barra «Artistas» ▸ álbum (`MUS 4.1`); Orden | ² |
+| Año | `content_created_at` (con precisión de año si solo trae el año) | `TDRC` (en v2.3, `TYER`) | `DATE` (o `YEAR`) | `©day` | Insp. «Año»; barra «Fechas»; Colección y Filtro «Fecha de captura»; Orden | ² |
+| Pista | `audio_details.track_number`, `track_total` | `TRCK` («3/12») | `TRACKNUMBER` y `TRACKTOTAL` (o `TOTALTRACKS`) | `trkn` | Insp. «Pista» («22 / 25»); Orden del álbum | ² |
+| Disco | `audio_details.disc_number`, `disc_total` | `TPOS` | `DISCNUMBER` y `DISCTOTAL` (o `TOTALDISCS`) | `disk` | Insp. «Disco»; Orden del álbum | ² |
+| Género | `audio_details.genre` (varios, unidos con «; ») | `TCON` (también «(17)», el número de ID3v1) | `GENRE` | `©gen` (o `gnre`, el número) | Insp. «Género»; barra «Géneros» (`MUS 4.2`); Colección y Filtro | ² |
+| Artista del álbum | `audio_details.album_artist` | `TPE2` | `ALBUMARTIST` (o `ALBUM ARTIST`) | `aART` | Insp. «Artista del álbum»; barra «Artistas» (`MUS 4.1`) | ² |
+| Compositor | `audio_details.composer` | `TCOM` | `COMPOSER` | `©wrt` | Insp. «Compositor» | ² |
+| Comentario | `description` | `COMM` sin descripción | `COMMENT` (o `DESCRIPTION`) | `©cmt` | Insp. «Comentario»; Colección «Descripción» | ² |
+
+² Desde `MUS 7`, en el inspector; se escribirá en el propio archivo, sin copias (`MUS 6`: primero MP3). Lo que el escritor no sepa guardar, en el `.arca.json`.
+
+Los datos técnicos y la carátula los da mutagen en todos los formatos (`core/audio/tag_reader.py`):
+
+| Dato | Dónde se guarda | De dónde sale | Dónde se verá | ¿Se cambiará? |
+|---|---|---|---|---|
+| Duración | `duration` | La cabecera del audio | Insp. «Duración»; la tarjeta; Orden «Duración» (ya hoy) | — |
+| Formato | `audio_details.codec`, `codec_detail` | El tipo de archivo y su códec («AAC LC») | Insp. «Formato» | — |
+| Calidad | `audio_details.bitrate` (la media), `bitrate_mode`, `sample_rate`, `channels`, `bit_depth` (solo sin pérdida), `lossless` | La cabecera del audio; en Ogg Vorbis, la tasa se calcula ([TRAMPAS.md](TRAMPAS.md)) | Insp. «Calidad» («VBR · 277 kbps · 44,1 kHz · Estéreo») | — |
+| Etiqueta | `audio_details.tag_type` | Las etiquetas del archivo («ID3v2.3 + ID3v1», «Vorbis», «MP4») | Insp. «Etiqueta» | — |
+| Carátula | `audio_details.picture_count` y, de la primera portada (o la primera imagen), `cover_type`, `cover_mime`, `cover_width`, `cover_height`, `cover_bytes` y `cover_hash` (la huella) | `APIC` (ID3); bloque PICTURE (FLAC) o `METADATA_BLOCK_PICTURE` (Ogg); `covr` (MP4, siempre «Portada») | La miniatura (`MUS 3`); Insp. «Tipo» e «Imagen» (`MUS 9.1`); la carátula del álbum, por la huella | `MUS 9`: en el archivo |
+
+### Vídeo (películas) y Ebooks
+
+Sin datos propios todavía. Hoy una película tiene los comunes y los de vídeo de Imagen (el extractor es el mismo); su tabla llegará con `VID 1` y `VID 2` ([MOD_VIDEO.md](MOD_VIDEO.md)). La de los libros, con `EBK 2` ([MOD_EBOOKS.md](MOD_EBOOKS.md)).
+
+## Imagen: cómo se lee
 
 **Prioridad entre fuentes** (la recomendación del Metadata Working Group, la que sigue Lightroom). Es el **orden de las etiquetas en cada línea** de `image/fields.py`:
 
@@ -18,74 +147,9 @@
 - **Tamaño**: se guarda "de pantalla" (ya girado si la orientación EXIF es 5 a 8). En los **HEIC, HEIF y AVIF**, si traen su caja `irot` (ExifTool: `QuickTime:Rotation`, cuartos de vuelta de 0 a 3), manda ella, porque es el giro que aplican las librerías y el de la miniatura; si no hay orientación EXIF, la columna `orientation` toma la equivalente (desde el 21/11/2026, `IMAGE_FIELDS_VERSION` 10; antes, un AVIF con el giro solo en el `irot` salía apaisado). En los **RAW de Nikon, Olympus y Pentax**, el área útil de su nota del fabricante (`Nikon:CropArea`, `Nikon:AFImageWidth/Height`, `Olympus:CropWidth/Height`, `Pentax:RawImageSize`, si mide entre el 90 % y el 100 % del sensor), que es la de Lightroom: Nikon Df 4928 × 3280 frente a 4992 × 3292 del sensor (desde el 21/11/2026, `IMAGE_FIELDS_VERSION` 11; las Pentax, desde la 13; comparados con Lightroom 18 RAW de 11 marcas: solo la Coolpix NRW y los Sony SRF y SR2 antiguos siguen con el sensor, entre un 0,5 % y un 3 % mayor). En los **DNG**, `DefaultCropSize` manda sobre `Composite:ImageSize` (el sensor completo, algo mayor): es lo que Lightroom muestra como "Dimensiones de archivo" (verificado: 3200 × 2128 frente a 3264 × 2140). Solo existe en los DNG, así que no afecta a otros formatos.
 - **GPS**: primero el XMP y después el compuesto de ExifTool (los dos, ya con signo), como Lightroom; la pareja latitud/longitud, siempre de la misma fuente (el XMP solo si tiene las dos); la altitud del XMP, con `XMP-exif:GPSAltitudeRef` (1 = bajo el nivel del mar; sin ella, sobre él); se descartan los fuera de rango y `0, 0` (`rules.py`).
 
-## Mapa de campos: qué se extrae y dónde se ve
+### Campos de imagen
 
-> Referencia para añadir metadatos (actualizada el 02/11/2026; generada a partir de `IMAGE_FIELDS`, `VIDEO_FIELDS`, `metadata_fields.FIELDS` y `smart_fields`). **Al añadir un campo o mostrarlo en algún sitio, añadir o actualizar su fila.** «—» = no se usa. Las fuentes se prueban de izquierda a derecha («…» = hay más; el detalle completo de las imágenes, en la tabla siguiente). «Regla» = lo calcula `rules.py` a partir de varias etiquetas. Las columnas sin prefijo son de `media_items`.
-
-| Columna | Imagen: de dónde sale | Vídeo: de dónde sale | Inspector «Metadatos» (vistas) | Colección inteligente | Otros usos |
-|---|---|---|---|---|---|
-| `title` | `XMP-dc:Title` → `IPTC:ObjectName` | `XMP-dc:Title` → `ItemList:Title` → `UserData:Title` … | «Título» (Por defecto, Ubicación; el propio: en blanco si es el nombre del archivo) | Título | — |
-| `description` | `XMP-dc:Description` → `IPTC:Caption-Abstract` → `IFD0:ImageDescription` | `XMP-dc:Description` → `ItemList:Description` → `UserData:Description` … | «Pie» (Por defecto, Ubicación) | Descripción | — |
-| `creator` | `XMP-dc:Creator` → `IPTC:By-line` → `IFD0:Artist` | `XMP-dc:Creator` → `ItemList:Artist` → `UserData:Artist` … | «Creador» (Por defecto, Ubicación) | Autor | — |
-| `copyright` | `XMP-dc:Rights` → `IPTC:CopyrightNotice` → `IFD0:Copyright` | `XMP-dc:Rights` → `ItemList:Copyright` → `UserData:Copyright` | «Copyright» (Por defecto, Ubicación) | Copyright | — |
-| `intellectual_genre` | `XMP-iptcCore:IntellectualGenre` → `IPTC:ObjectAttributeReference` | — | — | — | — |
-| `scene` | `XMP-iptcCore:Scene` | — | — | — | — |
-| `iptc_created_at` | `XMP-photoshop:DateCreated` → `Composite:DateTimeCreated` → `IPTC:DateCreated` | — | — | — | — |
-| `sublocation` | `XMP-iptcCore:Location` → `IPTC:Sub-location` | — | «Lugar» (Por defecto, Ubicación) | Lugar | — |
-| `city` | `XMP-photoshop:City` → `IPTC:City` | — | «Ciudad» (Por defecto, Ubicación) | Ciudad | — |
-| `region` | `XMP-photoshop:State` → `IPTC:Province-State` | — | «Región» (Por defecto, Ubicación) | Región o provincia | — |
-| `country` | `XMP-photoshop:Country` → `IPTC:Country-PrimaryLocationName` | — | «País» (Por defecto, Ubicación) | País | — |
-| `country_code` | `XMP-iptcCore:CountryCode` → `IPTC:Country-PrimaryLocationCode` | — | «Código país» (Por defecto, Ubicación) | — | — |
-| `latitude` | `XMP-exif:GPSLatitude` → `Composite:GPSLatitude` | `Composite:GPSLatitude` → `XMP-exif:GPSLatitude` → `GPSLatitude` | «GPS» (Por defecto, Ubicación) | Tiene coordenadas GPS | — |
-| `longitude` | `XMP-exif:GPSLongitude` → `Composite:GPSLongitude` | `Composite:GPSLongitude` → `XMP-exif:GPSLongitude` → `GPSLongitude` | «GPS» (Por defecto, Ubicación) | Tiene coordenadas GPS | — |
-| `altitude` | `XMP-exif:GPSAltitude` (con su referencia) → `Composite:GPSAltitude` → `GPS:GPSAltitude` | `Composite:GPSAltitude` → `XMP-exif:GPSAltitude` → `GPSAltitude` | «Altitud» (Por defecto, Ubicación) | — | — |
-| `width` | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageWidth` … | `Composite:ImageSize` → `ImageWidth` → `SourceImageWidth` | «Dimensiones» (todas) | Ancho | proporción de la miniatura |
-| `height` | `DefaultCropSize` → `Composite:ImageSize` → `File:ImageHeight` … | `Composite:ImageSize` → `ImageHeight` → `SourceImageHeight` | «Dimensiones» (todas) | Alto | proporción de la miniatura |
-| `duration` | — | `QuickTime:Duration` → `Composite:Duration` → `Duration` | «Duración» (EXIF) | — | marcador de duración en la tarjeta |
-| `content_created_at` | regla (ver «Fecha de captura») | regla (`video/rules.py`) | «Captura» (todas) | Fecha de captura | Selección: «Fecha»; orden de la cuadrícula |
-| `content_date_precision` | regla | regla | — | — | — |
-| `content_date_source` | regla | regla | — | — | — |
-| `timezone_offset` | regla | regla | — | — | — |
-| `orientation` | regla (`IFD0:Orientation`) | siempre 1 | — | Orientación | giro de la miniatura |
-| `has_xmp_sidecar` | extractor genérico | extractor genérico | — | — | — |
-| `photo_details.camera_make` | `IFD0:Make` → `XMP-tiff:Make` → `CanonRaw:Make`, con el nombre corto («Nikon»: `camera_makers.py`) | — | «Cámara» (Por defecto, EXIF) | Marca de la cámara | — |
-| `photo_details.camera_model` | `IFD0:Model` → `XMP-tiff:Model` → `CanonRaw:Model` | — | «Cámara» (Por defecto, EXIF) | Modelo de la cámara | — |
-| `photo_details.body_serial_number` | `ExifIFD:SerialNumber` → `XMP-exifEX:BodySerialNumber` → `XMP-aux:SerialNumber` → `CanonRaw:SerialNumber` (regla) | — | — | — | — |
-| `photo_details.lens_model` | `ExifIFD:LensModel` → `XMP-exifEX:LensModel` → `XMP-aux:Lens` … → `Nikon:Lens` (regla) | — | «Objetivo» (Por defecto, EXIF) | Objetivo | — |
-| `photo_details.software` | `IFD0:Software` → `XMP-xmp:CreatorTool` | — | — | — | — |
-| `photo_details.user_comment` | `ExifIFD:UserComment` | — | — | — | — |
-| `photo_details.focal_length_mm` | `ExifIFD:FocalLength` → `XMP-exif:FocalLength` | — | «Focal» (Por defecto, EXIF) | Distancia focal | — |
-| `photo_details.focal_length_35mm` | `ExifIFD:FocalLengthIn35mmFormat` → `XMP-exif:FocalLengthIn35mmFilm` | — | «Focal 35 mm» (Por defecto, EXIF) | — | — |
-| `photo_details.f_number` | `ExifIFD:FNumber` → `XMP-exif:FNumber` | — | «Exposición» (Por defecto, EXIF) | Apertura (f/) | — |
-| `photo_details.exposure_time_s` | `ExifIFD:ExposureTime` → `XMP-exif:ExposureTime` | — | «Exposición» (Por defecto, EXIF) | Tiempo de exposición | — |
-| `photo_details.iso` | `ExifIFD:ISO` → `XMP-exif:ISO` | — | «Sensibilidad» (Por defecto, EXIF) | ISO | — |
-| `photo_details.exposure_bias_ev` | `ExifIFD:ExposureCompensation` → `XMP-exif:ExposureBiasValue` | — | «Compensación» (Por defecto, EXIF) | — | — |
-| `photo_details.brightness_value` | `ExifIFD:BrightnessValue` → `XMP-exif:BrightnessValue` | — | — | — | — |
-| `photo_details.exposure_program` | `ExifIFD:ExposureProgram` → `XMP-exif:ExposureProgram` | — | «Programa» (Por defecto, EXIF) | — | — |
-| `photo_details.metering_mode` | `ExifIFD:MeteringMode` → `XMP-exif:MeteringMode` | — | «Medición» (Por defecto, EXIF) | — | — |
-| `photo_details.flash_code` | `ExifIFD:Flash` | — | — | — | — |
-| `gps_direction` | `XMP-exif:GPSImgDirection` → `GPS:GPSImgDirection` | — | «Dirección» (Por defecto, Ubicación) | — | — |
-| `photo_details.digitized_at` | `ExifIFD:CreateDate` → `XMP-xmp:CreateDate` | — | «Digitalización» (todas) | — | — |
-| `photo_details.exif_modified_at` | `IFD0:ModifyDate` → `XMP-xmp:ModifyDate` | — | «Modificación» (todas) | — | — |
-| `photo_details.flash_fired` | regla (bit 0 de `flash_code`) | — | «Flash» (Por defecto, EXIF) | Flash disparado | — |
-| `photo_details.crop_width` | regla (`XMP-crs:Crop*`) | — | «Recorte» (todas) | — | — |
-| `photo_details.crop_height` | regla (`XMP-crs:Crop*`) | — | «Recorte» (todas) | — | — |
-| `video_details.camera_make` | — | `Keys:Make` → `UserData:Make` → `XML:DeviceManufacturer` …, con el nombre corto (`camera_makers.py`) | «Cámara» (Por defecto, EXIF) | — | — |
-| `video_details.camera_model` | — | `Keys:Model` → `UserData:Model` → `XML:DeviceModelName` … | «Cámara» (Por defecto, EXIF) | — | — |
-| `video_details.software` | — | `Keys:Software` → `UserData:Software` → `Software` … | — | — | — |
-| `video_details.video_codec` | — | `CompressorID` → `VideoCodec` → `CompressorName` | «Códec» (EXIF) | — | — |
-| `video_details.frame_rate` | — | `VideoFrameRate` → `FrameRate` | «Fotogramas» (EXIF) | — | — |
-| `video_details.lens_model` | — | `VideoKeys:LensModel` → `Keys:LensModel` → `LensModel` … → `Nikon:Lens` (regla) | «Objetivo» (Por defecto, EXIF) | — | — |
-| `video_details.focal_length_35mm` | — | `VideoKeys:FocalLengthIn35mmFormat` → `Keys:FocalLengthIn35mmFormat` → `FocalLengthIn35mmFormat` | «Focal 35 mm» (Por defecto, EXIF) | — | — |
-| `video_details.f_number` | — | `VideoKeys:CameraLensIrisfnumber` → `Keys:CameraLensIrisfnumber` → `CameraLensIrisfnumber` … | — | — | — |
-
-Huecos a la vista (extraídos pero sin mostrar en ningún sitio): `intellectual_genre`, `scene`, `iptc_created_at`, `body_serial_number`, `software` (foto y vídeo), `user_comment`, `brightness_value`, `flash_code` (el detalle del flash: modo, retorno), `timezone_offset` y `content_date_source` (sí aparecen en el texto emergente de «Fecha» de «Selección»), `has_xmp_sidecar` y, en los vídeos, `f_number` (la fila «Exposición» solo lee fotos). Candidatos naturales para las vistas IPTC y Personalizada.
-
-**Datos del usuario** que se leen del archivo (`IMAGE_USER_FIELDS`, ver más abajo): `rating`, `flag` y `color_label` se ven en las **tarjetas** y en la **barra inferior**, y son filtrables en colecciones inteligentes (Valoración, Marca, Etiqueta de color).
-
-**Tracks GPS** (`core/metadata/track/extractor.py`, lector propio de GPX, sin ExifTool): rellena en `media_items` `title` (`<name>`), `description`, `creator` (`<author>`), la fecha de captura (primer punto, en hora local), `latitude`/`longitude`/`altitude` (punto de salida) y `duration`; y en `track_details`: `distance_m`, `elevation_gain_m`, `elevation_loss_m`, `elevation_min_m`, `elevation_max_m`, `started_at`, `ended_at` (UTC), `point_count`, `segment_count`, `track_count`, `route_count`, `waypoint_count`, `is_planned_route`, el recuadro (`min/max_latitude`, `min/max_longitude`), la llegada (`end_latitude`, `end_longitude`), `activity_type` y `creator_app`. No tienen sección en el inspector (son de la biblioteca Tracks); filtrables en colecciones inteligentes: Distancia, Desnivel positivo y negativo, Altitud máxima, Actividad y Creado con. La duración se ve en la tarjeta. La actividad (`<type>`) se guarda como CLAVE de la lista (`core/tracks/activities.py`: «Hike» → `hiking`; lo que no se reconoce, `generic`, «Otra actividad») y es editable en el inspector (sección «Track»): lo que cambie el usuario no se pisa al releer y va al `.arca.json`.
-
-**Campos de imagen** (generado de `IMAGE_FIELDS`; las fuentes se prueban de izquierda a derecha):
+Generado de `IMAGE_FIELDS`; las fuentes se prueban de izquierda a derecha:
 
 | Columna | Tabla | Fuentes (ExifTool) | Conversor |
 |---|---|---|---|
@@ -173,7 +237,9 @@ Una palabra suelta va a la única del árbol con ese nombre; si hay varias, al p
 
 **Escritura** (desde el 03/11/2026, paso K4a; `xmp_writer.py`): como Lightroom, comprobado con un NEF con solo «Opel Astra» (`lr:HierarchicalSubject` = `Coche|Opel Astra`, `dc:Subject` = `Coche`, `Opel Astra`) y un HEIC con «Familia > Isa» y «Familia > Javi» (`dc:Subject` = `Familia`, `Isa`, `Javi`, aunque «[Familia]» es una categoría): la jerárquica lleva las rutas **asignadas** y la plana cada palabra **y sus padres**. A un archivo solo se le asigna la palabra; sus padres se deducen del árbol (no hay «padres automáticos»). `IPTC:Keywords` se actualiza solo si el archivo ya lo tenía (y desde el 10/11/2026, con el resumen IPTC al día: ver más abajo). En los formatos sin XMP, en el `.arca.json` de la carpeta (clave `keywords`, lista de rutas), que también se lee al sincronizar. Para decidir si un archivo ya está al día, las rutas se comparan **letra a letra** (desde el 04/11/2026: renombrar «Familia» a «Família» en la aplicación tiene que llegar al archivo); al leer, en cambio, una palabra se reconoce sin mayúsculas ni acentos. Renombrar, mover o borrar una palabra del árbol deja pendientes todos los archivos que la tienen o tienen alguna de sus hijas.
 
-**Escritura de los metadatos descriptivos** (paso C.5; `xmp_writer.py` y `editable_fields.py`, ver [DECISIONES.md](DECISIONES.md)). Se editan en la sección «Metadatos» del inspector (fotos y vídeos de Imagen; vistas «Por defecto» y «Ubicación»). Se escribe en todas las etiquetas de las que se lee: el XMP siempre y las antiguas solo si el archivo ya las tiene. Para saber si ya está al día y para comprobar lo escrito, se lee como el extractor (la primera etiqueta no vacía). Un texto que ExifTool entrega como número («1.50» llega como 1,5) se compara como número. Probado el 10/11/2026, antes de programarlo, con ExifTool 13.59, el extractor de imagen y Lightroom Classic:
+### Escritura de los metadatos descriptivos
+
+Paso C.5 (`xmp_writer.py` y `editable_fields.py`; ver [DECISIONES.md](DECISIONES.md)). Se editan en la sección «Metadatos» del inspector (fotos y vídeos de Imagen; vistas «Por defecto» y «Ubicación»). Se escribe en todas las etiquetas de las que se lee: el XMP siempre y las antiguas solo si el archivo ya las tiene. Para saber si ya está al día y para comprobar lo escrito, se lee como el extractor (la primera etiqueta no vacía). Un texto que ExifTool entrega como número («1.50» llega como 1,5) se compara como número. Probado el 10/11/2026, antes de programarlo, con ExifTool 13.59, el extractor de imagen y Lightroom Classic:
 
 | Columna | XMP (siempre) | Antiguas (solo si ya existen) | Lightroom, vista IPTC |
 |---|---|---|---|
@@ -198,7 +264,7 @@ Una palabra suelta va a la única del árbol con ese nombre; si hay varias, al p
 
 Aún **no** se extraen los ajustes de revelado (`XMP-crs`), salvo el recorte. Tampoco las **regiones de caras** de Lightroom (`XMP-mwg-rs:RegionName` = «Isa», «Javi», `RegionType` = `Face`, con su posición): idea para más adelante (personas).
 
-**Contrastado con Lightroom** (paneles EXIF y Ubicación) con un JPEG, dos HEIC (uno vertical) y un DNG: coinciden todos los campos. Diferencias que no son errores: la exposición se muestra redondeada (1/906 s → 1/900), la Dirección se traduce a 8 sectores de 45° (292,47° → "Oeste"), Lightroom abrevia la marca ("NIKON CORPORATION" → "Nikon"; aquí se guarda tal cual) y un campo borrado en Lightroom puede seguir en el archivo (la Dirección de un HEIC). Disponible pero sin columna: `OriginalRawFileName` ("Nombre de archivo original" de un DNG).
+**Contrastado con Lightroom** (paneles EXIF y Ubicación) con un JPEG, dos HEIC (uno vertical) y un DNG: coinciden todos los campos. Diferencias que no son errores: la exposición se muestra redondeada (1/906 s → 1/900), la Dirección se traduce a 8 sectores de 45° (292,47° → "Oeste"), Lightroom abrevia la marca ("NIKON CORPORATION" → "Nikon"; aquí también, desde `IMAGE_FIELDS_VERSION` 14: `camera_makers.py`) y un campo borrado en Lightroom puede seguir en el archivo (la Dirección de un HEIC). Disponible pero sin columna: `OriginalRawFileName` ("Nombre de archivo original" de un DNG).
 
 **GPS en Lightroom Classic 16** (comprobado el 11/11/2026 con cinco JPEG de prueba y el sidecar de un NEF; para la edición del GPS, hecha ese día): con el EXIF y el XMP distintos, **muestra el XMP** (coordenadas, altitud y dirección). Al editar el GPS de un **JPEG**, lo escribe **en el EXIF** (lo crea si no hay), con sus referencias N/S y E/O, **borra el GPS del XMP** si lo había, **borra `GPSAltitudeRef`** (la altitud queda sin referencia: sobre el nivel del mar) y **no cambia la dirección** que ya había en el EXIF (solo la escribe al crear el GPS): tras «Leer metadatos del archivo», la dirección editada vuelve a la antigua. En el **sidecar de un RAW** lo escribe en el XMP (`exif:GPSLatitude="41,23.244N"`, grados y minutos con decimales; altitud y dirección como fracciones, sin referencia). Lee bien una altitud del XMP con `GPSAltitudeRef` = 1 (−430,0 m).
 

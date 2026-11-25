@@ -89,6 +89,7 @@ Este archivo dice **cómo trabajar** en el proyecto. **Qué es y en qué punto e
 | Avanza o cambia el plan | [docs/PENDIENTE.md](docs/PENDIENTE.md) |
 | El autor confirma que algo funciona | Pásalo a «Verificado» en `ESTADO.md` |
 | Cambia el esquema | [docs/MODELO_DE_DATOS.md](docs/MODELO_DE_DATOS.md) y la tabla de versiones de [docs/INDEX.md](docs/INDEX.md) |
+| Se añade un dato de un módulo, se muestra en otro sitio o cambia dónde se guarda | Su fila en el mapa de campos por módulo de [docs/METADATOS.md](docs/METADATOS.md) |
 | Cambia una versión (campos, miniaturas, GPX) | La tabla de versiones de `INDEX.md` |
 | Cambia qué formatos se catalogan, tienen miniatura, se leen o dónde se guardan sus datos | [docs/FORMATOS.md](docs/FORMATOS.md) (su última tabla dice dónde se decide cada columna) |
 | Cambia cómo funciona una operación | [docs/FLUJOS.md](docs/FLUJOS.md) |

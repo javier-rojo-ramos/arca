@@ -1,7 +1,7 @@
 # Arca Media — Módulo Música: arquitectura y plan
 
 > Documento del módulo Música (en el código y en la interfaz, el módulo **Audio**: `AudioModule`, biblioteca `audio`). Tiene dos partes: **I, arquitectura** (cómo está hecho y cómo encaja con el resto) y **II, planificación** (fases y pasos, con los códigos `MUS` de [PENDIENTE.md](PENDIENTE.md)).
-> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hecho `MUS 1.1` (la base de audio, `core/audio/`, sin conectar a la aplicación). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
+> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`, sin conectar a la aplicación) y `MUS 1.2` (la tabla `audio_details`, vacía). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
 > Índice: [INDEX.md](INDEX.md). Decisiones: [DECISIONES.md](DECISIONES.md) (16/11/2026).
 
 ## Resumen
@@ -69,9 +69,9 @@ Lo que ya tiene columna común se guarda ahí, para que el filtro de texto, el o
 | Comentario | `description` | |
 | Duración | `duration` | Segundos |
 
-### 3.2 `audio_details` (la siguiente migración libre)
+### 3.2 `audio_details` (migración 7)
 
-Una fila por canción (`media_id`, clave primaria y ajena con borrado en cascada, como `track_details`). Propuesta, a cerrar en `MUS 1.2`:
+Una fila por canción (`media_id`, clave primaria y ajena con borrado en cascada, como `track_details`). Creada en `MUS 1.2` (25/11/2026; `core/catalog/catalog_schema.py`, migración 7), con los `CHECK` de los números; sin índices propios por ahora:
 
 | Columna | Tipo | Qué es |
 |---|---|---|
@@ -90,7 +90,7 @@ Una fila por canción (`media_id`, clave primaria y ajena con borrado en cascada
 | `bit_depth` | INTEGER | Solo en los formatos sin pérdida |
 | `lossless` | INTEGER (0/1) | |
 | `picture_count` | INTEGER | Cuántas imágenes trae el archivo (0 = sin carátula; sustituye a `has_cover`) |
-| `cover_type` | TEXT | Tipo de la carátula (clave de `core/audio/picture_types.py`; vacío en M4A, que no tiene tipos) |
+| `cover_type` | TEXT | Tipo de la carátula (clave de `core/audio/picture_types.py`; en M4A, que no tiene tipos, la portada, como Mp3tag) |
 | `cover_mime` | TEXT | Formato de la carátula (`image/jpeg`, `image/png`) |
 | `cover_width`, `cover_height` | INTEGER | Tamaño de la carátula en píxeles (leído de su cabecera, con Pillow) |
 | `cover_bytes` | INTEGER | Peso de la carátula |
@@ -157,7 +157,7 @@ Un archivo puede traer varios géneros o varios artistas. En la primera versión
   - **Lo que cuesta**: la carátula de un álbum se repite en la caché una vez por canción (con carátulas de 600 px, unos 150 KB por canción: alrededor de 1,5 GB por cada 10 000). Se mide en `MUS 3` con la música del autor; si pesa, quitar los tamaños grandes, que en una carátula sobran, o guardar una sola copia por huella (otra organización de la caché: solo si el espacio llega a importar, como `GEN 4.5`).
 - **En el inspector** (`MUS 9`): la carátula en grande; cambiarla arrastrando una imagen, con «Elegir…», pegándola o desde `folder.jpg`, para una canción, para la selección o para el álbum; extraerla a un archivo; quitarla.
   - **Cómo se ve** (acordado con el autor el 25/11/2026, tras ver una muestra): la imagen a todo el ancho, con el mismo margen a la izquierda y a la derecha que el resto de filas (8 px), y debajo **dos filas**: «Tipo» (un desplegable) e «Imagen» (formato, tamaño y peso: «JPEG · 600 × 600 · 25 KB», con un botón a la derecha para hacerla cuadrada: M9). Si «Imagen» resulta larga, se divide en dos filas.
-  - **Tipos** (los de ID3 y FLAC, en el orden de Mp3tag; textos propuestos, M7): Portada, Contraportada, Otra, Icono, Folleto, Soporte (CD, vinilo), Solista, Artista, Director, Grupo, Compositor, Letrista, Lugar de la grabación, Durante la grabación, Durante la actuación, Captura de vídeo, Ilustración, Logotipo del grupo y Logotipo de la discográfica. M4A no tiene tipos.
+  - **Tipos** (los de ID3 y FLAC, en el orden de Mp3tag; textos propuestos, M7): Portada, Contraportada, Otra, Icono, Folleto, Soporte (CD, vinilo), Solista, Artista, Director, Grupo, Compositor, Letrista, Lugar de la grabación, Durante la grabación, Durante la actuación, Captura de vídeo, Ilustración, Logotipo del grupo y Logotipo de la discográfica. M4A no tiene tipos: sus imágenes se leen como «Portada», como Mp3tag (decidido por el autor el 25/11/2026), y el desplegable sale desactivado.
   - **Dónde va** (M8, por decidir): en su propia sección «Carátula», con un botón en la cabecera para sus acciones (añadir, quitar, cambiar el tipo, extraer...), o a continuación de «Audio», con un menú contextual sobre la propia imagen.
 - **Al guardarla**: se prepara como JPEG con un tamaño máximo (por decidir: 1000–1400 px) y sustituye a la portada frontal que hubiera. Se escribe por la misma cola que las etiquetas y se rehacen sus miniaturas.
 
@@ -217,7 +217,7 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|
 | ~~**MUS 1.1** Base de audio~~ (hecho el 25/11/2026) | mutagen instalada (el autor); la tabla campo ↔ etiqueta y `read_audio(path)` (campos, datos técnicos, tipo de etiqueta e imágenes), sin BD; los tipos de imagen | `core/audio/` (`tag_map.py`, `tag_reader.py`, `picture_types.py`); `core/metadata/audio/inspect_cli.py` | Autoprueba con un MP3 y un FLAC mínimos; `inspect_cli` con las 75 canciones del autor, comparado con Mp3tag |
-| **MUS 1.2** Tabla de detalles | `audio_details` (la siguiente migración libre) | `catalog_schema.py`; [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md), [INDEX.md](INDEX.md) | Un catálogo existente pasa solo al esquema siguiente (hoy, v7) |
+| ~~**MUS 1.2** Tabla de detalles~~ (hecho el 25/11/2026) | `audio_details` (la siguiente migración libre) | `catalog_schema.py`; [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md), [INDEX.md](INDEX.md) | Un catálogo existente pasa solo al esquema siguiente (hoy, v7) |
 | **MUS 1.3** Extractor | `AudioExtractor` con `AUDIO_FIELDS_VERSION`, registrado | Nuevo: `core/metadata/audio/`; `registry.py` | Al abrir el catálogo, las canciones se leen solas; título, artista y duración, en el catálogo |
 | **MUS 1.4** Recuento | Cuántas canciones traen varios géneros o artistas, y qué tipos de etiqueta hay | Un guion de solo lectura | Decide §3.4 |
 
