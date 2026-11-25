@@ -1,7 +1,7 @@
 # Arca Media — Módulo Música: arquitectura y plan
 
 > Documento del módulo Música (en el código y en la interfaz, el módulo **Audio**: `AudioModule`, biblioteca `audio`). Tiene dos partes: **I, arquitectura** (cómo está hecho y cómo encaja con el resto) y **II, planificación** (fases y pasos, con los códigos `MUS` de [PENDIENTE.md](PENDIENTE.md)).
-> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
+> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
 > Índice: [INDEX.md](INDEX.md). Decisiones: [DECISIONES.md](DECISIONES.md) (16/11/2026).
 
 ## Resumen
@@ -92,6 +92,8 @@ Una fila por canción (`media_id`, clave primaria y ajena con borrado en cascada
 
 Los ocho primeros son del bloque editable (los escribe el extractor y, cuando se editan, la aplicación: no se pisan al releer si están pendientes); los técnicos, solo del extractor.
 
+**Propuesta del 25/11/2026, a cerrar en `MUS 1.2`**: para que el inspector muestre las filas «Tipo» e «Imagen» de la carátula (§6) sin abrir el archivo, guardar además de `has_cover` sus datos, del extractor: `cover_type` (el tipo de imagen de ID3 o FLAC; vacío en M4A, que no lo tiene), `cover_mime`, `cover_width`, `cover_height` y `cover_bytes`. Si el archivo trae varias imágenes, las de la portada (o la primera).
+
 ### 3.3 Tabla campo ↔ etiqueta (`core/audio/`)
 
 La de partida; se comprueba con Mp3tag y con archivos reales en `MUS 1`:
@@ -141,14 +143,47 @@ Un archivo puede traer varios géneros o varios artistas. En la primera versión
 
 - **Como miniatura** (`MUS 3`): la carátula incrustada es el origen (`AudioCoverSource`); cuadrada, con la escalera de tamaños de siempre y sin ampliar por encima del original. De reserva, si se decide, `folder.jpg` / `cover.jpg` de la carpeta.
 - **En el inspector** (`MUS 9`): la carátula en grande; cambiarla arrastrando una imagen, con «Elegir…», pegándola o desde `folder.jpg`, para una canción, para la selección o para el álbum; extraerla a un archivo; quitarla.
+  - **Cómo se ve** (acordado con el autor el 25/11/2026, tras ver una muestra): la imagen a todo el ancho, con el mismo margen a la izquierda y a la derecha que el resto de filas (8 px), y debajo **dos filas**: «Tipo» (un desplegable) e «Imagen» (formato, tamaño y peso: «JPEG · 600 × 600 · 25 KB», con un botón a la derecha para hacerla cuadrada: M9). Si «Imagen» resulta larga, se divide en dos filas.
+  - **Tipos** (los de ID3 y FLAC, en el orden de Mp3tag; textos propuestos, M7): Portada, Contraportada, Otra, Icono, Folleto, Soporte (CD, vinilo), Solista, Artista, Director, Grupo, Compositor, Letrista, Lugar de la grabación, Durante la grabación, Durante la actuación, Captura de vídeo, Ilustración, Logotipo del grupo y Logotipo de la discográfica. M4A no tiene tipos.
+  - **Dónde va** (M8, por decidir): en su propia sección «Carátula», con un botón en la cabecera para sus acciones (añadir, quitar, cambiar el tipo, extraer...), o a continuación de «Audio», con un menú contextual sobre la propia imagen.
 - **Al guardarla**: se prepara como JPEG con un tamaño máximo (por decidir: 1000–1400 px) y sustituye a la portada frontal que hubiera. Se escribe por la misma cola que las etiquetas y se rehacen sus miniaturas.
 
 ## 7. Interfaz
 
 - **Barra izquierda** (`MUS 4`): «Artistas» (artista del álbum ▸ álbum; si falta, el artista), «Géneros» y «Años» (la sección «Fechas» que ya existe, si sirve con fechas de solo año). Secciones dadas de alta en `section_registry.py`: se pliegan, se ocultan y se reordenan como las demás.
 - **Centro**: la cuadrícula (con la carátula) y la **vista de lista** (`GEN 18`, común a todos los módulos; lo de Música, en `MUS 5`), estilo Mp3tag: columnas a elegir, orden por columna y selección múltiple, compartida con la cuadrícula. Opcional: vista de álbumes.
-- **Inspector**: sección «Audio» (`MUS 2`), primero de solo lectura; con `MUS 7`, editable, también con varias canciones («Varios» y el aviso «Edición múltiple», como en «Metadatos»). Palabras clave y clasificación, como en todos los módulos.
+- **Inspector**: sección «Audio» (`MUS 2`), primero de solo lectura; con `MUS 7`, editable, también con varias canciones («Varios» y el aviso «Edición múltiple», como en «Metadatos»). Palabras clave y clasificación, como en todos los módulos. Cómo es, en §7.1.
 - **Ventanas, solo para lo pesado o por lotes** (plan de interfaz): las herramientas de `MUS 8`.
+
+### 7.1 La sección «Audio» del inspector
+
+Acordada con el autor el 25/11/2026, tras ver una muestra hecha con las piezas reales del inspector (tres variantes, a su ancho de 354 px). Las filas de siempre: la etiqueta a la izquierda y el valor a la derecha, en cajas que parecen texto hasta pasar el ratón o entrar en ellas, como en «Metadatos». **Una fila por campo** (la variante A), en este orden:
+
+```
+▼ AUDIO
+   Título              04 De Mayor - Alicia
+   Artista             Enrique Bunbury
+   Álbum               Singles
+   Año                 2001
+   Pista               22 / 25
+   Disco               1 / 2
+   Género              Rock
+   Artista del álbum
+   Compositor
+   Comentario          (caja de varias líneas, como «Pie»)
+   ────────────────────────────────────────
+   Duración            4:12
+   Formato             MP3
+   Calidad             320 kbps · 44,1 kHz · Estéreo
+   Etiqueta            ID3v2.3 + ID3v1
+```
+
+- Los diez de arriba son los campos de la canción: de solo lectura en `MUS 2.1` y editables desde `MUS 7`. Los cuatro de debajo de la raya son datos técnicos, siempre de solo lectura (los da el extractor).
+- La pista y el disco, cada uno con su total en la misma caja («22 / 25»), como en la muestra.
+- Descartadas: el año, la pista y el género en una sola fila, como en Mp3tag (al género le quedaban unos 45 px), y el año, la pista y el disco en una fila con el género aparte.
+- **A tener en cuenta en `MUS 2.1`**: «Artista del álbum» es la etiqueta más larga del inspector. La columna de etiquetas, común a todas las secciones, pasaría de 87 a 97 px, y los valores de «Metadatos» y «Track» se moverían 10 px a la derecha.
+- La carátula va debajo, en «Audio» o en su propia sección (§6, M8).
+- En el registro de secciones, detrás de las comunes (`order` de 400 en adelante: [DECISIONES.md](DECISIONES.md), 25/11/2026).
 
 ## 8. Riesgos y trampas previstas
 
@@ -177,7 +212,7 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|
-| **MUS 2.1** Sección «Audio» del inspector | De solo lectura: los campos y los datos técnicos; con varias canciones, lo común y «Varios», y la duración sumada | Nuevos: `ui_helpers/inspector/audio_section.py`, la consulta en `core/catalog/`; `section_registry.py` | Los valores, los de Mp3tag |
+| **MUS 2.1** Sección «Audio» del inspector | De solo lectura: los campos y los datos técnicos, con la forma de §7.1; con varias canciones, lo común y «Varios», y la duración sumada | Nuevos: `ui_helpers/inspector/audio_section.py`, la consulta en `core/catalog/`; `section_registry.py` | Los valores, los de Mp3tag |
 | **MUS 2.2** Orden | Artista, álbum, pista, año y duración (álbum: por disco y pista) | `grid_orders.py`, `audio_module.py` | Un álbum sale en su orden |
 | **MUS 2.3** Filtros y colecciones inteligentes | Campos del grupo «Audio» (`smart_fields.py`); columnas de «Metadatos» | `smart_fields.py` y lo que use la barra de filtros | «Género es…», «Álbum contiene…» |
 
@@ -259,3 +294,5 @@ Descargar etiquetas y carátulas (MusicBrainz y Cover Art Archive, sin clave). L
 | **M5** | Después de `MUS 6` | La valoración, también en POPM (hoy, solo en el `.arca.json`: un solo destino por dato) |
 | **M6** | `MUS 8.3` | Renombrar archivos desde las etiquetas |
 | **M7** | Cada paso | Los textos del módulo y, si se quiere, llamarlo «Música» también en la interfaz |
+| **M8** | `MUS 9.1` | La carátula en el inspector: en su propia sección «Carátula», con un botón en la cabecera para sus acciones, o a continuación de «Audio», con un menú contextual sobre la imagen (§6) |
+| **M9** | `MUS 9` | El botón de hacer cuadrada la carátula: si se hace, recortando o rellenando (cambia la imagen guardada en el archivo) |
