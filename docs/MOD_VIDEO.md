@@ -103,7 +103,7 @@ Una película con un solo archivo tiene su obra, creada sola a partir del nombre
 
 ## 5. Lectura (datos técnicos)
 
-El extractor de vídeo se amplía para lo que importa en una película: contenedor, códec y canales de audio, idiomas de audio y de subtítulos, tasa de bits, HDR. Sube `VIDEO_FIELDS_VERSION` (los vídeos se releen solos). A decidir en `VID 1.1` con películas reales (`inspect_cli`): si ExifTool lo da bien en MKV y MP4, o hace falta `ffprobe` (que llegará de todos modos con `ffmpeg` para los fotogramas, V6). Primera prueba, el 21/11/2026, con una MKV de `mkvmerge`: ExifTool da, por pista, el códec de vídeo (`Track1:VideoCodecID`, «V_MPEGH/ISO/HEVC»), los fotogramas por segundo, la tasa de bits (`BPS`), el audio (códec «A_AC3», canales e idioma) y los subtítulos (formato e idioma); de la MKV, hoy solo se leen los fotogramas por segundo. Los subtítulos sueltos (`.srt` junto al vídeo) se pueden contar sin catalogarlos.
+El extractor de vídeo se amplía para lo que importa en una película: contenedor, códec y canales de audio, idiomas de audio y de subtítulos, tasa de bits, HDR. Sube `VIDEO_FIELDS_VERSION` (los vídeos se releen solos). A decidir en `VID 1.1` con películas reales (`inspect_cli`): si ExifTool lo da bien en MKV y MP4, o hace falta `ffprobe` (que llegará de todos modos con `ffmpeg` para los fotogramas, V6) o **MediaInfo** (`pymediainfo` y su biblioteca nativa; propuesta del autor el 25/11/2026, que ya la usa en otro programa para los datos técnicos de los vídeos). Si se elige MediaInfo, Música podría usarla de respaldo ([MOD_MUSICA.md](MOD_MUSICA.md) §4). Primera prueba, el 21/11/2026, con una MKV de `mkvmerge`: ExifTool da, por pista, el códec de vídeo (`Track1:VideoCodecID`, «V_MPEGH/ISO/HEVC»), los fotogramas por segundo, la tasa de bits (`BPS`), el audio (códec «A_AC3», canales e idioma) y los subtítulos (formato e idioma); de la MKV, hoy solo se leen los fotogramas por segundo. Los subtítulos sueltos (`.srt` junto al vídeo) se pueden contar sin catalogarlos.
 
 **Un extractor nunca escribe datos del usuario** ni la biblioteca; tampoco la obra: la crea y la enlaza un paso aparte, tras la lectura (como `classify_pending_videos`).
 
@@ -273,7 +273,7 @@ Tomadas con el autor el 16/11/2026 (el porqué, en [DECISIONES.md](DECISIONES.md
 | **V3** | Qué se guarda fuera del catálogo | En el `.arca.json`: identificación, visto y lo editado a mano. El archivo de vídeo no se escribe. `.nfo`, solo importar y exportar (`VID 10`) |
 | **V4** | Visto / no visto | Por archivo (cada episodio); desde una tarjeta agrupada, a todos sus archivos |
 | **V5** | Tipos de obra | Película, serie, documental, evento deportivo y otro. Añadir uno es una línea en `kinds.py` |
-| **V6** | `ffmpeg` / `ffprobe` en `tools/` | Sí para los fotogramas; para los datos técnicos, solo si ExifTool no basta (se ve en `VID 1.1`) |
+| **V6** | `ffmpeg` / `ffprobe` en `tools/` | Sí para los fotogramas; para los datos técnicos, solo si ExifTool no basta (se ve en `VID 1.1`, junto con MediaInfo) |
 | **V7** | Reproducir | Con el reproductor del sistema |
 | **V8** | Secciones de la barra | Las de §9; el orden, en `VID 5` |
 | **V9** | Episodios con ficha propia (título, sinopsis, fecha) | Sí, después de las películas (`VID 9`) |

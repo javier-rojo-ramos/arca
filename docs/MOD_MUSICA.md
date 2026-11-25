@@ -1,7 +1,7 @@
 # Arca Media — Módulo Música: arquitectura y plan
 
 > Documento del módulo Música (en el código y en la interfaz, el módulo **Audio**: `AudioModule`, biblioteca `audio`). Tiene dos partes: **I, arquitectura** (cómo está hecho y cómo encaja con el resto) y **II, planificación** (fases y pasos, con los códigos `MUS` de [PENDIENTE.md](PENDIENTE.md)).
-> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
+> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hecho `MUS 1.1` (la base de audio, `core/audio/`, sin conectar a la aplicación). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
 > Índice: [INDEX.md](INDEX.md). Decisiones: [DECISIONES.md](DECISIONES.md) (16/11/2026).
 
 ## Resumen
@@ -42,7 +42,7 @@ Como en Tracks: lo que no necesita ni Qt ni la base de datos, en un paquete de `
 
 | Qué | Dónde | Notas |
 |---|---|---|
-| Tabla campo ↔ etiqueta de cada formato; leer y escribir etiquetas y carátulas con mutagen | `core/audio/` (nuevo; sin Qt ni BD) | **Una sola tabla** para el extractor y para el escritor: los dos entienden lo mismo |
+| Tabla campo ↔ etiqueta de cada formato; leer y escribir etiquetas y carátulas con mutagen | `core/audio/` (sin Qt ni BD): `tag_map.py` (la tabla), `tag_reader.py` (`read_audio`), `picture_types.py` (los tipos de imagen); desde `MUS 1.1` | **Una sola tabla** para el extractor y para el escritor: los dos entienden lo mismo |
 | Extractor | `core/metadata/audio/` (nuevo): `extractor.py`, `fields.py`, `inspect_cli.py` | `MetadataExtractor` con `details_table = "audio_details"`, como `TrackExtractor`; se registra en `core/metadata/registry.py` |
 | Tabla de detalles | `core/catalog/catalog_schema.py`, la siguiente migración libre (la 5 fue el registro de operaciones de `CAT 4` y la 6, las carpetas de `CAT 5`) | `audio_details` (§3) |
 | Consultas | `core/catalog/` | Datos de la sección del inspector (como `track_stats.py`), valores de las secciones de la barra, filas de la vista de lista |
@@ -82,21 +82,28 @@ Una fila por canción (`media_id`, clave primaria y ajena con borrado en cascada
 | `genre` | TEXT | Género (si el archivo trae varios, unidos en un texto: §3.4) |
 | `composer` | TEXT | Compositor |
 | `codec` | TEXT | Formato del audio (`mp3`, `flac`, `aac`, `alac`, `vorbis`, `opus`) |
+| `codec_detail` | TEXT | La descripción del formato que da mutagen, si la da («AAC LC»), para la fila «Formato» |
 | `bitrate` | INTEGER | Bits por segundo |
+| `bitrate_mode` | TEXT | `cbr`, `vbr` o `abr` (solo MP3, si se sabe), para la fila «Calidad» («VBR · 277 kbps») |
 | `sample_rate` | INTEGER | Hz |
 | `channels` | INTEGER | |
 | `bit_depth` | INTEGER | Solo en los formatos sin pérdida |
 | `lossless` | INTEGER (0/1) | |
-| `has_cover` | INTEGER (0/1) | Tiene carátula incrustada |
+| `picture_count` | INTEGER | Cuántas imágenes trae el archivo (0 = sin carátula; sustituye a `has_cover`) |
+| `cover_type` | TEXT | Tipo de la carátula (clave de `core/audio/picture_types.py`; vacío en M4A, que no tiene tipos) |
+| `cover_mime` | TEXT | Formato de la carátula (`image/jpeg`, `image/png`) |
+| `cover_width`, `cover_height` | INTEGER | Tamaño de la carátula en píxeles (leído de su cabecera, con Pillow) |
+| `cover_bytes` | INTEGER | Peso de la carátula |
+| `cover_hash` | TEXT | Huella de la carátula (un resumen de sus bytes): dos canciones con la misma huella tienen la misma carátula |
 | `tag_type` | TEXT | Tipo de etiqueta, como la columna «Tag» de Mp3tag (`ID3v2.3`, `ID3v2.4 + ID3v1`, `Vorbis`, `MP4`) |
 
 Los ocho primeros son del bloque editable (los escribe el extractor y, cuando se editan, la aplicación: no se pisan al releer si están pendientes); los técnicos, solo del extractor.
 
-**Propuesta del 25/11/2026, a cerrar en `MUS 1.2`**: para que el inspector muestre las filas «Tipo» e «Imagen» de la carátula (§6) sin abrir el archivo, guardar además de `has_cover` sus datos, del extractor: `cover_type` (el tipo de imagen de ID3 o FLAC; vacío en M4A, que no lo tiene), `cover_mime`, `cover_width`, `cover_height` y `cover_bytes`. Si el archivo trae varias imágenes, las de la portada (o la primera).
+**La carátula en el catálogo** (acordado con el autor el 25/11/2026): de las imágenes de un archivo, el catálogo guarda solo **cuántas hay** y los datos de **la carátula**: la primera de tipo «Portada» o, si no hay ninguna, la primera imagen (`AudioInfo.cover`). Con eso, las tarjetas, el inspector con varias canciones y la fila «Imagen» (§6) se rellenan sin abrir ningún archivo, y se puede filtrar («Sin carátula», «Carátula de menos de 500 px»). Las demás imágenes no se guardan: solo hacen falta con una canción seleccionada (la sección de la carátula enseñaría «1 de 3») y entonces se lee ese archivo, en segundo plano. Si un día hiciera falta filtrar por ellas («con contraportada»), una tabla con una fila por imagen. Las columnas de la carátula y las técnicas son del extractor; al cambiar una imagen desde la aplicación (`MUS 9`), la canción se relee.
 
 ### 3.3 Tabla campo ↔ etiqueta (`core/audio/`)
 
-La de partida; se comprueba con Mp3tag y con archivos reales en `MUS 1`:
+Hecha en `MUS 1.1` (`core/audio/tag_map.py`, con las claves que solo se leen: «ALBUM ARTIST», «TOTALTRACKS», «DESCRIPTION»...; los detalles de cada campo, en su cabecera). Leídas con ella las 75 canciones del autor (MP3, M4A, FLAC y Ogg Vorbis) sin errores y comparadas con Mp3tag el 25/11/2026 (todo igual; en MP4, Mp3tag enseña el total de la pista en otro campo, `TOTALTRACKS`, y no en «Pista»):
 
 | Campo | ID3 (MP3) | Vorbis (FLAC, Ogg, Opus) | MP4 (M4A) |
 |---|---|---|---|
@@ -114,7 +121,9 @@ La de partida; se comprueba con Mp3tag y con archivos reales en `MUS 1`:
 
 ### 3.4 Listas
 
-Un archivo puede traer varios géneros o varios artistas. En la primera versión se guardan **como un texto**, unidos con un separador fijo; al escribir un campo editado, se separa de nuevo en los formatos que admiten varios valores. `MUS 1.4` cuenta cuántas canciones reales traen varios valores: si la navegación por géneros o artistas los necesita por separado, se pasan a tablas propias, como las palabras clave (decisión del 14/11/2026).
+Un archivo puede traer varios géneros o varios artistas. En la primera versión se guardan **como un texto**, unidos con un separador fijo (`«; »`: decidido con el autor el 25/11/2026; ver abajo); al escribir un campo editado, se separa de nuevo en los formatos que admiten varios valores. `MUS 1.4` cuenta cuántas canciones reales traen varios valores: si la navegación por géneros o artistas los necesita por separado, se pasan a tablas propias, como las palabras clave (decisión del 14/11/2026).
+
+**El separador, «; » y no la coma de las palabras clave**: en una palabra clave la coma está prohibida, pero en un artista no («Earth, Wind & Fire», «Crosby, Stills, Nash & Young»); si el escritor (`MUS 6`) separase por comas, un artista así acabaría como varios. El punto y coma casi no aparece en un nombre. Las palabras clave siguen con la coma (como Lightroom). En las 75 canciones del autor (25/11/2026) ninguna trae varios valores ni comas en esos campos.
 
 ### 3.5 Versiones
 
@@ -125,6 +134,7 @@ Un archivo puede traer varios géneros o varios artistas. En la primera versión
 - `AudioExtractor.extract(path)` abre el archivo con mutagen, traduce las etiquetas con la tabla de §3.3 y entrega las columnas comunes y las de `audio_details`. No usa ExifTool (como el de tracks).
 - Un archivo sin etiquetas no es un error: se guardan los datos técnicos y el título queda como el nombre del archivo. Un archivo dañado o que mutagen no entiende, a `scan_errors`, como los demás.
 - **Un extractor nunca escribe datos del usuario**: valoración, marca, color y palabras clave siguen saliendo del `.arca.json`.
+- **Datos técnicos** (duración, formato, kbps, kHz, canales, bits): de mutagen, que ya se necesita para las etiquetas; basta para las filas de §7.1. **MediaInfo** (propuesta del autor el 25/11/2026) no se usa por ahora: añadiría una biblioteca nativa que empaquetar en tres sistemas (`GEN 5`) sin nada nuevo que mostrar. Si se elige para Vídeo (`VID 1.1`), podría servir aquí de respaldo (MKA, que mutagen no lee; WMA) o para unos «datos técnicos ampliados» (codificador, VBR o CBR...). Por eso, en `AudioInfo` los datos técnicos van aparte: otra fuente los podría rellenar sin tocar el resto.
 - Diagnóstico: `python -m core.metadata.audio.inspect_cli archivo` enseña las etiquetas tal cual las da mutagen y los campos ya traducidos, para comparar con Mp3tag.
 
 ## 5. Escritura
@@ -142,6 +152,9 @@ Un archivo puede traer varios géneros o varios artistas. En la primera versión
 ## 6. Carátulas
 
 - **Como miniatura** (`MUS 3`): la carátula incrustada es el origen (`AudioCoverSource`); cuadrada, con la escalera de tamaños de siempre y sin ampliar por encima del original. De reserva, si se decide, `folder.jpg` / `cover.jpg` de la carpeta.
+  - **En la caché, como las fotos** (acordado con el autor el 25/11/2026): el motor de miniaturas extrae la carátula de cada canción y guarda sus tamaños en `cache/audio/...`, por el `id` de la canción, igual que `cache/photo/...`. La cuadrícula, la vista individual y el inspector la leen de la caché, nunca del archivo, sin nada nuevo en ellos; al cambiar la carátula, su miniatura se regenera como la de una foto editada. La vista individual, del tamaño mayor (a 1:1, el original, del archivo); el inspector, del de 480 (a 354 px de ancho basta).
+  - **La carátula del álbum**: no hay caché propia. La futura vista de álbumes (`MUS 5.3`) o la tarjeta agrupada (`GEN 17`) elige la carátula que comparten sus canciones (la misma `cover_hash`) y usa la miniatura de una de ellas. La huella sirve también para encontrar álbumes con carátulas distintas.
+  - **Lo que cuesta**: la carátula de un álbum se repite en la caché una vez por canción (con carátulas de 600 px, unos 150 KB por canción: alrededor de 1,5 GB por cada 10 000). Se mide en `MUS 3` con la música del autor; si pesa, quitar los tamaños grandes, que en una carátula sobran, o guardar una sola copia por huella (otra organización de la caché: solo si el espacio llega a importar, como `GEN 4.5`).
 - **En el inspector** (`MUS 9`): la carátula en grande; cambiarla arrastrando una imagen, con «Elegir…», pegándola o desde `folder.jpg`, para una canción, para la selección o para el álbum; extraerla a un archivo; quitarla.
   - **Cómo se ve** (acordado con el autor el 25/11/2026, tras ver una muestra): la imagen a todo el ancho, con el mismo margen a la izquierda y a la derecha que el resto de filas (8 px), y debajo **dos filas**: «Tipo» (un desplegable) e «Imagen» (formato, tamaño y peso: «JPEG · 600 × 600 · 25 KB», con un botón a la derecha para hacerla cuadrada: M9). Si «Imagen» resulta larga, se divide en dos filas.
   - **Tipos** (los de ID3 y FLAC, en el orden de Mp3tag; textos propuestos, M7): Portada, Contraportada, Otra, Icono, Folleto, Soporte (CD, vinilo), Solista, Artista, Director, Grupo, Compositor, Letrista, Lugar de la grabación, Durante la grabación, Durante la actuación, Captura de vídeo, Ilustración, Logotipo del grupo y Logotipo de la discográfica. M4A no tiene tipos.
@@ -203,7 +216,7 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|
-| **MUS 1.1** Base de audio | mutagen instalada (el autor); la tabla campo ↔ etiqueta y `read_tags(path)` (campos y datos técnicos), sin BD | Nuevo: `core/audio/` | Autoprueba con archivos generados; `inspect_cli` con canciones del autor, comparado con Mp3tag |
+| ~~**MUS 1.1** Base de audio~~ (hecho el 25/11/2026) | mutagen instalada (el autor); la tabla campo ↔ etiqueta y `read_audio(path)` (campos, datos técnicos, tipo de etiqueta e imágenes), sin BD; los tipos de imagen | `core/audio/` (`tag_map.py`, `tag_reader.py`, `picture_types.py`); `core/metadata/audio/inspect_cli.py` | Autoprueba con un MP3 y un FLAC mínimos; `inspect_cli` con las 75 canciones del autor, comparado con Mp3tag |
 | **MUS 1.2** Tabla de detalles | `audio_details` (la siguiente migración libre) | `catalog_schema.py`; [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md), [INDEX.md](INDEX.md) | Un catálogo existente pasa solo al esquema siguiente (hoy, v7) |
 | **MUS 1.3** Extractor | `AudioExtractor` con `AUDIO_FIELDS_VERSION`, registrado | Nuevo: `core/metadata/audio/`; `registry.py` | Al abrir el catálogo, las canciones se leen solas; título, artista y duración, en el catálogo |
 | **MUS 1.4** Recuento | Cuántas canciones traen varios géneros o artistas, y qué tipos de etiqueta hay | Un guion de solo lectura | Decide §3.4 |

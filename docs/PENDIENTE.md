@@ -21,7 +21,7 @@
 - **CATÁLOGO** (19/11/2026): hechas `CAT 3` (carpetas vacías), `CAT 4.1` a `4.4` (renombrar y mover en el mismo disco, nueva carpeta) y `CAT 5` (el árbol replica las carpetas del disco, también las vacías; no estaba en el plan: pedida por el autor y hecha en un paso, detalle en [HISTORIAL.md](HISTORIAL.md)); todas, verificadas por el autor. Hecho y verificado el `4.4c` (mover una carpeta arrastrándola, 20/11/2026). Lo que queda de `CAT 4`: `4.5` (mover entre discos) y `4.6` (renombrado múltiple). En marcha (20/11/2026), `CAT 6` (carpetas que faltan y «Localizar…»): hechos y verificados del `6.1` al `6.3`; el `6.4` («Localizar…» de una carpeta que falta), en espera.
 - **Mapa** (23/11/2026): `GEN 8.4` (buscar un lugar en el mapa, con CartoCiudad y Nominatim) terminada y verificada por el autor; queda para más adelante `GEN 8.5` (la ubicación a partir del GPS). Lo siguiente del plan, `TRK 6.1` o `MUS 1`.
 - **TRACKS**: terminadas las fases 4 y 5, verificadas enteras por el autor el 22/11/2026 (con unos retoques de los waypoints); lo siguiente del plan acordado es `TRK 6` (edición), empezando por `TRK 6.1`.
-- **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026): lo siguiente, `MUS 1`. Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
+- **MÚSICA y VÍDEO**: los dos módulos muestran ya su biblioteca, con la barra de Tracks (biblioteca, carpetas y fechas; 15/11/2026). Música está definida ([MOD_MUSICA.md](MOD_MUSICA.md), 16/11/2026) y en marcha (25/11/2026): acordada la sección «Audio» del inspector y hecho `MUS 1.1` (la base de audio); lo siguiente, `MUS 1.2` (la tabla `audio_details`). Vídeo, también ([MOD_VIDEO.md](MOD_VIDEO.md), 16/11/2026): lo siguiente, `VID 1`.
 - **EBOOKS**: definido ([MOD_EBOOKS.md](MOD_EBOOKS.md), 16/11/2026); el módulo aún no existe. Lo primero, `EBK 1`; antes de `EBK 2`, una carpeta de prueba con libros reales.
 - **Preparar el crecimiento** (16/11/2026): hechos `GEN 11` (el guion de autopruebas), `GEN 13` (una sola barra de biblioteca), `GEN 12` (una ficha por módulo), `GEN 14` (los escritores) y `GEN 15.1` a `15.3` (los trabajos, añadir carpetas y eliminar, fuera del controlador; 18/11/2026). De `GEN 15` queda `15.4`, en espera (en todo caso, antes de `VID 7`). `MUS 1` a `MUS 3` y `VID 1` a `VID 4` no dependen de nada de esto.
 
@@ -214,7 +214,7 @@ Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso (a
 
 ### Fase MUS 1 — Leer las etiquetas
 
-- **MUS 1.1** Base de audio: mutagen (la instala el autor), la tabla campo ↔ etiqueta y la lectura, en `core/audio/`.
+- ~~**MUS 1.1** Base de audio: mutagen (la instala el autor), la tabla campo ↔ etiqueta y la lectura, en `core/audio/`~~ (hecho el 25/11/2026).
 - **MUS 1.2** La tabla `audio_details` (la siguiente migración libre; la 5 es el registro de operaciones de `CAT 4` y la 6, las carpetas de `CAT 5`).
 - **MUS 1.3** El extractor (`core/metadata/audio/`, `AUDIO_FIELDS_VERSION`): las canciones se leen solas al abrir el catálogo.
 - **MUS 1.4** Recuento de las canciones con varios géneros o artistas (decide si las listas van en tablas).

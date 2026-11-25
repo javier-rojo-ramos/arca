@@ -66,6 +66,9 @@
 
 ## ExifTool y escritura en los archivos
 
+- **mutagen no lee el ID3 tal como está en el archivo** (25/11/2026, `MUS 1.1`): al cargarlo, pasa la etiqueta a v2.4 en memoria (`TYER` y `TDAT` se juntan en `TDRC`) y añade los valores del ID3v1 que falten en el v2, sin decir que estaban en el v1 (`tags.version` sigue siendo la del v2; un archivo con solo ID3v1 sale como versión 1.1). Por eso `tag_reader` mira los últimos 128 bytes para saber si hay ID3v1. Para el escritor (`MUS 6`): guardar con `v2_version` igual a la del archivo (si no, un v2.3 pasa a v2.4) y `v1=1` (actualiza el ID3v1 si existe; ni lo crea ni lo quita).
+- **En Ogg Vorbis, mutagen da la tasa de bits NOMINAL** (25/11/2026, `MUS 1.1`): la de la cabecera de Vorbis (160 kbps en todas las de prueba), no la media; Mp3tag da la media (de 127 a 147). `tag_reader` la calcula con el tamaño del archivo sin las etiquetas. En MP3, M4A, FLAC y Opus, la de mutagen ya es la media.
+- **`mutagen.id3.PictureType` no es un `Enum` de Python** (25/11/2026): no se puede recorrer con `for`; sus tipos son atributos enteros de la clase (`vars(PictureType)`).
 - ExifTool se pide con **todas** las etiquetas (más lento con RAW); optimizable cuando todo esté verificado.
 - Sin ExifTool, los HEIC y RAW salen como "formato sin soporte todavía" y se leen solos en cuanto haya ExifTool (su versión de extractor es mayor).
 - Un archivo que no se puede escribir (solo lectura, abierto en otro programa) se reintenta en cada pasada de escritura; su error queda en `scan_errors` (fase `userdata`) y en el registro.

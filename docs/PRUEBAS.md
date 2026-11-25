@@ -92,6 +92,7 @@ python -m core.metadata.processor
 python -m core.metadata.track.extractor
 python -m core.metadata.track.gpx_reader
 python -m core.metadata.track.inspect_cli ruta.gpx    (diagnóstico de GPX: resumen y desnivel con varios umbrales)
+python -m core.metadata.audio.inspect_cli canción_o_carpeta [--resumen] [--bruto] [--json salida.json]   (diagnóstico de canciones, para comparar con Mp3tag; sin autoprueba)
 python -m core.metadata.video.extractor
 python -m core.metadata.video.fields
 python -m core.metadata.video.rules
@@ -121,6 +122,11 @@ python -m core.tracks.simplify                                 (contorno de un t
 python -m core.tracks.gpx_document                             (lector completo del GPX: recorrido y documento, GPX 1.0 y 1.1, extensiones, waypoints, rutas, errores; el mismo recorrido que el extractor)
 python -m core.tracks.profile                                  (perfil de elevación: los totales, idénticos a los del extractor con GPX inventados; suavizado, pendiente, tramos, cursor y trozos que dibujar; 50 000 puntos en menos de un segundo)
 python -m core.tracks.activities                               (lista de actividades: claves, variantes, textos en español, lo que no se reconoce; sin Qt)
+
+# core.audio
+python -m core.audio.picture_types                            (tipos de imagen: los 21 de ID3 y FLAC, los que se ofrecen; con mutagen, sus números)
+python -m core.audio.tag_map                                  (tabla campo ↔ etiqueta: completa y sin repetidos)
+python -m core.audio.tag_reader                               (con mutagen: crea un MP3 y un FLAC mínimos; ID3 v2.3, v2.4 y v1, Vorbis, MP4 e imágenes en memoria; lo que no se lee)
 
 # core.userdata
 python -m core.userdata.editable_fields                        (las etiquetas que se escriben son las mismas que se leen)

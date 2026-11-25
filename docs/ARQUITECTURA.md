@@ -255,6 +255,7 @@ core/
     track/gpx_reader.py                read_gpx -> GpxSummary (distancia 2D haversine, desnivel con umbral, fechas, caja, actividad; con collect_points, los puntos por segmentos en arrays compactos)
     track/extractor.py                 TrackExtractor (GPX -> track_details, también su contorno 'overview'; TRACK_EXTRACTOR_VERSION = 3)
     track/inspect_cli.py               Diagnóstico de GPX (resumen y desnivel con varios umbrales)
+    audio/inspect_cli.py               Diagnóstico de canciones para comparar con Mp3tag: campos traducidos, datos técnicos e imágenes (--resumen, --bruto, --json); el extractor de audio llegará aquí (MUS 1.3)
     inspect_cli.py                     Herramienta de diagnóstico (qué lee ExifTool / qué se guardaría; --campos elige imagen o vídeo según el archivo)
   userdata/                          ── Datos del usuario fuera del catálogo ── (ver core/userdata/LEEME.md)
     policy.py                        ► destino de cada formato: XMP incrustado, sidecar .xmp o archivo de carpeta
@@ -277,6 +278,10 @@ core/
     job.py                             generate_pending_thumbnails (trabajo) e invalidate_thumbnails (regenerar a demanda)
     inspect_cli.py                     Diagnóstico: genera miniaturas de archivos reales y las cuenta
     _testing.py                        Utilidades solo para las autopruebas de core/thumbnails (perfiles ICC de prueba)
+  audio/                             ── Canciones con mutagen (sin Qt ni base de datos; docs/MOD_MUSICA.md) ──
+    tag_map.py                       ► TABLA campo ↔ etiqueta (ID3, Vorbis, MP4): TAG_FIELDS (la misma para leer y, desde MUS 6, para escribir), MULTI_VALUE_SEPARATOR («; »)
+    tag_reader.py                      read_audio -> AudioInfo: campos (AudioTags), datos técnicos aparte (AudioTechnical), tipo de etiqueta e imágenes sin sus bytes (AudioPicture, con su tamaño leído con Pillow); tags_from_id3/vorbis/mp4, sin archivo
+    picture_types.py                   Tipos de imagen de ID3 y FLAC (clave en inglés, texto en español, número; los que se ofrecen al elegir)
   maps/                              ── Mapas (diseño y plan en docs/MOD_TRACKS.md; los usa ui_helpers/map/) ──
     tile_layers.py                   ► LISTA de capas del mapa (TileLayer, TILE_LAYERS: aquí se añade una), tile_url, is_valid_tile, user_agent; capas del usuario (user_layer, check_url_template, all_layers, new_user_key, de y a settings.json); sin Qt ni red
     tile_store.py                      TileStore: caché de teselas en disco (una carpeta por capa, escritura atómica, caducidad a los 30 días, tope de tamaño con 'prune', 'clear'); image_mime (tipo de una tesela por sus bytes); sin Qt ni red
