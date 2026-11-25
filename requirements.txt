@@ -1,6 +1,7 @@
 colorama==0.4.6
 defusedxml==0.7.1
 loguru==0.7.3
+mutagen==1.48.1
 packaging==26.3
 pillow==12.3.0
 pillow_heif==1.8.1

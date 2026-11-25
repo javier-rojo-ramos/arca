@@ -9,10 +9,10 @@
 python -m venv .venv                                                            # crear el entorno (una vez)
 .venv\Scripts\python.exe -m pip install -r requirements.txt                     # instalar las dependencias
 .venv\Scripts\python.exe main.py                                                # arrancar la aplicación
-.venv\Scripts\python.exe -m pip freeze | Out-File -Encoding utf8 requirements.txt   # regenerar requirements.txt (PowerShell)
+.venv\Scripts\python.exe -m pip freeze | Out-File -Encoding ascii requirements.txt  # regenerar requirements.txt (PowerShell)
 ```
 
-Al regenerar `requirements.txt` desde PowerShell no se usa `>`: en Windows PowerShell 5.1 lo escribe en UTF-16 y Git lo trata como binario.
+Al regenerar `requirements.txt` desde PowerShell no se usa `>`: en Windows PowerShell 5.1 lo escribe en UTF-16 y Git lo trata como binario. Tampoco `-Encoding utf8`, que en la 5.1 pone una marca invisible (BOM) al principio: pip la entiende, pero Git ve cambiada la primera línea. Los nombres de los paquetes no llevan acentos, así que `ascii` deja el archivo en UTF-8 sin marca, como está.
 
 **Todas las autopruebas de una vez** (16/11/2026; `scripts/run_selftests.py`): busca los módulos con autoprueba, lanza cada una en su proceso (varias a la vez; unos 20 segundos en total) y dice cuáles fallan, con el final de su salida. No ejecuta las que abren una ventana (su lista `WINDOWED`: **una autoprueba nueva que abra una ventana se añade ahí**); las demás entran solas, sin lista que mantener. Termina con código 0 si todas pasan.
 
