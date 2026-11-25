@@ -395,8 +395,9 @@ if __name__ == "__main__":
 
     assert _folded("catalog", Sidebar.LEFT) == ["collections"], _folded("catalog", Sidebar.LEFT)
     assert _folded("image", Sidebar.LEFT) == ["dates"]
-    for mode_key in SECTION_REGISTRY.mode_keys():  # el inspector, a todos los modos
-        assert _folded(mode_key, Sidebar.RIGHT) == ["metadata"], mode_key
+    # El inspector, a todos los modos; lo que no dice lo antiguo, de partida (la lista, plegada)
+    for mode_key in SECTION_REGISTRY.mode_keys():
+        assert _folded(mode_key, Sidebar.RIGHT) == ["keyword_list", "metadata"], mode_key
     assert legacy.writes == 1 and SETTING_SECTION_LAYOUT in legacy.data
     # La segunda vez ya hay algo guardado: no se vuelve a importar
     legacy.data[SETTING_INSPECTOR_SECTIONS] = {"selection": False}

@@ -32,6 +32,11 @@ Reglas:
       seleccionado). Si una declarase las dos, empezaría en la primera ('default_sidebar').
     - 'order' es la posición de partida dentro de su barra: de menor a mayor. Se dejan
       huecos (100, 200...) para poder intercalar. Con el mismo 'order', la registrada antes.
+    - En el inspector, primero las secciones comunes a todos los módulos (de 100 a 300:
+      «Selección», «Palabras clave» y «Lista de palabras clave») y después las de cada
+      biblioteca (de 400 en adelante: «Metadatos», «Track»...; decidido por el autor el
+      25/11/2026). Las de bibliotecas distintas no salen a la vez, así que entre ellas el
+      orden no se nota.
 
 Uso:
     from ui_helpers.layout.section_registry import SECTION_REGISTRY, Sidebar
@@ -40,6 +45,11 @@ Uso:
     SECTION_REGISTRY.defaults("image", Sidebar.LEFT)  # sus secciones, en el orden de partida
     SECTION_REGISTRY.get("folders").title_for("image")
 
+1.7.0 La «Lista de palabras clave» del inspector empieza plegada (la de la barra izquierda
+      de Imagen, desplegada, como antes).
+1.6.0 La sección «Track» empieza detrás de las comunes (antes, entre «Selección» y
+      «Palabras clave»): en el inspector, primero lo común y después lo de cada biblioteca.
+      Lo que ya tiene guardado el usuario no cambia («Restaurar por defecto»).
 1.5.0 Los modos, sus títulos, qué modos llevan las secciones de una biblioteca y el título
       de «Biblioteca - …» salen de 'config/app_modules.py' (docs/PENDIENTE.md, GEN 12): un
       módulo nuevo entra solo. Las mismas secciones y los mismos títulos que antes.
@@ -56,7 +66,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_registry
 """
 
-__version__ = "1.5.0"
+__version__ = "1.7.0"
 __all__ = [
     "LEFT",
     "RIGHT",
@@ -243,13 +253,19 @@ def _build_default_registry() -> SectionRegistry:
 
     # --- Barra derecha (el inspector): las mismas en todos los modos. Los 'id' son las
     # 'key' de cada 'InspectorSection'. Que se vean depende además de lo seleccionado
-    # ('InspectorSection.fits' y 'applies_to')
+    # ('InspectorSection.fits' y 'applies_to'). Primero las comunes (100 a 300) y después
+    # las de cada biblioteca (400 en adelante): ver el docstring del archivo
     registry.register(SectionSpec("selection", "Selección", RIGHT, 100))
-    # Los datos del recorrido: solo sale con tracks seleccionados (en cualquier modo)
-    registry.register(SectionSpec("track", "Track", RIGHT, 150))
     registry.register(SectionSpec("keyword_editor", "Palabras clave", RIGHT, 200))
-    registry.register(SectionSpec("keyword_list", "Lista de palabras clave", RIGHT, 300))
+    # Plegada de partida: el árbol entero es largo y empujaría hacia abajo las secciones de
+    # cada biblioteca (pedido por el autor el 25/11/2026)
+    registry.register(
+        SectionSpec("keyword_list", "Lista de palabras clave", RIGHT, 300, expanded=False)
+    )
+    # Los datos de las fotos y vídeos de Imagen
     registry.register(SectionSpec("metadata", "Metadatos", RIGHT, 400))
+    # Los datos del recorrido: solo sale con tracks seleccionados (en cualquier modo)
+    registry.register(SectionSpec("track", "Track", RIGHT, 500))
     return registry
 
 
@@ -275,9 +291,12 @@ if __name__ == "__main__":
     assert reg.get("library").title_for("audio") == "Biblioteca - Música"
     assert _ids(reg, "tracks", Sidebar.LEFT) == ["library", "folders", "dates"]
     assert reg.get("library").title_for("tracks") == "Biblioteca - Tracks"
-    inspector = ["selection", "track", "keyword_editor", "keyword_list", "metadata"]
+    inspector = ["selection", "keyword_editor", "keyword_list", "metadata", "track"]
     for mode_key in reg.mode_keys():
         assert _ids(reg, mode_key, Sidebar.RIGHT) == inspector, mode_key
+    # Plegadas de partida: solo la «Lista de palabras clave» del inspector
+    assert [s.id for s in reg.defaults("image", Sidebar.RIGHT) if not s.expanded] == ["keyword_list"]
+    assert all(s.expanded for s in reg.defaults("image", Sidebar.LEFT))
     assert reg.get("library").title_for("image") == "Biblioteca - Imagen"
     assert reg.get("folders").title_for("image") == "Carpetas"
     assert reg.get("no_existe") is None
