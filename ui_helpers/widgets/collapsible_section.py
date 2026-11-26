@@ -15,6 +15,9 @@ El aspecto (fondo de la cabecera, negrita...) se define en la hoja de estilos gl
     - QFrame#frame_section_header     la barra de la cabecera
     - QToolButton#btn_section_header  la flecha + el título
 
+1.4.1 El contenido, a 8 px de la cabecera (antes, 2), los mismos que hay a los lados en el
+      inspector: en las dos barras, todo lo que hay bajo un título empieza a la misma
+      distancia (el autor, 26/11/2026). Antes, las secciones que lo querían ponían 6 más.
 1.4.0 Arrastrar la cabecera (por el título): señales 'header_drag_started',
       'header_drag_moved' y 'header_drag_finished' (lo que se hace con el arrastre lo decide
       quien la usa: 'SectionStack' la cambia de sitio). Un clic sin mover sigue plegando.
@@ -26,7 +29,7 @@ El aspecto (fondo de la cabecera, negrita...) se define en la hoja de estilos gl
       contadores de los árboles ('HEADER_RIGHT_MARGIN').
 """
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 __all__ = ["HEADER_RIGHT_MARGIN", "CollapsibleSection"]
 
 # Librerías de terceros (Qt)
@@ -135,7 +138,10 @@ class CollapsibleSection(QWidget):
         # Los menús propios del contenido (árboles, cajas de texto) no cambian
         self._body.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
         self._body_layout = QVBoxLayout(self._body)
-        self._body_layout.setContentsMargins(0, 2, 0, 6)  # un poco de aire debajo
+        # Arriba, 8: el contenido empieza a la misma distancia de la cabecera que de los
+        # lados en el inspector (el autor, 26/11/2026; antes, 2, y las secciones que lo
+        # querían sumaban 6). Abajo, 6 de aire. Las secciones no añaden nada arriba
+        self._body_layout.setContentsMargins(0, 8, 0, 6)
         self._body_layout.setSpacing(0)
         layout.addWidget(self._body)
 

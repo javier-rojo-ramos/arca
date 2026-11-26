@@ -36,6 +36,11 @@ Qué define cada sección (sobrescribiendo):
     - señal 'drop_edit_requested(función, argumentos, MediaDrag)': igual, pero con
                         tarjetas SOLTADAS desde la cuadrícula; el controlador comprueba
                         antes que son del catálogo abierto.
+    - 'bind_thumbnails(provider)', 'thumbnails_changed(ids)' y 'shutdown()' (opcional):
+                        las secciones con imágenes de la caché de miniaturas (la carátula):
+                        el panel les da la caché del catálogo abierto, les avisa cuando se
+                        regeneran miniaturas (None: se vuelven a buscar las que faltaban) y
+                        las para al cerrar la aplicación. Por defecto, nada.
 
 Las secciones NO tocan la base de datos ni hacen nada por su cuenta: piden las acciones con
 señales (p. ej. 'reveal_requested', 'edit_requested') y las atiende
@@ -54,6 +59,11 @@ pegados al borde DERECHO, igual que la etiqueta de la extensión de la cabecera,
 de una línea de texto queda por encima del de las letras, por el hueco de los
 descendentes).
 
+1.11.1 Las filas, sin margen arriba (antes, 2): el contenido empieza a 8 px de la
+       cabecera, como a los lados, y esos 8 los pone el cuerpo de la sección
+       ('CollapsibleSection'), en las dos barras (pedido por el autor el 26/11/2026).
+1.11.0 Secciones con imágenes de la caché de miniaturas: 'bind_thumbnails',
+       'thumbnails_changed' y 'shutdown' ('ThumbnailCacheProvider'; la carátula, MUS 9.1).
 1.10.1 Margen derecho de las filas de 8 px, como el izquierdo (antes, 4): el contenido del
        inspector queda a la misma distancia de los dos bordes (pedido por el autor).
 1.10.0 Las cajas editables empiezan 'EDITOR_TEXT_INSET' px antes que los valores: su
@@ -81,13 +91,14 @@ descendentes).
       entre filas de 6 px ('ROW_SPACING'), como las filas de la barra izquierda.
 """
 
-__version__ = "1.10.1"
+__version__ = "1.11.1"
 __all__ = [
     "ICON_SIZE",
     "IconCell",
     "InfoGrid",
     "InfoRow",
     "InspectorSection",
+    "ThumbnailCacheProvider",
     "set_secondary_text",
 ]
 
@@ -103,7 +114,12 @@ from qtpy.QtWidgets import QFrame, QGridLayout, QLabel, QWidget
 
 # Módulos del proyecto
 from core.catalog.selection_summary import SelectionSummary
+from core.thumbnails.cache import ThumbnailCache
 from ui_helpers.widgets.elided_label import ElidedLabel
+
+# Lo que da el panel a las secciones con imágenes: una función que devuelve (clave del
+# catálogo abierto, su caché de miniaturas o None); se consulta en cada lectura
+ThumbnailCacheProvider = Callable[[], tuple[str, ThumbnailCache | None]]
 
 # Lado de los iconos de la tercera columna (px lógicos)
 ICON_SIZE = 16
@@ -239,8 +255,10 @@ class InfoGrid(QWidget):
         super().__init__(parent)
         self._layout = QGridLayout(self)
         # 8 px a cada lado, simétrico (pedido por el autor el 11/11/2026; antes, 4 a la
-        # derecha). Las secciones que no usan la rejilla repiten estos márgenes
-        self._layout.setContentsMargins(8, 2, 8, 2)
+        # derecha). Arriba, nada: los 8 desde la cabecera los pone el cuerpo de la sección
+        # ('CollapsibleSection'; el autor, 26/11/2026). Abajo, 2 (con los 6 del cuerpo, 8).
+        # Las secciones que no usan la rejilla repiten estos márgenes
+        self._layout.setContentsMargins(8, 0, 8, 2)
         # Columnas: etiqueta | hueco | margen de las cajas | valor | hueco | icono. Los
         # huecos son columnas fijas (ver '_KEY_COLUMN'...): hueco + margen = COLUMN_SPACING
         self._layout.setHorizontalSpacing(0)
@@ -420,6 +438,16 @@ class InspectorSection(QWidget):
     def header_widget(self) -> QWidget | None:
         """Widget para la cabecera, a la derecha del título (por defecto, ninguno)."""
         return None
+
+    def bind_thumbnails(self, provider: ThumbnailCacheProvider) -> None:
+        """La caché de miniaturas, para las secciones con imágenes (por defecto, nada)."""
+
+    def thumbnails_changed(self, media_ids: Sequence[int] | None) -> None:
+        """Se han regenerado esas miniaturas; None: se vuelven a buscar las que faltaban
+        (por defecto, nada)."""
+
+    def shutdown(self) -> None:
+        """Para lo que tenga en marcha en segundo plano (al cerrar; por defecto, nada)."""
 
     def possible_key_labels(self) -> list[str]:
         """TODAS las etiquetas que puede llegar a mostrar (no solo las de ahora).

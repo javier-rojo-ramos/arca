@@ -49,6 +49,8 @@ La sección no toca la base de datos: lee con 'data_request'
 Solo aparece en el módulo Imagen ('modules'); en los demás está la de solo lectura
 ('keywords_section.py').
 
+1.3.3 Sin margen propio arriba (antes, 6): los 8 px desde la cabecera los pone ya el cuerpo
+      de la sección, en todas (26/11/2026). Se ve igual.
 1.3.2 La caja, a 8 px de la cabecera de la sección (antes, 4), como de los lados.
 1.3.1 Margen derecho de 8 px, como el izquierdo (antes, 4), igual que 'InfoGrid'.
 1.3.0 En todos los módulos, también el Catálogo, y con selecciones de varias bibliotecas
@@ -63,7 +65,7 @@ Prueba rápida de la lógica (sin Qt):
     python -m ui_helpers.inspector.keyword_editor_section
 """
 
-__version__ = "1.3.2"
+__version__ = "1.3.3"
 __all__ = ["KeywordEditorSection", "KeywordTextEdit", "completion_names", "current_token_bounds"]
 
 # Librerías estándar
@@ -220,10 +222,10 @@ class KeywordEditorSection(InspectorSection):
         self._updating = False                     # el texto lo está poniendo el programa
 
         layout = QVBoxLayout(self)
-        # A los lados, los de las filas de las demás secciones ('InfoGrid'). Arriba, 6: con
-        # los 2 del cuerpo de la sección, la caja queda a 8 px de la cabecera, como de los
-        # lados (pedido por el autor el 11/11/2026 para toda caja bajo un título de sección)
-        layout.setContentsMargins(8, 6, 8, 2)
+        # A los lados, los de las filas de las demás secciones ('InfoGrid'). Arriba, nada:
+        # el cuerpo de la sección ya deja la caja a 8 px de la cabecera, como de los lados
+        # (el autor: el 11/11/2026, para toda caja bajo un título; el 26/11, para todo)
+        layout.setContentsMargins(8, 0, 8, 2)
         layout.setSpacing(6)
 
         # Caja de texto: las palabras separadas por comas (con saltos de línea automáticos,

@@ -59,6 +59,7 @@ python -m core.catalog.media_detector
 python -m core.catalog.geotagging                              (ubicar, mover y quitar recordando lo de antes; deshacer)
 python -m core.catalog.map_queries                             (el mapa ve lo mismo que la cuadrícula; 20 000 puntos)
 python -m core.catalog.audio_stats                             (datos de las canciones seleccionadas: una, un álbum, de dos álbumes, sin leer, una foto)
+python -m core.catalog.cover_stats                             (la carátula de las canciones seleccionadas: una, un álbum, distintas, con y sin, ninguna, otro tipo, lo que no son canciones, en trozos)
 python -m core.catalog.track_stats                             (datos de los tracks seleccionados: uno, varios, ruta planificada, lo que no es un track)
 python -m core.catalog.media_queries
 python -m core.catalog.media_removal                           (papelera simulada: nunca toca la del sistema)
@@ -197,7 +198,7 @@ python -m ui_helpers.sidebars.sections.music_sections          (textos de los á
 python -m ui_helpers.sidebars.sections.date_section            (textos de las fechas, árbol, orígenes y lo desplegado; sin ventana)
 python -m ui_helpers.sidebars.folder_drag                      (arrastrar una carpeta: qué filas se pueden arrastrar, desplegar al pararse encima, desplazar la barra cerca del borde; con la plataforma offscreen, sin ventana)
 python -m ui_helpers.models.album_cards                       (los textos de la tarjeta de un álbum)
-python -m ui_helpers.models.full_image_loader                  (caché temporal: la mayor miniatura, sin miniatura, memoria; sin ventana)
+python -m ui_helpers.models.full_image_loader                  (caché temporal: la mayor miniatura, sin miniatura, memoria, otro tamaño ('wanted'); sin ventana)
 python -m ui_helpers.models.original_image_loader              (el original entero y derecho en RGB32, solo el último pedido, cancelar, archivo que no existe; sin ventana)
 python -m ui_helpers.widgets.attribute_filter_row              (clics en marcas, estrellas, colores, selección rápida y tipos; operador; dibujo; sin ventana)
 python -m ui_helpers.widgets.filter_bar                        (pestañas, «Ninguno», candado, paneles y controles a la derecha; sin ventana)
@@ -211,6 +212,7 @@ python -m ui_helpers.widgets.metadata_column                   (textos, selecci�
 python -m ui_helpers.widgets.metadata_filter_panel             (columnas, añadir y quitar, qué recontar, alto y arrastre; sin ventana. Con --ventana, el panel sobre un catálogo de ejemplo en memoria, con la cascada)
 python -m ui_helpers.widgets.organize_bar                      (lógica de la barra y la barra sola en una ventana)
 python -m ui_helpers.widgets.recent_keywords
+python -m ui_helpers.widgets.cover_image                       (el recuadro de la carátula: cuadrado, ajustada, apaisada, pequeña ampliada, el marcador, la raya; sin ventana)
 python -m ui_helpers.widgets.single_media_view                 (dibuja en una imagen con un modelo de mentira; sin ventana)
 python -m ui_helpers.widgets.single_view_zoom                  (lupa, caché pequeña, clic, arrastre, Z, Ctrl + rueda y rueda a 1:1, original de otro tamaño, ventana, vuelta a la ajustada; eventos a mano, sin ventana)
 python -m ui_helpers.widgets.smart_rule_group                  (grupo nuevo, ida y vuelta, añadir y quitar reglas, la última no se quita, señales, errores; sin ventana)

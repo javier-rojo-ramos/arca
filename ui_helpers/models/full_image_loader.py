@@ -1,9 +1,12 @@
-"""Carga en segundo plano de la miniatura grande (2560 px) para la vista individual.
+"""Carga en segundo plano de una miniatura grande de la caché (la vista individual, la
+carátula del inspector).
 
 La vista individual muestra un archivo a toda la pantalla. Su imagen sale de la caché de
 miniaturas: la FULLSCREEN (2560 px) o, si no existe, la mayor que haya
 ('ThumbnailCache.resolve'). Leer y decodificar un JPEG de ese tamaño tarda, así que se
-hace SIEMPRE en un hilo del pool (CLAUDE.md: nada largo en el hilo principal).
+hace SIEMPRE en un hilo del pool (CLAUDE.md: nada largo en el hilo principal). La sección
+«Carátula» del inspector usa otro cargador con la de 1200 px ('wanted'): con el panel a
+su ancho de siempre, nítida también con la pantalla escalada.
 
     loader.image(media_type, media_id)    # la imagen si ya está en memoria; si no, la pide
     loader.loaded -> (media_id, QImage)   # cuando llega (QImage nula = no tiene miniatura)
@@ -18,6 +21,8 @@ Detalles:
       dos catálogos pueden coincidir.
     - Los archivos sin miniatura se recuerdan para no buscarlos en cada repintado.
 
+1.1.0 'wanted': el tamaño que se lee, un parámetro (por defecto, el de siempre: 2560 px);
+      la carátula del inspector, la de 1200 (MUS 9.1).
 1.0.1 Las imágenes se leen con 'ThumbnailCache.read', que reintenta si el archivo está
       bloqueado (en Windows, al coincidir con su sustitución al regenerarla).
 1.0.0 Primera versión (paso A.1, subpaso 4).
@@ -26,7 +31,7 @@ Prueba rápida (desde la raíz del proyecto; crea una caché temporal y no abre 
     python -m ui_helpers.models.full_image_loader
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = ["FullImageLoader"]
 
 # Librerías estándar
@@ -41,7 +46,7 @@ from qtpy.QtGui import QImage
 from core.thumbnails.cache import ThumbnailCache
 from core.thumbnails.sizes import ThumbnailSize
 
-# Qué se pide a la caché: la mayor (si no existe, 'resolve' da la mayor que haya)
+# Qué se pide a la caché por defecto: la mayor (si no existe, 'resolve' da la mayor que haya)
 _WANTED = ThumbnailSize.FULLSCREEN
 
 
@@ -55,19 +60,26 @@ class _Task(QRunnable):
     """Lee de la caché la miniatura grande de un elemento (en un hilo del pool)."""
 
     def __init__(
-        self, cache: ThumbnailCache, media_type: str, media_id: int, generation: int, signals: _Signals
+        self,
+        cache: ThumbnailCache,
+        media_type: str,
+        media_id: int,
+        wanted: ThumbnailSize,
+        generation: int,
+        signals: _Signals,
     ) -> None:
         super().__init__()
         self._cache = cache
         self._media_type = media_type
         self._media_id = media_id
+        self._wanted = wanted
         self._generation = generation
         self._signals = signals
 
     def run(self) -> None:
         image = QImage()
         try:
-            path = self._cache.resolve(self._media_type, self._media_id, _WANTED)
+            path = self._cache.resolve(self._media_type, self._media_id, self._wanted)
             data = self._cache.read(path) if path is not None else None
             if data is not None:
                 # Las miniaturas de la caché ya están derechas: no hay que rotarlas
@@ -93,6 +105,8 @@ class FullImageLoader(QObject):
         self,
         cache_provider: Callable[[], tuple[str, ThumbnailCache | None]],
         parent: QObject | None = None,
+        *,
+        wanted: ThumbnailSize = _WANTED,
     ) -> None:
         """Prepara el cargador.
 
@@ -100,9 +114,12 @@ class FullImageLoader(QObject):
             cache_provider: Devuelve (clave del catálogo abierto, su caché o None). Se
                 consulta en cada petición: si cambia la clave, se olvida todo lo anterior.
             parent: Objeto padre.
+            wanted: El tamaño que se lee (si no existe, el mayor que haya sin pasarse; ver
+                'ThumbnailCache.resolve').
         """
         super().__init__(parent)
         self._cache_provider = cache_provider
+        self._wanted = wanted
         self._catalog_key = ""
         self._generation = 0
         self._images: OrderedDict[int, QImage] = OrderedDict()
@@ -182,7 +199,8 @@ class FullImageLoader(QObject):
 
     def _start(self, cache: ThumbnailCache, media_type: str, media_id: int, priority: int) -> None:
         self._pending.add(media_id)
-        self._pool.start(_Task(cache, media_type, media_id, self._generation, self._signals), priority)
+        task = _Task(cache, media_type, media_id, self._wanted, self._generation, self._signals)
+        self._pool.start(task, priority)
 
     def _on_done(self, generation: int, media_id: int, image: QImage) -> None:
         if generation != self._generation:
@@ -271,4 +289,11 @@ if __name__ == "__main__":
         wait_for(loader, 9)  # 8 con miniatura y el 3 sin ella
         assert len(loader._images) == FullImageLoader.MAX_IMAGES, len(loader._images)
         loader.shutdown()
+
+        # Otro tamaño ('wanted'): con la de 480 y la de 2560, la de 480
+        medium = FullImageLoader(lambda: ("D", cache), wanted=ThumbnailSize.MEDIUM)
+        assert medium.image("photo", 1) is None
+        (media_id, image), = wait_for(medium, 1)
+        assert media_id == 1 and image.width() == 480
+        medium.shutdown()
     print("Autoprueba finalizada correctamente.")

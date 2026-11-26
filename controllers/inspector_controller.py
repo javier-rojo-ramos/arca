@@ -52,6 +52,8 @@ inspector se recalcula. «Borrar» una palabra clave llega primero como un recue
 1.5.0 Reenvía 'navigate_requested' de las secciones.
 1.4.0 Tarjetas soltadas en una sección ('drop_edit_requested'), con la comprobación de
       que son del catálogo abierto.
+1.12.0 Las secciones con imágenes, con la caché de miniaturas y sus avisos ('bind_thumbnails'
+       y 'thumbnails_changed' del panel); 'shutdown' (la carátula, MUS 9.1).
 1.11.0 'request_edit(..., on_done)': quien pide un cambio puede recibir su resultado al
        terminar (el mapa, para poder deshacerlo); un resultado con 'count' cuenta como
        ese número de cambios (se escriben en los archivos).
@@ -64,9 +66,14 @@ inspector se recalcula. «Borrar» una palabra clave llega primero como un recue
 1.1.0 Datos propios de las secciones (sección «Metadatos»).
 
 Acciones del panel: «Mostrar en el Explorador» (botón de la carpeta) se atiende aquí.
+
+Las secciones con imágenes (la carátula) las leen de la caché de miniaturas de la
+cuadrícula: el controlador le da al panel la del catálogo abierto ('bind_thumbnails') y
+le pasa los avisos del modelo cuando se regeneran ('thumbnails_changed'). Al cerrar la
+aplicación, 'shutdown' para sus lecturas.
 """
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 __all__ = ["STATE_KEY", "InspectorController"]
 
 # Librerías estándar
@@ -170,6 +177,12 @@ class InspectorController(QObject):
         panel.drop_edit_requested.connect(self._on_drop_edit_requested)
         panel.navigate_requested.connect(self.navigate_requested)
 
+        # Las secciones con imágenes (la carátula) las leen de la caché de la cuadrícula;
+        # si se regeneran (o se generan las que faltaban), las vuelven a leer
+        panel.bind_thumbnails(lambda: (model.catalog_key(), model.thumbnail_cache))
+        model.thumbnails_refreshed.connect(panel.thumbnails_changed)
+        model.missing_retried.connect(lambda: panel.thumbnails_changed(None))
+
     # -------------------------------------------------------------------------
     # API pública
     # -------------------------------------------------------------------------
@@ -213,6 +226,10 @@ class InspectorController(QObject):
                 expanded = image.get(_LEGACY_EXPANDED_KEY) if isinstance(image, dict) else None
         ids = [value for value in expanded if isinstance(value, int)] if isinstance(expanded, list) else []
         keyword_expansion(INSPECTOR).replace(ids)
+
+    def shutdown(self) -> None:
+        """Para las lecturas de imágenes del inspector (al cerrar la aplicación)."""
+        self._panel.shutdown()
 
     def refresh(self) -> None:
         """Vuelve a calcular el resumen (p. ej. tras cambiar la biblioteca de lo seleccionado)."""

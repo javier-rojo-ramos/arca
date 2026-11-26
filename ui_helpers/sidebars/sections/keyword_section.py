@@ -32,6 +32,8 @@ Uso (lo hace la barra, 'LibrarySidebar'; ver 'tree_section.py'):
     keywords = KeywordSection("image", parent=parent)
     keywords.set_tree(tree)   # 'fetch_keyword_tree(conn, "image")', del módulo
 
+1.2.1 Sin margen propio arriba (antes, 6): los 8 px desde la cabecera los pone ya el cuerpo
+      de la sección, en todas (26/11/2026). Se ve igual.
 1.2.0 'hides_rows': con el filtro escrito, la barra no da por desaparecida la palabra
       elegida (antes lo preguntaba 'ImageSidebar.is_filtering'; docs/PENDIENTE.md, GEN 13).
 1.1.0 Las palabras sin nada de la biblioteca, en gris (el «desactivado» de la paleta).
@@ -41,7 +43,7 @@ Uso (lo hace la barra, 'LibrarySidebar'; ver 'tree_section.py'):
       sección (12/11/2026); hace lo mismo que antes.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __all__ = ["KeywordSection"]
 
 # Librerías estándar
@@ -93,10 +95,10 @@ class KeywordSection(TreeSection):
 
         layout = QVBoxLayout(self)
         # Sin márgenes a los lados: el árbol ocupa todo el ancho, como el de carpetas, y sus
-        # flechas y números quedan alineados con los de las carpetas. Arriba, 6: con los 2
-        # del cuerpo de la sección, el filtro queda a 8 px de la cabecera (pedido por el
-        # autor el 11/11/2026 para toda caja bajo un título)
-        layout.setContentsMargins(0, 6, 0, 4)
+        # flechas y números quedan alineados con los de las carpetas. Arriba, nada: el cuerpo
+        # de la sección ya deja el filtro a 8 px de la cabecera (el autor: el 11/11/2026, para
+        # toda caja bajo un título; el 26/11, para todo)
+        layout.setContentsMargins(0, 0, 0, 4)
         layout.setSpacing(4)
         # El filtro, en su fila: a 8 px de los lados, como de la cabecera
         filter_row = QHBoxLayout()

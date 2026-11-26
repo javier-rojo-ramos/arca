@@ -11,7 +11,7 @@ Motor en `core/thumbnails/` (detalle y recetas en `core/thumbnails/LEEME.md`). N
 |---|---|---|---|
 | `THUMBNAIL` | 160 px | 80 | cuadrícula densa |
 | `MEDIUM` | 480 px | 85 | tarjeta de contenido |
-| `PREVIEW` | 1200 px | 85 | panel de inspección rápida / vista ampliada |
+| `PREVIEW` | 1200 px | 85 | panel de inspección rápida / vista ampliada; la carátula del inspector (`MUS 9.1`) |
 | `FULLSCREEN` | 2560 px | 88 | vista individual o pantalla completa, sin abrir el original |
 
 Reglas:

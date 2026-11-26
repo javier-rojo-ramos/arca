@@ -299,11 +299,13 @@ class MainWindowController(QMainWindow, Ui_MainWindow, WindowSnapMixin):
         self._close_catalog()
 
         # Cancelar y esperar la finalización de la lectura de miniaturas de la cuadrícula
-        # (y de la imagen grande de la vista individual)
+        # (y de la imagen grande de la vista individual y de la carátula del inspector)
         self.mosaico_model.shutdown()
         single_view = getattr(self, "widget_single_view", None)
         if single_view is not None:
             single_view.shutdown()
+        if self.inspector is not None:
+            self.inspector.shutdown()
 
         geometria_hex = self.saveGeometry().data().hex()
         self.config.set("window_geometry", geometria_hex)

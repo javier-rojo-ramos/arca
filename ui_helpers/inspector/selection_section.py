@@ -23,6 +23,8 @@ La extensión y los iconos van pegados al borde derecho, alineados entre sí.
 Aquí NO se edita nada: la fecha y el resto de metadatos se editarán en secciones propias
 (ver «Inspector único, que edita en todos los módulos» en docs/DECISIONES.md).
 
+1.3.4 El nombre, sin margen propio arriba (antes, 2 px): empieza a 8 px de la cabecera,
+      como el contenido de las demás secciones (el autor, 26/11/2026).
 1.3.3 El icono y la inicial de cada biblioteca, de 'config/app_modules.library_badge' (antes,
       una tabla aquí; docs/PENDIENTE.md, GEN 12).
 1.3.2 Colores del círculo de «Estado», del tema ('COLORS.missing' y 'offline'; los mismos
@@ -38,7 +40,7 @@ Aquí NO se edita nada: la fecha y el resto de metadatos se editarán en seccion
       ('IconCell'); nombres de las bibliotecas desde 'LIBRARY_NAMES'.
 """
 
-__version__ = "1.3.3"
+__version__ = "1.3.4"
 __all__ = ["SelectionSection"]
 
 # Librerías estándar
@@ -116,7 +118,7 @@ class SelectionSection(InspectorSection):
         # --- Cabecera: nombre (o «6 archivos») y extensión ---
         name_box = QWidget(self._grid)
         name_layout = QHBoxLayout(name_box)
-        name_layout.setContentsMargins(0, 2, 0, 4)
+        name_layout.setContentsMargins(0, 0, 0, 4)  # arriba, el de la rejilla (8 px en total)
         name_layout.setSpacing(6)
         self._name = ElidedLabel(name_box, mode=Qt.TextElideMode.ElideMiddle)
         self._name.setObjectName("lbl_inspector_name")

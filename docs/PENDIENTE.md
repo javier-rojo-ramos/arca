@@ -267,7 +267,7 @@ En el propio archivo, sin generar copias (regla del 16/11/2026). Sin interfaz: s
 
 ### Fase MUS 9 — Carátulas: cambiarlas y guardarlas
 
-- **MUS 9.1** La carátula en grande en el inspector.
+- ~~**MUS 9.1** La carátula en grande en el inspector~~ (hecho el 26/11/2026, adelantado: la sección «Carátula», de solo lectura; [MOD_MUSICA.md](MOD_MUSICA.md) §6).
 - **MUS 9.2** Escribirla en el archivo, por la misma cola.
 - **MUS 9.3** Cambiarla: arrastrar, «Elegir…», pegar o `folder.jpg`; para una canción, la selección o el álbum.
 - **MUS 9.4** Extraerla o quitarla.

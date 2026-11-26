@@ -14,6 +14,8 @@ plegables una debajo de otra dentro de un área con desplazamiento. Cada secció
                     desplegable de vistas en la cabecera (metadata_section.py)
     ▼ AUDIO         etiquetas y datos técnicos de las canciones (audio_section.py; solo si
                     todo es de la biblioteca Música)
+    ▼ CARÁTULA      la carátula de las canciones, en grande, con su tipo y su formato
+                    (cover_section.py; solo si todo es de la biblioteca Música)
 
 El ORDEN de las secciones, si el usuario las tiene a la vista y si están plegadas lo
 lleva el modelo de colocación ('ui_helpers/layout/'), POR MODO: el panel se une a él con
@@ -35,6 +37,9 @@ Cómo se usa:
     panel.show_summary(summary)    # 'SelectionSummary' (lo calcula el controlador)
     panel.show_no_catalog()        # sin catálogo abierto
     panel.reveal_requested.connect(...)  # «Mostrar en el Explorador» de alguna sección
+    panel.bind_thumbnails(provider)  # la caché de miniaturas (la carátula la lee de ella)
+    panel.thumbnails_changed(ids)    # se han regenerado (None: buscar las que faltaban)
+    panel.shutdown()                 # al cerrar la aplicación
     panel.edit_requested.connect(...)    # una sección quiere cambiar el catálogo
 
 El panel NO lee la base de datos: el resumen se lo da 'controllers/inspector_controller.py'.
@@ -43,6 +48,8 @@ Las secciones que no tienen nada que mostrar para lo seleccionado se ocultan ent
 El título de cada sección puede cambiar con lo que se ve ('InspectorSection.title_for'):
 p. ej. «SELECCIÓN» con algo seleccionado y «SELECCIÓN (VISTA ACTUAL)» sin selección.
 
+1.10.0 Sección «Carátula» (MUS 9.1) y lo que necesitan las secciones con imágenes de la
+       caché: 'bind_thumbnails', 'thumbnails_changed' y 'shutdown'.
 1.9.0 Sección «Audio» (MUS 2.1).
 1.8.0 Sección «Track» (debajo de «Selección»).
 1.7.1 El menú de las secciones, también con el clic derecho en el hueco vacío del panel.
@@ -71,7 +78,7 @@ El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.p
 nombres de objeto 'scroll_inspector', 'widget_inspector_content' y los 'lbl_inspector_*'.
 """
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 __all__ = ["DEFAULT_SECTIONS", "InspectorPanel"]
 
 # Librerías estándar
@@ -85,7 +92,12 @@ from qtpy.QtWidgets import QFrame, QLabel, QScrollArea, QVBoxLayout, QWidget
 # Módulos del proyecto
 from core.catalog.selection_summary import SelectionSummary
 from ui_helpers.inspector.audio_section import AudioSection
-from ui_helpers.inspector.base_section import InspectorSection, set_secondary_text
+from ui_helpers.inspector.base_section import (
+    InspectorSection,
+    ThumbnailCacheProvider,
+    set_secondary_text,
+)
+from ui_helpers.inspector.cover_section import CoverSection
 from ui_helpers.inspector.keyword_editor_section import KeywordEditorSection
 from ui_helpers.inspector.keyword_list_section import KeywordListSection
 from ui_helpers.inspector.metadata_section import MetadataSection
@@ -106,6 +118,7 @@ DEFAULT_SECTIONS: tuple[Callable[[QWidget], InspectorSection], ...] = (
     KeywordListSection,     # el árbol con casillas (siempre)
     MetadataSection,        # solo si todo es de la biblioteca Imagen
     AudioSection,           # solo si todo es de la biblioteca Música
+    CoverSection,           # la carátula: también solo con canciones
 )
 
 
@@ -261,6 +274,21 @@ class InspectorPanel(QWidget):
         width = max((metrics.horizontalAdvance(text) for text in labels), default=0) + 2
         for grid in grids:
             grid.set_key_column_width(width)
+
+    def bind_thumbnails(self, provider: ThumbnailCacheProvider) -> None:
+        """La caché de miniaturas del catálogo abierto, para las secciones con imágenes."""
+        for section, _frame in self._sections:
+            section.bind_thumbnails(provider)
+
+    def thumbnails_changed(self, media_ids: Sequence[int] | None = None) -> None:
+        """Se han regenerado esas miniaturas (None: se vuelven a buscar las que faltaban)."""
+        for section, _frame in self._sections:
+            section.thumbnails_changed(media_ids)
+
+    def shutdown(self) -> None:
+        """Para lo que las secciones tengan en segundo plano (al cerrar la aplicación)."""
+        for section, _frame in self._sections:
+            section.shutdown()
 
     def show_no_catalog(self) -> None:
         """Sin catálogo abierto: solo el aviso, sin secciones."""

@@ -22,7 +22,9 @@ Tracks (sección «Track»):
 Música (sección «Audio»):
     formato       'MP3', 'FLAC', 'AAC LC'      pista / disco  '22 / 25', '3'
     calidad       'VBR · 277 kbps · 44,1 kHz · Estéreo', '883 kbps · 44,1 kHz · 16 bits · Estéreo'
+    carátula      'JPEG · 600 × 600 · 24,4 KB' (sección «Carátula»)
 
+1.9.0 La imagen de una carátula: 'format_cover_image' y 'format_image_format' (MUS 9.1).
 1.8.1 Los nombres de los formatos de audio, de 'core/audio/codecs.py' (los usan también las
       colecciones inteligentes, MUS 2.3). Se ven igual.
 1.8.0 Formatos de las canciones: 'format_audio_format', 'format_audio_quality' (con
@@ -49,7 +51,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.formatting
 """
 
-__version__ = "1.8.1"
+__version__ = "1.9.0"
 __all__ = [
     "DATE_SOURCE_TEXTS",
     "EXPOSURE_PROGRAMS",
@@ -67,6 +69,7 @@ __all__ = [
     "format_channels",
     "format_codec",
     "format_count",
+    "format_cover_image",
     "format_date",
     "format_date_range",
     "format_datetime",
@@ -81,6 +84,7 @@ __all__ = [
     "format_focal_length",
     "format_frame_rate",
     "format_gps",
+    "format_image_format",
     "format_iso",
     "format_media_types",
     "format_part",
@@ -587,6 +591,42 @@ def format_audio_quality(
     return " · ".join(part for part in parts if part)
 
 
+# Formatos de imagen con un nombre conocido (el tipo MIME, en minúsculas). 'image/jpg' no es
+# el estándar, pero lo guardan algunos programas (29 canciones del autor)
+_IMAGE_FORMATS: dict[str, str] = {
+    "image/jpeg": "JPEG",
+    "image/jpg": "JPEG",
+    "image/pjpeg": "JPEG",
+    "image/png": "PNG",
+    "image/gif": "GIF",
+    "image/bmp": "BMP",
+    "image/webp": "WebP",
+    "image/tiff": "TIFF",
+}
+
+
+def format_image_format(mime: str | None) -> str:
+    """Nombre del formato de una imagen por su tipo MIME: 'image/jpeg' -> 'JPEG'; uno
+    desconocido, su segunda parte en mayúsculas ('image/x-icon' -> 'X-ICON')."""
+    if not mime or not mime.strip():
+        return ""
+    key = mime.strip().lower()
+    return _IMAGE_FORMATS.get(key, key.rpartition("/")[2].upper())
+
+
+def format_cover_image(
+    mime: str | None, width: int | None, height: int | None, size_bytes: int | None
+) -> str:
+    """Fila «Imagen» de una carátula: formato, tamaño en píxeles y peso, unidos con ' · ':
+    'JPEG · 600 × 600 · 24,4 KB'. Lo que falte no sale."""
+    parts = (
+        format_image_format(mime),
+        f"{width} × {height}" if width and height else "",
+        format_size(size_bytes) if size_bytes else "",
+    )
+    return " · ".join(part for part in parts if part)
+
+
 if __name__ == "__main__":
     # Autoprueba. Ejecutar desde la raíz del proyecto:
     #   python -m ui_helpers.inspector.formatting
@@ -691,4 +731,11 @@ if __name__ == "__main__":
     )
     assert format_audio_quality(None, 71479, 882814, None, None, 2) == "71 – 883 kbps · Estéreo"
     assert format_audio_quality(None, None, None, None, None, None) == ""
+    assert [format_image_format(m) for m in ("image/jpeg", "IMAGE/JPG", "image/png", None)] == [
+        "JPEG", "JPEG", "PNG", ""
+    ]
+    assert format_image_format("image/x-icon") == "X-ICON"
+    assert format_cover_image("image/jpeg", 600, 600, 25_000) == "JPEG · 600 × 600 · 24,4 KB"
+    assert format_cover_image("image/png", 1441, 1429, 898_000) == "PNG · 1441 × 1429 · 877 KB"
+    assert format_cover_image(None, None, 5, None) == ""
     print("Autoprueba finalizada correctamente.")

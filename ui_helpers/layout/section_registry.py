@@ -45,6 +45,7 @@ Uso:
     SECTION_REGISTRY.defaults("image", Sidebar.LEFT)  # sus secciones, en el orden de partida
     SECTION_REGISTRY.get("folders").title_for("image")
 
+1.10.0 Sección «Carátula» del inspector, detrás de «Audio» (MUS 9.1).
 1.9.1 En Música, «Artistas» detrás de «Carpetas» (antes, delante): en todos los módulos,
       primero «Biblioteca» y «Carpetas» y después las de cada uno (pedido por el autor).
 1.9.0 La barra de Música: «Artistas» (debajo de «Biblioteca») y «Años» (al final,
@@ -71,7 +72,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_registry
 """
 
-__version__ = "1.9.1"
+__version__ = "1.10.0"
 __all__ = [
     "LEFT",
     "RIGHT",
@@ -278,6 +279,8 @@ def _build_default_registry() -> SectionRegistry:
     registry.register(SectionSpec("track", "Track", RIGHT, 500))
     # Las etiquetas y los datos técnicos: solo con canciones seleccionadas (en cualquier modo)
     registry.register(SectionSpec("audio", "Audio", RIGHT, 600))
+    # La carátula, en grande: también solo con canciones, detrás de «Audio» (MUS 9.1)
+    registry.register(SectionSpec("cover", "Carátula", RIGHT, 700))
     return registry
 
 
@@ -304,7 +307,9 @@ if __name__ == "__main__":
     assert reg.get("library").title_for("audio") == "Biblioteca - Música"
     assert _ids(reg, "tracks", Sidebar.LEFT) == ["library", "folders", "dates"]
     assert reg.get("library").title_for("tracks") == "Biblioteca - Tracks"
-    inspector = ["selection", "keyword_editor", "keyword_list", "metadata", "track", "audio"]
+    inspector = [
+        "selection", "keyword_editor", "keyword_list", "metadata", "track", "audio", "cover"
+    ]
     for mode_key in reg.mode_keys():
         assert _ids(reg, mode_key, Sidebar.RIGHT) == inspector, mode_key
     # Plegadas de partida: solo la «Lista de palabras clave» del inspector
