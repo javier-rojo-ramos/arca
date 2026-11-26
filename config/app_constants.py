@@ -94,6 +94,8 @@ class AppIcons:
     VIEW_GRID = ":/img/view_grid.svg"
     VIEW_FULL = ":/img/view_full.svg"
     VIEW_MAP = ":/img/view_map.svg"
+    # Propio (no es de Material): un disco, la vista de álbumes de Música (MUS 5.3)
+    VIEW_ALBUMS = ":/img/view_albums.svg"
     FILMSTRIP_SHOW = ":/img/filmstrip_show.svg"
     FILMSTRIP_HIDE = ":/img/filmstrip_hide.svg"
     # Propios (el marco de los de la tira con la línea de un perfil): la banda del perfil

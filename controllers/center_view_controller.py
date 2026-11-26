@@ -20,18 +20,28 @@ Teclado y ratón (sin Ctrl, Alt ni Mayús; decidido por el autor el 08/11 y el 1
     mapa y su tira     G -> cuadrícula. Intro, o doble clic en una foto -> vista
                        individual (el doble clic lo pide el controlador del mapa con
                        'open_single'). La tira se da con 'watch_map_widget'
+    álbumes (Música)   doble clic o Intro -> entra en el álbum: la cuadrícula con sus
+                       canciones (su fila de «Artistas», elegida en la barra; el filtro
+                       se queda: MUS 5.3)
+                       G -> cuadrícula (todas las canciones de lo que se ve)
+    cuadrícula de un   Esc -> vuelve a los álbumes, con ese álbum seleccionado (también
+    álbum              «atrás» y el botón «Álbumes»). Solo si se entró desde los álbumes
+                       y se sigue viendo ese álbum
     vista individual   G -> cuadrícula, con el archivo visto seleccionado y visible
-                       Esc -> la vista de la que se vino (el mapa o la cuadrícula)
+                       Esc -> la vista de la que se vino (el mapa, los álbumes o la
+                       cuadrícula)
                        M -> mapa (si el módulo lo ofrece)
                        ← ↑ anterior, → ↓ siguiente, Inicio el primero, Fin el último
                        (en el orden de la cuadrícula); también la rueda del ratón:
                        hacia delante la anterior, hacia atrás la siguiente (la cuenta
                        la vista: 'step_requested'; a 1:1 y con Ctrl la usa el zoom)
 Botones laterales del ratón (decidido por el autor el 19/11/2026), al soltarlos:
-    «atrás»            vista individual -> como Esc; mapa -> la cuadrícula, como G
+    «atrás»            vista individual -> como Esc; mapa -> la cuadrícula, como G;
+                       cuadrícula de un álbum -> los álbumes, como Esc
     «adelante»         cuadrícula y mapa -> la vista individual del archivo actual, como
                        Intro (con «atrás» se sale y con «adelante» se vuelve a entrar);
-                       en la cuadrícula de Tracks, el mapa con ese archivo, como Intro
+                       en la cuadrícula de Tracks, el mapa con ese archivo, como Intro;
+                       en los álbumes, entra en el álbum actual
     Llegan desde cualquier punto de la vista: la cuadrícula y la tira no los usan y los
     dejan subir ('MediaGridView'), y la vista web del mapa los reenvía hacia su página
     ('web_backend._WebView'). La pulsación no selecciona nada.
@@ -68,6 +78,9 @@ Uso (en el controlador principal, que solo lo crea):
         map_page=pagina_del_mapa, parent=window,
     )
 
+1.10.0 La vista de álbumes de Música (MUS 5.3): usa la página de la cuadrícula, con su
+       deslizador; doble clic, Intro y «adelante» entran en el álbum ('_enter_group'); Esc,
+       «atrás» y el botón «Álbumes» vuelven a él ('_leave_group'); G, a la cuadrícula.
 1.9.0 En un módulo sin vista individual pero con mapa (Tracks), doble clic, Intro y
       «adelante» en la cuadrícula llevan ese archivo al mapa ('map_requested'; antes no
       hacían nada). Lo pidió el autor: entrar al mapa con doble clic y volver con «atrás».
@@ -93,7 +106,7 @@ Uso (en el controlador principal, que solo lo crea):
 1.0.0 Primera versión (paso A.1, subpaso 3): botones, páginas y deslizador.
 """
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 __all__ = ["CenterViewController"]
 
 # Librerías estándar
@@ -196,6 +209,11 @@ class CenterViewController(QObject):
         self._map_widgets: list[QWidget] = []
         # Adónde vuelve Esc desde la vista individual: la vista de la que se vino
         self._single_back = CenterView.GRID
+        # Al entrar en un álbum desde los álbumes: (módulo, lo que se veía, el álbum y su
+        # primera canción), para volver con Esc ('_leave_group'). None si no se entró
+        self._group_back: tuple[str, Any, Any, int | None] | None = None
+        # Al volver a los álbumes: el archivo cuya tarjeta queda seleccionada al recargar
+        self._select_id_after_reset: int | None = None
         self._model: Any = grid.model()
         self._shown: CenterView | None = None  # vista que está en pantalla
         # Para volver a lo que se veía tras recargar la lista (el mismo origen): el 'id' del
@@ -258,7 +276,10 @@ class CenterViewController(QObject):
     def _open_from_grid(self, row: int | None = None) -> None:
         """Doble clic, Intro o «adelante» en la cuadrícula: la vista individual con el archivo
         de esa fila (o el actual); en un módulo sin ella pero con mapa (Tracks), ese archivo
-        en el mapa ('map_requested'; decidido por el autor el 19/11/2026)."""
+        en el mapa ('map_requested'; decidido por el autor el 19/11/2026). En los álbumes,
+        entra en el álbum."""
+        if self._shown == CenterView.ALBUMS and self._enter_group(row):
+            return
         views = self._host.active_views()
         if CenterView.SINGLE in views:
             self.open_single(row)
@@ -267,13 +288,49 @@ class CenterViewController(QObject):
             if target >= 0:
                 self.map_requested.emit(target)
 
+    def _enter_group(self, row: int | None = None) -> bool:
+        """Entra en el grupo de esa fila (o la actual): un álbum, sus canciones en la
+        cuadrícula (MUS 5.3). False si la fila no es de un grupo."""
+        target = self._current_row() if row is None else row
+        group_source = getattr(self._model, "group_source", None)
+        source = group_source(target) if group_source is not None and target >= 0 else None
+        if source is None:
+            return False
+        module = getattr(self._host, "active_module", None)
+        if module is None:
+            return False
+        ids = self._media_ids([target])
+        self._group_back = (module.key, self._model.source, source, ids[0] if ids else None)
+        self._host.show_source_in_view(source, CenterView.GRID)
+        return True
+
+    def _leave_group(self) -> bool:
+        """Vuelve a los álbumes desde el álbum en el que se entró, con su tarjeta
+        seleccionada (Esc, «atrás» y el botón «Álbumes»). False si no se entró en ninguno,
+        o si ya se ve otra cosa (otro módulo, otra fila de la barra)."""
+        back, self._group_back = self._group_back, None
+        if back is None:
+            return False
+        module = getattr(self._host, "active_module", None)
+        if module is None:
+            return False
+        module_key, previous_source, entered_source, first_id = back
+        if module_key != module.key or self._model.source != entered_source:
+            return False
+        self._select_id_after_reset = first_id
+        self._host.show_source_in_view(previous_source, CenterView.ALBUMS)
+        return True
+
     # -------------------------------------------------------------------------
     # Vista en pantalla
     # -------------------------------------------------------------------------
 
     def _on_view_requested(self, key: str) -> None:
-        """Un botón de vista: se pide al host (que la recuerda y avisa con 'view_changed')."""
+        """Un botón de vista: se pide al host (que la recuerda y avisa con 'view_changed').
+        «Álbumes» dentro de un álbum en el que se entró vuelve a los álbumes, como Esc."""
         view = CenterView.from_key(key)
+        if view == CenterView.ALBUMS and self._leave_group():
+            return
         if view is not None:
             self._host.set_view(view)
 
@@ -286,19 +343,23 @@ class CenterViewController(QObject):
             view.value,
         )  # fmt: skip
         page = self._pages.get(view)
+        if page is None and view.grouping is not None:
+            page = self._pages[CenterView.GRID]  # los álbumes: la cuadrícula, agrupada
         if page is None:
             logger.warning(f"La vista {view.value!r} todavía no tiene página: se ve la cuadrícula.")
             page = self._pages[CenterView.GRID]
         self._stack.setCurrentWidget(page)
         # El tamaño de las tarjetas solo tiene sentido en la cuadrícula. Se oculta solo el
         # deslizador (no su zona), para que la barra de clasificación siga centrada
-        self._slider.setVisible(view == CenterView.GRID)
+        self._slider.setVisible(view in (CenterView.GRID, CenterView.ALBUMS))
 
         previous, self._shown = self._shown, view
         if view == CenterView.SINGLE:
             if previous != CenterView.SINGLE:
-                # Esc volverá a la vista de la que se viene (el mapa o la cuadrícula)
-                self._single_back = previous if previous == CenterView.MAP else CenterView.GRID
+                # Esc volverá a la vista de la que se viene (el mapa, los álbumes o la
+                # cuadrícula)
+                came_from = (CenterView.MAP, CenterView.ALBUMS)
+                self._single_back = previous if previous in came_from else CenterView.GRID
                 # Al entrar (también con el botón): solo el archivo que se ve, seleccionado
                 row = self._current_row()
                 if row >= 0:
@@ -307,7 +368,9 @@ class CenterViewController(QObject):
         elif view == CenterView.MAP and self._map_page is not None:
             # El mapa no coge el teclado: lo coge su página, para los atajos y la G
             self._map_page.setFocus()
-        elif view == CenterView.GRID and previous in (CenterView.SINGLE, CenterView.MAP):
+        elif view in (CenterView.GRID, CenterView.ALBUMS) and previous in (
+            CenterView.SINGLE, CenterView.MAP,
+        ):
             self._grid.setFocus()
             self._grid.scrollTo(self._grid.currentIndex(), QAbstractItemView.ScrollHint.EnsureVisible)
 
@@ -325,6 +388,10 @@ class CenterViewController(QObject):
             if key in _OPEN_KEYS:
                 self._open_from_grid()
                 return True
+            if key == _BACK_KEY:
+                return self._leave_group()  # en un álbum en el que se entró: los álbumes
+            if key == _GRID_KEY and self._shown == CenterView.ALBUMS:
+                return self._show_view(CenterView.GRID)
             return key == _MAP_KEY and self._show_view(CenterView.MAP)
         if (watched is self._map_page and self._map_page is not None) or watched in self._map_widgets:
             if self._shown != CenterView.MAP:
@@ -368,7 +435,9 @@ class CenterViewController(QObject):
                 self._leave_single()
             elif view == CenterView.MAP:
                 self._show_view(CenterView.GRID)
-        elif view == CenterView.GRID:
+            elif view == CenterView.GRID:
+                self._leave_group()
+        elif view in (CenterView.GRID, CenterView.ALBUMS):
             self._open_from_grid()
         elif view == CenterView.MAP:
             self.open_single()
@@ -485,14 +554,21 @@ class CenterViewController(QObject):
         before, self._id_before_reset = self._id_before_reset, None
         selected, self._ids_selected_before_reset = self._ids_selected_before_reset, []
         row_before, self._row_before_reset = self._row_before_reset, None
+        select_id, self._select_id_after_reset = self._select_id_after_reset, None
         count = self._model.rowCount()
         if count == 0:
             return  # nada que seleccionar (la vista dirá «No hay archivos»)
+        # De vuelta a los álbumes: la tarjeta del álbum del que se sale
+        row = self._row_of_id(select_id)
+        if row is not None:
+            self._select_only(row)
+            return
         if select_first:
             self._select_only(0)  # recién elegido en una barra (el módulo lo apunta)
             return
         if same_source and self._shown != CenterView.SINGLE:
-            rows = [row for row in map(self._row_of_id, selected) if row is not None]
+            # (sin repetir: varias canciones seleccionadas son una sola tarjeta de álbum)
+            rows = sorted({row for row in map(self._row_of_id, selected) if row is not None})
             if rows:
                 current = self._row_of_id(before)
                 self._select_rows(rows, current if current is not None else min(rows))

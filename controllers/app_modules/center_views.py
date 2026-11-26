@@ -9,9 +9,16 @@ recuerda por módulo y por catálogo ('ModuleViewState'); la pone en pantalla el
     SINGLE  vista individual: un archivo      (todos los módulos, de momento)
     LIST    lista con columnas                (llegará con el módulo Audio)
     MAP     mapa                              (el Catálogo, desde el 13/11/2026; docs/MOD_TRACKS.md)
+    ALBUMS  álbumes: la cuadrícula, una       (Música, desde MUS 5.3; docs/MOD_MUSICA.md §7.5)
+            tarjeta por álbum
+
+Cada vista dice cómo se agrupan las filas de la cuadrícula ('grouping'): la de álbumes, una
+por álbum ('core/catalog/album_rows.py'); las demás, una por archivo (None).
 
 Decidido por el autor el 08/11/2026 (ver docs/DECISIONES.md, «Vistas del centro»).
 
+1.4.0 'ALBUMS', la vista de álbumes de Música, y 'CenterView.grouping' (MUS 5.3; acordado
+      con el autor el 26/11/2026: «Álbumes», con un disco por icono y sin atajo).
 1.3.0 'MapOptions.show_profile' (la banda del perfil, en Tracks) y
       'MapOptions.filmstrip_starts_visible' (la tira, recordada por módulo; en Tracks empieza
       oculta). Docs/MOD_TRACKS.md, paso 5.3a.
@@ -23,12 +30,15 @@ Prueba rápida (desde la raíz del proyecto):
     python -m controllers.app_modules.center_views
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["CenterView", "MapOptions"]
 
 # Librerías estándar
 from dataclasses import dataclass
 from enum import Enum
+
+# Módulos del proyecto
+from core.catalog.album_rows import ALBUM_GROUPING
 
 
 class CenterView(Enum):
@@ -44,6 +54,7 @@ class CenterView(Enum):
     SINGLE = "single"
     LIST = "list"
     MAP = "map"
+    ALBUMS = "albums"
 
     @property
     def tooltip(self) -> str:
@@ -52,6 +63,11 @@ class CenterView(Enum):
     @property
     def icon_name(self) -> str:
         return _ICON_NAMES[self]
+
+    @property
+    def grouping(self) -> str | None:
+        """Cómo agrupa las filas de la cuadrícula (None: una por archivo)."""
+        return _GROUPINGS.get(self)
 
     @classmethod
     def from_key(cls, key: object) -> "CenterView | None":
@@ -88,6 +104,7 @@ _TOOLTIPS: dict[CenterView, str] = {
     CenterView.SINGLE: "Vista individual (Intro)",
     CenterView.LIST: "Lista",
     CenterView.MAP: "Mapa (M)",
+    CenterView.ALBUMS: "Álbumes",
 }
 
 # Iconos (constantes de AppIcons); la lista aún no tiene
@@ -96,13 +113,18 @@ _ICON_NAMES: dict[CenterView, str] = {
     CenterView.SINGLE: "VIEW_FULL",
     CenterView.LIST: "",
     CenterView.MAP: "VIEW_MAP",
+    CenterView.ALBUMS: "VIEW_ALBUMS",
 }
+
+# Las vistas que agrupan las filas de la cuadrícula (las demás, una por archivo)
+_GROUPINGS: dict[CenterView, str] = {CenterView.ALBUMS: ALBUM_GROUPING}
 
 
 if __name__ == "__main__":
     # Autoprueba (sin Qt).
     # Ejecutar desde la raíz del proyecto:  python -m controllers.app_modules.center_views
-    assert {view.value for view in CenterView} == {"grid", "single", "list", "map"}
+    assert {view.value for view in CenterView} == {"grid", "single", "list", "map", "albums"}
+    assert CenterView.ALBUMS.grouping == ALBUM_GROUPING and CenterView.GRID.grouping is None
     assert all(view.tooltip for view in CenterView)
     assert CenterView.GRID.tooltip == "Cuadrícula (G)"
     assert CenterView.from_key("single") is CenterView.SINGLE

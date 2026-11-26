@@ -72,6 +72,7 @@ python -m core.catalog.smart_fields
 python -m core.catalog.smart_rules
 python -m core.catalog.storage_locations
 python -m core.catalog.system_collections
+python -m core.catalog.album_rows                             (vista de álbumes: agrupar, orden, disco y pista, carátula, valores comunes, el origen de cada álbum cuenta lo mismo, filtro)
 python -m core.catalog.music_browse                            (Artistas y Años: agrupar, ordenar, recopilatorios; cada fila muestra lo que cuenta)
 python -m core.catalog.timeline                                (cada fila muestra lo que cuenta)
 python -m core.catalog.user_collections
@@ -195,6 +196,7 @@ python -m ui_helpers.inspector.value_parsing                   (lo escrito en la
 python -m ui_helpers.sidebars.sections.music_sections          (textos de los álbumes, filas, orígenes, textos emergentes y lo desplegado; sin ventana)
 python -m ui_helpers.sidebars.sections.date_section            (textos de las fechas, árbol, orígenes y lo desplegado; sin ventana)
 python -m ui_helpers.sidebars.folder_drag                      (arrastrar una carpeta: qué filas se pueden arrastrar, desplegar al pararse encima, desplazar la barra cerca del borde; con la plataforma offscreen, sin ventana)
+python -m ui_helpers.models.album_cards                       (los textos de la tarjeta de un álbum)
 python -m ui_helpers.models.full_image_loader                  (caché temporal: la mayor miniatura, sin miniatura, memoria; sin ventana)
 python -m ui_helpers.models.original_image_loader              (el original entero y derecho en RGB32, solo el último pedido, cancelar, archivo que no existe; sin ventana)
 python -m ui_helpers.widgets.attribute_filter_row              (clics en marcas, estrellas, colores, selección rápida y tipos; operador; dibujo; sin ventana)

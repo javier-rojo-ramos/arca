@@ -1,7 +1,7 @@
 # Arca Media — Módulo Música: arquitectura y plan
 
 > Documento del módulo Música (en el código y en la interfaz, el módulo **Audio**: `AudioModule`, biblioteca `audio`). Tiene dos partes: **I, arquitectura** (cómo está hecho y cómo encaja con el resto) y **II, planificación** (fases y pasos, con los códigos `MUS` de [PENDIENTE.md](PENDIENTE.md)).
-> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`; hechos `MUS 2.1` (la sección «Audio» del inspector, de solo lectura) y `MUS 4.1` («Artistas» y «Años» en la barra, en lugar de «Fechas»), `MUS 2.2` (el orden: «Artista», «Álbum», «Año» y «Título»), `MUS 2.3` (los campos de audio en las colecciones inteligentes y en la barra de filtros) y `MUS 3.1` (la carátula como miniatura). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
+> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`; hechos `MUS 2.1` (la sección «Audio» del inspector, de solo lectura) y `MUS 4.1` («Artistas» y «Años» en la barra, en lugar de «Fechas»), `MUS 2.2` (el orden: «Artista», «Álbum», «Año» y «Título»), `MUS 2.3` (los campos de audio en las colecciones inteligentes y en la barra de filtros) `MUS 3.1` (la carátula como miniatura) y `MUS 5.3` (la vista de álbumes). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
 > Índice: [INDEX.md](INDEX.md). Decisiones: [DECISIONES.md](DECISIONES.md) (16/11/2026).
 
 ## Resumen
@@ -121,7 +121,7 @@ Hecha en `MUS 1.1` (`core/audio/tag_map.py`, con las claves que solo se leen: «
 
 ### 3.4 Listas
 
-Un archivo puede traer varios géneros o varios artistas. En la primera versión se guardan **como un texto**, unidos con un separador fijo (`«; »`: decidido con el autor el 25/11/2026; ver abajo); al escribir un campo editado, se separa de nuevo en los formatos que admiten varios valores. `MUS 1.4` cuenta cuántas canciones reales traen varios valores: si la navegación por géneros o artistas los necesita por separado, se pasan a tablas propias, como las palabras clave (decisión del 14/11/2026).
+Un archivo puede traer varios géneros o varios artistas. En la primera versión se guardan **como un texto**, unidos con un separador fijo (`«; »`: decidido con el autor el 25/11/2026; ver abajo); al escribir un campo editado, se separa de nuevo en los formatos que admiten varios valores. `MUS 1.4` cuenta cuántas canciones reales traen varios valores: si la navegación por géneros o artistas los necesita por separado, se pasan a tablas propias, como las palabras clave (decisión del 14/11/2026). **Hecho en `MUS 1.4`**: en las 4 876 canciones del autor (26/11/2026; 4 558 MP3, 291 M4A, 14 FLAC y 13 Ogg), ningún género ni artista trae varios valores (ni «; », «/», «feat.» ni comas; 26 géneros distintos) y solo cinco artistas llevan «&», que son nombres de grupo; ninguna tiene artista del álbum, compositor ni comentario. Etiquetas: ID3v2.3 (4 558), MP4 (291) y Vorbis (27). Se quedan **como texto** (M1, cerrada el 26/11/2026); si un día llegan colecciones con varios valores, se vuelve a contar.
 
 **El separador, «; » y no la coma de las palabras clave**: en una palabra clave la coma está prohibida, pero en un artista no («Earth, Wind & Fire», «Crosby, Stills, Nash & Young»); si el escritor (`MUS 6`) separase por comas, un artista así acabaría como varios. El punto y coma casi no aparece en un nombre. Las palabras clave siguen con la coma (como Lightroom). En las 75 canciones del autor (25/11/2026) ninguna trae varios valores ni comas en esos campos.
 
@@ -154,7 +154,7 @@ Un archivo puede traer varios géneros o varios artistas. En la primera versión
 
 - **Como miniatura** (hecho en `MUS 3.1`, 26/11/2026): la carátula incrustada es el origen (`AudioCoverSource`, con mutagen: la misma imagen cuyos datos guarda el catálogo, por `tag_reader.cover_index`), con su proporción (casi siempre cuadrada) en el hueco cuadrado del marcador, la escalera de tamaños de siempre y sin ampliar por encima del original. Sin carátula, el marcador: **no es un error** (no sale en la lista de errores; se vuelve a mirar si el archivo cambia, p. ej. al añadirle una en `MUS 9`). La vista individual, sin 1:1 (el zoom sigue siendo de las fotos). De reserva, si se decide (M2), `folder.jpg` / `cover.jpg` de la carpeta.
   - **En la caché, como las fotos** (acordado con el autor el 25/11/2026): el motor de miniaturas extrae la carátula de cada canción y guarda sus tamaños en `cache/audio/...`, por el `id` de la canción, igual que `cache/photo/...`. La cuadrícula, la vista individual y el inspector la leen de la caché, nunca del archivo, sin nada nuevo en ellos; al cambiar la carátula, su miniatura se regenera como la de una foto editada. La vista individual, del tamaño mayor (a 1:1, el original, del archivo); el inspector, del de 480 (a 354 px de ancho basta).
-  - **La carátula del álbum**: no hay caché propia. La futura vista de álbumes (`MUS 5.3`) o la tarjeta agrupada (`GEN 17`) elige la carátula que comparten sus canciones (la misma `cover_hash`) y usa la miniatura de una de ellas. La huella sirve también para encontrar álbumes con carátulas distintas.
+  - **La carátula del álbum**: no hay caché propia. La tarjeta de un álbum (la vista de álbumes, `MUS 5.3`) usa la miniatura de su primera canción que la tiene. La huella (`cover_hash`) servirá para encontrar álbumes con carátulas distintas.
   - **Lo que cuesta** (medido en `MUS 3.1`): con la música del autor (4 876 canciones con 287 carátulas distintas), unos 220–270 KB por canción con los cuatro tamaños: entre 1,1 y 1,3 GB en total; sin el de 2560, unos 730 MB; con una sola copia por carátula, unos 76 MB. El autor eligió los cuatro tamaños, como las fotos, por si más adelante se amplía la carátula a 1:1 (26/11/2026). Si el espacio llega a importar, una sola copia por huella (otra organización de la caché, el trabajo de miniaturas, la cuadrícula y el borrado): `MUS 3.3`, opcional.
 - **En el inspector** (`MUS 9`): la carátula en grande; cambiarla arrastrando una imagen, con «Elegir…», pegándola o desde `folder.jpg`, para una canción, para la selección o para el álbum; extraerla a un archivo; quitarla.
   - **Cómo se ve** (acordado con el autor el 25/11/2026, tras ver una muestra): la imagen a todo el ancho, con el mismo margen a la izquierda y a la derecha que el resto de filas (8 px), y debajo **dos filas**: «Tipo» (un desplegable) e «Imagen» (formato, tamaño y peso: «JPEG · 600 × 600 · 25 KB», con un botón a la derecha para hacerla cuadrada: M9). Si «Imagen» resulta larga, se divide en dos filas.
@@ -165,7 +165,7 @@ Un archivo puede traer varios géneros o varios artistas. En la primera versión
 ## 7. Interfaz
 
 - **Barra izquierda** (`MUS 4`): «Biblioteca», «Artistas», «Carpetas», «Años» y «Géneros»; sin «Fechas». Cómo es, en §7.2.
-- **Centro**: la cuadrícula (con la carátula) y la **vista de lista** (`GEN 18`, común a todos los módulos; lo de Música, en `MUS 5`), estilo Mp3tag: columnas a elegir, orden por columna y selección múltiple, compartida con la cuadrícula. Opcional: vista de álbumes.
+- **Centro**: la cuadrícula (con la carátula) y la **vista de lista** (`GEN 18`, común a todos los módulos; lo de Música, en `MUS 5`), estilo Mp3tag: columnas a elegir, orden por columna y selección múltiple, compartida con la cuadrícula. La **vista de álbumes** (desde `MUS 5.3`): §7.5.
 - **Inspector**: sección «Audio» (`MUS 2`), primero de solo lectura; con `MUS 7`, editable, también con varias canciones («Varios» y el aviso «Edición múltiple», como en «Metadatos»). Palabras clave y clasificación, como en todos los módulos. Cómo es, en §7.1.
 - **Ventanas, solo para lo pesado o por lotes** (plan de interfaz): las herramientas de `MUS 8`.
 
@@ -243,6 +243,25 @@ Hecho en `MUS 2.2` (26/11/2026; acordado con el autor). Campos del desplegable d
 - **Sin «Hora de captura»** (en una canción es el año: «Año») **ni «Pista» suelta** (con varios álbumes juntaría todas las pistas 1; dentro de un álbum ya la ordena «Álbum»).
 - **Sin cambios automáticos** al elegir una fila de la barra: con «Artista» o «Álbum», un álbum sale por disco y pista.
 
+### 7.5 La vista de álbumes
+
+Hecha en `MUS 5.3` (26/11/2026; idea del autor, acordada con él; el porqué, en [DECISIONES.md](DECISIONES.md)). Es la primera tarjeta agrupada (`GEN 17`).
+
+```
+┌────────────────┐
+│    carátula    │
+│   13 canciones │  ← en lugar de la duración
+└────────────────┘
+  Destrangis        ← el álbum, sin extensión
+```
+
+- **Una vista más**: el botón «Álbumes» (un disco), entre «Cuadrícula» y «Vista individual»; Música empieza en la cuadrícula. Es la misma cuadrícula, con su deslizador y las carátulas de la caché: una tarjeta por álbum (`core/catalog/album_rows.py`).
+- **Qué álbumes**: los de lo elegido en la barra, con el filtro; cada uno cuenta solo sus canciones que lo cumplen. Agrupados como «Artistas» (artista del álbum o, sin él, el artista, y álbum; sin mayúsculas ni acentos); las canciones sin álbum, un «Sin álbum» por artista. En el orden del desplegable (cada álbum, donde va su primera canción).
+- **La tarjeta**: la carátula de su primera canción que la tiene; el nombre del álbum; «13 canciones» en la insignia; al pasar el ratón, «Estopa · 2001 · 13 canciones · 52:10» (`ui_helpers/models/album_cards.py`). Las estrellas, la marca, el color y el círculo, el valor común de sus canciones (o nada, si difieren).
+- **Un álbum son sus canciones**: seleccionarlo es seleccionarlas (el inspector, como con las canciones seleccionadas); lo que se haga, a todas: clasificar, palabras clave, arrastrar a una colección, eliminar.
+- **Entrar y volver**: doble clic, Intro o «adelante», sus canciones en la cuadrícula (por disco y pista, con su fila elegida en «Artistas»); Esc, «atrás» o el botón «Álbumes», de vuelta, con ese álbum seleccionado. El filtro se queda en los dos sentidos. G, desde los álbumes, la cuadrícula con todas las canciones; la vista individual, la primera canción del álbum (Esc vuelve a los álbumes).
+- **Entrar** muestra el álbum entero de su fila de «Artistas»: si se veía una carpeta, puede tener más canciones de las que contaba la tarjeta (las de otras carpetas).
+
 ### 7.4 Filtros y colecciones inteligentes
 
 Hecho en `MUS 2.3` (26/11/2026; acordado con el autor; el porqué, en [DECISIONES.md](DECISIONES.md)). El grupo «Audio» de las colecciones inteligentes (`core/catalog/smart_fields.py`); los marcados con *, también columnas de «Metadatos» de la barra de filtros:
@@ -281,7 +300,7 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 | ~~**MUS 1.1** Base de audio~~ (hecho el 25/11/2026) | mutagen instalada (el autor); la tabla campo ↔ etiqueta y `read_audio(path)` (campos, datos técnicos, tipo de etiqueta e imágenes), sin BD; los tipos de imagen | `core/audio/` (`tag_map.py`, `tag_reader.py`, `picture_types.py`); `core/metadata/audio/inspect_cli.py` | Autoprueba con un MP3 y un FLAC mínimos; `inspect_cli` con las 75 canciones del autor, comparado con Mp3tag |
 | ~~**MUS 1.2** Tabla de detalles~~ (hecho el 25/11/2026) | `audio_details` (la siguiente migración libre) | `catalog_schema.py`; [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md), [INDEX.md](INDEX.md) | Un catálogo existente pasa solo al esquema siguiente (hoy, v7) |
 | ~~**MUS 1.3** Extractor~~ (hecho el 25/11/2026) | `AudioExtractor` con `AUDIO_FIELDS_VERSION`, registrado | Nuevo: `core/metadata/audio/`; `registry.py` | Al abrir el catálogo, las canciones se leen solas; título, artista y duración, en el catálogo |
-| **MUS 1.4** Recuento | Cuántas canciones traen varios géneros o artistas, y qué tipos de etiqueta hay | Un guion de solo lectura | Decide §3.4 |
+| ~~**MUS 1.4** Recuento~~ (hecho el 26/11/2026) | Cuántas canciones traen varios géneros o artistas, y qué tipos de etiqueta hay | Un guion de solo lectura | Decide §3.4 |
 
 ### Fase MUS 2 — Verlas
 
@@ -319,7 +338,7 @@ Estilo Mp3tag. Es una vista más del centro, pensada para servir a otros módulo
 |---|---|---|
 | **MUS 5.1** La lista | Una fila por canción con columnas fijas; selección compartida con la cuadrícula; atajos de clasificación | Se pasa de la cuadrícula a la lista con lo mismo seleccionado |
 | **MUS 5.2** Columnas | Elegirlas, moverlas y cambiar su ancho; ordenar por columna; recordado por módulo | — |
-| **MUS 5.3** Vista de álbumes (opcional) | Los álbumes con su carátula: una tarjeta por álbum, como la cuadrícula; con doble clic, la cuadrícula con sus canciones (idea del autor, 26/11/2026; mejor después de `MUS 3`, las carátulas, y junto con la tarjeta agrupada común, `GEN 17`) | — |
+| ~~**MUS 5.3** Vista de álbumes~~ (hecho el 26/11/2026) | Los álbumes con su carátula: una tarjeta por álbum; con doble clic, sus canciones (idea del autor; §7.5) | — |
 
 ### Fase MUS 6 — Escribir en los archivos
 
@@ -363,7 +382,7 @@ Descargar etiquetas y carátulas (MusicBrainz y Cover Art Archive, sin clave). L
 
 | | Para | Qué |
 |---|---|---|
-| **M1** | `MUS 1.4` | Las listas: texto o tablas propias (según el recuento) |
+| ~~**M1**~~ | `MUS 1.4` | Decidida el 26/11/2026: como texto (ningún valor múltiple en las 4 876 canciones del autor; §3.4) |
 | **M2** | `MUS 3.2` | `folder.jpg` / `cover.jpg` como carátula de reserva |
 | ~~**M3**~~ | `MUS 6.1` | Decidida el 16/11/2026: archivo temporal, comprobación y sustitución (§5) |
 | **M4** | `MUS 9.2` | Tamaño máximo de la carátula (1000–1400 px) |

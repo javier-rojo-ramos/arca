@@ -71,6 +71,9 @@ las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
 seleccionada, solo cambia ella. La chincheta no cambia nada: solo avisa. Con Ctrl, Alt o
 Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
 
+2.23.0 La tarjeta de un grupo (un álbum de la vista de álbumes; 'ROLE_GROUP_LABEL'): su
+       nombre sin extensión, su insignia («13 canciones») en lugar de la duración y su
+       texto emergente (MUS 5.3).
 2.22.0 Las canciones tienen miniatura (su carátula, MUS 3.1): mientras se lee de la caché,
        sin marcador, como las fotos; sin carátula, el marcador.
 2.21.0 Las estrellas, dibujadas por 'card_marks' (GEN 21.3): sin la fuente Arial 9 pt.
@@ -117,7 +120,7 @@ Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.22.0"
+__version__ = "2.23.0"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -141,6 +144,7 @@ from ui_helpers.models.media_roles import (
     ROLE_DURATION,
     ROLE_FLAG,
     ROLE_FLAGGED,
+    ROLE_GROUP_LABEL,
     ROLE_HAS_LOCATION,
     ROLE_LIBRARY,
     ROLE_MEDIA_TYPE,
@@ -249,9 +253,16 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         return self.item_size
 
     def helpEvent(self, event, view, option, index) -> bool:
-        """Sin textos emergentes, salvo en la tarjeta compacta: su nombre (no se ve en ella)."""
-        if self.compact and index.isValid():
+        """Sin textos emergentes, salvo en la tarjeta compacta (su nombre: no se ve en ella)
+        y en la de un grupo (un álbum: su artista, sus años, sus canciones y su duración)."""
+        if not index.isValid():
+            return False
+        if self.compact:
             QToolTip.showText(event.globalPos(), index.data(Qt.ItemDataRole.DisplayRole) or "", view)
+            return True
+        tooltip = index.data(Qt.ItemDataRole.ToolTipRole)
+        if index.data(ROLE_GROUP_LABEL) and tooltip:
+            QToolTip.showText(event.globalPos(), tooltip, view)
             return True
         return False
 
@@ -532,9 +543,13 @@ class ThumbnailsDelegate(QStyledItemDelegate):
 
         # Duración de vídeos y audio (encima de los velos, abajo a la derecha; si hay
         # chincheta, a su izquierda)
+        # (la de un grupo, un álbum: cuántos archivos tiene, «13 canciones»)
+        group_label = index.data(ROLE_GROUP_LABEL)
         duration = index.data(ROLE_DURATION)
-        if duration and index.data(ROLE_MEDIA_TYPE) in (_VIDEO, _AUDIO):
-            self._draw_duration(painter, target, duration, right_inset=pin_width)
+        if group_label:
+            self._draw_badge(painter, target, group_label, right_inset=pin_width)
+        elif duration and index.data(ROLE_MEDIA_TYPE) in (_VIDEO, _AUDIO):
+            self._draw_badge(painter, target, self._format_duration(duration), right_inset=pin_width)
 
         if self.compact:
             painter.restore()
@@ -562,8 +577,12 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         text_rect = self._name_rect(rect)
 
         # La extensión va aparte, a la derecha de la misma línea y alineada con el borde
-        # derecho del recuadro de la marca; el nombre ocupa el resto (sin extensión)
-        base_name, extension = self._split_name(text)
+        # derecho del recuadro de la marca; el nombre ocupa el resto (sin extensión). Un
+        # grupo (un álbum) no tiene extensión: «Vol. 2» no es un nombre y su extensión
+        if group_label:
+            base_name, extension = text, ""
+        else:
+            base_name, extension = self._split_name(text)
         metrics = painter.fontMetrics()
         ext_width = metrics.horizontalAdvance(extension) if extension else 0
         ext_right = flag_rect.left() + flag_rect.width()  # borde derecho (exclusivo) del recuadro
@@ -608,12 +627,12 @@ class ThumbnailsDelegate(QStyledItemDelegate):
         )
         card_glyphs.draw_availability_badge(painter, badge, availability)
 
-    def _draw_duration(
-        self, painter: QPainter, image_rect: QRect, seconds: float, *, right_inset: int = 0
+    def _draw_badge(
+        self, painter: QPainter, image_rect: QRect, text: str, *, right_inset: int = 0
     ) -> None:
-        """Insignia con la duración en la esquina inferior derecha de la imagen (con
-        right_inset, esos px más a la izquierda: el sitio de la chincheta)."""
-        text = self._format_duration(seconds)
+        """Insignia en la esquina inferior derecha de la imagen: la duración, o lo que lleva
+        un grupo («13 canciones»). Con right_inset, esos px más a la izquierda: el sitio de
+        la chincheta."""
         painter.save()
         painter.setFont(self._duration_font)
         width = painter.fontMetrics().horizontalAdvance(text) + 2 * self.DURATION_PAD_X

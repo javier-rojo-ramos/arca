@@ -19,10 +19,20 @@ Sustituye al 'QStandardItemModel' del prototipo. Qué hace:
       la base de datos (el modelo no toca la base de datos para escribir).
     - Permite ARRASTRAR tarjetas (p. ej. a una colección de la barra lateral): empaqueta
       sus 'id' con el formato de 'media_mime.py'. Solo se copian: nunca se mueven.
+    - AGRUPA, si se le pide ('set_grouping'): la vista de álbumes de Música carga una fila
+      por álbum ('core/catalog/album_rows.py'; MUS 5.3, la tarjeta agrupada GEN 17). Una
+      fila agrupada representa a sus archivos ('group_ids'): 'media_ids' los da todos (así
+      la selección, el inspector, arrastrar y eliminar van a todos), 'set_field' los cambia
+      todos y 'row_of_id' encuentra la fila de cualquiera de ellos. Su miniatura es la de
+      su 'id' (la canción de la carátula); su nombre, su insignia y su texto emergente, los
+      de 'album_cards.py' ('ROLE_GROUP_LABEL', 'ToolTipRole').
 
 Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
 '_LoadTask.run', que solo lee un archivo y devuelve una QImage por señal.
 
+1.18.0 Filas agrupadas ('set_grouping', 'grouping', 'group_source'; 'set_view' con
+       'grouping'): la vista de álbumes de Música, una fila por álbum que representa a sus
+       canciones (MUS 5.3).
 1.17.1 Las miniaturas se leen con 'ThumbnailCache.read', que reintenta si el archivo está
        bloqueado (en Windows, al coincidir con su sustitución al regenerarla).
 1.17.0 'ROLE_TRACK_OUTLINE': el recorrido de un track, encajado para dibujarlo en su
@@ -59,7 +69,7 @@ Reglas de hilos: todo lo de este módulo se usa desde el hilo principal, salvo
       lateral del catálogo decide qué filas se cargan.
 """
 
-__version__ = "1.17.1"
+__version__ = "1.18.0"
 __all__ = ["QUICK_SELECTION_FIELD", "MediaGridModel"]
 
 # Librerías estándar
@@ -82,6 +92,7 @@ from qtpy.QtCore import (
 from qtpy.QtGui import QImage, QPixmap
 
 # Módulos del proyecto
+from core.catalog.album_rows import ALBUM_GROUPING, fetch_album_rows
 from core.catalog.color_labels import is_valid_color_label, normalize_color_label
 from core.catalog.grid_filter import NO_FILTER, GridFilter
 from core.catalog.grid_orders import NAME_ORDER, GridOrder
@@ -99,6 +110,7 @@ from core.catalog.smart_rules import RuleSet
 from core.thumbnails.cache import ThumbnailCache
 from core.thumbnails.sizes import ThumbnailSize, smallest_covering
 from ui_helpers.helpers.track_outline import outline_from_overview
+from ui_helpers.models import album_cards
 from ui_helpers.models.media_mime import MEDIA_IDS_MIME, encode_media_ids
 from ui_helpers.models.media_roles import (
     ROLE_AVAILABILITY,
@@ -106,6 +118,7 @@ from ui_helpers.models.media_roles import (
     ROLE_DURATION,
     ROLE_FLAG,
     ROLE_FLAGGED,
+    ROLE_GROUP_LABEL,
     ROLE_HAS_LOCATION,
     ROLE_LIBRARY,
     ROLE_MEDIA_ID,
@@ -118,6 +131,17 @@ from ui_helpers.models.media_roles import (
 
 _DISPLAY = Qt.ItemDataRole.DisplayRole
 _DECORATION = Qt.ItemDataRole.DecorationRole
+_TOOLTIP = Qt.ItemDataRole.ToolTipRole
+
+# Las filas de cada agrupación (None: una por archivo, la cuadrícula de siempre). Las de un
+# grupo llevan 'group_ids' (los archivos que representan) y 'group_source' (lo que se ve al
+# entrar en él)
+_ROW_FETCHERS: dict[str | None, Callable[..., list[dict[str, Any]]]] = {
+    None: fetch_grid_rows,
+    ALBUM_GROUPING: fetch_album_rows,
+}
+# Para 'set_view': la agrupación no cambia
+_KEEP = object()
 
 # Roles de usuario que cambian cuando se modifica cada campo (para 'dataChanged')
 _ROLES_OF_FIELD: dict[str, list[int]] = {
@@ -225,6 +249,8 @@ class MediaGridModel(QAbstractListModel):
         # lo que va a la consulta
         self._filter: GridFilter = NO_FILTER
         self._filter_rules: tuple[RuleSet, ...] = ()
+        # Cómo se agrupan las filas (None: una por archivo; 'album': una por álbum)
+        self._grouping: str | None = None
         self._wanted: ThumbnailSize = ThumbnailSize.THUMBNAIL
 
         # Las lecturas de una generación anterior (otra carga o un cierre) se descartan
@@ -262,6 +288,7 @@ class MediaGridModel(QAbstractListModel):
         self._no_thumb.clear()
         self._source = ALL_ITEMS  # el próximo catálogo empieza mostrando todo
         self._filter, self._filter_rules = NO_FILTER, ()  # y sin filtro
+        self._grouping = None  # y sin agrupar (la pone la vista del módulo al abrirlo)
 
     def shutdown(self) -> None:
         """Para las lecturas y espera a las que están en curso (al cerrar la aplicación)."""
@@ -292,29 +319,66 @@ class MediaGridModel(QAbstractListModel):
             self.reload()
 
     def set_view(
-        self, source: GridSource, order: GridOrder, grid_filter: GridFilter | None = None
+        self,
+        source: GridSource,
+        order: GridOrder,
+        grid_filter: GridFilter | None = None,
+        *,
+        grouping: str | None | object = _KEEP,
     ) -> None:
-        """Cambia a la vez QUÉ se muestra, en qué orden y con qué filtro, con una sola
-        recarga.
+        """Cambia a la vez QUÉ se muestra, en qué orden, con qué filtro y cómo se agrupa, con
+        una sola recarga.
 
-        Lo usa el 'ModuleHost' al cambiar de módulo (cada módulo tiene su origen, su orden
-        y su filtro). Si no cambia nada de lo que va a la consulta, no recarga.
+        Lo usa el 'ModuleHost' al cambiar de módulo (cada módulo tiene su origen, su orden,
+        su filtro y su vista). Si no cambia nada de lo que va a la consulta, no recarga.
 
         Args:
             source: Origen.
             order: Orden.
             grid_filter: Filtro de la barra de filtros (None = se queda el que hay).
+            grouping: La agrupación de la vista ('set_grouping'; sin darla, la que hay).
         """
         rules = self._filter_rules
         if grid_filter is not None:
             self._filter = grid_filter
             rules = grid_filter.rule_sets()
-        if source == self._source and order == self._order and rules == self._filter_rules:
+        new_grouping = self._grouping if grouping is _KEEP else grouping
+        if (
+            source == self._source
+            and order == self._order
+            and rules == self._filter_rules
+            and new_grouping == self._grouping
+        ):
             return
         self._source = source
         self._order = order
         self._filter_rules = rules
+        self._grouping = new_grouping
         self.reload()
+
+    @property
+    def grouping(self) -> str | None:
+        """Cómo se agrupan las filas ahora (None: una por archivo)."""
+        return self._grouping
+
+    def set_grouping(self, grouping: str | None, *, reload: bool = True) -> None:
+        """Agrupa las filas (ALBUM_GROUPING: una por álbum) o deja de agruparlas (None) y
+        vuelve a cargar. Si no cambia, no hace nada.
+
+        Args:
+            grouping: La agrupación (una clave de '_ROW_FETCHERS').
+            reload: False = solo la apunta, sin cargar (como en 'set_order').
+
+        Raises:
+            ValueError: Si la agrupación no se conoce.
+        """
+        if grouping not in _ROW_FETCHERS:
+            raise ValueError(f"Agrupación desconocida: {grouping!r}")
+        if grouping == self._grouping:
+            return
+        self._grouping = grouping
+        if reload:
+            self.reload()
 
     @property
     def source(self) -> GridSource:
@@ -367,9 +431,10 @@ class MediaGridModel(QAbstractListModel):
             return
         self._query_token += 1
         token = self._query_token
-        # 'fetch_grid_rows(conn, order, source, filters)': la conexión la pone el gestor
+        # 'fetch_grid_rows(conn, order, source, filters)' (o la de su agrupación, con los
+        # mismos argumentos): la conexión la pone el gestor
         self._db.execute_async(
-            fetch_grid_rows,
+            _ROW_FETCHERS[self._grouping],
             self._order,
             self._source,
             self._filter_rules,
@@ -416,7 +481,12 @@ class MediaGridModel(QAbstractListModel):
     def _set_rows(self, rows: list[dict[str, Any]]) -> None:
         self.beginResetModel()
         self._rows = rows
-        self._row_of_id = {row["id"]: i for i, row in enumerate(rows)}
+        # La fila de cada 'id': también la de cada archivo de un grupo (su álbum)
+        self._row_of_id = {}
+        for i, row in enumerate(rows):
+            for media_id in row.get("group_ids", ()):
+                self._row_of_id[media_id] = i
+            self._row_of_id[row["id"]] = i
         self.endResetModel()
 
     # -------------------------------------------------------------------------
@@ -506,11 +576,13 @@ class MediaGridModel(QAbstractListModel):
         rows: list[int] = []
         for media_id in media_ids:
             row = self._row_of_id.get(media_id)
-            if row is None:
+            if row is None or row in rows:
                 continue
-            self._no_thumb.discard(media_id)
-            if media_id in self._pixmaps:
-                self._pixmaps[media_id] = (self._pixmaps[media_id][0], 0)  # obsoleta
+            # La miniatura de una fila es la de su 'id' (en un álbum, la de la carátula)
+            key = self._rows[row]["id"]
+            self._no_thumb.discard(key)
+            if key in self._pixmaps:
+                self._pixmaps[key] = (self._pixmaps[key][0], 0)  # obsoleta
             rows.append(row)
         if len(rows) > 200:
             self._notify_all([_DECORATION])
@@ -593,8 +665,13 @@ class MediaGridModel(QAbstractListModel):
         if not index.isValid() or not 0 <= index.row() < len(self._rows):
             return None
         row = self._rows[index.row()]
+        grouped = "group_ids" in row
         if role == _DISPLAY:
-            return row["file_name"]
+            return album_cards.card_name(row) if grouped else row["file_name"]
+        if role == ROLE_GROUP_LABEL:
+            return album_cards.card_label(row) if grouped else None
+        if role == _TOOLTIP:
+            return album_cards.card_tooltip(row) if grouped else None
         if role == _DECORATION:
             return self._thumbnail_for(row)
         if role == ROLE_RATING:
@@ -720,9 +797,9 @@ class MediaGridModel(QAbstractListModel):
                 continue
             row = self._rows[row_number]
             if row.get(field) == value:
-                continue
+                continue  # en un álbum: sus canciones ya lo tenían todas (es su valor común)
             row[field] = value
-            changed_ids.append(row["id"])
+            changed_ids.extend(row.get("group_ids") or (row["id"],))  # un álbum: todas
             self._notify_row(row_number, _ROLES_OF_FIELD[field])
 
         if changed_ids:
@@ -760,8 +837,21 @@ class MediaGridModel(QAbstractListModel):
         return self._row_of_id.get(media_id)
 
     def media_ids(self, rows: Iterable[int]) -> list[int]:
-        """'id' de los elementos de esas filas."""
-        return [self._rows[r]["id"] for r in rows if 0 <= r < len(self._rows)]
+        """'id' de los elementos de esas filas: los de todos sus archivos en una fila
+        agrupada (un álbum: sus canciones, por disco y pista)."""
+        ids: list[int] = []
+        for r in rows:
+            if 0 <= r < len(self._rows):
+                row = self._rows[r]
+                ids.extend(row.get("group_ids") or (row["id"],))
+        return ids
+
+    def group_source(self, row: int) -> GridSource | None:
+        """Lo que muestra la cuadrícula al entrar en el grupo de esa fila (un álbum: su fila
+        de «Artistas»); None si la fila no es de un grupo."""
+        if not 0 <= row < len(self._rows):
+            return None
+        return self._rows[row].get("group_source")
 
     def field_values(self, field: str, rows: Iterable[int]) -> list[Any]:
         """Valor de un campo ('rating', 'flag', 'color_label', 'in_quick_selection') en esas filas."""

@@ -172,6 +172,8 @@
 
 - **`thumbnail_status = 2` no siempre es un error** (desde `MUS 3.1`): también es un archivo que no trae imagen (una canción sin carátula), sin fila en `scan_errors`. Los errores de miniatura se cuentan por `scan_errors`, no por el estado. No hay un estado propio porque `CHECK(thumbnail_status IN (0, 1, 2))` es de la migración 1, que no se edita (cambiarlo exigiría rehacer `media_items`). «Regenerar miniaturas con error» vuelve a mirar también las canciones sin carátula (no cambia nada).
 
+- **Una fila agrupada son varios archivos** (la vista de álbumes, desde `MUS 5.3`): `MediaGridModel.media_ids(filas)` da TODAS sus canciones, y todo lo que actúa sobre la selección (eliminar, mover, arrastrar a una colección) va a todas. El `id` de la fila es solo el de la carátula: para saber qué archivos son, `media_ids`, nunca `row['id']` ni `ROLE_MEDIA_ID`. Y al cambiar de vista la agrupación cambia ANTES de que llegue la recarga (`set_grouping(..., reload=False)`): hasta entonces siguen las filas de antes (lo vi en la prueba de punta a punta: un álbum de tres canciones parecía cargado porque había tres álbumes).
+
 ## Módulos, configuración y arranque
 
 - **El tamaño de los iconos de la toolbar de módulos no se cambia en el .ui**: `_configurar_toolbar` pone a todos sus botones `TOOLBAR_ICON_SIZE` (`ui_theme.py`) al arrancar, y pisa el `iconSize` del diseñador (15/11/2026).

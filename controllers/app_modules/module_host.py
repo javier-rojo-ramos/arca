@@ -18,7 +18,11 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - La VISTA del centro de cada módulo (cuadrícula, individual...): el módulo ofrece las
       suyas y su inicial ('views', 'default_view'); la que elige el usuario ('set_view')
       se guarda igual que el orden. 'view_changed' avisa al 'CenterViewController', que
-      pone la página y los botones.
+      pone la página y los botones. La vista dice también cómo se agrupan las filas de la
+      cuadrícula ('CenterView.grouping': la de álbumes, una por álbum): se le pasa al
+      modelo al cambiar de vista o de módulo. 'show_source_in_view' entra en un álbum (su
+      origen, en la cuadrícula) y vuelve a los álbumes, con una sola recarga y sin tocar el
+      filtro.
     - El FILTRO de la barra de filtros de cada módulo ('set_filter', 'active_filter'): se
       guarda igual que el orden y se aplica al cambiar de módulo (origen, orden y filtro
       con una sola recarga). Con el candado ABIERTO, cuando el módulo activo cambia de
@@ -42,6 +46,9 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
     - El módulo activo, guardado en settings.json ('active_module', común a todos los
       catálogos): al arrancar se vuelve a él. Si ya no existe, el primero (el Catálogo).
 
+1.12.0 La agrupación de la vista (la de álbumes de Música, MUS 5.3) va al modelo de la
+       cuadrícula; 'show_source_in_view': un origen en una vista, sin tocar el filtro
+       (entrar en un álbum y volver).
 1.11.0 'folder_renamed': cada módulo pone al día su barra tras renombrar una carpeta
        (CAT 4.3); el activo, si lo elegido estaba dentro, recarga la cuadrícula.
 1.10.0 El archivo actual de cada módulo: 'set_current_media', 'active_current_media'; se
@@ -75,7 +82,7 @@ Lo crea el controlador principal con la lista de 'registry.create_modules' y se 
       muestra lo que tenga elegido el módulo activo (también si no es el Catálogo).
 """
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 __all__ = ["ModuleHost"]
 
 # Librerías estándar
@@ -186,6 +193,9 @@ class ModuleHost(QObject):
         # True mientras las barras restauran su estado: lo que emiten entonces no es un
         # cambio de origen del usuario (no devuelve el filtro a «Ninguno»)
         self._restoring = False
+        # True mientras se entra en un álbum o se vuelve ('show_source_in_view'): el origen
+        # que elige la barra entonces no devuelve el filtro a «Ninguno»
+        self._keeping_filter = False
         # Módulos que, tras restaurar, aún no saben su origen (una colección inteligente
         # del usuario espera sus reglas, que llegan con el árbol): su primer aviso
         # también es parte de la restauración
@@ -312,6 +322,36 @@ class ModuleHost(QObject):
             logger.warning(str(error))
             return
         if changed:
+            if self._attached:
+                self._grid_model.set_grouping(view.grouping)  # p. ej. una fila por álbum
+            self.view_changed.emit(view)
+
+    def show_source_in_view(self, source: GridSource, view: CenterView) -> None:
+        """Muestra un origen en una vista del módulo activo, con una sola recarga y SIN tocar
+        el filtro (aunque el candado esté abierto): entrar en un álbum desde la vista de
+        álbumes (su fila de «Artistas», en la cuadrícula) y volver a los álbumes (MUS 5.3).
+        Es moverse dentro de lo que se estaba viendo: el álbum enseña las canciones que
+        contaba su tarjeta.
+
+        El origen se elige en la barra, si tiene fila (así se ve dónde se está); si no, se
+        pone en la cuadrícula tal cual. Una vista que el módulo no ofrece, nada.
+        """
+        module = self._active
+        if module is None or not self._attached or view not in module.views():
+            return
+        view_changed = self._view_state.set_view(module, view)
+        self._grid_model.set_grouping(view.grouping, reload=False)  # carga lo de abajo
+        before = self._grid_model.source
+        self._keeping_filter = True
+        try:
+            module.show_source(source)
+        finally:
+            self._keeping_filter = False
+        if self._grid_model.source != source:
+            self._grid_model.set_source(source)  # la barra no tiene esa fila
+        elif before == source:
+            self._grid_model.reload()  # el mismo origen: carga con la agrupación nueva
+        if view_changed:
             self.view_changed.emit(view)
 
     @property
@@ -476,6 +516,7 @@ class ModuleHost(QObject):
         if order is not None:
             self._grid_model.set_order(order, reload=False)
         self._grid_model.set_filter(self.active_filter, reload=False)
+        self._grid_model.set_grouping(self.active_view.grouping, reload=False)
         # Lo que emitan las barras al restaurarse no devuelve el filtro a «Ninguno»
         self._restoring = True
         try:
@@ -560,6 +601,7 @@ class ModuleHost(QObject):
             source if source is not None else self._grid_model.source,
             order if order is not None else self._grid_model.order,
             self._view_state.filter_for(module),
+            grouping=self._view_state.view_for(module).grouping,
         )
 
     def _on_module_source_selected(self, module: AppModule, source: GridSource) -> None:
@@ -583,7 +625,8 @@ class ModuleHost(QObject):
         if chosen:
             self.source_chosen.emit()  # antes de recargar
         current = self._view_state.filter_for(module)
-        if chosen and not current.locked and not current.is_none:
+        # Entrar en un álbum o volver ('show_source_in_view') no cuenta: el filtro se queda
+        if chosen and not current.locked and not current.is_none and not self._keeping_filter:
             cleared = current.cleared()
             self._view_state.set_filter(module, cleared)
             self._grid_model.set_filter(cleared, reload=False)

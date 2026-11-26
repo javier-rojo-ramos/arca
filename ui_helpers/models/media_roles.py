@@ -6,17 +6,19 @@ de estos roles, de modo que ninguno de los dos necesita conocer al otro.
 Los dos primeros ('ROLE_RATING' y 'ROLE_FLAGGED') mantienen los valores que tenían en el
 prototipo ('core/workers/thumbnail_worker.py').
 
+1.6.0 'ROLE_GROUP_LABEL': la tarjeta de un grupo (un álbum: «13 canciones»; MUS 5.3).
 1.5.0 'ROLE_TRACK_OUTLINE': el recorrido de un track, para dibujarlo en su tarjeta.
 1.4.0 'ROLE_HAS_LOCATION': si el elemento tiene coordenadas (la chincheta de la tira del mapa).
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = [
     "ROLE_AVAILABILITY",
     "ROLE_COLOR_LABEL",
     "ROLE_DURATION",
     "ROLE_FLAG",
     "ROLE_FLAGGED",
+    "ROLE_GROUP_LABEL",
     "ROLE_HAS_LOCATION",
     "ROLE_LIBRARY",
     "ROLE_MEDIA_ID",
@@ -56,3 +58,7 @@ ROLE_HAS_LOCATION = _USER + 12
 # El recorrido de un track, ya encajado para dibujarlo en su tarjeta ('TrackOutline', de
 # 'ui_helpers/helpers/track_outline.py'); None si no es un track o no tiene contorno
 ROLE_TRACK_OUTLINE = _USER + 13
+# str o None: la tarjeta representa a un grupo (un álbum de la vista de álbumes): lo que va
+# en la insignia en lugar de la duración («13 canciones»). None en una tarjeta de un archivo.
+# Su nombre es el del grupo (el álbum: sin extensión) y su texto emergente, el 'ToolTipRole'
+ROLE_GROUP_LABEL = _USER + 14

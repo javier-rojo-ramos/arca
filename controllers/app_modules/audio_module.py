@@ -9,9 +9,10 @@ secciones propias (MUS 4.1; docs/MOD_MUSICA.md §7.2): «Artistas» (artista del
 
 Decidido por el autor el 15/11/2026:
     - Vistas: la cuadrícula y, desde el 19/11/2026, la vista individual, para entrar y
-      salir como en los demás módulos (doble clic o «adelante»; G, Esc o «atrás»). Hoy
-      enseña el icono de música y el nombre; la carátula, cuando se lea (docs/MOD_MUSICA.md).
-      La de lista, más adelante.
+      salir como en los demás módulos (doble clic o «adelante»; G, Esc o «atrás»), con la
+      carátula desde MUS 3.1. Desde MUS 5.3 (26/11/2026), la de álbumes, entre las dos: una
+      tarjeta por álbum; al entrar en uno, sus canciones en la cuadrícula. La de lista, más
+      adelante.
     - Orden: desde MUS 2.2 (26/11/2026), los de la música («Artista», «Álbum», «Año»,
       «Título») más «Duración», «Tasa de bits» (MUS 2.3) y los del archivo; de partida, por
       artista (así un álbum elegido en la barra sale por disco y pista). La flecha invierte
@@ -21,6 +22,8 @@ Decidido por el autor el 15/11/2026:
       antes, fecha y palabras clave).
     - Textos de la barra, provisionales hasta que se decidan los nombres ('_TEXTS').
 
+1.5.0 La vista de álbumes ('CenterView.ALBUMS'), entre la cuadrícula y la individual
+      (MUS 5.3).
 1.4.0 Columnas de partida de «Metadatos»: «Género», «Artista del álbum» y «Álbum»
       (MUS 2.3; acordado con el autor el 26/11/2026).
 1.3.0 Sus órdenes ('AUDIO_SORT_FIELDS'); de partida, por artista (MUS 2.2).
@@ -34,7 +37,7 @@ Decidido por el autor el 15/11/2026:
 1.0.0 Primera versión (15/11/2026): sustituye al módulo provisional.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["AudioModule"]
 
 # Módulos del proyecto
@@ -88,8 +91,9 @@ class AudioModule(LibraryModule):
     with_dates = False  # en su lugar, «Artistas» y «Años»
 
     def views(self) -> tuple[CenterView, ...]:
-        """Cuadrícula y vista individual, como los demás módulos (el autor, 19/11/2026)."""
-        return (CenterView.GRID, CenterView.SINGLE)
+        """Cuadrícula, álbumes (MUS 5.3) y vista individual (el autor, 19/11 y 26/11/2026).
+        La de partida, la cuadrícula."""
+        return (CenterView.GRID, CenterView.ALBUMS, CenterView.SINGLE)
 
     def filter_media_types(self) -> tuple[str, ...]:
         """Solo hay audio."""
