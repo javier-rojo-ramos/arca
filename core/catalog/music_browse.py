@@ -3,13 +3,13 @@
 Este módulo NO depende de Qt. Las funciones que leen reciben la conexión SQLite como primer
 parámetro (para 'CatalogDatabaseManager.execute_async') y solo leen.
 
-    «Artistas»: artista del álbum ▸ álbumes        «Años»: año ▸ álbumes
-        0 Varios                     4                 2003                  13
-          1994 · BSO Pulp Fiction    2                   Estopa Grandes Éxitos 13
-          1999 · BSO The Matrix      2                 2001                  13
-        Estopa                      26                   Destrangis          13
-          2001 · Destrangis         13                 Sin año                1
-          2003 · Estopa Grandes...  13                   Sin álbum            1
+    «Artistas»: artista del álbum ▸ álbumes        «Años»: año ▸ artista y álbum
+        0 Varios                     4                 2003                     13
+          1994 · BSO Pulp Fiction    2                   Estopa - Estopa Gran... 13
+          1999 · BSO The Matrix      2                 2001                     13
+        Estopa                      26                   Estopa - Destrangis    13
+          2001 · Destrangis         13                 Sin año                   1
+          2003 · Estopa Grandes...  13                   Sin álbum               1
 
 Reglas (acordadas con el autor el 26/11/2026; docs/MOD_MUSICA.md §7.2):
     - Se agrupa por el «Artista del álbum» y, si la canción no lo tiene, por su artista (el
@@ -20,9 +20,11 @@ Reglas (acordadas con el autor el 26/11/2026; docs/MOD_MUSICA.md §7.2):
       canciones; los que no tienen año, al final) y después por nombre. Un álbum con
       canciones de varios años lleva los dos extremos ('year_min', 'year_max'; la interfaz
       pone «1974 – 2011 · Grandes Éxitos»).
-    - Los años, del más reciente al más antiguo, con «Sin año» (None) al final; sus
-      álbumes, por orden alfabético. En «Años» un álbum es su NOMBRE (un recopilatorio queda
-      junto); 'artist' dice su artista si es uno solo ('several_artists' si son varios).
+    - Los años, del más reciente al más antiguo, con «Sin año» (None) al final. Dentro, un
+      álbum es un artista y su álbum, como en «Artistas» ('artist'; la interfaz pone «Estopa
+      - Destrangis»: pedido por el autor el 26/11/2026), por artista y después por álbum;
+      los que no tienen artista, al final del año. Un recopilatorio sin artista del álbum se
+      reparte entre sus artistas, como en «Artistas».
     - Las canciones sin álbum, en «Sin álbum» (álbum None), al final de su artista o año.
     - Los textos se comparan sin mayúsculas ni acentos ('fold_text', como las reglas):
       «Estopa» y «ESTOPA» son la misma fila, con el nombre escrito como en la mayoría.
@@ -39,20 +41,23 @@ Uso:
     artist_source("audio", "Estopa")               # todas sus canciones
     artist_album_source("audio", "Estopa", "Destrangis")
     years = fetch_year_tree(conn, "audio")
-    year_source("audio", "2001"); year_album_source("audio", "2001", "Destrangis")
+    year_source("audio", "2001"); year_album_source("audio", "2001", "Estopa", "Destrangis")
     is_artist_source(source, "audio"); is_year_source(source, "audio")   # al recuperar
                                                                           # la fila elegida
 
 Los textos que ve el usuario («Sin artista», «Sin álbum», «Sin año», «2001 · Destrangis»)
 no están aquí: los pone la interfaz.
 
+1.1.0 En «Años», cada álbum con su artista ('AlbumNode.artist'; fuera 'several_artists') y
+      agrupado por artista y álbum, como en «Artistas» (antes, solo por el nombre del
+      álbum): 'year_album_source' lleva el artista (pedido por el autor al verlo).
 1.0.0 Primera versión (26/11/2026; docs/MOD_MUSICA.md, paso MUS 4.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.music_browse
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "AlbumNode",
     "ArtistNode",
@@ -95,8 +100,8 @@ class AlbumNode:
         count: Canciones.
         year_min: El año más antiguo de sus canciones (None si ninguna lo tiene).
         year_max: El más reciente (igual a 'year_min' si son todas del mismo).
-        artist: En «Años», su artista si es uno solo (None si son varios o ninguno).
-        several_artists: En «Años», si sus canciones son de varios artistas.
+        artist: En «Años», su artista (el del álbum o, sin él, el de las canciones); None =
+            sin artista. En «Artistas», None (el artista es la fila de arriba).
     """
 
     name: str | None
@@ -104,7 +109,6 @@ class AlbumNode:
     year_min: int | None = None
     year_max: int | None = None
     artist: str | None = None
-    several_artists: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,7 +133,7 @@ class YearNode:
     Attributes:
         year: 'AAAA'; None = «Sin año».
         count: Canciones.
-        albums: Sus álbumes, por orden alfabético.
+        albums: Sus álbumes, por artista y después por nombre.
     """
 
     year: str | None
@@ -168,10 +172,17 @@ def year_source(library: str, year: str | None) -> GridSource:
     return date_source(library, NO_DATE if year is None else year)
 
 
-def year_album_source(library: str, year: str | None, album: str | None) -> GridSource:
-    """Las canciones de un álbum en un año."""
+def year_album_source(
+    library: str, year: str | None, artist: str | None, album: str | None
+) -> GridSource:
+    """Las canciones de un álbum de un artista en un año (álbum None = «Sin álbum»)."""
     library_rule, date_rule = year_source(library, year).rules.rules
-    return smart_source(library_rule, date_rule, _text_rule(ALBUM_FIELD, album))
+    return smart_source(
+        library_rule,
+        date_rule,
+        _text_rule(ARTIST_FIELD, artist),
+        _text_rule(ALBUM_FIELD, album),
+    )
 
 
 def _rule_fields(source: GridSource, library: str) -> tuple[str, ...] | None:
@@ -196,7 +207,10 @@ def is_artist_source(source: GridSource, library: str) -> bool:
 
 def is_year_source(source: GridSource, library: str) -> bool:
     """Si un origen es el de una fila de «Años» de esa biblioteca."""
-    return _rule_fields(source, library) in ((DATE_FIELD,), (DATE_FIELD, ALBUM_FIELD))
+    return _rule_fields(source, library) in (
+        (DATE_FIELD,),
+        (DATE_FIELD, ARTIST_FIELD, ALBUM_FIELD),
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -246,14 +260,17 @@ def _songs(conn: sqlite3.Connection, library: str) -> list[tuple[str | None, str
 
 
 def _album_sort(albums: list[AlbumNode], *, by_year: bool) -> tuple[AlbumNode, ...]:
-    """Los álbumes en su orden (por año y nombre, o solo por nombre); «Sin álbum», al final."""
+    """Los álbumes en su orden: en «Artistas» ('by_year'), por año y nombre, con «Sin
+    álbum» al final; en «Años», por artista (sin artista, al final) y nombre, con el «Sin
+    álbum» de cada artista detrás de sus álbumes."""
 
     def sort_key(album: AlbumNode) -> tuple:
         missing = album.name is None
         name = fold_text(album.name) if album.name is not None else ""
         if by_year:
             return (missing, album.year_min is None, album.year_min or 0, name)
-        return (missing, name)
+        artist = fold_text(album.artist) if album.artist is not None else ""
+        return (album.artist is None, artist, missing, name)
 
     return tuple(sorted(albums, key=sort_key))
 
@@ -292,25 +309,20 @@ def fetch_year_tree(conn: sqlite3.Connection, library: str) -> tuple[YearNode, .
     """«Años»: los años con sus álbumes (ver el docstring del módulo)."""
     artists, albums = _Names(), _Names()
     counts: Counter[int | None] = Counter()
-    album_counts: Counter[tuple[int | None, str | None]] = Counter()
-    album_artists: dict[tuple[int | None, str | None], set[str | None]] = defaultdict(set)
+    # (año, artista, álbum) -> canciones: cada álbum, con su artista
+    album_counts: Counter[tuple[int | None, str | None, str | None]] = Counter()
     for artist, album, year in _songs(conn, library):
-        album_key = albums.key(album)
         counts[year] += 1
-        album_counts[year, album_key] += 1
-        album_artists[year, album_key].add(artists.key(artist))
+        album_counts[year, artists.key(artist), albums.key(album)] += 1
 
     nodes = []
     for year, count in counts.items():
         year_albums = []
-        for (owner, album_key), album_count in album_counts.items():
+        for (owner, artist_key, album_key), album_count in album_counts.items():
             if owner != year:
                 continue
-            keys = album_artists[owner, album_key]
-            single = next(iter(keys)) if len(keys) == 1 else None
             year_albums.append(AlbumNode(
-                albums.name(album_key), album_count, year, year,
-                artist=artists.name(single), several_artists=len(keys) > 1,
+                albums.name(album_key), album_count, year, year, artist=artists.name(artist_key)
             ))  # fmt: skip
         nodes.append(YearNode(
             None if year is None else f"{year:04d}", count,
@@ -396,13 +408,17 @@ if __name__ == "__main__":
         ("2010", 3), ("2003", 2), ("2001", 3), ("1999", 1), ("1994", 2), (None, 2),
     ], [(y.year, y.count) for y in years]
     mix = years[0].albums
-    assert [(b.name, b.count, b.artist, b.several_artists) for b in mix] == [
-        ("Mezclas", 2, None, True),  # el recopilatorio, junto
-        ("Vacío", 1, None, False),  # sin artista
+    assert [(b.artist, b.name, b.count) for b in mix] == [
+        ("Ana", "Mezclas", 1), ("Bea", "Mezclas", 1),  # sin artista del álbum: repartido
+        (None, "Vacío", 1),  # sin artista, al final del año
     ], mix
     # El nombre, el más escrito (aquí empatan: el primero por orden)
     assert [(b.name, b.artist) for b in years[1].albums] == [("Grandes Éxitos", "Estopa"), (None, "Estopa")]
-    assert [(b.name, b.artist) for b in years[4].albums] == [("BSO Pulp Fiction", "0 Varios")]
+    # Un recopilatorio con artista del álbum, en una sola fila
+    assert [(b.name, b.artist, b.count) for b in years[4].albums] == [
+        ("BSO Pulp Fiction", "0 Varios", 2),
+    ]
+    assert [(b.name, b.artist) for b in years[5].albums] == [("Raro", "Álvaro"), (None, None)]
 
     # --- Lo importante: elegir una fila muestra EXACTAMENTE las canciones que cuenta
     def found(source: GridSource) -> int:
@@ -417,18 +433,23 @@ if __name__ == "__main__":
     for year in years:
         assert found(year_source("audio", year.year)) == year.count, year.year
         for album in year.albums:
-            assert found(year_album_source("audio", year.year, album.name)) == album.count, (
-                year.year, album.name,
-            )
+            source = year_album_source("audio", year.year, album.artist, album.name)
+            assert found(source) == album.count, (year.year, album.artist, album.name)
 
-    # --- Los orígenes se guardan en JSON y se reconocen al recuperarlos
+    # --- Los orígenes se guardan en JSON y se reconocen al recuperarlos. Una fila de «Años»
+    # de antes del 26/11/2026 (año y álbum, sin artista) ya no es de la sección: al abrir
+    # el catálogo se vuelve a «Toda la música»
+    old_year_album = smart_source(
+        *year_source("audio", "2001").rules.rules, Rule(ALBUM_FIELD, "eq", "Destrangis")
+    )
     samples = (
         (artist_source("audio", "Estopa"), True, False),
         (artist_source("audio", None), True, False),
         (artist_album_source("audio", "Estopa", None), True, False),
         (year_source("audio", "2001"), False, True),
         (year_source("audio", None), False, True),
-        (year_album_source("audio", "2001", "Destrangis"), False, True),
+        (year_album_source("audio", "2001", "Estopa", "Destrangis"), False, True),
+        (old_year_album, False, False),
         (library_source("audio"), False, False),
     )
     for source, is_artist, is_year in samples:

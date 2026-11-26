@@ -2,7 +2,7 @@
 
     ▼ ARTISTAS                                ▼ AÑOS
     ▾ 0 Varios                    4           ▾ 2003                       13
-        1994 · BSO Pulp Fiction   2               Estopa Grandes Éxitos    13
+        1994 · BSO Pulp Fiction   2               Estopa - Estopa Gra...   13
         1999 · BSO The Matrix     2           ▸ 2001                       13
     ▾ Estopa                     26           ▸ Sin año                     1
         2001 · Destrangis        13
@@ -16,13 +16,16 @@ barra de filtros.
     - «Artistas»: el artista del álbum (o, sin él, el artista) ▸ sus álbumes, por año. Un
       álbum con canciones de varios años, con los dos extremos («1974 – 2011 · …»; pedido
       por el autor); sin año, solo el nombre.
-    - «Años»: del más reciente al más antiguo ▸ sus álbumes, por orden alfabético, solo con
-      el nombre; al pasar el ratón, su artista (o «Varios artistas»).
+    - «Años»: del más reciente al más antiguo ▸ sus álbumes con su artista delante,
+      «Artista - Álbum», por artista y después por álbum (pedido por el autor); los que no
+      tienen artista, solo con el nombre, al final.
     - «Sin artista», «Sin álbum» y «Sin año», al final de su nivel.
     - Sin iconos, como «Fechas»: los nombres, en la columna de las flechas
       ('TEXT_NAME_INDENT').
     - Lo desplegado se guarda por catálogo ('expanded_artists', 'expanded_years'). La
       primera vez, todo plegado.
+    - En la barra, detrás de «Biblioteca» y «Carpetas» (las primeras en todos los módulos);
+      «Años», plegada de partida ('section_registry.py').
 
 Los árboles y el origen de cada fila, en 'core/catalog/music_browse.py' (cada fila cuenta
 exactamente lo que muestra la cuadrícula al elegirla).
@@ -33,14 +36,16 @@ Uso (lo hace la barra, 'LibrarySidebar', con las secciones de más del módulo A
     years = YearSection("audio", parent)
     years.set_tree(fetch_year_tree(conn, "audio"))
 
+1.1.0 «Años»: «Artista - Álbum» ('year_album_label'), un álbum por artista; fuera el texto
+      emergente con el artista y «Varios artistas» (pedido por el autor al verlo).
 1.0.0 Primera versión (26/11/2026; docs/MOD_MUSICA.md, paso MUS 4.1).
 
 Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.sidebars.sections.music_sections
 """
 
-__version__ = "1.0.0"
-__all__ = ["ArtistSection", "YearSection", "album_label"]
+__version__ = "1.1.0"
+__all__ = ["ArtistSection", "YearSection", "album_label", "year_album_label"]
 
 # Librerías estándar
 from collections.abc import Sequence
@@ -76,7 +81,8 @@ NO_ALBUM_TEXT = "Sin álbum"
 NO_ALBUM_TOOLTIP = "Canciones sin álbum"
 NO_YEAR_TEXT = "Sin año"
 NO_YEAR_TOOLTIP = "Canciones sin año"
-SEVERAL_ARTISTS_TEXT = "Varios artistas"
+# Entre el artista y el álbum, en «Años» (como lo escribió el autor: «Artista - Álbum»)
+ARTIST_ALBUM_SEPARATOR = " - "
 
 # Rol propio: la clave de una fila que se despliega (artista o año), para recordarla
 _ROLE_KEY = Qt.ItemDataRole.UserRole + 46
@@ -93,6 +99,15 @@ def album_label(album: AlbumNode, *, with_years: bool) -> str:
     if album.year_max is not None and album.year_max != album.year_min:
         years = f"{album.year_min} – {album.year_max}"
     return f"{years} · {album.name}"
+
+
+def year_album_label(album: AlbumNode) -> str:
+    """El texto de un álbum en «Años»: «Estopa - Destrangis», «Estopa - Sin álbum» o, sin
+    artista, solo el álbum."""
+    name = album_label(album, with_years=False)
+    if album.artist is None:
+        return name
+    return f"{album.artist}{ARTIST_ALBUM_SEPARATOR}{name}"
 
 
 class _MusicTreeSection(TreeSection):
@@ -268,16 +283,12 @@ class YearSection(_MusicTreeSection):
             )
             for album in year.albums:
                 child = make_item(
-                    album_label(album, with_years=False),
-                    year_album_source(self._library, year.year, album.name),
+                    year_album_label(album),
+                    year_album_source(self._library, year.year, album.artist, album.name),
                     album.count,
                 )
                 if album.name is None:
                     child.setToolTip(NO_ALBUM_TOOLTIP)
-                elif album.several_artists:
-                    child.setToolTip(SEVERAL_ARTISTS_TEXT)
-                elif album.artist is not None:
-                    child.setToolTip(album.artist)
                 item.appendRow(child)
             root.appendRow(item)
 
@@ -299,6 +310,9 @@ if __name__ == "__main__":
     assert album_label(span, with_years=True) == "1974 – 2011 · Grandes Éxitos"
     assert album_label(AlbumNode("Raro", 1), with_years=True) == "Raro"
     assert album_label(AlbumNode(None, 1, 2003, 2003), with_years=True) == "Sin álbum"
+    assert year_album_label(AlbumNode("Destrangis", 13, 2001, 2001, "Estopa")) == "Estopa - Destrangis"
+    assert year_album_label(AlbumNode(None, 1, 2003, 2003, "Estopa")) == "Estopa - Sin álbum"
+    assert year_album_label(AlbumNode("Vacío", 1, 2010, 2010)) == "Vacío"  # sin artista
 
     # 2. «Artistas»: filas, números, orígenes y textos emergentes
     artists = (
@@ -338,11 +352,11 @@ if __name__ == "__main__":
     section.reset()
     assert model.rowCount() == 0 and section.save_state() == {"expanded_artists": []}
 
-    # 4. «Años»: el artista al pasar el ratón; «Varios artistas»; «Sin año»
+    # 4. «Años»: «Artista - Álbum»; sin artista, solo el álbum; «Sin año»
     years = (
         YearNode("2010", 3, (
-            AlbumNode("Mezclas", 2, 2010, 2010, several_artists=True),
-            AlbumNode("Solo", 1, 2010, 2010, artist="Ana"),
+            AlbumNode("Mezclas", 2, 2010, 2010, artist="Ana"),
+            AlbumNode("Solo", 1, 2010, 2010),
         )),
         YearNode(None, 1, (AlbumNode(None, 1),)),
     )  # fmt: skip
@@ -351,10 +365,11 @@ if __name__ == "__main__":
     year_model = year_section._model
     assert [year_model.item(r).text() for r in range(2)] == ["2010", "Sin año"]
     first = year_model.item(0)
-    assert [first.child(r).text() for r in range(2)] == ["Mezclas", "Solo"]
-    assert first.child(0).toolTip() == SEVERAL_ARTISTS_TEXT and first.child(1).toolTip() == "Ana"
-    mixed_source = year_album_source("audio", "2010", "Mezclas")
-    assert year_section.find_item(mixed_source) is first.child(0)
+    assert [first.child(r).text() for r in range(2)] == ["Ana - Mezclas", "Solo"]
+    assert first.child(0).toolTip() == "" and year_model.item(1).child(0).toolTip() == NO_ALBUM_TOOLTIP
+    ana_source = year_album_source("audio", "2010", "Ana", "Mezclas")
+    assert year_section.find_item(ana_source) is first.child(0)
+    assert year_section.find_item(year_album_source("audio", "2010", None, "Solo")) is first.child(1)
     assert year_section.find_item(year_source("audio", None)) is year_model.item(1)
     assert year_section.find_item(album_source) is None  # de «Artistas»
     year_section._view.setExpanded(first.index(), True)

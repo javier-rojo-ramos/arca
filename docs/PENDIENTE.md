@@ -231,7 +231,7 @@ Definido con el autor el 16/11/2026. La arquitectura, el detalle de cada paso (a
 
 ### Fase MUS 4 — Navegar
 
-- ~~**MUS 4.1** Secciones «Artistas» (artista del álbum ▸ álbum; visible) y «Años» (año ▸ álbumes; plegada), en lugar de «Fechas», que sale de Música (acordado con el autor el 26/11/2026; el detalle, en [MOD_MUSICA.md](MOD_MUSICA.md) §7.2)~~ (hecho el 26/11/2026).
+- ~~**MUS 4.1** Secciones «Artistas» (artista del álbum ▸ álbum; visible) y «Años» (año ▸ «Artista - Álbum»; plegada), detrás de «Carpetas», en lugar de «Fechas», que sale de Música (acordado con el autor el 26/11/2026; el detalle, en [MOD_MUSICA.md](MOD_MUSICA.md) §7.2)~~ (hecho el 26/11/2026).
 - **MUS 4.2** Sección «Géneros» (una lista simple).
 - **MUS 4.3** Listas que se recorren con las flechas (álbumes; vale también para las películas, `VID 5.4`): el detalle, en [MOD_MUSICA.md](MOD_MUSICA.md).
 

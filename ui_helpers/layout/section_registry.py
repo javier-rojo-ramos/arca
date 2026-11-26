@@ -45,6 +45,8 @@ Uso:
     SECTION_REGISTRY.defaults("image", Sidebar.LEFT)  # sus secciones, en el orden de partida
     SECTION_REGISTRY.get("folders").title_for("image")
 
+1.9.1 En Música, «Artistas» detrás de «Carpetas» (antes, delante): en todos los módulos,
+      primero «Biblioteca» y «Carpetas» y después las de cada uno (pedido por el autor).
 1.9.0 La barra de Música: «Artistas» (debajo de «Biblioteca») y «Años» (al final,
       plegada), sin «Fechas» (MUS 4.1).
 1.8.0 Sección «Audio» del inspector, detrás de «Track» (MUS 2.1).
@@ -69,7 +71,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_registry
 """
 
-__version__ = "1.9.0"
+__version__ = "1.9.1"
 __all__ = [
     "LEFT",
     "RIGHT",
@@ -255,7 +257,7 @@ def _build_default_registry() -> SectionRegistry:
     # Música no lleva «Fechas» (sus canciones casi siempre tienen solo el año): en su lugar,
     # «Artistas» y «Años» (decidido por el autor el 26/11/2026; docs/MOD_MUSICA.md §7.2)
     registry.register(SectionSpec("dates", "Fechas", LEFT, 300, modes=libraries - audio))
-    registry.register(SectionSpec("artists", "Artistas", LEFT, 150, modes=audio))
+    registry.register(SectionSpec("artists", "Artistas", LEFT, 250, modes=audio))
     registry.register(SectionSpec("years", "Años", LEFT, 300, modes=audio, expanded=False))
     registry.register(SectionSpec("keywords", "Lista de palabras clave", LEFT, 400, modes=image))
 
@@ -296,7 +298,7 @@ if __name__ == "__main__":
     assert _ids(reg, "catalog", Sidebar.LEFT) == ["catalog", "folders", "collections"]
     assert _ids(reg, "image", Sidebar.LEFT) == ["library", "folders", "dates", "keywords"]
     assert _ids(reg, "video", Sidebar.LEFT) == ["library", "folders", "dates"]  # la de Tracks
-    assert _ids(reg, "audio", Sidebar.LEFT) == ["library", "artists", "folders", "years"]
+    assert _ids(reg, "audio", Sidebar.LEFT) == ["library", "folders", "artists", "years"]
     assert [s.id for s in reg.defaults("audio", Sidebar.LEFT) if not s.expanded] == ["years"]
     assert reg.get("library").title_for("video") == "Biblioteca - Vídeos"
     assert reg.get("library").title_for("audio") == "Biblioteca - Música"

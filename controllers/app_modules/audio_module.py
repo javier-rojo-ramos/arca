@@ -56,7 +56,7 @@ _TEXTS = LibraryTexts(
 
 
 # Las secciones propias de su barra (su sitio y si empiezan plegadas, en el registro de
-# secciones: «Artistas» debajo de «Biblioteca» y «Años», plegada, al final)
+# secciones: detrás de «Biblioteca» y «Carpetas», «Artistas» y «Años», esta plegada)
 _ARTISTS = ExtraSection(
     key="artists",
     title="Artistas",

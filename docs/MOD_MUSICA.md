@@ -207,14 +207,15 @@ Acordada con el autor el 26/11/2026 (el porqué, en [DECISIONES.md](DECISIONES.m
 | Sección | Qué | De partida | Paso |
 |---|---|---|---|
 | «Biblioteca - Audio» | Como hoy | Visible | — |
-| «Artistas» | Artista del álbum ▸ álbum | Visible, debajo de «Biblioteca» | `MUS 4.1` |
 | «Carpetas» | Como hoy | Visible | — |
-| «Años» | Año ▸ álbumes, por orden alfabético | Plegada | `MUS 4.1` |
+| «Artistas» | Artista del álbum ▸ álbum | Visible, debajo de «Carpetas» | `MUS 4.1` |
+| «Años» | Año ▸ «Artista - Álbum» | Plegada | `MUS 4.1` |
 | «Géneros» | Una lista simple | Por decidir en su paso | `MUS 4.2` |
 
 - **«Fechas» sale de Música**: su año ▸ mes ▸ día no sirve con canciones que casi siempre solo tienen el año. Sigue en Tracks y en Vídeo, donde el día sí importa.
 - **Los álbumes de un artista, por año** (la discografía en orden): «2001 · Destrangis», «2003 · Estopa Grandes Éxitos». Un álbum con canciones de varios años, con los dos extremos: «1974 – 2011 · Grandes Éxitos» (pedido por el autor al aprobar el plan); para ordenar, el más antiguo. Sin año, solo el nombre, al final.
-- **En «Años»**, del más reciente al más antiguo; sus álbumes, por orden alfabético y solo con el nombre (al pasar el ratón, su artista o «Varios artistas»). Un álbum es su nombre: un recopilatorio queda junto (dos álbumes de artistas distintos con el mismo nombre y el mismo año saldrían en una fila: es raro).
+- **En «Años»**, del más reciente al más antiguo; sus álbumes, con su artista delante, «Estopa - Destrangis», ordenados por artista y después por álbum; los que no tienen artista, solo con el nombre, al final del año. Cada fila es un artista y su álbum, como en «Artistas»: un recopilatorio con artista del álbum queda en una fila («0 Varios - BSO The Matrix») y uno sin él se reparte entre sus artistas (cambiado por el autor al verlo, el 26/11/2026; antes, solo el nombre del álbum, con el artista al pasar el ratón).
+- **El orden de las secciones**: en todos los módulos, primero «Biblioteca» y «Carpetas» y después las de cada uno (pedido por el autor al verlo, el 26/11/2026; antes, «Artistas» iba delante de «Carpetas»).
 - **Los recopilatorios**: se agrupan por el «Artista del álbum» y, si no lo tienen, por el artista. Las bandas sonoras del autor quedan bajo «0 Varios»; un recopilatorio sin artista del álbum se reparte entre sus artistas.
 - **Lo que falta**: «Sin álbum» al final de cada artista y de cada año; «Sin artista» (sin artista del álbum ni artista) y «Sin año», al final de su sección.
 - **Los textos** se comparan sin mayúsculas ni acentos, como las reglas: «Estopa» y «ESTOPA» son la misma fila.
