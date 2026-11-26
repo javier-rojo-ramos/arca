@@ -26,6 +26,8 @@ Uso (una subclase por módulo):
         extra_sections = (ExtraSection("keywords", "Lista de palabras clave", ...),)  # si las tiene
         def views(self): ...          # y el orden, los filtros, el mapa...
 
+1.3.0 'with_dates': un módulo puede no llevar «Fechas» (Música; MUS 4.1): ni la sección
+      ni su lectura.
 1.2.0 'folder_renamed': la barra, al día tras renombrar una carpeta (CAT 4.3).
 1.1.0 Secciones de más en la barra ('extra_sections'), leídas con lo demás; no se vuelve
       a «Todos» mientras una sección oculte filas. Con ello, Imagen pasa a ser un módulo
@@ -37,7 +39,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana, con un catálogo en me
     python -m controllers.app_modules.library_module
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["LibraryModule", "fetch_library_sidebar_data"]
 
 # Librerías estándar
@@ -64,10 +66,12 @@ from ui_helpers.helpers.ui_file_manager import FILE_MANAGER_NAME, reveal_in_file
 from ui_helpers.sidebars.library_sidebar import ExtraSection, LibrarySidebar, LibraryTexts
 
 
-def fetch_library_sidebar_data(conn: Any, library: str) -> tuple[int, int, tuple, tuple]:
+def fetch_library_sidebar_data(
+    conn: Any, library: str, *, dates: bool = True
+) -> tuple[int, int, tuple, tuple]:
     """Lo que necesita la barra de una biblioteca: cuántos archivos tiene y cuántos de su
     selección rápida, el árbol de carpetas (solo con archivos suyos) y los años con sus
-    meses y días.
+    meses y días (con 'dates=False', la barra no tiene «Fechas»: nada).
 
     Una sola función (una sola visita al hilo de la base de datos) para que todo llegue a
     la vez (así se sabe si la carpeta o la fecha elegida sigue existiendo).
@@ -78,17 +82,17 @@ def fetch_library_sidebar_data(conn: Any, library: str) -> tuple[int, int, tuple
         counts.get(everything, 0),
         counts.get(quick, 0),
         fetch_folder_tree(conn, library),
-        fetch_timeline(conn, library).values,
+        fetch_timeline(conn, library).values if dates else (),
     )
 
 
 def _fetch_sidebar_data(
-    conn: Any, library: str, fetchers: Sequence[Callable[[Any, str], Any]]
+    conn: Any, library: str, fetchers: Sequence[Callable[[Any, str], Any]], dates: bool
 ) -> tuple[tuple[int, int, tuple, tuple], tuple[Any, ...]]:
     """Todo lo de la barra en una sola visita al hilo de la base de datos: lo común
     ('fetch_library_sidebar_data') y, en su orden, lo de cada sección de más."""
     return (
-        fetch_library_sidebar_data(conn, library),
+        fetch_library_sidebar_data(conn, library, dates=dates),
         tuple(fetch(conn, library) for fetch in fetchers),
     )
 
@@ -106,6 +110,8 @@ class LibraryModule(AppModule):
     texts: ClassVar[LibraryTexts | None] = None
     # Secciones de la barra además de biblioteca, carpetas y fechas (en su orden de partida)
     extra_sections: ClassVar[tuple[ExtraSection, ...]] = ()
+    # Si su barra lleva «Fechas» (Música no: en su lugar, «Artistas» y «Años»)
+    with_dates: ClassVar[bool] = True
 
     def __init__(
         self, context: ModuleContext, *, button: QToolButton, parent: QObject | None = None
@@ -115,7 +121,10 @@ class LibraryModule(AppModule):
             raise TypeError(f"{type(self).__name__}: faltan 'library' o 'texts'.")
         super().__init__(context, button=button, parent=parent)
         self.sidebar = LibrarySidebar(
-            self.library, self.texts, extra_sections=self.extra_sections
+            self.library,
+            self.texts,
+            extra_sections=self.extra_sections,
+            dates=self.with_dates,
         )
         # El orden de sus secciones, si se ven y si están plegadas: como las tenga el
         # usuario en este modo
@@ -173,6 +182,7 @@ class LibraryModule(AppModule):
             _fetch_sidebar_data,
             self.library,
             tuple(spec.fetch for spec in self.extra_sections),
+            self.with_dates,
             on_result=partial(self._on_sidebar_data, self._generation),
             on_error=lambda error: logger.warning(
                 f"No se pudo leer la barra del módulo {self.title}: {error}"
@@ -283,6 +293,7 @@ if __name__ == "__main__":
     assert folders and dates, (folders, dates)
     assert fetch_library_sidebar_data(conn, "audio")[:2] == (1, 0)
     assert fetch_library_sidebar_data(conn, "video")[:2] == (0, 0)
+    assert fetch_library_sidebar_data(conn, "tracks", dates=False)[3] == ()  # sin «Fechas»
 
     # 2. Un módulo de prueba: la barra con sus textos; lo que lee, al llegar, en la barra
     class _Config(dict):
@@ -377,6 +388,17 @@ if __name__ == "__main__":
         pass
     else:
         raise AssertionError("faltaba 'library' y no ha avisado")
+
+    # 5. Un módulo sin «Fechas» (como Música): ni la sección ni su lectura
+    class _NoDates(_Module):
+        with_dates = False
+
+    no_dates = _NoDates(context, button=QToolButton(window))
+    assert no_dates.sidebar._stack.section_ids() == ("library", "folders")
+    no_dates.attach(_Db(), Path("/tmp"))
+    no_dates.refresh()
+    assert "expanded_dates" not in no_dates.save_state()
+    no_dates.detach()
 
     module.detach()
     print("Autoprueba finalizada correctamente.")

@@ -99,18 +99,18 @@ Del lector de GPX (`core/metadata/track/`, sin ExifTool), en el orden de la secc
 
 ### Música
 
-**Estado (26/11/2026)**: las canciones se leen solas desde `MUS 1.3` (`core/metadata/audio/extractor.py`). Los datos que están en `media_items` (título, artista, año, comentario y duración) se ven en «Selección», la tarjeta, el filtro de texto, las colecciones, la barra de filtros y el orden; desde `MUS 2.1`, todos los de las dos tablas siguientes (las filas «Insp.»), en la sección «Audio» del inspector, de solo lectura (`ui_helpers/inspector/audio_section.py`, con `core/catalog/audio_stats.py`); el orden, en `MUS 2.2`; los filtros y las colecciones, en `MUS 2.3`; las barras, en `MUS 4`. Las filas del inspector, en el orden acordado ([MOD_MUSICA.md](MOD_MUSICA.md) §7.1). La tabla campo ↔ etiqueta es `core/audio/tag_map.py`.
+**Estado (26/11/2026)**: las canciones se leen solas desde `MUS 1.3` (`core/metadata/audio/extractor.py`). Los datos que están en `media_items` (título, artista, año, comentario y duración) se ven en «Selección», la tarjeta, el filtro de texto, las colecciones, la barra de filtros y el orden; desde `MUS 2.1`, todos los de las dos tablas siguientes (las filas «Insp.»), en la sección «Audio» del inspector, de solo lectura (`ui_helpers/inspector/audio_section.py`, con `core/catalog/audio_stats.py`); el orden, en `MUS 2.2`; los filtros y las colecciones, en `MUS 2.3` (adelantados en `MUS 4.1` «Álbum» y «Artista del álbum», en las colecciones inteligentes); desde `MUS 4.1`, las secciones «Artistas» y «Años» de la barra; «Géneros», en `MUS 4.2`. Las filas del inspector, en el orden acordado ([MOD_MUSICA.md](MOD_MUSICA.md) §7.1). La tabla campo ↔ etiqueta es `core/audio/tag_map.py`.
 
 | Dato | Dónde se guarda | ID3 (MP3, WAV, AIFF) | Vorbis (FLAC, Ogg, Opus) | MP4 (M4A) | Dónde se verá | ¿Se cambiará? |
 |---|---|---|---|---|---|---|
 | Título | `title` (sin título, el nombre del archivo) | `TIT2` | `TITLE` | `©nam` | Insp. «Título»; filtro de texto; Colección «Título» | ² |
-| Artista | `creator` | `TPE1` | `ARTIST` | `©ART` | Insp. «Artista»; Colección y Filtro «Autor»; barra «Artistas» (`MUS 4.1`) | ² |
-| Álbum | `audio_details.album` | `TALB` | `ALBUM` | `©alb` | Insp. «Álbum»; barra «Artistas» ▸ álbum (`MUS 4.1`); Orden | ² |
-| Año | `content_created_at` (con precisión de año si solo trae el año; sin año, sin fecha; el origen, `id3`, `vorbis` o `mp4`) | `TDRC` (en v2.3, `TYER`) | `DATE` (o `YEAR`) | `©day` | Insp. «Año»; barra «Años» (`MUS 4.1`; hoy, «Fechas»); Colección y Filtro «Fecha de captura»; Orden | ² |
+| Artista | `creator` | `TPE1` | `ARTIST` | `©ART` | Insp. «Artista»; Colección y Filtro «Autor»; barra «Artistas» (si no hay artista del álbum) | ² |
+| Álbum | `audio_details.album` | `TALB` | `ALBUM` | `©alb` | Insp. «Álbum»; barras «Artistas» y «Años» ▸ álbum; Colección «Álbum»; Orden (`MUS 2.2`) | ² |
+| Año | `content_created_at` (con precisión de año si solo trae el año; sin año, sin fecha; el origen, `id3`, `vorbis` o `mp4`) | `TDRC` (en v2.3, `TYER`) | `DATE` (o `YEAR`) | `©day` | Insp. «Año»; barra «Años» y el año de los álbumes en «Artistas» («2001 · Destrangis», «1974 – 2011 · …»); Colección y Filtro «Fecha de captura»; Orden | ² |
 | Pista | `audio_details.track_number`, `track_total` | `TRCK` («3/12») | `TRACKNUMBER` y `TRACKTOTAL` (o `TOTALTRACKS`) | `trkn` | Insp. «Pista» («22 / 25»); Orden del álbum | ² |
 | Disco | `audio_details.disc_number`, `disc_total` | `TPOS` | `DISCNUMBER` y `DISCTOTAL` (o `TOTALDISCS`) | `disk` | Insp. «Disco»; Orden del álbum | ² |
 | Género | `audio_details.genre` (varios, unidos con «; ») | `TCON` (también «(17)», el número de ID3v1) | `GENRE` | `©gen` (o `gnre`, el número) | Insp. «Género»; barra «Géneros» (`MUS 4.2`); Colección y Filtro | ² |
-| Artista del álbum | `audio_details.album_artist` | `TPE2` | `ALBUMARTIST` (o `ALBUM ARTIST`) | `aART` | Insp. «Artista del álbum»; barra «Artistas» (`MUS 4.1`) | ² |
+| Artista del álbum | `audio_details.album_artist` | `TPE2` | `ALBUMARTIST` (o `ALBUM ARTIST`) | `aART` | Insp. «Artista del álbum»; barra «Artistas»; Colección «Artista del álbum» (sin él, cuenta el artista, como foobar2000) | ² |
 | Compositor | `audio_details.composer` | `TCOM` | `COMPOSER` | `©wrt` | Insp. «Compositor» | ² |
 | Comentario | `description` | `COMM` sin descripción | `COMMENT` (o `DESCRIPTION`) | `©cmt` | Insp. «Comentario»; Colección «Descripción» | ² |
 

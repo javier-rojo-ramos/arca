@@ -8,7 +8,8 @@ secciones una debajo de otra, dentro de un área con desplazamiento:
     ▼ BIBLIOTECA - TRACKS   «Todos los tracks» y «Selección rápida», con sus contadores
     ▼ CARPETAS              ubicaciones y carpetas con archivos de la biblioteca
                             ('sections/folder_section.py')
-    ▼ FECHAS                años ▸ meses ▸ días, y «Sin fecha» ('sections/date_section.py')
+    ▼ FECHAS                años ▸ meses ▸ días, y «Sin fecha» ('sections/date_section.py');
+                            un módulo puede no llevarla ('dates=False': Música)
     ▼ ...                   las de más de cada módulo ('ExtraSection'), detrás de las
                             comunes: en Imagen, la «Lista de palabras clave»
 
@@ -43,6 +44,8 @@ Uso:
 El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres de objeto
 'scroll_library_sidebar' y 'widget_library_sidebar_content' (y los de cada sección).
 
+1.3.0 'dates=False': la barra sin «Fechas» (la de Música, que en su lugar lleva «Artistas» y
+      «Años»: docs/MOD_MUSICA.md, MUS 4.1).
 1.2.0 'folder_renamed': lo desplegado y lo elegido, con la ruta nueva de una carpeta
       renombrada (CAT 4.3).
 1.1.0 Secciones de más ('ExtraSection', 'set_section_data', 'hides_rows'): es también la
@@ -51,7 +54,7 @@ El aspecto se define en la hoja de estilos global (ui_theme.py) con los nombres 
 1.0.0 Primera versión (14/11/2026; docs/MOD_TRACKS.md, paso 4.2): para el módulo Tracks.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["ExtraSection", "LibrarySidebar", "LibraryTexts"]
 
 # Librerías estándar
@@ -147,6 +150,7 @@ class LibrarySidebar(QWidget):
         parent: QWidget | None = None,
         *,
         extra_sections: Sequence[ExtraSection] = (),
+        dates: bool = True,
     ) -> None:
         """Crea la barra vacía (sin contadores ni árboles).
 
@@ -156,11 +160,14 @@ class LibrarySidebar(QWidget):
             parent: Widget padre.
             extra_sections: Las secciones de más del módulo, en su orden de partida (van
                 detrás de las comunes).
+            dates: Si lleva la sección «Fechas» (Música no: sus canciones casi siempre
+                tienen solo el año).
         """
         super().__init__(parent)
         self._library = library
         self._texts = texts
         self._extra_specs: tuple[ExtraSection, ...] = tuple(extra_sections)
+        self._with_dates = dates
         # Los orígenes de las dos filas fijas
         self.all_source: GridSource = library_source(library)
         self.quick_source: GridSource = quick_source(library)
@@ -195,7 +202,7 @@ class LibrarySidebar(QWidget):
 
         self._folders = FolderSection(self._library, self._icons, content)
         self._folders.reveal_folder_requested.connect(self.reveal_folder_requested)
-        self._dates = DateSection(self._library, content)
+        self._dates = DateSection(self._library, content) if self._with_dates else None
         # Las de más del módulo, por su 'id'
         self._extra: dict[str, TreeSection] = {
             spec.key: spec.create(self._library, content) for spec in self._extra_specs
@@ -203,7 +210,7 @@ class LibrarySidebar(QWidget):
         # Las secciones con árbol (en 'sections/'): la fila elegida se busca en ellas
         self._sections: tuple[TreeSection, ...] = (
             self._folders,
-            self._dates,
+            *((self._dates,) if self._dates is not None else ()),
             *self._extra.values(),
         )
 
@@ -214,7 +221,11 @@ class LibrarySidebar(QWidget):
         for key, title, widget in (
             ("library", self._texts.library_title, self._build_library(content)),
             ("folders", self._texts.folders_title, self._folders),
-            ("dates", self._texts.dates_title, self._dates),
+            *(
+                (("dates", self._texts.dates_title, self._dates),)
+                if self._dates is not None
+                else ()
+            ),
             *((spec.key, spec.title, self._extra[spec.key]) for spec in self._extra_specs),
         ):
             section = CollapsibleSection(title, content)
@@ -271,8 +282,9 @@ class LibrarySidebar(QWidget):
 
     def set_date_tree(self, values: Iterable[MetadataValue]) -> None:
         """Pone los años, meses y días ('fetch_timeline(...).values'; no hace nada si no
-        han cambiado)."""
-        self._dates.set_tree(tuple(values))
+        han cambiado). Sin la sección («dates=False»), nada."""
+        if self._dates is not None:
+            self._dates.set_tree(tuple(values))
 
     def set_section_data(self, key: str, data: Any) -> None:
         """Pone los datos de una sección de más (lo que devolvió su 'ExtraSection.fetch')."""

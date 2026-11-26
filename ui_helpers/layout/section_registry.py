@@ -45,6 +45,8 @@ Uso:
     SECTION_REGISTRY.defaults("image", Sidebar.LEFT)  # sus secciones, en el orden de partida
     SECTION_REGISTRY.get("folders").title_for("image")
 
+1.9.0 La barra de Música: «Artistas» (debajo de «Biblioteca») y «Años» (al final,
+      plegada), sin «Fechas» (MUS 4.1).
 1.8.0 Sección «Audio» del inspector, detrás de «Track» (MUS 2.1).
 1.7.0 La «Lista de palabras clave» del inspector empieza plegada (la de la barra izquierda
       de Imagen, desplegada, como antes).
@@ -67,7 +69,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_registry
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 __all__ = [
     "LEFT",
     "RIGHT",
@@ -238,6 +240,7 @@ def _build_default_registry() -> SectionRegistry:
     catalog = frozenset(module.key for module in MODULES if module.library is None)
     libraries = frozenset(module.key for module in library_modules())
     image = frozenset({"image"})  # las secciones solo de Imagen
+    audio = frozenset({"audio"})  # las secciones solo de Música
     registry.register(SectionSpec("catalog", "Catálogo", LEFT, 100, modes=catalog))
     registry.register(
         SectionSpec(
@@ -249,7 +252,11 @@ def _build_default_registry() -> SectionRegistry:
         SectionSpec("folders", "Carpetas", LEFT, 200, modes=catalog | libraries)
     )
     registry.register(SectionSpec("collections", "Colecciones", LEFT, 300, modes=catalog))
-    registry.register(SectionSpec("dates", "Fechas", LEFT, 300, modes=libraries))
+    # Música no lleva «Fechas» (sus canciones casi siempre tienen solo el año): en su lugar,
+    # «Artistas» y «Años» (decidido por el autor el 26/11/2026; docs/MOD_MUSICA.md §7.2)
+    registry.register(SectionSpec("dates", "Fechas", LEFT, 300, modes=libraries - audio))
+    registry.register(SectionSpec("artists", "Artistas", LEFT, 150, modes=audio))
+    registry.register(SectionSpec("years", "Años", LEFT, 300, modes=audio, expanded=False))
     registry.register(SectionSpec("keywords", "Lista de palabras clave", LEFT, 400, modes=image))
 
     # --- Barra derecha (el inspector): las mismas en todos los modos. Los 'id' son las
@@ -288,8 +295,9 @@ if __name__ == "__main__":
     assert reg.mode_keys() == ("catalog", "image", "video", "audio", "tracks"), reg.mode_keys()
     assert _ids(reg, "catalog", Sidebar.LEFT) == ["catalog", "folders", "collections"]
     assert _ids(reg, "image", Sidebar.LEFT) == ["library", "folders", "dates", "keywords"]
-    for library_mode in ("video", "audio"):  # la barra de Tracks
-        assert _ids(reg, library_mode, Sidebar.LEFT) == ["library", "folders", "dates"]
+    assert _ids(reg, "video", Sidebar.LEFT) == ["library", "folders", "dates"]  # la de Tracks
+    assert _ids(reg, "audio", Sidebar.LEFT) == ["library", "artists", "folders", "years"]
+    assert [s.id for s in reg.defaults("audio", Sidebar.LEFT) if not s.expanded] == ["years"]
     assert reg.get("library").title_for("video") == "Biblioteca - Vídeos"
     assert reg.get("library").title_for("audio") == "Biblioteca - Música"
     assert _ids(reg, "tracks", Sidebar.LEFT) == ["library", "folders", "dates"]

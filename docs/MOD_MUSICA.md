@@ -1,7 +1,7 @@
 # Arca Media — Módulo Música: arquitectura y plan
 
 > Documento del módulo Música (en el código y en la interfaz, el módulo **Audio**: `AudioModule`, biblioteca `audio`). Tiene dos partes: **I, arquitectura** (cómo está hecho y cómo encaja con el resto) y **II, planificación** (fases y pasos, con los códigos `MUS` de [PENDIENTE.md](PENDIENTE.md)).
-> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`; hecho `MUS 2.1` (la sección «Audio» del inspector, de solo lectura). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
+> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`; hechos `MUS 2.1` (la sección «Audio» del inspector, de solo lectura) y `MUS 4.1` («Artistas» y «Años» en la barra, en lugar de «Fechas»). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
 > Índice: [INDEX.md](INDEX.md). Decisiones: [DECISIONES.md](DECISIONES.md) (16/11/2026).
 
 ## Resumen
@@ -49,7 +49,7 @@ Como en Tracks: lo que no necesita ni Qt ni la base de datos, en un paquete de `
 | Origen de la miniatura | `core/thumbnails/sources/audio_cover_source.py` (nuevo) | Se registra en `core/thumbnails/registry.py` |
 | Campos editables | `core/userdata/editable_fields.py` | Una línea por campo, con `table="audio_details"` y `media_types` de audio |
 | Escritor | `core/userdata/audio_writer.py` (nuevo) | Declara qué campos sabe guardar en cada formato; el trabajo que escribe sigue siendo el de `sync.py` |
-| Módulo y barra | `controllers/app_modules/audio_module.py`, `ui_helpers/sidebars/sections/` | Secciones nuevas dadas de alta en `section_registry.py` |
+| Módulo y barra | `controllers/app_modules/audio_module.py`, `ui_helpers/sidebars/sections/` | Secciones nuevas dadas de alta en `section_registry.py`; desde `MUS 4.1`, «Artistas» y «Años» (`music_sections.py`, con los árboles de `core/catalog/music_browse.py`) |
 | Inspector | `ui_helpers/inspector/audio_section.py` (desde `MUS 2.1`) | Como `track_section.py`; de la biblioteca `audio` (sale también en el Catálogo con canciones seleccionadas); los textos, en `formatting.py` |
 | Vista de lista | `ui_helpers/widgets/` y `ui_helpers/models/` (nuevos) | Una vista más del centro (`CenterView`); sirve a otros módulos |
 
@@ -213,10 +213,14 @@ Acordada con el autor el 26/11/2026 (el porqué, en [DECISIONES.md](DECISIONES.m
 | «Géneros» | Una lista simple | Por decidir en su paso | `MUS 4.2` |
 
 - **«Fechas» sale de Música**: su año ▸ mes ▸ día no sirve con canciones que casi siempre solo tienen el año. Sigue en Tracks y en Vídeo, donde el día sí importa.
-- **Los álbumes de un artista, por año** (la discografía en orden): «2001 · Destrangis», «2003 · Estopa Grandes Éxitos». En «Años», por orden alfabético.
+- **Los álbumes de un artista, por año** (la discografía en orden): «2001 · Destrangis», «2003 · Estopa Grandes Éxitos». Un álbum con canciones de varios años, con los dos extremos: «1974 – 2011 · Grandes Éxitos» (pedido por el autor al aprobar el plan); para ordenar, el más antiguo. Sin año, solo el nombre, al final.
+- **En «Años»**, del más reciente al más antiguo; sus álbumes, por orden alfabético y solo con el nombre (al pasar el ratón, su artista o «Varios artistas»). Un álbum es su nombre: un recopilatorio queda junto (dos álbumes de artistas distintos con el mismo nombre y el mismo año saldrían en una fila: es raro).
 - **Los recopilatorios**: se agrupan por el «Artista del álbum» y, si no lo tienen, por el artista. Las bandas sonoras del autor quedan bajo «0 Varios»; un recopilatorio sin artista del álbum se reparte entre sus artistas.
-- **Las canciones de un álbum**, al elegirlo, por disco y pista (el orden del álbum de `MUS 2.2`).
-- **Por resolver al hacer `MUS 4.1`**: cómo se combina el orden del álbum con el que haya elegido el usuario; el año de un álbum con canciones de varios años; las canciones sin álbum o sin artista («Sin álbum», «Sin artista», como «Sin fecha»).
+- **Lo que falta**: «Sin álbum» al final de cada artista y de cada año; «Sin artista» (sin artista del álbum ni artista) y «Sin año», al final de su sección.
+- **Los textos** se comparan sin mayúsculas ni acentos, como las reglas: «Estopa» y «ESTOPA» son la misma fila.
+- **Cada fila es una colección fija**, como las de «Fechas»: la biblioteca y las reglas de «Artista del álbum» y «Álbum» (o la fecha y el álbum), con los dos campos del grupo «Audio» de las colecciones inteligentes, adelantados de `MUS 2.3`. Así cuenta exactamente lo que muestra la cuadrícula. «Artista del álbum» cuenta el artista si la canción no lo tiene, también en las colecciones (como foobar2000; decidido por el autor el 26/11/2026).
+- **Las canciones de un álbum**, al elegirlo: por ahora, en el orden del módulo (por nombre). El orden del álbum (por disco y pista) y si se pone solo al elegir un álbum, en `MUS 2.2`.
+- **Hecho en `MUS 4.1`** (26/11/2026): `core/catalog/music_browse.py`, `ui_helpers/sidebars/sections/music_sections.py`, `audio_module.py` (`with_dates = False`) y el registro de secciones.
 - Las secciones se pliegan, se ocultan y se reordenan por módulo como las demás (`section_registry.py`): otra colocación no necesita código.
 
 ## 8. Riesgos y trampas previstas
@@ -261,7 +265,7 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|
-| **MUS 4.1** «Artistas» y «Años» | Artista del álbum ▸ álbum y año ▸ álbum, con recuentos (§7.2); «Fechas» sale de Música | Nuevas secciones en `ui_helpers/sidebars/sections/`; consultas en `core/catalog/`; `section_registry.py`; `audio_module.py` | Elegir un álbum muestra sus canciones |
+| ~~**MUS 4.1** «Artistas» y «Años»~~ (hecho el 26/11/2026) | Artista del álbum ▸ álbum y año ▸ álbum, con recuentos (§7.2); «Fechas» sale de Música | Nuevas secciones en `ui_helpers/sidebars/sections/`; consultas en `core/catalog/`; `section_registry.py`; `audio_module.py` | Elegir un álbum muestra sus canciones |
 | **MUS 4.2** «Géneros» | Una lista simple, con recuentos | Lo mismo | Elegir un género muestra sus canciones |
 | **MUS 4.3** Listas que se recorren con las flechas | Ver la nota de abajo | `SidebarTreeView`, `CenterViewController` | Recorrer los álbumes con el teclado |
 

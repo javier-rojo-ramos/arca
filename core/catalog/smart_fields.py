@@ -17,7 +17,7 @@ Organización (lo que ve el usuario en el menú "campo" del editor):
         Palabras clave  Palabra clave (cualquier tipo de archivo)
     Imagen ▸          solo fotos (cámara, objetivo, ISO...)
     Vídeo ▸           (previsto)
-    Audio ▸           (previsto)
+    Audio ▸           solo canciones: álbum y artista del álbum (el resto, con MUS 2.3)
     Libros ▸          (previsto)
     Tracks GPS ▸      distancia, desnivel, actividad...
 
@@ -41,6 +41,9 @@ Cómo añadir un campo:
 Cómo añadir un grupo (p. ej. vídeo, cuando exista 'video_details'): una línea en
 'GROUPS' con sus 'media_types'; sus campos, con 'group=' su clave.
 
+1.7.0 Grupo «Audio»: «Álbum» y «Artista del álbum» (este, con el artista de respaldo si la
+      canción no lo tiene, como foobar2000; decidido por el autor el 26/11/2026). Los usan
+      las secciones «Artistas» y «Años» de la barra de Música (MUS 4.1).
 1.6.0 «Actividad» ('track_activity') pasa a ser una lista ('KIND_ENUM') con las actividades
       de 'core/tracks/activities.py' (antes, un texto).
 1.5.1 «Lugar» (antes «Ubicación secundaria»): el mismo nombre que en el inspector
@@ -59,7 +62,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.smart_fields
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 # ruff: noqa: RUF022
 __all__ = [
     "KIND_BOOL",
@@ -373,6 +376,15 @@ _FIELD_LIST: tuple[SmartField, ...] = (
     SmartField("width", "Ancho", "image", "Imagen", KIND_NUMBER, "m.width", unit="px"),
     SmartField("height", "Alto", "image", "Imagen", KIND_NUMBER, "m.height", unit="px"),
 
+    # --- Audio (las canciones; los demás campos, con MUS 2.3) ------------------------------
+    SmartField("audio_album", "Álbum", "audio", "Etiquetas", KIND_TEXT,
+               _detail("audio_details", "album")),
+    # El artista del álbum o, si la canción no lo tiene, su artista (como el campo del mismo
+    # nombre de foobar2000): así agrupa sus álbumes la sección «Artistas» de la barra, y así
+    # «Artista del álbum es Estopa» encuentra también los discos sin esa etiqueta
+    SmartField("audio_album_artist", "Artista del álbum", "audio", "Etiquetas", KIND_TEXT,
+               f"COALESCE(NULLIF({_detail('audio_details', 'album_artist')}, ''), m.creator)"),
+
     # --- Tracks GPS -----------------------------------------------------------------------
     SmartField("track_distance", "Distancia", "track", "Recorrido", KIND_NUMBER,
                _detail("track_details", "distance_m"), unit="km", scale=1000, decimals=1),
@@ -431,7 +443,8 @@ if __name__ == "__main__":
             assert field.choices, field.key
         assert field.scale > 0, field.key
         assert field.clock in ("local", "utc"), field.key
-    assert [g.key for g in visible_groups()] == ["standard", "image", "track"]
+    assert [g.key for g in visible_groups()] == ["standard", "image", "audio", "track"]
+    assert FIELDS["audio_album"].media_types == ("audio",)
     assert FIELDS["iso"].media_types == ("photo",)
     assert FIELDS["rating"].media_types == ()
     assert FIELDS["flag"].choice_label(-1) == "Rechazada"

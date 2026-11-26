@@ -72,6 +72,7 @@ python -m core.catalog.smart_fields
 python -m core.catalog.smart_rules
 python -m core.catalog.storage_locations
 python -m core.catalog.system_collections
+python -m core.catalog.music_browse                            (Artistas y Años: agrupar, ordenar, recopilatorios; cada fila muestra lo que cuenta)
 python -m core.catalog.timeline                                (cada fila muestra lo que cuenta)
 python -m core.catalog.user_collections
 
@@ -189,6 +190,7 @@ python -m ui_helpers.inspector.keywords_section
 python -m ui_helpers.inspector.metadata_fields                 (todas las vistas sobre una foto y un vídeo de ejemplo)
 python -m ui_helpers.inspector.metadata_section                (su aviso «Edición múltiple»; sin ventana)
 python -m ui_helpers.inspector.value_parsing                   (lo escrito en las cajas del GPS, la altitud y la dirección; sin Qt)
+python -m ui_helpers.sidebars.sections.music_sections          (textos de los álbumes, filas, orígenes, textos emergentes y lo desplegado; sin ventana)
 python -m ui_helpers.sidebars.sections.date_section            (textos de las fechas, árbol, orígenes y lo desplegado; sin ventana)
 python -m ui_helpers.sidebars.folder_drag                      (arrastrar una carpeta: qué filas se pueden arrastrar, desplegar al pararse encima, desplazar la barra cerca del borde; con la plataforma offscreen, sin ventana)
 python -m ui_helpers.models.full_image_loader                  (caché temporal: la mayor miniatura, sin miniatura, memoria; sin ventana)
