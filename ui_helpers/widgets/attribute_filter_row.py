@@ -25,6 +25,8 @@ Uso (lo crea el controlador principal y se lo pasa al 'FilterController'):
     row.set_media_types(("photo", "video"))
     row.attribute_filter_changed.connect(...)
 
+1.2.0 Las estrellas, separadas 4 px más ('_STAR_GAP'), como en la barra inferior: el
+      recuadro del ratón ya no pisa las de al lado (el autor, 26/11/2026).
 1.1.0 Las estrellas, dibujadas por 'card_marks' (GEN 21.3): sin la fuente Arial 12 pt.
 1.0.2 De 34 px de alto (antes, 30), como la fila de las pestañas; los iconos, las
       estrellas y el fondo bajo el ratón, del mismo tamaño que antes y centrados
@@ -37,7 +39,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.attribute_filter_row
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["OPERATOR_TEXTS", "OPERATOR_TOOLTIP", "TYPE_TEXTS", "AttributeFilterRow"]
 
 # Librerías estándar
@@ -86,6 +88,7 @@ _STAR_HEIGHT = 22  # zona de cada estrella
 _HOVER_HEIGHT = 24  # fondo bajo el ratón (no crece con la fila: va centrado)
 _FLAG_W, _FLAG_H = 10, 14
 _STAR_W = 16
+_STAR_GAP = 4  # entre dos estrellas, además (como en la barra inferior: 'organize_bar.py')
 _SWATCH = 12
 _QUICK = 14
 _GLYPH = 16  # dibujo de cada tipo
@@ -272,6 +275,8 @@ class AttributeFilterRow(QWidget):
     def _rest_zones(self) -> list[_Zone]:
         zones: list[_Zone] = []
         for stars in range(1, 6):
+            if stars > 1:
+                zones.append((None, _STAR_GAP, 0, ""))
             zones.append((f"star:{stars}", _STAR_W, _STAR_HEIGHT, _star_text(stars)))
         zones.append((None, _GROUP_GAP, 0, ""))
         for i, name in enumerate((*COLOR_LABELS, COLOR_NONE)):
@@ -306,8 +311,8 @@ class AttributeFilterRow(QWidget):
         # Estrellas: rellenas hasta la valoración elegida; las demás, vacías
         first = zones["star:1"]
         card_marks.draw_stars(
-            painter, QRect(first.left(), first.top(), _STAR_W * 5, first.height()),
-            attributes.rating, star_width=_STAR_W, show_empty=True,
+            painter, QRect(first.left(), first.top(), _STAR_W * 5 + _STAR_GAP * 4, first.height()),
+            attributes.rating, star_width=_STAR_W, show_empty=True, gap=_STAR_GAP,
         )  # fmt: skip
 
         # Colores: el cuadrado de cada uno; «sin color», solo el contorno

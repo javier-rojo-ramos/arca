@@ -30,6 +30,8 @@ Los colores salen del tema ('MARK_COLORS' y, los del círculo, que va sobre la i
 'CARD_COLORS'; ver 'theme_colors.py'). Las constantes '*_COLOR' de aquí son sus nombres de
 siempre, para quien ya las usa.
 
+1.3.0 'draw_stars(..., gap=)': separación entre las estrellas (las barras, con el recuadro
+      del ratón; las tarjetas, sin ella, como antes). El autor, 26/11/2026.
 1.2.0 Estrellas dibujadas (GEN 21.3; antes, el carácter ★ con la fuente de quien llamaba,
       Arial, que no lo tiene: salía de «Segoe UI Symbol» en Windows y de otra fuente en los
       demás sistemas): de punta fina, en el mismo cuadrado que el carácter, con la caja y
@@ -38,7 +40,7 @@ siempre, para quien ya las usa.
 1.0.0 Sacado de 'ThumbnailsDelegate' para compartirlo con la barra inferior.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "FLAG_NONE",
     "FLAG_OUTLINE_COLOR",
@@ -179,6 +181,7 @@ def draw_stars(
     star_width: int,
     show_empty: bool = False,
     rejected: bool = False,
+    gap: int = 0,
 ) -> None:
     """Dibuja cinco estrellas en fila, de izquierda a derecha, desde 'rect.left()'.
 
@@ -194,6 +197,9 @@ def draw_stars(
         star_width: Ancho de cada estrella (px).
         show_empty: Dibujar también las vacías (☆): en la tarjeta, con el ratón encima.
         rejected: Rellenas en un tono apagado (archivo rechazado).
+        gap: Px de más entre dos estrellas (los huecos van de 'star_width' + 'gap' en
+            'star_width' + 'gap'). En las barras, que enmarcan la estrella bajo el ratón,
+            para que el recuadro no pise las de al lado; en la tarjeta, ninguno.
     """
     size = star_width - 1
     top = rect.top() + (rect.height() - size) // 2
@@ -203,7 +209,7 @@ def draw_stars(
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     for star_idx in range(5):
-        box = QRectF(rect.left() + star_idx * star_width, top, size, size)
+        box = QRectF(rect.left() + star_idx * (star_width + gap), top, size, size)
         if star_idx < rating:
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(full_color)

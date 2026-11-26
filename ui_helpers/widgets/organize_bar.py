@@ -29,6 +29,8 @@ Comportamiento (el mismo que los atajos de teclado):
 Uso (en el .ui es un widget promocionado, 'widget_organize_bar'):
     self.widget_organize_bar.attach(self.list_view_grid, self.mosaico_model)
 
+1.3.0 Las estrellas, separadas 4 px más ('_STAR_GAP'): el recuadro del ratón ya no pisa
+      las de al lado (pedido por el autor el 26/11/2026).
 1.2.0 Las estrellas, dibujadas por 'card_marks' (GEN 21.3): sin la fuente Arial 12 pt.
 1.1.0 El fondo bajo el ratón y el anillo del color activo, los mismos que la fila
       «Atributos» de la barra de filtros (del tema: 'bg_hover' y 'text'; antes, blanco
@@ -37,7 +39,7 @@ Uso (en el .ui es un widget promocionado, 'widget_organize_bar'):
 1.0.0 Primera versión (barra inferior, paso 2).
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["MIXED", "OrganizeBar", "common_value", "toggled_value"]
 
 # Librerías estándar
@@ -69,6 +71,9 @@ MIXED = object()
 _HEIGHT = 26  # alto de la barra
 _FLAG_W, _FLAG_H = 10, 14  # recuadro de la marca (en la tarjeta, 8 × 11)
 _STAR_W = 16  # ancho de cada estrella (en la tarjeta, 12)
+# Entre dos estrellas, además (el dibujo mide 15: quedan 5 px, como entre dos colores). Con
+# menos, el recuadro del ratón (la estrella y 3 px a cada lado) pisaba las de al lado
+_STAR_GAP = 4
 _SWATCH = 12  # lado del cuadrado de cada color
 _QUICK = 14  # diámetro del círculo de la selección rápida (en la tarjeta, 16)
 _ITEM_GAP = 8  # entre los dos botones de la marca
@@ -204,7 +209,7 @@ class OrganizeBar(QWidget):
 
         for number in range(1, 6):
             zones[f"star{number}"] = QRect(x, 0, _STAR_W, _HEIGHT)
-            x += _STAR_W
+            x += _STAR_W + (_STAR_GAP if number < 5 else 0)
         x += _GROUP_GAP
 
         for name in COLOR_LABELS:
@@ -277,8 +282,9 @@ class OrganizeBar(QWidget):
         rating = self._state.get("rating")
         first = self._zones["star1"]
         card_marks.draw_stars(
-            painter, QRect(first.left(), 0, _STAR_W * 5, _HEIGHT),
+            painter, QRect(first.left(), 0, _STAR_W * 5 + _STAR_GAP * 4, _HEIGHT),
             rating if isinstance(rating, int) else 0, star_width=_STAR_W, show_empty=True,
+            gap=_STAR_GAP,
         )  # fmt: skip
 
         # Colores: el cuadrado de cada uno; el que tiene toda la selección, con un anillo
