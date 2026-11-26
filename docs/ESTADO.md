@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **Las estrellas de la barra inferior y de «Atributos», más separadas** (26/11/2026, pedido por el autor; `card_marks` 1.3.0, `organize_bar` 1.3.0, `attribute_filter_row` 1.2.0) | 1. En la barra inferior, las cinco estrellas a la misma distancia que los cuadrados de color (5 px; antes, 1), y el recuadro de la que está bajo el ratón sin pisar las de al lado; pulsar cada una pone esa valoración, como antes. 2. Lo mismo en la fila «Atributos» de la barra de filtros. 3. Las estrellas de las tarjetas, igual que antes (juntas). |
+| — | Nada pendiente (el 26/11/2026, el autor comprobó todo lo entregado) |
 
 ## Comprobaciones sueltas
 
@@ -39,6 +39,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 ## Verificado por el autor (Windows)
 
+- **Las estrellas de la barra inferior y de «Atributos», más separadas** (26/11/2026; `card_marks` 1.3.0, `organize_bar` 1.3.0, `attribute_filter_row` 1.2.0; «comprobado»): a 5 px, como los colores; el recuadro del ratón sin pisar las de al lado; las tarjetas, igual.
 - **Las cabeceras de las secciones, oscuras como la toolbar** (26/11/2026; `theme_colors` 1.13.0, `ui_theme` 1.27.0, `metadata_section` 1.3.2; «comprobado»): en las dos barras de todos los módulos, bien distintas del panel; el desplegable «Por defecto», plano; los «+» del Catálogo; arrastrar y el menú de las cabeceras; los botones y los menús, con su gris.
 - **El contenido de las secciones de la barra izquierda, a 8 px de la cabecera** (26/11/2026; `collapsible_section` 1.4.1, `base_section` 1.11.1, `keyword_editor_section` 1.3.3, `keyword_list_section` 1.5.4, `keyword_section` 1.2.1; «comprobado»): en todos los módulos, la primera fila de cada sección arranca a 8 px de la cabecera, como en el inspector; el inspector, igual; plegar, desplegar y arrastrar las cabeceras, como antes.
 - **El contenido de las secciones del inspector, a 8 px de la cabecera** (26/11/2026; `base_section` 1.11.1, `selection_section` 1.3.4; «comprobado»): en todas, el contenido arranca a la misma distancia de la cabecera que de los lados; la carátula, con el mismo hueco arriba que a los lados. Al verlo, el autor pidió el mismo criterio en la barra izquierda (hecho el mismo día, pendiente de verificar).
@@ -189,7 +190,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
-- 26/11/2026: verificadas las cabeceras oscuras. Las estrellas de la barra inferior y de «Atributos», separadas como los colores (5 px): el recuadro del ratón ya no pisa las de al lado. Las de las tarjetas, igual.
+- 26/11/2026: verificadas las cabeceras oscuras y, después, las estrellas. Las estrellas de la barra inferior y de «Atributos», separadas como los colores (5 px): el recuadro del ratón ya no pisa las de al lado. Las de las tarjetas, igual.
 - 26/11/2026: las cabeceras de las secciones (barra izquierda e inspector), oscuras como la barra de herramientas, para que se distingan del panel: elegidas por el autor entre seis variantes (más clara, más oscura, con rayas). El redondeo de la carátula, probado con capturas, queda para más adelante.
 - 26/11/2026: verificados el margen del inspector y, después, el de la barra izquierda. Con el mismo criterio, la barra izquierda: la primera fila de cada sección, a 8 px de la cabecera (antes, a 2). Los 8 px los pone ahora el cuerpo de las secciones plegables, el mismo en las dos barras.
 - 26/11/2026: verificado `MUS 9.1` (la raya alrededor de la carátula se queda). A petición del autor, el contenido de todas las secciones del inspector empieza a 8 px de la cabecera, como a los lados (antes, a 4 en las de filas y a 6 en «Selección»).
