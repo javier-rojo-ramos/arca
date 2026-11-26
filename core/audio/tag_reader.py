@@ -11,6 +11,7 @@ qué columna del catálogo va cada dato, y la herramienta de diagnóstico
     info.tag_type        # 'ID3v2.3 + ID3v1'
     info.pictures        # todas las imágenes ('AudioPicture', sin sus bytes)
     info.cover           # la portada o, si no hay, la primera imagen
+    read_cover(path)     # los BYTES de esa misma imagen (para su miniatura; None si no hay)
 
 Formatos:
     - Con etiquetas (la tabla de 'tag_map.py'): ID3 (MP3, WAV, AIFF), Vorbis (FLAC, Ogg
@@ -30,7 +31,9 @@ Cómo se traduce (los detalles de cada campo, en 'tag_map.py'):
 Las imágenes: su tipo (la clave de 'picture_types.py'; en MP4, que no tiene tipos, la
 portada, como Mp3tag: su átomo 'covr' es la carátula), su formato, su tamaño en píxeles
 (de la cabecera de la imagen, con Pillow: ID3 no lo guarda) y su peso. Sus bytes no se
-guardan en 'AudioInfo' (la miniatura, en MUS 3, los pedirá).
+guardan en 'AudioInfo': la miniatura los pide aparte con 'read_cover' (MUS 3.1). Cuál es la
+carátula (la primera portada o, si no hay, la primera imagen) lo decide 'cover_index', para
+el catálogo y para la miniatura.
 
 Los datos técnicos ('AudioTechnical') salen de mutagen y van APARTE: si un día hace falta
 otra fuente (MediaInfo, docs/MOD_MUSICA.md §4), se rellena esa parte sin tocar las demás.
@@ -40,6 +43,8 @@ La tasa de bits es la MEDIA, como la de Mp3tag (comparado con las 75 canciones d
 la que da mutagen, salvo en Ogg Vorbis, donde mutagen da la nominal de la cabecera y se
 calcula con el tamaño del archivo sin las etiquetas.
 
+1.4.0 'read_cover': los bytes de la carátula, para su miniatura (MUS 3.1); 'cover_index',
+      la regla de cuál es la carátula, una sola para 'AudioInfo.cover' y 'read_cover'.
 1.3.0 La huella de cada imagen ('AudioPicture.digest', BLAKE2) y la familia de la etiqueta
       ('AudioInfo.tag_family'), para el extractor (MUS 1.3).
 1.2.0 Las imágenes de un MP4 (M4A), como portadas (antes, sin tipo), como Mp3tag.
@@ -52,7 +57,7 @@ temporal):
     python -m core.audio.tag_reader
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "ID3_FAMILY",
     "MP4_FAMILY",
@@ -63,6 +68,7 @@ __all__ = [
     "AudioTags",
     "AudioTechnical",
     "UnsupportedAudioError",
+    "cover_index",
     "parse_pair",
     "picture_digest",
     "pictures_from_flac",
@@ -70,6 +76,7 @@ __all__ = [
     "pictures_from_mp4",
     "pictures_from_vorbis",
     "read_audio",
+    "read_cover",
     "tags_from_id3",
     "tags_from_mp4",
     "tags_from_vorbis",
@@ -282,10 +289,8 @@ class AudioInfo:
     @property
     def cover(self) -> AudioPicture | None:
         """La carátula: la primera portada o, si no hay ninguna, la primera imagen."""
-        for picture in self.pictures:
-            if picture.type_key == FRONT_COVER:
-                return picture
-        return self.pictures[0] if self.pictures else None
+        position = cover_index([picture.type_key for picture in self.pictures])
+        return None if position is None else self.pictures[position]
 
 
 # -----------------------------------------------------------------------------
@@ -300,13 +305,7 @@ def read_audio(path: Path) -> AudioInfo:
         UnsupportedAudioError: Si mutagen no reconoce el formato.
         AudioReadError: Si el archivo no se puede leer.
     """
-    try:
-        audio = mutagen.File(path)
-    except _READ_ERRORS as error:
-        raise AudioReadError(f"No se ha podido leer «{path.name}»: {error}") from error
-    if audio is None:
-        raise UnsupportedAudioError(f"Formato de audio no reconocido: «{path.name}»")
-
+    audio = _open(path)
     tags = audio.tags
     family: str | None = None
     if isinstance(tags, ID3):  # MP3, WAV, AIFF
@@ -330,6 +329,59 @@ def read_audio(path: Path) -> AudioInfo:
         pictures=pictures,
         tag_family=family,
     )
+
+
+def read_cover(path: Path) -> bytes | None:
+    """Los bytes de la carátula de una canción: la misma imagen que 'AudioInfo.cover' (la
+    primera portada o, si no hay ninguna, la primera imagen); None si no trae ninguna.
+
+    La usa su miniatura ('core/thumbnails/sources/audio_cover_source.py', MUS 3.1).
+
+    Raises:
+        UnsupportedAudioError, AudioReadError: Como 'read_audio'.
+    """
+    images = _picture_data(_open(path))
+    position = cover_index([type_key for type_key, _data in images])
+    return None if position is None else images[position][1]
+
+
+def cover_index(type_keys: Sequence[str | None]) -> int | None:
+    """Cuál de las imágenes de una canción es su carátula, por sus tipos (en el orden del
+    archivo): la primera portada o, si no hay ninguna, la primera; None sin imágenes.
+
+    Es LA regla, para el catálogo ('AudioInfo.cover') y para la miniatura ('read_cover'):
+    así la miniatura es la carátula cuyos datos guarda el catálogo.
+    """
+    for position, type_key in enumerate(type_keys):
+        if type_key == FRONT_COVER:
+            return position
+    return 0 if type_keys else None
+
+
+def _open(path: Path) -> Any:
+    """Abre una canción con mutagen (los errores, los de 'read_audio')."""
+    try:
+        audio = mutagen.File(path)
+    except _READ_ERRORS as error:
+        raise AudioReadError(f"No se ha podido leer «{path.name}»: {error}") from error
+    if audio is None:
+        raise UnsupportedAudioError(f"Formato de audio no reconocido: «{path.name}»")
+    return audio
+
+
+def _picture_data(audio: Any) -> list[tuple[str | None, bytes]]:
+    """El tipo y los bytes de cada imagen de una canción ya abierta, en el orden del archivo:
+    las mismas imágenes y los mismos tipos que 'read_audio' (en MP4, la portada)."""
+    tags = audio.tags
+    if isinstance(tags, ID3):  # el mismo orden de casos que 'read_audio'
+        return [(picture_type_key(frame.type), frame.data) for frame in tags.getall("APIC")]
+    if isinstance(audio, FLAC):
+        return [(picture_type_key(p.type), p.data) for p in audio.pictures]
+    if isinstance(tags, VComment):
+        return [(picture_type_key(p.type), p.data) for p in _vorbis_pictures(tags)]
+    if isinstance(tags, MP4Tags):
+        return [(FRONT_COVER, bytes(cover)) for cover in tags.get("covr", ())]
+    return []
 
 
 # -----------------------------------------------------------------------------
@@ -440,6 +492,12 @@ def pictures_from_flac(pictures: Iterable[Picture]) -> tuple[AudioPicture, ...]:
 def pictures_from_vorbis(comments: Mapping[str, Sequence[str]] | Any) -> tuple[AudioPicture, ...]:
     """Las imágenes de unos comentarios de Vorbis (Ogg, Opus): bloques PICTURE de FLAC en
     base64. Las que no se pueden descifrar se saltan."""
+    return pictures_from_flac(_vorbis_pictures(comments))
+
+
+def _vorbis_pictures(comments: Mapping[str, Sequence[str]] | Any) -> list[Picture]:
+    """Los bloques PICTURE de unos comentarios de Vorbis, ya descifrados (los que no se
+    pueden descifrar se saltan)."""
     blocks = [
         text
         for key, texts in comments.items()
@@ -449,11 +507,10 @@ def pictures_from_vorbis(comments: Mapping[str, Sequence[str]] | Any) -> tuple[A
     pictures = []
     for block in blocks:
         try:
-            picture = Picture(base64.b64decode(block))
+            pictures.append(Picture(base64.b64decode(block)))
         except (binascii.Error, mutagen.MutagenError, struct.error, ValueError):
             continue
-        pictures.extend(pictures_from_flac([picture]))
-    return tuple(pictures)
+    return pictures
 
 
 def pictures_from_mp4(covers: Iterable[bytes]) -> tuple[AudioPicture, ...]:
@@ -692,6 +749,10 @@ if __name__ == "__main__":
     JPEG = image_bytes((30, 20), "JPEG")
     PNG = image_bytes((12, 12), "PNG")
 
+    # --- Cuál es la carátula: la primera portada; sin portada, la primera imagen
+    assert cover_index([]) is None and cover_index(["cover_back", None]) == 0
+    assert cover_index(["cover_back", FRONT_COVER, FRONT_COVER]) == 1
+
     # --- La tasa media de Ogg Vorbis: el archivo sin las etiquetas, entre la duración
     assert _comment_bytes({"title": ["Á"], "GENRE": "BSO"}) == (5 + 1 + 2) + (5 + 1 + 3)
     assert _average_bitrate(3_000_000, 40_000, 160.0) == 148_000
@@ -803,6 +864,7 @@ if __name__ == "__main__":
             FRONT_COVER, "image/jpeg", 30, 20, len(JPEG), "Portada", picture_digest(JPEG)
         )
         assert info.tag_family == ID3_FAMILY
+        assert read_cover(mp3) == JPEG  # sus bytes: la misma imagen que 'info.cover'
 
         # El mismo MP3 en ID3v2.4, sin ID3v1; y otro solo con ID3v1
         id3.save(mp3, v2_version=4, v1=0)
@@ -815,6 +877,7 @@ if __name__ == "__main__":
         only_v1.write_bytes(frame * 10 + only_v1.read_bytes()[-_ID3V1_SIZE:])  # sin el v2
         info = read_audio(only_v1)
         assert info.tag_type == "ID3v1" and info.tags.title == "Antigua", info
+        assert read_cover(only_v1) is None  # sin imágenes
 
         # --- Un FLAC mínimo: la cabecera y su STREAMINFO (2 s, 44,1 kHz, estéreo, 16 bits),
         # sin audio, con comentarios y una imagen
@@ -843,6 +906,7 @@ if __name__ == "__main__":
             FRONT_COVER, "image/jpeg", 30, 20, len(JPEG), digest=picture_digest(JPEG)
         )
         assert info.tag_family == VORBIS_FAMILY
+        assert read_cover(flac_path) == JPEG
 
         # --- Lo que no se puede leer
         unknown = root / "pista.mka"
@@ -854,10 +918,11 @@ if __name__ == "__main__":
             (damaged, AudioReadError),
             (root / "no_existe.mp3", AudioReadError),
         ):
-            try:
-                read_audio(bad)
-                raise AssertionError(f"debía fallar: {bad.name}")
-            except error_type:
-                pass
+            for reader in (read_audio, read_cover):
+                try:
+                    reader(bad)
+                    raise AssertionError(f"debía fallar: {reader.__name__}({bad.name})")
+                except error_type:
+                    pass
 
     print("Autoprueba finalizada correctamente.")

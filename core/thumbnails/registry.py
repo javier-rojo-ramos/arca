@@ -10,10 +10,11 @@ Para cada archivo se obtiene una CADENA de orígenes (los que coinciden en tipo 
 y extensión, en el orden en que se registraron) y se prueban uno tras otro hasta que
 uno entrega la imagen. Así un formato puede tener un origen rápido y otro de respaldo.
 
+1.2.0 Las carátulas de las canciones ('AudioCoverSource', con mutagen; MUS 3.1).
 1.1.0 Los PSD de Photoshop ('PsdSource').
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["SourceRegistry", "default_registry"]
 
 # Librerías estándar
@@ -25,6 +26,7 @@ from loguru import logger
 # Módulos del proyecto
 from core.catalog.media_types import MediaType
 from core.metadata.exiftool_runner import ExifToolError, ExifToolRunner
+from core.thumbnails.sources.audio_cover_source import AudioCoverSource
 from core.thumbnails.sources.base import ThumbnailSource
 from core.thumbnails.sources.heif_source import HeifSource
 from core.thumbnails.sources.pillow_source import PillowSource
@@ -101,8 +103,10 @@ def default_registry(runner: ExifToolRunner | None = None) -> SourceRegistry:
     if runner is not None:
         registry.register(RawPreviewSource(runner))  # DNG, NEF, CR2, CR3, ARW...
 
-    # --- Pendiente, siguientes pasos: se registrarán aquí, p. ej.
-    #     registry.register(AudioCoverSource(runner))   # carátulas de MP3 / M4A / FLAC
+    # --- Canciones: la carátula incrustada (necesita mutagen) ---
+    registry.register(AudioCoverSource())  # MP3, M4A, FLAC, Ogg, Opus
+
+    # --- Pendiente: se registrará aquí, p. ej.
     #     registry.register(VideoPosterSource())        # póster descargado o marcador de posición
 
     for source in registry:

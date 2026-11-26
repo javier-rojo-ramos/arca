@@ -71,6 +71,8 @@ las seleccionadas (el valor nuevo se decide con la tarjeta pulsada). Si no está
 seleccionada, solo cambia ella. La chincheta no cambia nada: solo avisa. Con Ctrl, Alt o
 Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
 
+2.22.0 Las canciones tienen miniatura (su carátula, MUS 3.1): mientras se lee de la caché,
+       sin marcador, como las fotos; sin carátula, el marcador.
 2.21.0 Las estrellas, dibujadas por 'card_marks' (GEN 21.3): sin la fuente Arial 9 pt.
 2.20.0 El nombre (y la extensión) y la duración, en Inter con los tamaños de
        'theme_fonts' (11 px; la duración, 10 px en SemiBold), en lugar de Arial 8 y 7 pt
@@ -115,7 +117,7 @@ Meta, el clic solo selecciona (como en cualquier otro punto de la tarjeta).
       disponible pasa a la esquina superior izquierda.
 """
 
-__version__ = "2.21.0"
+__version__ = "2.22.0"
 __all__ = ["ThumbnailsDelegate"]
 
 # Librerías estándar
@@ -163,6 +165,8 @@ _THUMBNAIL_READY = 1
 # películas y series ('core.catalog.libraries.Library.VIDEO'): el delegado no importa
 # 'core' para seguir sin saber nada de la base de datos
 _PHOTO, _VIDEO, _AUDIO, _EBOOK, _TRACK = "photo", "video", "audio", "ebook", "track"
+# Los tipos con miniatura en la caché: las fotos y, desde MUS 3.1, las canciones (su carátula)
+_WITH_THUMBNAILS = frozenset({_PHOTO, _AUDIO})
 _MOVIES_LIBRARY = "video"
 
 # Teclas con las que un clic solo selecciona (no cambia estrellas, marca, círculo ni
@@ -336,17 +340,20 @@ class ThumbnailsDelegate(QStyledItemDelegate):
     def _needs_placeholder(self, index, pixmap: object) -> bool:
         """True si la tarjeta lleva marcador en lugar de miniatura.
 
-        Sin miniatura y: de un tipo que todavía no genera miniaturas (todo menos las
-        fotos), o una foto cuya miniatura está pendiente de generar o falló. Una foto cuya
-        miniatura YA EXISTE y aún se está leyendo de la caché NO lleva marcador: aparecerá
-        enseguida, y el dibujo parpadearía al desplazarse.
+        Sin miniatura y: de un tipo que todavía no genera miniaturas (vídeos, libros y
+        tracks), o una foto o una canción cuya miniatura está pendiente de generar o falló
+        (una canción sin carátula, también: su estado es el de un fallo). Una foto o una
+        canción cuya miniatura YA EXISTE y aún se está leyendo de la caché NO lleva marcador:
+        aparecerá enseguida, y el dibujo parpadearía al desplazarse.
         """
         if isinstance(pixmap, QPixmap) and not pixmap.isNull():
             return False
         media_type = index.data(ROLE_MEDIA_TYPE)
         if media_type is None:
             return False  # modelo sin tipo (p. ej. el prototipo antiguo)
-        return media_type != _PHOTO or index.data(ROLE_THUMBNAIL_STATUS) != _THUMBNAIL_READY
+        if media_type not in _WITH_THUMBNAILS:
+            return True
+        return index.data(ROLE_THUMBNAIL_STATUS) != _THUMBNAIL_READY
 
     def _placeholder_aspect(self, index) -> float:
         """Proporción del marcador según el tipo (y, en el vídeo, la biblioteca)."""

@@ -19,6 +19,9 @@ No toca la base de datos ni decide QUÉ archivos procesar: eso es del trabajo en
 segundo plano (siguiente paso). Aquí solo hay una función por archivo, segura para
 llamar desde varios hilos a la vez.
 
+1.3.0 Si un origen dice que el archivo no trae imagen ('NoImageError', una canción
+      sin carátula), se prueba con el siguiente; si ninguno la da, sale ese aviso y no un
+      error (salvo que otro origen haya visto el archivo dañado). MUS 3.1.
 1.2.1 Autoprueba: un TIFF con orientación 6 sale vertical, girado una sola vez.
 1.2.0 'load_source_image' pública (antes, '_load_source_image'): la usa también
       'full_image.py' (el original a tamaño completo para la vista individual a 1:1).
@@ -27,7 +30,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.thumbnails.generator
 """
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 __all__ = ["THUMBNAIL_VERSION", "ThumbnailResult", "generate_thumbnails", "load_source_image"]
 
 # Librerías estándar
@@ -48,6 +51,7 @@ from core.thumbnails.registry import SourceRegistry
 from core.thumbnails.sizes import DEFAULT_SIZES, ThumbnailSize
 from core.thumbnails.sources.base import (
     LoadedImage,
+    NoImageError,
     ThumbnailError,
     ThumbnailRequest,
     UnsupportedSourceError,
@@ -173,10 +177,12 @@ def load_source_image(
         except ThumbnailError as error:  # FileNotFoundError no se captura: sale directo
             errors.append(error)
 
-    # Todos fallaron. El mensaje más útil es el de un fallo real del archivo; los
-    # "este origen no puede" (falta una librería) solo se muestran si no hay otro.
-    real_errors = [e for e in errors if not isinstance(e, UnsupportedSourceError)]
-    raise (real_errors or errors)[0]
+    # Todos fallaron. El mensaje más útil es el de un fallo real del archivo; después, «no
+    # trae imagen» (una canción sin carátula: no es un error); los "este origen no puede"
+    # (falta una librería) solo se muestran si no hay otro.
+    real_errors = [e for e in errors if not isinstance(e, (UnsupportedSourceError, NoImageError))]
+    no_image = [e for e in errors if isinstance(e, NoImageError)]
+    raise (real_errors or no_image or errors)[0]
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ Motor en `core/thumbnails/` (detalle y recetas en `core/thumbnails/LEEME.md`). N
 
 Reglas:
 
-- **La escalera sale siempre completa y nunca se amplía**: todo archivo con miniaturas tiene los cuatro tamaños; si la imagen de partida es más pequeña que un tamaño, ese tamaño contiene la propia imagen, a su medida (partida de 1024 px → 160, 480, 1024 y 1024; de 100 px → 100 en los cuatro). La misma regla servirá para las carátulas de audio.
+- **La escalera sale siempre completa y nunca se amplía**: todo archivo con miniaturas tiene los cuatro tamaños; si la imagen de partida es más pequeña que un tamaño, ese tamaño contiene la propia imagen, a su medida (partida de 1024 px → 160, 480, 1024 y 1024; de 100 px → 100 en los cuatro). La misma regla vale para las carátulas de las canciones (una de 600 px: 160, 480, 600 y 600).
 - **Una decodificación, todos los tamaños**: cada tamaño se obtiene reduciendo el anterior. Los JPEG se decodifican ya reducidos (`draft`).
 - **JPEG, sRGB y derecho, sin EXIF ni perfil**: orientación y color ya aplicados (Display P3 de los iPhone, Adobe RGB y CMYK se convierten a sRGB; la transparencia se aplana sobre gris). Así la cuadrícula carga el archivo sin más.
 - **Sin ediciones de Lightroom ni recorte**: la miniatura son los píxeles del archivo tal cual (ver [DECISIONES.md](DECISIONES.md)).
@@ -30,10 +30,13 @@ Reglas:
 | `heif` | heic, heif, hif | Pillow + `pillow-heif` o `pi-heif`; sin ellas, error con instrucciones. La rotación la aplica la librería (en un HEIC vive en `irot`) |
 | `psd` | psd, psb | Pillow: la **imagen combinada** que guarda Photoshop (con «Maximizar compatibilidad», activada de fábrica); las capas no se leen. Antes de abrirlo se mira la cabecera: los PSB, los de 16 y 32 bits y los guardados sin esa opción (recurso 1057) fallan con el motivo, sin miniatura. Un cuarto canal que no es transparencia (una selección guardada: capas no en negativo) se descarta |
 | `raw_preview` | dng y los RAW con sidecar: nef, nrw, cr2, cr3, crw, arw, srf, sr2, orf, rw2, raw, pef, raf, srw, x3f, 3fr, fff, iiq, rwl, mrw, erf, kdc, dcr, mos | La mayor vista previa JPEG incrustada, con **una** llamada a ExifTool por archivo (`-b -JpgFromRaw -PreviewImage -OtherImage -ThumbnailImage -Orientation`; en JSON salen en base64). Orientación: la del RAW, salvo que la vista previa traiga la suya |
+| `audio_cover` | Las canciones (cualquier extensión: mutagen reconoce el formato) | La carátula incrustada, con mutagen (`core/audio/tag_reader.read_cover`): la primera «Portada» o, si no hay, la primera imagen, la misma cuyos datos guarda el catálogo. Sin carátula, `NoImageError`: estado 2 sin fila en `scan_errors` (no es un error) y el marcador |
 
 **Estado y trabajo**: columnas en [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md); flujo y regeneración en [FLUJOS.md §5](FLUJOS.md). `THUMBNAIL_VERSION` (en `generator.py`) se sube cuando cambia el RESULTADO (tamaños, calidad, formato, color, elección de la imagen de partida); la autoprueba de `job.py` avisa si se cambian tamaños, calidad o formato sin subirla.
 
-**Sin miniatura** (vídeo, audio, ebook y track, hasta el paso 4b; o una foto con la miniatura pendiente de generar o con error): la cuadrícula dibuja un marcador por tipo y, en vídeo y audio, la duración ([FLUJOS.md §6](FLUJOS.md)). No se guarda ningún archivo por elemento.
+**Sin miniatura** (vídeo, ebook y track; o una foto o una canción con la miniatura pendiente de generar o con error, o una canción sin carátula): la cuadrícula dibuja un marcador por tipo y, en vídeo y audio, la duración ([FLUJOS.md §6](FLUJOS.md)). No se guarda ningún archivo por elemento.
+
+**Canciones** (26/11/2026, `MUS 3.1`): su carátula, con los cuatro tamaños, como las fotos (elegido por el autor, por si se amplía a 1:1). Lo que ocupa: con la música del autor (4 876 canciones con 287 carátulas distintas), unos 220–270 KB por canción con los cuatro tamaños: entre 1,1 y 1,3 GB en total; sin el de 2560, unos 730 MB; con una sola copia por carátula, unos 76 MB ([MOD_MUSICA.md](MOD_MUSICA.md) §6; la copia única, `MUS 3.3`, opcional).
 
 **Tracks** (14/11/2026): no tienen miniatura en la caché ni la tendrán: su tarjeta dibuja al vuelo la forma del recorrido, con el contorno que guarda el catálogo (`track_details.overview`; `ui_helpers/helpers/track_outline.py`). Un track sin contorno (aún sin leer, o sin puntos) enseña el marcador de su tipo.
 

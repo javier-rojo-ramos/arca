@@ -107,6 +107,7 @@ python -m core.thumbnails.generator
 python -m core.thumbnails.imaging
 python -m core.thumbnails.job
 python -m core.thumbnails.sizes
+python -m core.thumbnails.sources.audio_cover_source          (con mutagen: la portada, sin portada la primera imagen, sin carátula, dañadas, ausente y la escalera de punta a punta)
 
 # core.maps
 python -m core.maps.tile_layers                                (capas del mapa: claves, direcciones, teselas válidas; sin red)

@@ -38,16 +38,24 @@ Qué pasa con cada archivo:
                                pida regenerar (p. ej. "Regenerar miniaturas con error").
     - Sin origen (p. ej. HEIC sin pillow-heif) -> igual que un fallo, con un mensaje que
                                explica cómo arreglarlo; se cuenta aparte.
+    - No trae imagen (una canción sin carátula; 'NoImageError') -> status 2, como un fallo
+                               (su tarjeta lleva el marcador y no se reintenta hasta que el
+                               archivo cambie), pero SIN error en 'scan_errors': no es un error.
+                               Se cuenta aparte («sin carátula»).
     - Ya no existe           -> 'is_missing = 1'.
     - Su unidad no está conectada -> no se toca (sigue pendiente) y se cuenta aparte.
     - La caché no se puede escribir (disco lleno...) -> el trabajo se ABORTA sin marcar nada
                                como fallido: no es culpa de los archivos.
 
+1.1.0 «Sin carátula»: un archivo que no trae imagen ('NoImageError') no es un error (status
+      2 sin fila en 'scan_errors'; 'ThumbnailJobResult.without_image'). Las canciones, con
+      su carátula como miniatura (MUS 3.1).
+
 Prueba rápida (desde la raíz del proyecto):
     python -m core.thumbnails.job
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "DEFAULT_BATCH_SIZE",
     "SCAN_STAGE_THUMBNAIL",
@@ -78,6 +86,7 @@ from core.thumbnails.generator import THUMBNAIL_VERSION, ThumbnailResult, genera
 from core.thumbnails.registry import SourceRegistry, default_registry
 from core.thumbnails.sizes import DEFAULT_SIZES, ThumbnailSize
 from core.thumbnails.sources.base import (
+    NoImageError,
     ThumbnailError,
     ThumbnailRequest,
     UnsupportedSourceError,
@@ -99,6 +108,7 @@ _FAILED = "failed"
 _UNSUPPORTED = "unsupported"
 _MISSING = "missing"
 _OFFLINE = "offline"
+_NO_IMAGE = "no_image"  # no trae imagen (una canción sin carátula): no es un error
 _SKIPPED = "skipped"  # no se llegó a procesar por haberse cancelado: sigue pendiente
 
 
@@ -116,6 +126,8 @@ class ThumbnailJobResult:
         cancelled: True si el trabajo se interrumpió antes de terminar.
         generated_ids: 'id' de los archivos generados (para que la interfaz refresque esas tarjetas).
         unsupported_extensions: Extensiones de los archivos 'unsupported'.
+        without_image: Archivos que no traen imagen (canciones sin carátula): llevan su
+            marcador; no son errores.
     """
 
     total: int
@@ -127,6 +139,7 @@ class ThumbnailJobResult:
     cancelled: bool
     generated_ids: tuple[int, ...]
     unsupported_extensions: Counter[str]
+    without_image: int = 0
 
     @property
     def has_warnings(self) -> bool:
@@ -148,6 +161,8 @@ class ThumbnailJobResult:
             text += f", {self.failed} con errores"
         if self.unsupported:
             text += f", {self.unsupported} sin soporte"
+        if self.without_image:
+            text += f", {self.without_image} sin carátula"
         if self.cancelled:
             text += " (cancelado)"
         return text
@@ -165,6 +180,8 @@ class ThumbnailJobResult:
                 f"Sin origen de miniaturas: {self.unsupported} [{top}] "
                 "(falta pillow-heif o ExifTool; al instalarlo, usa 'Regenerar miniaturas con error')"
             )
+        if self.without_image:
+            lines.append(f"Sin carátula (llevan su marcador): {self.without_image}")
         if self.missing:
             lines.append(f"Ya no están en disco: {self.missing}")
         if self.skipped_offline:
@@ -325,6 +342,7 @@ def generate_pending_thumbnails(
         cancelled=cancelled,
         generated_ids=tuple(generated_ids),
         unsupported_extensions=unsupported_extensions,
+        without_image=counts[_NO_IMAGE],
     )
     logger.info(f"Miniaturas procesadas:\n{result.summary()}")
     return result
@@ -453,6 +471,8 @@ def _process_rows(
             base.kind = _MISSING
         except UnsupportedSourceError as error:
             base.kind, base.message = _UNSUPPORTED, str(error)
+        except NoImageError:
+            base.kind = _NO_IMAGE
         except ThumbnailError as error:
             base.kind, base.message = _FAILED, str(error)
         except ThumbnailStorageError:
@@ -513,6 +533,15 @@ def _write_outcomes(conn: sqlite3.Connection, outcomes: list[_Outcome], version:
                     outcome.message,
                 ),
             )
+        elif outcome.kind == _NO_IMAGE:
+            # Como un fallo (el marcador; no se reintenta hasta que el archivo cambie), pero
+            # sin error: se quita el que hubiera
+            conn.execute(
+                "UPDATE media_items SET thumbnail_status = 2, thumbnail_mtime_ns = ?, "
+                "thumbnail_version = ?, thumbnail_source = NULL WHERE id = ?",
+                (outcome.file_mtime_ns, version, outcome.media_id),
+            )
+            _clear_error(conn, outcome)
         elif outcome.kind == _MISSING:
             conn.execute(
                 "UPDATE media_items SET is_missing = 1 WHERE id = ?", (outcome.media_id,)
@@ -764,6 +793,48 @@ if __name__ == "__main__":
             result = generate_pending_thumbnails(conn, registry=registry)
             assert result.generated == 12 and result.failed == 0
             print("   ...y al recuperarse la caché se genera todo lo que quedaba")
+
+            # ---- 10. Canciones: su carátula; una sin carátula no es un error ----
+            from mutagen.id3 import APIC, ID3
+
+            from core.thumbnails.sources.audio_cover_source import AudioCoverSource
+
+            music = base / "Música"
+            music.mkdir()
+            frame = b"\xff\xfb\x90\x00" + bytes(413)  # una trama de silencio de MP3
+
+            def write_song(name: str, covers: list[bytes]) -> None:
+                (music / name).write_bytes(frame * 10)
+                tags = ID3()
+                for data in covers:
+                    tags.add(APIC(encoding=1, mime="image/jpeg", type=3, desc="", data=data))
+                tags.save(music / name, v2_version=3)
+
+            write_song("con.mp3", [_testing.jpeg_bytes((500, 500))])
+            write_song("sin.mp3", [])
+            add_folder(conn, music)
+            songs = SourceRegistry()
+            songs.register(AudioCoverSource())
+            result = generate_pending_thumbnails(conn, registry=songs)
+            counted = (result.total, result.generated, result.failed, result.without_image)
+            assert counted == (2, 1, 0, 1), result
+            assert result.status_text().endswith(", 1 sin carátula") and not result.has_warnings
+            assert state(conn, "con.mp3") == (1, THUMBNAIL_VERSION, "audio_cover", 0)
+            assert state(conn, "sin.mp3") == (2, THUMBNAIL_VERSION, None, 0)  # el marcador
+            assert not db_rows(conn, "SELECT 1 FROM scan_errors WHERE relative_path LIKE '%.mp3'")
+            song_id = media_id(conn, "con.mp3")
+            assert [s.max_side for s in cache.existing("audio", song_id)] == [160, 480, 1200, 2560]
+            with Image.open(cache.path_for("audio", song_id, ALL_SIZES[-1])) as cover:
+                assert cover.size == (500, 500)  # los dos grandes, a su tamaño: sin ampliar
+            # No se vuelve a mirar mientras no cambie; con carátula nueva, sí
+            assert generate_pending_thumbnails(conn, registry=songs).total == 0
+            write_song("sin.mp3", [_testing.jpeg_bytes((300, 300))])
+            os.utime(music / "sin.mp3", ns=(9_000_000_000, 9_000_000_000))
+            add_folder(conn, music)
+            result = generate_pending_thumbnails(conn, registry=songs)
+            assert (result.generated, result.without_image) == (1, 0)
+            assert state(conn, "sin.mp3") == (1, THUMBNAIL_VERSION, "audio_cover", 0)
+            print("10. Canciones: la carátula, con los cuatro tamaños; sin carátula, el marcador y sin error")
 
             # ---- 9. Sin orígenes registrados no se hace nada; una base en memoria se rechaza ----
             assert generate_pending_thumbnails(conn, registry=SourceRegistry()).total == 0

@@ -20,7 +20,8 @@ core/thumbnails/
 │   ├── pillow_source.py   JPG, PNG, WebP, GIF, BMP, TIFF, AVIF, JPEG 2000   (+ load_pillow_image, compartido)
 │   ├── heif_source.py     HEIC / HEIF   (necesita pillow-heif o pi-heif)
 │   ├── psd_source.py      PSD de Photoshop (su imagen combinada, con Pillow; ni PSB ni 16 bits)
-│   └── raw_preview_source.py  DNG, NEF, CR2, CR3, ARW... (vista previa incrustada, vía ExifTool)
+│   ├── raw_preview_source.py  DNG, NEF, CR2, CR3, ARW... (vista previa incrustada, vía ExifTool)
+│   └── audio_cover_source.py  Canciones: su carátula incrustada, con mutagen (sin carátula: NoImageError)
 ├── inspect_cli.py         Diagnóstico: genera miniaturas de archivos reales y las cuenta
 └── _testing.py            Solo para las autopruebas
 ```
@@ -91,6 +92,9 @@ autoprueba de `job.py` falla si se cambian tamaños, calidad o formato sin subir
 - **La ruta no se guarda en la base de datos**: se calcula con `ThumbnailCache.path_for()`.
 - **Las miniaturas son los píxeles del archivo, sin ediciones ni recorte de Lightroom** (decisión tomada: su motor no
   se puede reproducir). Un DNG guardado por Lightroom trae una vista previa re-renderizada por él, que sí las lleva.
+- **Un archivo sin imagen no es un error** (`NoImageError`, una canción sin carátula): estado 2,
+  como un fallo (el marcador; no se reintenta hasta que el archivo cambie), pero sin fila en
+  `scan_errors` y contado aparte («N sin carátula»). «Regenerar miniaturas con error» lo vuelve a mirar.
 - **Un archivo que falla no para nada**: `generate_thumbnails` lanza `ThumbnailError` (dañado) o
   `UnsupportedSourceError` (falta una librería) con un mensaje corto en español, listo para `scan_errors`.
 - **Un fallo de la caché sí detiene el trabajo**: `ThumbnailStorageError` (disco lleno, sin permisos) no es culpa del
@@ -116,11 +120,13 @@ la vista previa incrustada y después un origen que revele el RAW con LibRaw (ra
 ## Receta 2: soportar un tipo de medio nuevo (audio, vídeo)
 
 Igual que la anterior, con dos diferencias: el origen declara `media_type = MediaType.AUDIO` (o
-`VIDEO`) y `extensions = None` si no depende de la extensión; y la caché ya sabe guardarlo, porque
-`cache/<tipo>/` se crea para cada `CACHEABLE_MEDIA_TYPES`. El origen de audio extraerá la carátula
-incrustada (ExifTool: `-b -Picture -CoverArt`, el mismo mecanismo que el RAW) y el de vídeo buscará
-el póster en `media_assets/posters/`. Los marcadores de posición (póster 2:3, cuadrado) son el
-paso 4.
+`VIDEO`) y `extensions = None` si no depende de la extensión; y la caché ya sabe guardarlo, porque la
+carpeta `cache/<tipo>/` sale del tipo de medio (`ThumbnailCache.path_for`). Ejemplo hecho:
+`sources/audio_cover_source.py` (la carátula de las canciones, con mutagen; MUS 3.1). El de vídeo
+buscará el póster en `media_assets/posters/`. Si el archivo no trae imagen, el origen lanza
+`NoImageError` (no es un error: estado 2 sin fila en `scan_errors`, y la tarjeta lleva el
+marcador). Para que la tarjeta no enseñe el marcador un instante mientras se lee la miniatura,
+el tipo va en `_WITH_THUMBNAILS` de `ui_helpers/delegates/thumbnails_delegate.py`.
 
 ## Receta 3: cambiar tamaños o calidad
 

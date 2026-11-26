@@ -46,7 +46,7 @@ Los vídeos con GPS salen en el mapa. El fotograma como miniatura, en `VID 4`.
 
 | Formatos | Se cataloga | Miniatura | Metadatos | Datos del usuario |
 |---|---|---|---|---|
-| MP3, M4A, FLAC, OGG, OPUS, WAV, AIFF, AIF | Sí | Genérica, con la duración (la carátula, en `MUS 3`) | Sí, con mutagen (`MUS 1.3`): etiquetas (ID3, Vorbis o MP4), datos técnicos y carátula | `.arca.json` (las etiquetas, en el archivo desde `MUS 6`) |
+| MP3, M4A, FLAC, OGG, OPUS, WAV, AIFF, AIF | Sí | La carátula incrustada (desde `MUS 3.1`); sin ella, la genérica; con la duración | Sí, con mutagen (`MUS 1.3`): etiquetas (ID3, Vorbis o MP4), datos técnicos y carátula | `.arca.json` (las etiquetas, en el archivo desde `MUS 6`) |
 | AAC (sin contenedor) | Sí | Genérica, con la duración | Solo los datos técnicos (mutagen no lee sus etiquetas) | `.arca.json` |
 | MKA | Sí | Genérica | No (mutagen no lee Matroska: «sin soporte todavía») | `.arca.json` |
 | WMA | Solo si el sistema conoce la extensión † | Genérica | Solo los datos técnicos (sus etiquetas ASF no se traducen) | `.arca.json` |

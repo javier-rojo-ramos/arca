@@ -279,7 +279,7 @@ core/
     generator.py                       generate_thumbnails (UN archivo), load_source_image (prueba los orígenes) y THUMBNAIL_VERSION
     full_image.py                      load_full_image: el original a tamaño completo (RAW: su mayor vista previa), derecho y en sRGB como la caché, para la vista individual a 1:1; sin Qt
     registry.py                      ► qué origen lee cada tipo de medio y extensión
-    sources/                           base.py, pillow_source.py, heif_source.py (HEIC), psd_source.py (PSD: su imagen combinada), raw_preview_source.py (RAW, vía ExifTool)
+    sources/                           base.py, pillow_source.py, heif_source.py (HEIC), psd_source.py (PSD: su imagen combinada), raw_preview_source.py (RAW, vía ExifTool), audio_cover_source.py (la carátula de las canciones, con mutagen; sin carátula, NoImageError)
     job.py                             generate_pending_thumbnails (trabajo) e invalidate_thumbnails (regenerar a demanda)
     inspect_cli.py                     Diagnóstico: genera miniaturas de archivos reales y las cuenta
     _testing.py                        Utilidades solo para las autopruebas de core/thumbnails (perfiles ICC de prueba)

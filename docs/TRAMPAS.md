@@ -170,6 +170,8 @@
 
 - **Los recuentos de los árboles de palabras clave son de UNA biblioteca** (la del módulo, o la de lo resumido en el inspector): para lo que afecta a todo el catálogo (borrar una palabra) hay que contar aparte (`fetch_keyword_usage`), o se avisará de menos.
 
+- **`thumbnail_status = 2` no siempre es un error** (desde `MUS 3.1`): también es un archivo que no trae imagen (una canción sin carátula), sin fila en `scan_errors`. Los errores de miniatura se cuentan por `scan_errors`, no por el estado. No hay un estado propio porque `CHECK(thumbnail_status IN (0, 1, 2))` es de la migración 1, que no se edita (cambiarlo exigiría rehacer `media_items`). «Regenerar miniaturas con error» vuelve a mirar también las canciones sin carátula (no cambia nada).
+
 ## Módulos, configuración y arranque
 
 - **El tamaño de los iconos de la toolbar de módulos no se cambia en el .ui**: `_configurar_toolbar` pone a todos sus botones `TOOLBAR_ICON_SIZE` (`ui_theme.py`) al arrancar, y pisa el `iconSize` del diseñador (15/11/2026).

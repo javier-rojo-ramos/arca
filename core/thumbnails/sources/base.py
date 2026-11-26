@@ -7,7 +7,7 @@ obtener LA IMAGEN de la que se sacarán las miniaturas de un elemento del catál
     - un HEIC                          -> el propio archivo, vía pillow-heif (HeifSource)
     - un RAW                           -> la vista previa que lleva incrustada
                                           (RawPreviewSource, con ExifTool)
-    - (futuro) una canción             -> la carátula incrustada en el MP3/M4A
+    - una canción                      -> la carátula incrustada (AudioCoverSource)
     - (futuro) una película            -> el póster descargado o un marcador de posición
 
 El origen NO reduce, ni cambia de espacio de color, ni guarda nada: eso es común a
@@ -15,11 +15,15 @@ todos y lo hace 'generator.py'. Solo tiene que devolver una 'LoadedImage' ya DER
 (con la orientación aplicada).
 
 Cómo añadir un formato o un tipo de medio nuevo: ver 'core/thumbnails/LEEME.md'.
+
+1.1.0 'NoImageError': el archivo no trae ninguna imagen (una canción sin carátula); no es un
+      error y su tarjeta lleva el marcador (MUS 3.1).
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "LoadedImage",
+    "NoImageError",
     "ThumbnailError",
     "ThumbnailRequest",
     "ThumbnailSource",
@@ -51,6 +55,16 @@ class UnsupportedSourceError(ThumbnailError):
     """Este origen no puede leer el archivo, pero no por culpa del archivo.
 
     Ejemplos: falta una librería opcional (pillow-heif) o ExifTool no está instalado.
+    Cuando hay varios orígenes para un formato, se prueba con el siguiente.
+    """
+
+
+class NoImageError(ThumbnailError):
+    """El archivo no trae ninguna imagen de la que sacar la miniatura (una canción sin
+    carátula).
+
+    No es un error del archivo: su tarjeta lleva el marcador de su tipo y no sale en la lista
+    de errores. Se vuelve a mirar si el archivo cambia (p. ej. al añadirle una carátula).
     Cuando hay varios orígenes para un formato, se prueba con el siguiente.
     """
 
