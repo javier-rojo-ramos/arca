@@ -9,9 +9,7 @@
 
 ## Pendiente de verificar en Windows (lo último entregado)
 
-| Entrega | Qué comprobar |
-|---|---|
-| **`MUS 2.1`: la sección «Audio» del inspector** (26/11/2026; `audio_section` 1.0.0, `audio_stats` 1.0.0, `selection_metadata` 1.2.0, `formatting` 1.8.0, `inspector_panel` 1.9.0, `section_registry` 1.8.0) | En Música, con una canción: la sección «Audio» detrás de las comunes, con Título, Artista, Álbum, Año, Pista, Disco, Género, Artista del álbum, Compositor y Comentario y, bajo la raya, Duración, Formato, Calidad y Etiqueta, comparados con Mp3tag (un MP3 VBR, un MP3 CBR, un FLAC, un M4A y un Ogg). Con un álbum entero: lo común, «Varios» en gris en el título y la pista, la duración sumada (y su texto emergente) y la tasa como intervalo; con todas, casi todo «Varios». En el Catálogo, con canciones seleccionadas, la misma sección; con una canción y una foto, ninguna. La columna de etiquetas, 10 px más ancha en todo el inspector («Metadatos» y «Track», con sus valores 10 px a la derecha, sin nada cortado). Con la colocación de las secciones ya guardada, «Audio» aparece sola; se puede plegar, ocultar y mover como las demás. Al ancho del inspector de 354 px, la «Calidad» de un álbum VBR se recorta con «…» (entera al pasar el ratón). |
+Nada por ahora: lo entregado hasta `MUS 2.1` (26/11/2026) está verificado.
 
 ## Comprobaciones sueltas
 
@@ -39,6 +37,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 ## Verificado por el autor (Windows)
 
+- **`MUS 2.1`: la sección «Audio» del inspector** (26/11/2026; `audio_section` 1.0.0, `audio_stats` 1.0.0, `selection_metadata` 1.2.0, `formatting` 1.8.0, `inspector_panel` 1.9.0, `section_registry` 1.8.0; «los 5 puntos comprobados»): con una canción, los catorce datos comparados con Mp3tag (MP3 VBR y CBR, FLAC, M4A y Ogg); con un álbum, lo común, «Varios», la duración sumada y la tasa como intervalo; la sección también en el Catálogo y ninguna con una canción y una foto; la columna de etiquetas 10 px más ancha en todo el inspector, sin nada cortado; «Audio» aparece sola con la colocación ya guardada y se pliega, se oculta y se mueve como las demás.
 - **Descripciones de prueba en un GPX** (24/11/2026; comprobado el 26/11/2026): en el track de Canencia de `5 Tracks`, los puntos de interés con su descripción en el texto emergente (Inter, el nombre en SemiBold, las largas partidas a 300 px, los saltos de línea y los símbolos «» · — … ↑), en el mapa y al recorrer el perfil.
 - **La regla de las fuentes (`GEN 21.5`)** (24/11/2026; `CLAUDE.md`, `theme_fonts` 1.3.1; leída por el autor el 26/11/2026): las reglas «Fuentes» y «Quién dibuja qué» de `CLAUDE.md`. Con ella, `GEN 21` verificada entera.
 - **`MUS 1.3`: las canciones se leen solas** (25/11/2026; `AUDIO_FIELDS_VERSION` 1; «todo comprobado»): la lectura al abrir el catálogo, la duración en las tarjetas, el año en «Selección» con su origen, el filtro de texto, la columna «Autor», el orden por duración y por fecha. Al usarlo, el autor vio que la sección «Fechas» (año ▸ mes ▸ día) no tiene sentido en Música: en su lugar, «Artistas» y «Años» (decidido el 26/11/2026; `MUS 4.1`).
@@ -177,7 +176,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
-- 26/11/2026: `MUS 2.1`, la sección «Audio» del inspector, de solo lectura: los diez campos de la canción y los datos técnicos, como se acordó en la muestra; con varias canciones, lo común o «Varios», la duración sumada y la tasa como intervalo. «Calidad», también con «CBR» (decidido por el autor). Comprobado con las canciones reales del catálogo del autor (en solo lectura), dibujado sin ventana.
+- 26/11/2026: `MUS 2.1`, la sección «Audio» del inspector, de solo lectura: los diez campos de la canción y los datos técnicos, como se acordó en la muestra; con varias canciones, lo común o «Varios», la duración sumada y la tasa como intervalo. «Calidad», también con «CBR» (decidido por el autor). Comprobado con las canciones reales del catálogo del autor (en solo lectura), dibujado sin ventana. Verificado por el autor el mismo día.
 - 26/11/2026: verificadas por el autor las descripciones de prueba del GPX y la regla de las fuentes (`GEN 21`, verificada entera). Decidida la barra izquierda de Música ([DECISIONES.md](DECISIONES.md)): recorridos fijos en la barra y la combinación libre en la barra de filtros; en lugar de «Fechas», «Artistas» (visible) y «Años» (plegada), en `MUS 4.1`. El orden: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`.
 - 25/11/2026: verificado por el autor `MUS 1.3`. Propuesto qué hacer con la sección «Fechas» en Música (en su lugar, «Artistas» y «Años» con los álbumes; lo flexible, en la barra de filtros): lo decide el autor.
 - 25/11/2026: verificado `MUS 1.2` (el catálogo, en v7). Hecho `MUS 1.3`: el extractor de audio (`AUDIO_FIELDS_VERSION` 1), registrado si mutagen está instalado; las canciones se leen solas al abrir el catálogo. El año, con su precisión (sin año, sin fecha); la huella de la carátula. Comprobado sobre una copia del catálogo del autor: las 75 canciones, sin errores, con una sola carátula por álbum.
