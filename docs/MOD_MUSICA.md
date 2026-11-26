@@ -1,7 +1,7 @@
 # Arca Media — Módulo Música: arquitectura y plan
 
 > Documento del módulo Música (en el código y en la interfaz, el módulo **Audio**: `AudioModule`, biblioteca `audio`). Tiene dos partes: **I, arquitectura** (cómo está hecho y cómo encaja con el resto) y **II, planificación** (fases y pasos, con los códigos `MUS` de [PENDIENTE.md](PENDIENTE.md)).
-> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
+> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`. Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
 > Índice: [INDEX.md](INDEX.md). Decisiones: [DECISIONES.md](DECISIONES.md) (16/11/2026).
 
 ## Resumen
@@ -59,13 +59,13 @@ Como en Tracks: lo que no necesita ni Qt ni la base de datos, en un paquete de `
 
 ### 3.1 Columnas comunes (`media_items`)
 
-Lo que ya tiene columna común se guarda ahí, para que el filtro de texto, el orden, las colecciones inteligentes y la sección «Fechas» funcionen sin nada nuevo:
+Lo que ya tiene columna común se guarda ahí, para que el filtro de texto, el orden y las colecciones inteligentes funcionen sin nada nuevo:
 
 | Etiqueta | Columna | Notas |
 |---|---|---|
 | Título | `title` | Si la canción no lo tiene, se queda el nombre del archivo (como en las fotos) |
 | Artista | `creator` | |
-| Año (o fecha) | `content_created_at` | Con `content_date_precision` según lo que traiga la etiqueta (`year` casi siempre); sin año, sin fecha (§4). Ordena bien y «Selección» la muestra como el año; la sección «Fechas» la pone hoy en el 1 de enero: se arregla en `MUS 4.2` |
+| Año (o fecha) | `content_created_at` | Con `content_date_precision` según lo que traiga la etiqueta (`year` casi siempre); sin año, sin fecha (§4). Ordena bien y «Selección» la muestra como el año. La sección «Fechas» la pone en el 1 de enero: en Música la sustituye «Años» (`MUS 4.1`, §7.2) |
 | Comentario | `description` | |
 | Duración | `duration` | Segundos |
 
@@ -164,7 +164,7 @@ Un archivo puede traer varios géneros o varios artistas. En la primera versión
 
 ## 7. Interfaz
 
-- **Barra izquierda** (`MUS 4`): «Artistas» (artista del álbum ▸ álbum; si falta, el artista), «Géneros» y «Años» (la sección «Fechas» que ya existe, si sirve con fechas de solo año). Secciones dadas de alta en `section_registry.py`: se pliegan, se ocultan y se reordenan como las demás.
+- **Barra izquierda** (`MUS 4`): «Biblioteca», «Artistas», «Carpetas», «Años» y «Géneros»; sin «Fechas». Cómo es, en §7.2.
 - **Centro**: la cuadrícula (con la carátula) y la **vista de lista** (`GEN 18`, común a todos los módulos; lo de Música, en `MUS 5`), estilo Mp3tag: columnas a elegir, orden por columna y selección múltiple, compartida con la cuadrícula. Opcional: vista de álbumes.
 - **Inspector**: sección «Audio» (`MUS 2`), primero de solo lectura; con `MUS 7`, editable, también con varias canciones («Varios» y el aviso «Edición múltiple», como en «Metadatos»). Palabras clave y clasificación, como en todos los módulos. Cómo es, en §7.1.
 - **Ventanas, solo para lo pesado o por lotes** (plan de interfaz): las herramientas de `MUS 8`.
@@ -198,6 +198,25 @@ Acordada con el autor el 25/11/2026, tras ver una muestra hecha con las piezas r
 - **A tener en cuenta en `MUS 2.1`**: «Artista del álbum» es la etiqueta más larga del inspector. La columna de etiquetas, común a todas las secciones, pasaría de 87 a 97 px, y los valores de «Metadatos» y «Track» se moverían 10 px a la derecha.
 - La carátula va debajo, en «Audio» o en su propia sección (§6, M8).
 - En el registro de secciones, detrás de las comunes (`order` de 400 en adelante: [DECISIONES.md](DECISIONES.md), 25/11/2026).
+
+### 7.2 La barra izquierda
+
+Acordada con el autor el 26/11/2026 (el porqué, en [DECISIONES.md](DECISIONES.md)): **la barra tiene recorridos fijos y la combinación libre está en la barra de filtros**. La barra sirve para ir a un sitio (eliges un álbum y ves sus canciones); quien quiera, p. ej., Género → Año → Artista → Álbum lo tiene en las columnas de «Metadatos» de la barra de filtros, con los campos de audio desde `MUS 2.3`, y lo puede guardar como ajuste personalizado. No se hace un árbol personalizable en la barra.
+
+| Sección | Qué | De partida | Paso |
+|---|---|---|---|
+| «Biblioteca - Audio» | Como hoy | Visible | — |
+| «Artistas» | Artista del álbum ▸ álbum | Visible, debajo de «Biblioteca» | `MUS 4.1` |
+| «Carpetas» | Como hoy | Visible | — |
+| «Años» | Año ▸ álbumes, por orden alfabético | Plegada | `MUS 4.1` |
+| «Géneros» | Una lista simple | Por decidir en su paso | `MUS 4.2` |
+
+- **«Fechas» sale de Música**: su año ▸ mes ▸ día no sirve con canciones que casi siempre solo tienen el año. Sigue en Tracks y en Vídeo, donde el día sí importa.
+- **Los álbumes de un artista, por año** (la discografía en orden): «2001 · Destrangis», «2003 · Estopa Grandes Éxitos». En «Años», por orden alfabético.
+- **Los recopilatorios**: se agrupan por el «Artista del álbum» y, si no lo tienen, por el artista. Las bandas sonoras del autor quedan bajo «0 Varios»; un recopilatorio sin artista del álbum se reparte entre sus artistas.
+- **Las canciones de un álbum**, al elegirlo, por disco y pista (el orden del álbum de `MUS 2.2`).
+- **Por resolver al hacer `MUS 4.1`**: cómo se combina el orden del álbum con el que haya elegido el usuario; el año de un álbum con canciones de varios años; las canciones sin álbum o sin artista («Sin álbum», «Sin artista», como «Sin fecha»).
+- Las secciones se pliegan, se ocultan y se reordenan por módulo como las demás (`section_registry.py`): otra colocación no necesita código.
 
 ## 8. Riesgos y trampas previstas
 
@@ -241,8 +260,8 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|
-| **MUS 4.1** «Artistas» | Artista del álbum ▸ álbum, con recuentos | Nueva sección en `ui_helpers/sidebars/sections/`; consulta en `core/catalog/`; `section_registry.py` | Elegir un álbum muestra sus canciones |
-| **MUS 4.2** «Géneros» y «Años» | «Años»: la sección «Fechas», si vale con fechas de solo año | Lo mismo | — |
+| **MUS 4.1** «Artistas» y «Años» | Artista del álbum ▸ álbum y año ▸ álbum, con recuentos (§7.2); «Fechas» sale de Música | Nuevas secciones en `ui_helpers/sidebars/sections/`; consultas en `core/catalog/`; `section_registry.py`; `audio_module.py` | Elegir un álbum muestra sus canciones |
+| **MUS 4.2** «Géneros» | Una lista simple, con recuentos | Lo mismo | Elegir un género muestra sus canciones |
 | **MUS 4.3** Listas que se recorren con las flechas | Ver la nota de abajo | `SidebarTreeView`, `CenterViewController` | Recorrer los álbumes con el teclado |
 
 **Nota de `MUS 4.3`** (pregunta del autor el 12/11/2026): hoy los árboles de las barras no cogen el teclado (`SidebarTreeView`, `NoFocus`) y los atajos solo actúan con la cuadrícula o la vista individual enfocadas. Si la lista está en el centro (vista de lista o de carátulas), ya tiene el teclado; los atajos se le enganchan con `GridActions.watch`. Si está en la barra izquierda: ese árbol, y solo ese, aceptaría el teclado (una opción de `SidebarTreeView`); `CenterViewController._on_source_chosen` no debe llevarse el teclado al centro cuando se elige desde él (cada flecha sacaría de la lista); decidir qué hace un atajo («3») con la lista activa y, si se quiere, la búsqueda al teclear (las letras dejarían de ser atajos mientras la lista tenga el teclado). Vale también para las películas (`VID 5.4`).
