@@ -12,10 +12,14 @@ Decidido por el autor el 15/11/2026:
       salir como en los demás módulos (doble clic o «adelante»; G, Esc o «atrás»). Hoy
       enseña el icono de música y el nombre; la carátula, cuando se lea (docs/MOD_MUSICA.md).
       La de lista, más adelante.
-    - Orden: los campos de siempre más «Duración»; de partida, por nombre.
+    - Orden: desde MUS 2.2 (26/11/2026), los de la música («Artista», «Álbum», «Año»,
+      «Título») más «Duración» y los del archivo; de partida, por artista (así un álbum
+      elegido en la barra sale por disco y pista). La flecha invierte solo el primer
+      criterio: las pistas de cada disco, siempre en orden ('grid_orders.py').
     - Filtros: el tipo «audio» en «Atributos»; en «Metadatos», fecha y palabras clave.
     - Textos de la barra, provisionales hasta que se decidan los nombres ('_TEXTS').
 
+1.3.0 Sus órdenes ('AUDIO_SORT_FIELDS'); de partida, por artista (MUS 2.2).
 1.2.0 «Artistas» y «Años» en la barra, en lugar de «Fechas» (MUS 4.1; acordado con el
       autor el 26/11/2026: con las canciones, que casi siempre tienen solo el año, el
       año ▸ mes ▸ día no sirve).
@@ -26,14 +30,14 @@ Decidido por el autor el 15/11/2026:
 1.0.0 Primera versión (15/11/2026): sustituye al módulo provisional.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["AudioModule"]
 
 # Módulos del proyecto
 from config.app_modules import module_spec
 from controllers.app_modules.center_views import CenterView
 from controllers.app_modules.library_module import LibraryModule
-from core.catalog.grid_orders import NAME_ORDER, VIDEO_AUDIO_SORT_FIELDS, GridOrder
+from core.catalog.grid_orders import ARTIST_ORDER, AUDIO_SORT_FIELDS, GridOrder
 from core.catalog.media_types import MediaType
 from core.catalog.music_browse import fetch_artist_tree, fetch_year_tree
 from ui_helpers.helpers.mode_toolbar import MODE_AUDIO
@@ -92,9 +96,9 @@ class AudioModule(LibraryModule):
         return ("captured_at", "keyword")
 
     def sort_fields(self) -> tuple[str, ...]:
-        """Los de siempre más «Duración»."""
-        return VIDEO_AUDIO_SORT_FIELDS
+        """Los de la música, «Duración» y los del archivo (MUS 2.2)."""
+        return AUDIO_SORT_FIELDS
 
     def default_order(self) -> GridOrder:
-        """Por nombre."""
-        return NAME_ORDER
+        """Por artista: la discografía de cada uno, cada disco por sus pistas."""
+        return ARTIST_ORDER

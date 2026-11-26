@@ -1,7 +1,7 @@
 # Arca Media — Módulo Música: arquitectura y plan
 
 > Documento del módulo Música (en el código y en la interfaz, el módulo **Audio**: `AudioModule`, biblioteca `audio`). Tiene dos partes: **I, arquitectura** (cómo está hecho y cómo encaja con el resto) y **II, planificación** (fases y pasos, con los códigos `MUS` de [PENDIENTE.md](PENDIENTE.md)).
-> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`; hechos `MUS 2.1` (la sección «Audio» del inspector, de solo lectura) y `MUS 4.1` («Artistas» y «Años» en la barra, en lugar de «Fechas»). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
+> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`; hechos `MUS 2.1` (la sección «Audio» del inspector, de solo lectura) y `MUS 4.1` («Artistas» y «Años» en la barra, en lugar de «Fechas»), y `MUS 2.2` (el orden: «Artista», «Álbum», «Año» y «Título»). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
 > Índice: [INDEX.md](INDEX.md). Decisiones: [DECISIONES.md](DECISIONES.md) (16/11/2026).
 
 ## Resumen
@@ -29,7 +29,7 @@
 ## 1. Punto de partida (lo que ya existe)
 
 - **Catalogación**: las canciones se catalogan como `MediaType.AUDIO` y van a la biblioteca Música (`library = 'audio'`). El detector (`core/catalog/media_detector.py`) reconoce MP3, M4A, FLAC, Ogg y Opus. En el catálogo del autor hay 20 canciones, todas MP3 (16/11/2026).
-- **Módulo**: `controllers/app_modules/audio_module.py` (`AudioModule`, sobre `LibraryModule`), con la barra común (`ui_helpers/sidebars/library_sidebar.py`: biblioteca, carpetas y fechas). La cuadrícula y la vista individual (desde el 19/11/2026, pedida por el autor para entrar y salir como en los demás módulos; hoy, la corchea y el nombre; la carátula en grande, cuando se lea en `MUS 3`). Orden: `VIDEO_AUDIO_SORT_FIELDS` (`core/catalog/grid_orders.py`). Filtros: su tipo y, en «Metadatos», fecha y palabras clave.
+- **Módulo**: `controllers/app_modules/audio_module.py` (`AudioModule`, sobre `LibraryModule`), con la barra común (`ui_helpers/sidebars/library_sidebar.py`: biblioteca, carpetas y fechas). La cuadrícula y la vista individual (desde el 19/11/2026, pedida por el autor para entrar y salir como en los demás módulos; hoy, la corchea y el nombre; la carátula en grande, cuando se lea en `MUS 3`). Orden: `AUDIO_SORT_FIELDS` (`core/catalog/grid_orders.py`; desde `MUS 2.2`, antes los de Vídeo). Filtros: su tipo y, en «Metadatos», fecha y palabras clave.
 - **Etiquetas**: desde `MUS 1.3` (25/11/2026), el extractor de audio (`core/metadata/audio/extractor.py`, con `core/audio/`) lee las etiquetas, los datos técnicos y la carátula de cada canción al abrir el catálogo. Antes no había extractor y de cada canción solo se sabía lo del archivo.
 - **Sin miniatura**: la tarjeta dibuja el marcador. El registro de orígenes (`core/thumbnails/registry.py`) tiene anotado el hueco para las carátulas.
 - **Datos del usuario**: valoración, marca, color y palabras clave, en el `.arca.json` de la carpeta (destino `FOLDER_FILE` de `core/userdata/policy.py`).
@@ -220,9 +220,27 @@ Acordada con el autor el 26/11/2026 (el porqué, en [DECISIONES.md](DECISIONES.m
 - **Lo que falta**: «Sin álbum» al final de cada artista y de cada año; «Sin artista» (sin artista del álbum ni artista) y «Sin año», al final de su sección.
 - **Los textos** se comparan sin mayúsculas ni acentos, como las reglas: «Estopa» y «ESTOPA» son la misma fila.
 - **Cada fila es una colección fija**, como las de «Fechas»: la biblioteca y las reglas de «Artista del álbum» y «Álbum» (o la fecha y el álbum), con los dos campos del grupo «Audio» de las colecciones inteligentes, adelantados de `MUS 2.3`. Así cuenta exactamente lo que muestra la cuadrícula. «Artista del álbum» cuenta el artista si la canción no lo tiene, también en las colecciones (como foobar2000; decidido por el autor el 26/11/2026).
-- **Las canciones de un álbum**, al elegirlo: por ahora, en el orden del módulo (por nombre). El orden del álbum (por disco y pista) y si se pone solo al elegir un álbum, en `MUS 2.2`.
+- **Las canciones de un álbum**, al elegirlo: por disco y pista con el orden de partida de Música, «Artista» (desde `MUS 2.2`), sin cambiar el orden al elegir una fila (el de cada módulo se recuerda; decidido por el autor el 26/11/2026).
 - **Hecho en `MUS 4.1`** (26/11/2026): `core/catalog/music_browse.py`, `ui_helpers/sidebars/sections/music_sections.py`, `audio_module.py` (`with_dates = False`) y el registro de secciones.
 - Las secciones se pliegan, se ocultan y se reordenan por módulo como las demás (`section_registry.py`): otra colocación no necesita código.
+
+### 7.3 El orden de la cuadrícula
+
+Hecho en `MUS 2.2` (26/11/2026; acordado con el autor). Campos del desplegable de Música, en este orden (`AUDIO_SORT_FIELDS`, `core/catalog/grid_orders.py`):
+
+| Campo | Ordena por |
+|---|---|
+| «Artista» (el de partida) | Artista del álbum (o, sin él, el artista; la misma expresión que la sección «Artistas»), año, álbum, disco y pista |
+| «Álbum» | Álbum, artista del álbum, disco y pista |
+| «Año» | Año, artista del álbum, álbum, disco y pista |
+| «Título» | El título |
+| «Duración», «Nombre», «Extensión», «Tamaño», «Fecha de modificación», «Fecha de importación» | Los de siempre |
+
+- **La flecha invierte solo el primer criterio**: el resto (y el desempate por nombre) va siempre hacia arriba. «Año ↓»: los discos más recientes primero, cada uno con sus pistas en orden. En los demás módulos, la flecha invierte la lista entera.
+- **Los textos, sin mayúsculas ni acentos** (`arca_fold`), como las secciones de la barra: «Álvaro», entre «Alberto» y «Ana».
+- **Lo que no tiene el dato, al final**, en las dos direcciones.
+- **Sin «Hora de captura»** (en una canción es el año: «Año») **ni «Pista» suelta** (con varios álbumes juntaría todas las pistas 1; dentro de un álbum ya la ordena «Álbum»).
+- **Sin cambios automáticos** al elegir una fila de la barra: con «Artista» o «Álbum», un álbum sale por disco y pista.
 
 ## 8. Riesgos y trampas previstas
 
@@ -252,7 +270,7 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|
 | ~~**MUS 2.1** Sección «Audio» del inspector~~ (hecho el 26/11/2026) | De solo lectura: los campos y los datos técnicos, con la forma de §7.1; con varias canciones, lo común y «Varios», y la duración sumada | Nuevos: `ui_helpers/inspector/audio_section.py`, la consulta en `core/catalog/`; `section_registry.py` | Los valores, los de Mp3tag |
-| **MUS 2.2** Orden | Artista, álbum, pista, año y duración (álbum: por disco y pista) | `grid_orders.py`, `audio_module.py` | Un álbum sale en su orden |
+| ~~**MUS 2.2** Orden~~ (hecho el 26/11/2026) | Artista, álbum, año y título (sin «Pista» suelta ni «Hora de captura»; ver §7.3) | `grid_orders.py`, `audio_module.py` | Un álbum sale en su orden |
 | **MUS 2.3** Filtros y colecciones inteligentes | Campos del grupo «Audio» (`smart_fields.py`); columnas de «Metadatos» | `smart_fields.py` y lo que use la barra de filtros | «Género es…», «Álbum contiene…» |
 
 ### Fase MUS 3 — Carátulas como miniatura
@@ -282,7 +300,7 @@ Estilo Mp3tag. Es una vista más del centro, pensada para servir a otros módulo
 |---|---|---|
 | **MUS 5.1** La lista | Una fila por canción con columnas fijas; selección compartida con la cuadrícula; atajos de clasificación | Se pasa de la cuadrícula a la lista con lo mismo seleccionado |
 | **MUS 5.2** Columnas | Elegirlas, moverlas y cambiar su ancho; ordenar por columna; recordado por módulo | — |
-| **MUS 5.3** Vista de álbumes (opcional) | Los álbumes con su carátula | — |
+| **MUS 5.3** Vista de álbumes (opcional) | Los álbumes con su carátula: una tarjeta por álbum, como la cuadrícula; con doble clic, la cuadrícula con sus canciones (idea del autor, 26/11/2026; mejor después de `MUS 3`, las carátulas, y junto con la tarjeta agrupada común, `GEN 17`) | — |
 
 ### Fase MUS 6 — Escribir en los archivos
 
