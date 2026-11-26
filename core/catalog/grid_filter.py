@@ -50,11 +50,18 @@ Ejemplo:
                            Rule("description", ...), Rule("keyword", ...))),)
 
 «Todos los campos disponibles» con «No contiene» es «ningún campo lo contiene» (MATCH_ALL
-de «no contiene»); con los demás operadores, «alguno» (MATCH_ANY).
+de «no contiene»); con los demás operadores, «alguno» (MATCH_ANY). Son los campos comunes y
+los propios de cada tipo de archivo (decidido por el autor el 26/11/2026): hoy, los de las
+canciones (artista, álbum, artista del álbum, género y compositor). Un campo de un tipo solo
+coincide con los archivos de ese tipo (como en las colecciones inteligentes), así que con
+«No contiene» va en un grupo, «no es una canción» O «el álbum no lo contiene»: si no, ninguna
+foto pasaría el filtro.
 
 Todo es inmutable ('frozen'): un filtro se compara con '==' y se cambia creando otro
 ('with_panel', 'cleared', 'toggled', 'dataclasses.replace').
 
+1.4.0 «Todos los campos disponibles», también en las etiquetas de las canciones (artista,
+      álbum, artista del álbum, género y compositor; MUS 2.3), con el grupo de «No contiene».
 1.3.0 Columnas de «Metadatos» ('MetadataColumn', 'MetadataFilter', 'metadata_rule',
       'GridFilter.metadata' y 'metadata_column_filters'; paso A.3, «Metadatos»).
 1.2.0 «Sin valoración»: «=» sin estrellas filtra la valoración 0.
@@ -65,7 +72,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.grid_filter
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "COLOR_NONE",
     "FILTER_ATTRIBUTES",
@@ -111,13 +118,19 @@ FILTER_ATTRIBUTES = "attributes"
 FILTER_METADATA = "metadata"
 FILTER_PANELS: tuple[str, ...] = (FILTER_TEXT, FILTER_ATTRIBUTES, FILTER_METADATA)
 
-# Campos de la fila de «Texto» -> campos de 'smart_fields.FIELDS' en los que se busca
+# Campos de la fila de «Texto» -> campos de 'smart_fields.FIELDS' en los que se busca.
+# «Todos los campos disponibles»: los comunes y los propios de cada tipo de archivo (los de
+# un grupo de 'smart_fields' solo miran los archivos de su tipo; ver la cabecera)
 TEXT_ALL_FIELDS = "all"  # «Todos los campos disponibles»
 TEXT_FILE_NAME = "file_name"  # «Nombre de archivo»
 TEXT_FIELDS: dict[str, tuple[str, ...]] = {
-    TEXT_ALL_FIELDS: ("file_name", "title", "description", "keyword"),
+    TEXT_ALL_FIELDS: (
+        "file_name", "title", "description", "keyword",
+        # Las canciones (MUS 2.3)
+        "audio_artist", "audio_album", "audio_album_artist", "audio_genre", "audio_composer",
+    ),
     TEXT_FILE_NAME: ("file_name",),
-}
+}  # fmt: skip
 
 # Operadores de la fila de «Texto» (claves de 'smart_fields.OPERATORS'), en su orden
 TEXT_OPERATORS: tuple[str, ...] = ("contains", "not_contains", "starts_with", "ends_with")
@@ -159,7 +172,24 @@ class TextFilter:
             return None
         # «No contiene» en varios campos: que NINGUNO lo contenga; los demás, que alguno
         match = MATCH_ALL if self.operator == "not_contains" else MATCH_ANY
-        return RuleSet(match, tuple(Rule(name, self.operator, text) for name in fields))
+        return RuleSet(match, tuple(_text_rule(name, self.operator, text) for name in fields))
+
+
+def _text_rule(field_key: str, operator: str, text: str) -> Rule | RuleSet:
+    """La regla de un campo de la fila de «Texto».
+
+    Un campo de un tipo de archivo (el álbum, de las canciones) solo coincide con los de su
+    tipo. Con «No contiene» (todas las reglas a la vez) dejaría fuera todo lo demás: va en un
+    grupo, «no es de ese tipo» O «no lo contiene» (las fotos no tienen álbum: no lo contienen).
+    """
+    rule = Rule(field_key, operator, text)
+    media_types = FIELDS[field_key].media_types
+    if operator != "not_contains" or not media_types:
+        return rule
+    # Hoy cada grupo de campos es de un solo tipo (lo comprueba la autoprueba); con varios,
+    # «no es de ninguno» necesitaría un grupo dentro de otro, que las reglas no admiten
+    (media_type,) = media_types
+    return RuleSet(MATCH_ANY, (Rule("media_type", "ne", media_type), rule))
 
 
 @dataclass(frozen=True, slots=True)
@@ -563,7 +593,8 @@ def filter_from_dict(data: object) -> GridFilter:
 
 
 if __name__ == "__main__":
-    # Autoprueba (sin base de datos). Ejecutar desde la raíz:  python -m core.catalog.grid_filter
+    # Autoprueba (la base de datos, en memoria, solo para la fila de «Texto»).
+    # Ejecutar desde la raíz:  python -m core.catalog.grid_filter
     from core.catalog.smart_rules import rules_to_sql
 
     # 1. «Ninguno» no filtra, aunque haya algo escrito
@@ -577,6 +608,42 @@ if __name__ == "__main__":
     assert all(r.operator == "contains" and r.value == "boda" for r in rules.rules)
     not_on = replace(on, text=TextFilter(TEXT_ALL_FIELDS, "not_contains", "boda"))
     assert not_on.rule_sets()[0].match == MATCH_ALL
+    # Los de las canciones, con «no contiene», en un grupo: «no es una canción» O «no lo contiene»
+    album_group = not_on.rule_sets()[0].rules[TEXT_FIELDS["all"].index("audio_album")]
+    assert album_group == RuleSet(MATCH_ANY, (Rule("media_type", "ne", "audio"),
+                                              Rule("audio_album", "not_contains", "boda")))
+    for key in TEXT_FIELDS[TEXT_ALL_FIELDS]:  # cada campo de un tipo, de uno solo
+        assert len(FIELDS[key].media_types) <= 1, key
+    # Con datos: «boda» en el nombre de una foto y en el álbum de una canción
+    import sqlite3
+
+    from core.catalog.catalog_schema import apply_migrations, configure_connection
+
+    db = sqlite3.connect(":memory:")
+    configure_connection(db)
+    apply_migrations(db)
+    db.execute("INSERT INTO storage_locations(name, absolute_path) VALUES ('P', '/tmp/p')")
+    for name, media_type, album, genre in (("boda.jpg", "photo", None, None),
+                                           ("playa.jpg", "photo", None, None),
+                                           ("s.mp3", "audio", "Boda flamenca", "Rumba"),
+                                           ("r.mp3", "audio", "Directo", "Rock")):  # fmt: skip
+        media_id = db.execute(
+            "INSERT INTO media_items(storage_location_id, relative_path, file_name, title, "
+            "media_type, mime_type, file_size, file_mtime_ns) VALUES (1, ?, ?, ?, ?, 'x/y', 1, 0)",
+            (name, name, name, media_type),
+        ).lastrowid
+        if album:
+            db.execute("INSERT INTO audio_details(media_id, album, genre) VALUES (?, ?, ?)",
+                       (media_id, album, genre))  # fmt: skip
+
+    def found(grid_filter: GridFilter) -> list[str]:
+        where, params = rules_to_sql(grid_filter.rule_sets()[0])
+        rows = db.execute(f"SELECT file_name FROM media_items AS m WHERE {where}", params)
+        return sorted(name for (name,) in rows)
+
+    assert found(on) == ["boda.jpg", "s.mp3"]
+    assert found(not_on) == ["playa.jpg", "r.mp3"], found(not_on)  # las fotos, también
+    assert found(replace(on, text=TextFilter(TEXT_ALL_FIELDS, "starts_with", "roc"))) == ["r.mp3"]
     only_name = replace(on, text=TextFilter(TEXT_FILE_NAME, "ends_with", " .JPG "))
     assert only_name.rule_sets() == (RuleSet(MATCH_ANY, (Rule("file_name", "ends_with", ".JPG"),)),)
     for operator in TEXT_OPERATORS:  # todas las combinaciones son reglas válidas

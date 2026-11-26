@@ -39,6 +39,9 @@ Uso (lo crea el panel de «Metadatos»):
     column.set_values(fetch_metadata_values(...), chosen)
     column.values_changed.connect(...)
 
+1.4.0 Los valores de las canciones (MUS 2.3): «Sin artista», «Sin álbum», «Sin año» y
+      «Sin género» (los tres primeros, los de la barra de Música), la frecuencia de
+      muestreo («44,1 kHz») y los canales («Mono», «Estéreo»).
 1.3.0 El botón del campo, solo con su nombre: la flecha detrás del nombre, la de Fusion (la de los desplegables), que pone
       el QSS ('::menu-indicator', a la derecha del texto) con el color del texto; antes,
       un «▾» en el propio texto, que Inter no tiene (GEN 21.3).
@@ -58,7 +61,7 @@ Vista de ejemplo (abre una ventana y espera a que se cierre): tres columnas con 
     python -m ui_helpers.widgets.metadata_column --ventana
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "ADD_COLUMN_TEXT",
     "ALL_TEXT",
@@ -111,8 +114,10 @@ from ui_helpers.helpers.ui_theme import COLORS
 from ui_helpers.inspector.formatting import (
     MONTH_NAMES,
     WEEKDAY_NAMES,
+    format_channels,
     format_focal_length,
     format_iso,
+    format_sample_rate,
     format_shutter,
 )
 
@@ -123,11 +128,17 @@ REMOVE_COLUMN_TEXT = "Quitar esta columna"
 _SETTINGS_TOOLTIP = "Columnas"
 _UNKNOWN_TEXT = "Desconocido"
 # Los campos que tienen su propio texto para «sin el dato» (el mismo que en otros sitios:
-# «Sin clasificar» es la fila de la barra izquierda, decidido por el autor el 09/11/2026)
+# «Sin clasificar» es la fila de la barra izquierda, decidido por el autor el 09/11/2026; los
+# de las canciones, los de la barra de Música, 'music_sections.py', decidido el 26/11/2026)
 _UNKNOWN_TEXTS: dict[str, str] = {
     "color_label": "Sin color",
     "keyword": "Sin palabras clave",
     "library": "Sin clasificar",
+    "audio_artist": "Sin artista",
+    "audio_album_artist": "Sin artista",
+    "audio_album": "Sin álbum",
+    "audio_year": "Sin año",
+    "audio_genre": "Sin género",
 }
 _NO_RATING_TEXT = "Sin valoración"  # la valoración 0 (no es «sin dato»: es su valor)
 _BOOL_TEXTS = {1: "Sí", 0: "No"}
@@ -140,6 +151,8 @@ _NUMBER_TEXTS = {
     "f_number": lambda value: f"f/{value:g}".replace(".", ","),  # 'f/1,78', 'f/2,8'
     "focal_length": format_focal_length,
     "exposure_time": lambda value: format_shutter(value, nominal=False),
+    "audio_sample_rate": format_sample_rate,  # '44,1 kHz', como el inspector
+    "audio_channels": format_channels,  # 'Mono', 'Estéreo'
 }
 
 # --- Medidas (px lógicos) ---
@@ -539,6 +552,18 @@ if __name__ == "__main__":
     assert value_text("exposure_time", 1 / 121) == "1/121 s"
     assert value_text("captured_at", "2024") == "2024" and value_text("captured_at", "2024-06") == "Junio"
     assert value_text("captured_at", "2024-06-15") == "15 - sábado"
+    # Canciones: lo que falta, con los textos de la barra de Música
+    from ui_helpers.sidebars.sections.music_sections import (
+        NO_ALBUM_TEXT,
+        NO_ARTIST_TEXT,
+        NO_YEAR_TEXT,
+    )
+
+    assert value_text("audio_album_artist", None) == value_text("audio_artist", None) == NO_ARTIST_TEXT
+    assert value_text("audio_album", None) == NO_ALBUM_TEXT and value_text("audio_year", None) == NO_YEAR_TEXT
+    assert value_text("audio_genre", None) == "Sin género" and value_text("audio_year", 2016) == "2016"
+    assert value_text("audio_sample_rate", 44100) == "44,1 kHz" and value_text("audio_channels", 2) == "Estéreo"
+    assert value_text("audio_codec", "vorbis") == "Ogg Vorbis" and value_text("audio_has_cover", 0) == "No"
 
     emitted: list[Any] = []
     requests: list[str] = []

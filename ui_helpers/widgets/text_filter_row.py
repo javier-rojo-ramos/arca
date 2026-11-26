@@ -2,8 +2,9 @@
 
     [Todos los campos disponibles ▾] [Contiene ▾] [________________________ ×]
 
-    - Campo:    «Todos los campos disponibles» (nombre de archivo, título, descripción y
-                palabras clave) · separador · «Nombre de archivo».
+    - Campo:    «Todos los campos disponibles» (nombre de archivo, título, descripción,
+                palabras clave y los propios de cada tipo de archivo, como el álbum de las
+                canciones: 'grid_filter.TEXT_FIELDS') · separador · «Nombre de archivo».
     - Operador: «Contiene» · «No contiene» · separador · «Empieza con» · «Termina con».
     - Caja de texto con el botón «×» para vaciarla.
 
@@ -21,6 +22,7 @@ Uso (lo crea el controlador principal y se lo pasa al 'FilterController'):
     row.text_filter_changed.connect(...)
     row.set_filter(TextFilter())
 
+1.0.2 La cabecera: «Todos los campos disponibles» incluye los de las canciones (MUS 2.3).
 1.0.1 De 34 px de alto (antes, 30), como la fila de las pestañas; lo de dentro, centrado.
 1.0.0 Primera versión (paso A.3, subpaso 4).
 
@@ -28,7 +30,7 @@ Prueba rápida (desde la raíz del proyecto; no abre ninguna ventana):
     python -m ui_helpers.widgets.text_filter_row
 """
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __all__ = ["FIELD_TEXTS", "OPERATOR_TEXTS", "TYPING_DELAY_MS", "TextFilterRow"]
 
 # Librerías de terceros (Qt)

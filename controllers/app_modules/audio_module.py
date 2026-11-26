@@ -13,12 +13,16 @@ Decidido por el autor el 15/11/2026:
       enseña el icono de música y el nombre; la carátula, cuando se lea (docs/MOD_MUSICA.md).
       La de lista, más adelante.
     - Orden: desde MUS 2.2 (26/11/2026), los de la música («Artista», «Álbum», «Año»,
-      «Título») más «Duración» y los del archivo; de partida, por artista (así un álbum
-      elegido en la barra sale por disco y pista). La flecha invierte solo el primer
-      criterio: las pistas de cada disco, siempre en orden ('grid_orders.py').
-    - Filtros: el tipo «audio» en «Atributos»; en «Metadatos», fecha y palabras clave.
+      «Título») más «Duración», «Tasa de bits» (MUS 2.3) y los del archivo; de partida, por
+      artista (así un álbum elegido en la barra sale por disco y pista). La flecha invierte
+      solo el primer criterio: las pistas de cada disco, siempre en orden ('grid_orders.py').
+    - Filtros: el tipo «audio» en «Atributos»; en «Metadatos», desde MUS 2.3, de partida
+      «Género», «Artista del álbum» y «Álbum» (como el explorador de columnas de iTunes;
+      antes, fecha y palabras clave).
     - Textos de la barra, provisionales hasta que se decidan los nombres ('_TEXTS').
 
+1.4.0 Columnas de partida de «Metadatos»: «Género», «Artista del álbum» y «Álbum»
+      (MUS 2.3; acordado con el autor el 26/11/2026).
 1.3.0 Sus órdenes ('AUDIO_SORT_FIELDS'); de partida, por artista (MUS 2.2).
 1.2.0 «Artistas» y «Años» en la barra, en lugar de «Fechas» (MUS 4.1; acordado con el
       autor el 26/11/2026: con las canciones, que casi siempre tienen solo el año, el
@@ -30,7 +34,7 @@ Decidido por el autor el 15/11/2026:
 1.0.0 Primera versión (15/11/2026): sustituye al módulo provisional.
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["AudioModule"]
 
 # Módulos del proyecto
@@ -92,11 +96,11 @@ class AudioModule(LibraryModule):
         return (MediaType.AUDIO,)
 
     def filter_metadata_fields(self) -> tuple[str, ...]:
-        """Columnas de partida de «Metadatos»: la fecha y las palabras clave."""
-        return ("captured_at", "keyword")
+        """Columnas de partida de «Metadatos»: género, artista del álbum y álbum (MUS 2.3)."""
+        return ("audio_genre", "audio_album_artist", "audio_album")
 
     def sort_fields(self) -> tuple[str, ...]:
-        """Los de la música, «Duración» y los del archivo (MUS 2.2)."""
+        """Los de la música, «Duración», «Tasa de bits» y los del archivo (MUS 2.2 y 2.3)."""
         return AUDIO_SORT_FIELDS
 
     def default_order(self) -> GridOrder:

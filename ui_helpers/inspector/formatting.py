@@ -23,6 +23,8 @@ Música (sección «Audio»):
     formato       'MP3', 'FLAC', 'AAC LC'      pista / disco  '22 / 25', '3'
     calidad       'VBR · 277 kbps · 44,1 kHz · Estéreo', '883 kbps · 44,1 kHz · 16 bits · Estéreo'
 
+1.8.1 Los nombres de los formatos de audio, de 'core/audio/codecs.py' (los usan también las
+      colecciones inteligentes, MUS 2.3). Se ven igual.
 1.8.0 Formatos de las canciones: 'format_audio_format', 'format_audio_quality' (con
       'format_bitrate', 'format_sample_rate' y 'format_channels') y 'format_part' (MUS 2.1).
 1.7.1 Orígenes de la fecha de las canciones ('id3', 'vorbis', 'mp4'): «etiquetas de la
@@ -47,7 +49,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.formatting
 """
 
-__version__ = "1.8.0"
+__version__ = "1.8.1"
 __all__ = [
     "DATE_SOURCE_TEXTS",
     "EXPOSURE_PROGRAMS",
@@ -94,6 +96,7 @@ import math
 from collections.abc import Iterable
 
 # Módulos del proyecto
+from core.audio.codecs import codec_name
 from core.metadata.camera_makers import starts_with_maker
 
 # Unidades de tamaño (base 1024, como el Explorador de Windows y el Finder antiguo)
@@ -178,16 +181,6 @@ _CODECS: dict[str, str] = {
     "apcn": "ProRes 422",
     "apch": "ProRes 422 HQ",
     "ap4h": "ProRes 4444",
-}
-
-# Formatos de audio: 'audio_details.codec' -> nombre (uno que no esté, en mayúsculas)
-_AUDIO_FORMATS: dict[str, str] = {
-    "mp3": "MP3",
-    "flac": "FLAC",
-    "aac": "AAC",
-    "alac": "ALAC",
-    "vorbis": "Ogg Vorbis",
-    "opus": "Opus",
 }
 
 # Modo de la tasa de bits de un MP3 ('audio_details.bitrate_mode'): constante, variable o
@@ -533,7 +526,7 @@ def format_audio_format(codec: str | None, detail: str | None = None) -> str:
         return detail.strip()
     if not codec or not codec.strip():
         return ""
-    return _AUDIO_FORMATS.get(codec.strip().lower(), codec.strip().upper())
+    return codec_name(codec)
 
 
 def format_part(number: int | None, total: int | None) -> str:

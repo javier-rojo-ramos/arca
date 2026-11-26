@@ -99,19 +99,19 @@ Del lector de GPX (`core/metadata/track/`, sin ExifTool), en el orden de la secc
 
 ### Música
 
-**Estado (26/11/2026)**: las canciones se leen solas desde `MUS 1.3` (`core/metadata/audio/extractor.py`). Los datos que están en `media_items` (título, artista, año, comentario y duración) se ven en «Selección», la tarjeta, el filtro de texto, las colecciones, la barra de filtros y el orden; desde `MUS 2.1`, todos los de las dos tablas siguientes (las filas «Insp.»), en la sección «Audio» del inspector, de solo lectura (`ui_helpers/inspector/audio_section.py`, con `core/catalog/audio_stats.py`); desde `MUS 2.2`, el orden («Artista», «Álbum», «Año» y «Título»); los filtros y las colecciones, en `MUS 2.3` (adelantados en `MUS 4.1` «Álbum» y «Artista del álbum», en las colecciones inteligentes); desde `MUS 4.1`, las secciones «Artistas» y «Años» de la barra; «Géneros», en `MUS 4.2`. Las filas del inspector, en el orden acordado ([MOD_MUSICA.md](MOD_MUSICA.md) §7.1). La tabla campo ↔ etiqueta es `core/audio/tag_map.py`.
+**Estado (26/11/2026)**: las canciones se leen solas desde `MUS 1.3` (`core/metadata/audio/extractor.py`). Los datos que están en `media_items` (título, artista, año, comentario y duración) se ven en «Selección», la tarjeta, el filtro de texto, las colecciones, la barra de filtros y el orden; desde `MUS 2.1`, todos los de las dos tablas siguientes (las filas «Insp.»), en la sección «Audio» del inspector, de solo lectura (`ui_helpers/inspector/audio_section.py`, con `core/catalog/audio_stats.py`); desde `MUS 2.2`, el orden («Artista», «Álbum», «Año» y «Título»); desde `MUS 2.3`, los filtros, las colecciones y la búsqueda de «Texto» (el grupo «Audio»: [MOD_MUSICA.md](MOD_MUSICA.md) §7.4); desde `MUS 4.1`, las secciones «Artistas» y «Años» de la barra; «Géneros», en `MUS 4.2`. Las filas del inspector, en el orden acordado ([MOD_MUSICA.md](MOD_MUSICA.md) §7.1). La tabla campo ↔ etiqueta es `core/audio/tag_map.py`.
 
 | Dato | Dónde se guarda | ID3 (MP3, WAV, AIFF) | Vorbis (FLAC, Ogg, Opus) | MP4 (M4A) | Dónde se verá | ¿Se cambiará? |
 |---|---|---|---|---|---|---|
 | Título | `title` (sin título, el nombre del archivo) | `TIT2` | `TITLE` | `©nam` | Insp. «Título»; filtro de texto; Colección «Título» | ² |
-| Artista | `creator` | `TPE1` | `ARTIST` | `©ART` | Insp. «Artista»; Colección y Filtro «Autor»; barra «Artistas» (si no hay artista del álbum) | ² |
-| Álbum | `audio_details.album` | `TALB` | `ALBUM` | `©alb` | Insp. «Álbum»; barras «Artistas» y «Años» ▸ álbum; Colección «Álbum»; Orden (`MUS 2.2`) | ² |
-| Año | `content_created_at` (con precisión de año si solo trae el año; sin año, sin fecha; el origen, `id3`, `vorbis` o `mp4`) | `TDRC` (en v2.3, `TYER`) | `DATE` (o `YEAR`) | `©day` | Insp. «Año»; barra «Años» y el año de los álbumes en «Artistas» («2001 · Destrangis», «1974 – 2011 · …»); Colección y Filtro «Fecha de captura»; Orden | ² |
-| Pista | `audio_details.track_number`, `track_total` | `TRCK` («3/12») | `TRACKNUMBER` y `TRACKTOTAL` (o `TOTALTRACKS`) | `trkn` | Insp. «Pista» («22 / 25»); Orden del álbum | ² |
-| Disco | `audio_details.disc_number`, `disc_total` | `TPOS` | `DISCNUMBER` y `DISCTOTAL` (o `TOTALDISCS`) | `disk` | Insp. «Disco»; Orden del álbum | ² |
-| Género | `audio_details.genre` (varios, unidos con «; ») | `TCON` (también «(17)», el número de ID3v1) | `GENRE` | `©gen` (o `gnre`, el número) | Insp. «Género»; barra «Géneros» (`MUS 4.2`); Colección y Filtro | ² |
-| Artista del álbum | `audio_details.album_artist` | `TPE2` | `ALBUMARTIST` (o `ALBUM ARTIST`) | `aART` | Insp. «Artista del álbum»; barra «Artistas»; Colección «Artista del álbum» (sin él, cuenta el artista, como foobar2000) | ² |
-| Compositor | `audio_details.composer` | `TCOM` | `COMPOSER` | `©wrt` | Insp. «Compositor» | ² |
+| Artista | `creator` | `TPE1` | `ARTIST` | `©ART` | Insp. «Artista»; Colección y Filtro «Artista» (Audio) y «Autor» (Estándar); «Texto»; barra «Artistas» (si no hay artista del álbum) | ² |
+| Álbum | `audio_details.album` | `TALB` | `ALBUM` | `©alb` | Insp. «Álbum»; barras «Artistas» y «Años» ▸ álbum; Colección y Filtro «Álbum»; «Texto»; Orden (`MUS 2.2`) | ² |
+| Año | `content_created_at` (con precisión de año si solo trae el año; sin año, sin fecha; el origen, `id3`, `vorbis` o `mp4`) | `TDRC` (en v2.3, `TYER`) | `DATE` (o `YEAR`) | `©day` | Insp. «Año»; barra «Años» y el año de los álbumes en «Artistas» («2001 · Destrangis», «1974 – 2011 · …»); Colección y Filtro «Año» (un número) y «Fecha de captura»; Orden | ² |
+| Pista | `audio_details.track_number`, `track_total` | `TRCK` («3/12») | `TRACKNUMBER` y `TRACKTOTAL` (o `TOTALTRACKS`) | `trkn` | Insp. «Pista» («22 / 25»); Colección «Pista»; Orden del álbum | ² |
+| Disco | `audio_details.disc_number`, `disc_total` | `TPOS` | `DISCNUMBER` y `DISCTOTAL` (o `TOTALDISCS`) | `disk` | Insp. «Disco»; Colección «Disco»; Orden del álbum | ² |
+| Género | `audio_details.genre` (varios, unidos con «; ») | `TCON` (también «(17)», el número de ID3v1) | `GENRE` | `©gen` (o `gnre`, el número) | Insp. «Género»; Colección y Filtro «Género»; «Texto»; barra «Géneros» (`MUS 4.2`) | ² |
+| Artista del álbum | `audio_details.album_artist` | `TPE2` | `ALBUMARTIST` (o `ALBUM ARTIST`) | `aART` | Insp. «Artista del álbum»; barra «Artistas»; Colección y Filtro «Artista del álbum» (sin él, cuenta el artista, como foobar2000); «Texto» | ² |
+| Compositor | `audio_details.composer` | `TCOM` | `COMPOSER` | `©wrt` | Insp. «Compositor»; Colección y Filtro «Compositor»; «Texto» | ² |
 | Comentario | `description` | `COMM` sin descripción | `COMMENT` (o `DESCRIPTION`) | `©cmt` | Insp. «Comentario»; Colección «Descripción» | ² |
 
 ² Desde `MUS 7`, en el inspector; se escribirá en el propio archivo, sin copias (`MUS 6`: primero MP3). Lo que el escritor no sepa guardar, en el `.arca.json`.
@@ -121,10 +121,10 @@ Los datos técnicos y la carátula los da mutagen en todos los formatos (`core/a
 | Dato | Dónde se guarda | De dónde sale | Dónde se verá | ¿Se cambiará? |
 |---|---|---|---|---|
 | Duración | `duration` | La cabecera del audio | Insp. «Duración»; la tarjeta; Orden «Duración» (ya hoy) | — |
-| Formato | `audio_details.codec`, `codec_detail` | El tipo de archivo y su códec («AAC LC») | Insp. «Formato» | — |
-| Calidad | `audio_details.bitrate` (la media), `bitrate_mode`, `sample_rate`, `channels`, `bit_depth` (solo sin pérdida), `lossless` | La cabecera del audio; en Ogg Vorbis, la tasa se calcula ([TRAMPAS.md](TRAMPAS.md)) | Insp. «Calidad» («VBR · 277 kbps · 44,1 kHz · Estéreo»; también «CBR» y «ABR»; con varias canciones, la tasa como intervalo) | — |
-| Etiqueta | `audio_details.tag_type` | Las etiquetas del archivo («ID3v2.3 + ID3v1», «Vorbis», «MP4») | Insp. «Etiqueta» | — |
-| Carátula | `audio_details.picture_count` y, de la primera portada (o la primera imagen), `cover_type`, `cover_mime`, `cover_width`, `cover_height`, `cover_bytes` y `cover_hash` (la huella) | `APIC` (ID3); bloque PICTURE (FLAC) o `METADATA_BLOCK_PICTURE` (Ogg); `covr` (MP4, siempre «Portada») | La miniatura (`MUS 3`); Insp. «Tipo» e «Imagen» (`MUS 9.1`); la carátula del álbum, por la huella | `MUS 9`: en el archivo |
+| Formato | `audio_details.codec`, `codec_detail` | El tipo de archivo y su códec («AAC LC») | Insp. «Formato»; Colección y Filtro «Formato» | — |
+| Calidad | `audio_details.bitrate` (la media), `bitrate_mode`, `sample_rate`, `channels`, `bit_depth` (solo sin pérdida), `lossless` | La cabecera del audio; en Ogg Vorbis, la tasa se calcula ([TRAMPAS.md](TRAMPAS.md)) | Insp. «Calidad» («VBR · 277 kbps · 44,1 kHz · Estéreo»; también «CBR» y «ABR»; con varias canciones, la tasa como intervalo); Colección «Tasa de bits» y Orden «Tasa de bits»; Colección y Filtro «Frecuencia de muestreo» y «Canales» | — |
+| Etiqueta | `audio_details.tag_type` | Las etiquetas del archivo («ID3v2.3 + ID3v1», «Vorbis», «MP4») | Insp. «Etiqueta»; Colección y Filtro «Tipo de etiqueta» | — |
+| Carátula | `audio_details.picture_count` y, de la primera portada (o la primera imagen), `cover_type`, `cover_mime`, `cover_width`, `cover_height`, `cover_bytes` y `cover_hash` (la huella) | `APIC` (ID3); bloque PICTURE (FLAC) o `METADATA_BLOCK_PICTURE` (Ogg); `covr` (MP4, siempre «Portada») | La miniatura (`MUS 3`); Insp. «Tipo» e «Imagen» (`MUS 9.1`); la carátula del álbum, por la huella; Colección y Filtro «Tiene carátula»; Colección «Lado menor de la carátula» | `MUS 9`: en el archivo |
 
 ### Vídeo (películas) y Ebooks
 

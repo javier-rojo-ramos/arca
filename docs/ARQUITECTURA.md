@@ -287,6 +287,7 @@ core/
     tag_map.py                       ► TABLA campo ↔ etiqueta (ID3, Vorbis, MP4): TAG_FIELDS (la misma para leer y, desde MUS 6, para escribir), MULTI_VALUE_SEPARATOR («; »)
     tag_reader.py                      read_audio -> AudioInfo: campos (AudioTags), datos técnicos aparte (AudioTechnical), tipo de etiqueta e imágenes sin sus bytes (AudioPicture, con su tamaño leído con Pillow); tags_from_id3/vorbis/mp4, sin archivo
     picture_types.py                   Tipos de imagen de ID3 y FLAC (clave en inglés, texto en español, número; los que se ofrecen al elegir)
+    codecs.py                          Los formatos del audio: CODEC_NAMES (clave de audio_details.codec -> nombre, «Ogg Vorbis») y codec_name; los usan el inspector y las colecciones inteligentes
   maps/                              ── Mapas (diseño y plan en docs/MOD_TRACKS.md; los usa ui_helpers/map/) ──
     tile_layers.py                   ► LISTA de capas del mapa (TileLayer, TILE_LAYERS: aquí se añade una), tile_url, is_valid_tile, user_agent; capas del usuario (user_layer, check_url_template, all_layers, new_user_key, de y a settings.json); sin Qt ni red
     tile_store.py                      TileStore: caché de teselas en disco (una carpeta por capa, escritura atómica, caducidad a los 30 días, tope de tamaño con 'prune', 'clear'); image_mime (tipo de una tesela por sus bytes); sin Qt ni red

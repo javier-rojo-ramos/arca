@@ -47,7 +47,7 @@ Al cambiar una de estas versiones, actualizar esta tabla.
 | Lector de GPX | versión 5 (`TRACK_EXTRACTOR_VERSION`; umbral de desnivel 8 m; con el contorno simplificado del recorrido, como mucho 1 000 puntos; la actividad, como clave de la lista) |
 | Lista de campos de audio | versión 1 (`AUDIO_FIELDS_VERSION`, en `core/metadata/audio/extractor.py`; las etiquetas con mutagen, la tabla de `core/audio/tag_map.py`; el año con su precisión y, sin año, sin fecha; los datos técnicos y la carátula con su huella) |
 | Motor de miniaturas | versión 2 (`THUMBNAIL_VERSION`) |
-| Reglas de las colecciones inteligentes | versión 2 (`collections.rules_json`; con grupos de un nivel; se sigue leyendo la 1); 42 campos en `core/catalog/smart_fields.py` (23 Estándar, 11 Imagen, 2 Audio, 6 Tracks GPS; grupos Vídeo y Ebooks aún vacíos); 29 también como columnas de «Metadatos» (`browse`) |
+| Reglas de las colecciones inteligentes | versión 2 (`collections.rules_json`; con grupos de un nivel; se sigue leyendo la 1); 55 campos en `core/catalog/smart_fields.py` (23 Estándar, 11 Imagen, 15 Audio, 6 Tracks GPS; grupos Vídeo y Ebooks aún vacíos); 40 también como columnas de «Metadatos» (`browse`) |
 
 ## Al retomar el proyecto
 

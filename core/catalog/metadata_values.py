@@ -25,14 +25,15 @@ Reglas:
       «Huesca» y «huesca» son una sola fila (con la primera forma en orden alfabético).
     - Palabra clave: cada palabra asignada, sin contar las hijas; un archivo con varias
       cuenta en cada una.
-    - Campos de un tipo de medio (Imagen, Tracks GPS): solo cuentan los archivos de ese
-      tipo; los demás están en «Todo», pero en ninguna fila.
+    - Campos de un tipo de medio (Imagen, Audio, Tracks GPS): solo cuentan los archivos de
+      ese tipo; los demás están en «Todo», pero en ninguna fila.
     - «Desconocido» (None), al final y solo si el campo admite «está vacío»: no en la
       fecha de importación, la marca, la valoración, el tipo, la orientación ni en sí / no
       (lo que no tiene dato cuenta como «no», igual que la regla).
     - Lo elegido que ya no aparece sigue en la lista, con 0: no se pierde y se ve por qué
       la cuadrícula se queda vacía.
-    - Orden: textos alfabético (sin mayúsculas ni acentos); números de menor a mayor;
+    - Orden: textos alfabético (sin mayúsculas ni acentos); números de menor a mayor (los
+      de 'browse_descending', de mayor a menor: el año de las canciones, del más reciente);
       listas en el orden de sus opciones (marcas y colores como en «Atributos»);
       valoración de 1 a 5 estrellas y después «sin valoración»; sí antes que no; fechas en
       árbol, los años del más reciente al más antiguo y, dentro, meses y días en el orden
@@ -42,13 +43,15 @@ Reglas:
 Los textos que ve el usuario («Todo (8)», «Desconocido», «Junio»...) no están aquí: los
 pone la interfaz.
 
+1.1.0 Los números de 'SmartField.browse_descending', de mayor a menor (el «Año» de las
+      canciones, MUS 2.3).
 1.0.0 Primera versión (paso A.3, «Metadatos», subpaso 1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.metadata_values
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["MetadataValue", "MetadataValues", "fetch_metadata_values"]
 
 # Librerías estándar
@@ -292,7 +295,7 @@ def _sort_key(spec: SmartField, key: Any) -> tuple[Any, ...]:
     if spec.kind == KIND_BOOL:
         return (-key,)  # sí (1) antes que no (0)
     if spec.kind == KIND_NUMBER:
-        return (float(key),)
+        return (-float(key),) if spec.browse_descending else (float(key),)
     return (str(key),)  # textos y palabras clave: ya sin mayúsculas ni acentos
 
 
@@ -431,6 +434,28 @@ if __name__ == "__main__":
     assert dates.value_count == 2
     # La fecha de importación siempre tiene valor: sin «Desconocido»
     assert [v.value for v in fetch_metadata_values(db, ALL_ITEMS, "added_at").values][-1] is not None
+
+    # 5b. Canciones (después de lo anterior, para no cambiar sus recuentos): el año, del más
+    # reciente; el artista del álbum, con el artista si falta
+    for name, artist, year, album, album_artist, genre, codec, pictures in (
+        ("s1.mp3", "Estopa", "2001-01-01 00:00:00", "Destrangis", None, "Rumba", "mp3", 1),
+        ("s2.mp3", "estopa", "2001-01-01 00:00:00", "Destrangis", None, "rumba", "mp3", 1),
+        ("s3.flac", "Dick Dale", "1994-01-01 00:00:00", "Pulp Fiction", "0 Varios", None, "flac", 0),
+        ("s4.ogg", None, None, None, None, None, None, None),
+    ):
+        song = add(name, "audio", creator=artist, content_created_at=year)
+        if pictures is not None:  # s4.ogg, sin detalles (aún sin leer)
+            db.execute(
+                "INSERT INTO audio_details(media_id, album, album_artist, genre, codec, "
+                "picture_count, sample_rate, channels) VALUES (?, ?, ?, ?, ?, ?, 44100, 2)",
+                (song, album, album_artist, genre, codec, pictures),
+            )
+    assert rows("audio_year") == [(2001, 2), (1994, 1), (None, 1)], rows("audio_year")
+    assert rows("audio_album_artist") == [("0 Varios", 1), ("Estopa", 2), (None, 1)]
+    assert rows("audio_genre") == [("Rumba", 2), (None, 2)], rows("audio_genre")  # s4 sin detalles
+    assert rows("audio_codec") == [("mp3", 2), ("flac", 1), (None, 1)]  # en el orden de la lista
+    assert rows("audio_has_cover") == [(1, 2), (0, 2)]  # sin detalles = no
+    assert rows("audio_sample_rate") == [(44100, 3), (None, 1)]
 
     # 6. Lo importante: elegir una fila filtra EXACTAMENTE los archivos que cuenta
     def check(spec_key: str, value: MetadataValue) -> None:

@@ -39,6 +39,8 @@ No todos los campos valen para todos los módulos: 'COMMON_SORT_FIELDS' son los 
 archivo (los que ofrecen el Catálogo e Imagen), 'TRACK_SORT_FIELDS', los del módulo Tracks,
 'VIDEO_AUDIO_SORT_FIELDS', los de Vídeo, y 'AUDIO_SORT_FIELDS', los de Música.
 
+1.4.0 «Tasa de bits» en Música (MUS 2.3; pedido por el autor el 26/11/2026: la tasa no es
+      columna de «Metadatos», y así se ven las canciones de mejor y de peor calidad).
 1.3.0 Los campos de la música (MUS 2.2): «Artista» (artista del álbum o, sin él, el
       artista; año, álbum, disco y pista), «Álbum», «Año» y «Título»; 'AUDIO_SORT_FIELDS' y
       'ARTIST_ORDER' (el de partida de Música). 'SortColumn.expression' (una expresión
@@ -56,7 +58,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.grid_orders
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "ARTIST_ORDER",
     "AUDIO_SORT_FIELDS",
@@ -173,6 +175,9 @@ _FIELD_LIST: tuple[SortField, ...] = (
     SortField("audio_year", "Año", (_YEAR, _ALBUM_ARTIST, _ALBUM, _DISC, _TRACK),
               reverse_first_only=True),
     SortField("title", "Título", (SortColumn("title", folded=True),)),
+    # La media de los VBR; hacia arriba, la peor calidad primero
+    SortField("audio_bitrate", "Tasa de bits",
+              (SortColumn("bitrate", nullable=True, table="audio_details"),)),
 )  # fmt: skip
 
 SORT_FIELDS: dict[str, SortField] = {field.key: field for field in _FIELD_LIST}
@@ -200,7 +205,7 @@ VIDEO_AUDIO_SORT_FIELDS: tuple[str, ...] = (
 # «Hora de captura» (en una canción es el año: «Año») ni «Pista» suelta (con varios álbumes
 # juntaría todas las pistas 1; dentro de un álbum ya la ordena «Álbum»)
 AUDIO_SORT_FIELDS: tuple[str, ...] = (
-    "audio_album_artist", "audio_album", "audio_year", "title", "duration",
+    "audio_album_artist", "audio_album", "audio_year", "title", "duration", "audio_bitrate",
     "file_name", "file_extension", "file_size", "file_modified_at", "added_at",
 )  # fmt: skip
 
@@ -451,6 +456,15 @@ if __name__ == "__main__":
         "y1.mp3", "n1.mp3",
     ], names(GridOrder("audio_year", descending=True))  # fmt: skip
     assert names(GridOrder("title"))[:3] == ["a2.mp3", "b2.mp3", "c2.mp3"]  # el título, aquí el nombre
+    # Tasa de bits: sin el dato (aquí, todas salvo dos), al final en las dos direcciones
+    db.execute("UPDATE audio_details SET bitrate = 320000 WHERE media_id = "
+               "(SELECT id FROM media_items WHERE file_name = 'w1.mp3')")
+    db.execute("UPDATE audio_details SET bitrate = 128000 WHERE media_id = "
+               "(SELECT id FROM media_items WHERE file_name = 'x1.mp3')")
+    by_bitrate = names(GridOrder("audio_bitrate"))
+    by_bitrate_desc = names(GridOrder("audio_bitrate", descending=True))
+    assert by_bitrate[:2] == ["x1.mp3", "w1.mp3"] and by_bitrate[-1] == "z1.mp3", by_bitrate
+    assert by_bitrate_desc[:2] == ["w1.mp3", "x1.mp3"] and by_bitrate_desc[-1] == "a2.mp3"
     assert "arca_fold(" in order_by_sql(ARTIST_ORDER) and "DESC" not in order_by_sql(ARTIST_ORDER)
 
     print("Autoprueba finalizada correctamente.")

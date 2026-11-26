@@ -17,7 +17,10 @@ Organización (lo que ve el usuario en el menú "campo" del editor):
         Palabras clave  Palabra clave (cualquier tipo de archivo)
     Imagen ▸          solo fotos (cámara, objetivo, ISO...)
     Vídeo ▸           (previsto)
-    Audio ▸           solo canciones: álbum y artista del álbum (el resto, con MUS 2.3)
+    Audio ▸           solo canciones
+        Etiquetas       Artista, Álbum, Año, Pista, Disco, Género, Artista del álbum...
+        Formato         Formato, Tasa de bits, Frecuencia de muestreo, Canales...
+        Carátula        Tiene carátula, Lado menor de la carátula
     Libros ▸          (previsto)
     Tracks GPS ▸      distancia, desnivel, actividad...
 
@@ -36,11 +39,20 @@ Cómo añadir un campo:
        y, según el tipo: 'choices' (KIND_ENUM), 'unit' / 'scale' / 'decimals'
        (KIND_NUMBER), 'clock' (KIND_DATE). Con 'browse=True' se ofrece además como
        columna en «Metadatos» de la barra de filtros (solo campos con pocos valores y
-       muy repetidos: no el nombre de archivo ni un tamaño).
+       muy repetidos: no el nombre de archivo ni un tamaño). Los años, con
+       'group_digits=False' («2016» y no «2.016» en el editor) y 'browse_descending=True'
+       (en la columna, del más reciente al más antiguo).
     2. Nada más: el motor, el editor y la descripción de la regla lo toman de aquí.
 Cómo añadir un grupo (p. ej. vídeo, cuando exista 'video_details'): una línea en
 'GROUPS' con sus 'media_types'; sus campos, con 'group=' su clave.
 
+1.8.0 Grupo «Audio» completo (MUS 2.3; acordado con el autor el 26/11/2026): «Artista»,
+      «Año» (un número, no la fecha: en las canciones solo hay año), «Pista», «Disco»,
+      «Género», «Compositor», «Formato», «Tasa de bits», «Frecuencia de muestreo»,
+      «Canales», «Tipo de etiqueta», «Tiene carátula» y «Lado menor de la carátula»; los
+      de pocos valores y «Álbum» y «Artista del álbum», también columnas de «Metadatos».
+      'SmartField.group_digits' y 'browse_descending' (los años). «Título» y «Comentario»
+      no se repiten: son «Título» y «Descripción» de Estándar.
 1.7.0 Grupo «Audio»: «Álbum» y «Artista del álbum» (este, con el artista de respaldo si la
       canción no lo tiene, como foobar2000; decidido por el autor el 26/11/2026). Los usan
       las secciones «Artistas» y «Años» de la barra de Música (MUS 4.1).
@@ -62,7 +74,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.smart_fields
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 # ruff: noqa: RUF022
 __all__ = [
     "KIND_BOOL",
@@ -89,6 +101,7 @@ from dataclasses import dataclass
 from typing import Any
 
 # Módulos del proyecto
+from core.audio.codecs import CODEC_NAMES
 from core.catalog.libraries import LIBRARY_NAMES, Library
 from core.catalog.media_types import MediaType
 from core.tracks.activities import ACTIVITIES
@@ -226,6 +239,9 @@ class SmartField:
         operators: Operadores admitidos (vacío = los de su tipo, 'OPERATORS_BY_KIND').
         browse: Se ofrece como columna en «Metadatos» de la barra de filtros (lista de
             sus valores con recuentos; ver 'grid_filter.metadata_rule').
+        group_digits: KIND_NUMBER: el editor separa los miles («1.024 px»); no en los años.
+        browse_descending: KIND_NUMBER: en la columna de «Metadatos», de mayor a menor (los
+            años, del más reciente, como «Fecha de captura»).
     """
 
     key: str
@@ -241,6 +257,8 @@ class SmartField:
     clock: str = "local"
     operators: tuple[str, ...] = ()
     browse: bool = False
+    group_digits: bool = True
+    browse_descending: bool = False
 
     @property
     def allowed_operators(self) -> tuple[str, ...]:
@@ -289,6 +307,8 @@ _COLOR_CHOICES = (
     ("blue", "Azul"),
     ("purple", "Púrpura"),
 )
+# Formatos de las canciones ('audio_details.codec'), con los nombres del inspector
+_CODEC_CHOICES = tuple(CODEC_NAMES.items())
 _ORIENTATION_CHOICES = (("h", "Horizontal"), ("v", "Vertical"), ("s", "Cuadrada"))
 _ORIENTATION_SQL = (
     "(CASE WHEN m.width > m.height THEN 'h' WHEN m.width < m.height THEN 'v' "
@@ -296,6 +316,13 @@ _ORIENTATION_SQL = (
 )
 
 _MB = 1024 * 1024  # bytes en un MB (como el Explorador de Windows)
+
+# El año de una canción: solo el año de su fecha (casi nunca tiene más; docs/MOD_MUSICA.md §3.1)
+_YEAR_SQL = "CAST(substr(m.content_created_at, 1, 4) AS INTEGER)"
+# El lado menor de la carátula: «es menor que 500 px» es que no llega a 500 × 500
+_COVER_SIDE_SQL = (
+    "(SELECT MIN(d.cover_width, d.cover_height) FROM audio_details AS d WHERE d.media_id = m.id)"
+)
 
 # Lista de campos, en el orden en que aparecen en el menú (dentro de su grupo y sección)
 # fmt: off
@@ -376,14 +403,51 @@ _FIELD_LIST: tuple[SmartField, ...] = (
     SmartField("width", "Ancho", "image", "Imagen", KIND_NUMBER, "m.width", unit="px"),
     SmartField("height", "Alto", "image", "Imagen", KIND_NUMBER, "m.height", unit="px"),
 
-    # --- Audio (las canciones; los demás campos, con MUS 2.3) ------------------------------
+    # --- Audio (solo canciones), en el orden de la sección «Audio» del inspector ----------
+    # «Título» y «Comentario» no se repiten: son «Título» y «Descripción» de Estándar.
+    # El artista es el «Autor» de Estándar, con su nombre de música y solo en las canciones
+    SmartField("audio_artist", "Artista", "audio", "Etiquetas", KIND_TEXT, "m.creator",
+               browse=True),
     SmartField("audio_album", "Álbum", "audio", "Etiquetas", KIND_TEXT,
-               _detail("audio_details", "album")),
+               _detail("audio_details", "album"), browse=True),
+    # Un número y no la fecha: «Año está entre 1980 y 1989»; en la columna, la lista de años
+    # (no año ▸ enero ▸ 1, que es como se guarda una canción con solo el año)
+    SmartField("audio_year", "Año", "audio", "Etiquetas", KIND_NUMBER, _YEAR_SQL,
+               browse=True, group_digits=False, browse_descending=True),
+    SmartField("audio_track", "Pista", "audio", "Etiquetas", KIND_NUMBER,
+               _detail("audio_details", "track_number")),
+    SmartField("audio_disc", "Disco", "audio", "Etiquetas", KIND_NUMBER,
+               _detail("audio_details", "disc_number")),
+    SmartField("audio_genre", "Género", "audio", "Etiquetas", KIND_TEXT,
+               _detail("audio_details", "genre"), browse=True),
     # El artista del álbum o, si la canción no lo tiene, su artista (como el campo del mismo
     # nombre de foobar2000): así agrupa sus álbumes la sección «Artistas» de la barra, y así
     # «Artista del álbum es Estopa» encuentra también los discos sin esa etiqueta
     SmartField("audio_album_artist", "Artista del álbum", "audio", "Etiquetas", KIND_TEXT,
-               f"COALESCE(NULLIF({_detail('audio_details', 'album_artist')}, ''), m.creator)"),
+               f"COALESCE(NULLIF({_detail('audio_details', 'album_artist')}, ''), m.creator)",
+               browse=True),
+    SmartField("audio_composer", "Compositor", "audio", "Etiquetas", KIND_TEXT,
+               _detail("audio_details", "composer"), browse=True),
+
+    SmartField("audio_codec", "Formato", "audio", "Formato", KIND_ENUM,
+               _detail("audio_details", "codec"), choices=_CODEC_CHOICES,
+               operators=("eq", "ne", "is_set", "is_not_set"), browse=True),
+    # No es columna: con los VBR hay casi un valor por canción (215 en el catálogo del autor);
+    # para ver la mejor o la peor, el orden «Tasa de bits» de Música
+    SmartField("audio_bitrate", "Tasa de bits", "audio", "Formato", KIND_NUMBER,
+               _detail("audio_details", "bitrate"), unit="kbps", scale=1000),
+    SmartField("audio_sample_rate", "Frecuencia de muestreo", "audio", "Formato", KIND_NUMBER,
+               _detail("audio_details", "sample_rate"), unit="kHz", scale=1000, decimals=1,
+               browse=True),
+    SmartField("audio_channels", "Canales", "audio", "Formato", KIND_NUMBER,
+               _detail("audio_details", "channels"), browse=True),
+    SmartField("audio_tag_type", "Tipo de etiqueta", "audio", "Formato", KIND_TEXT,
+               _detail("audio_details", "tag_type"), browse=True),
+
+    SmartField("audio_has_cover", "Tiene carátula", "audio", "Carátula", KIND_BOOL,
+               f"({_detail('audio_details', 'picture_count')} > 0)", browse=True),
+    SmartField("audio_cover_side", "Lado menor de la carátula", "audio", "Carátula",
+               KIND_NUMBER, _COVER_SIDE_SQL, unit="px"),
 
     # --- Tracks GPS -----------------------------------------------------------------------
     SmartField("track_distance", "Distancia", "track", "Recorrido", KIND_NUMBER,
@@ -449,12 +513,18 @@ if __name__ == "__main__":
     assert FIELDS["rating"].media_types == ()
     assert FIELDS["flag"].choice_label(-1) == "Rechazada"
     assert FIELDS["keyword"].media_types == () and FIELDS["keyword"].allowed_operators[0] == "kw_is"
-    # Columnas de «Metadatos»: 29 campos; fuera los de casi un valor por archivo y los continuos
+    # Los formatos, con los nombres del inspector
+    assert FIELDS["audio_codec"].choice_label("vorbis") == "Ogg Vorbis"
+    # Solo los números tienen miles sin separar u orden inverso (los años)
+    assert all(f.kind == KIND_NUMBER for f in _FIELD_LIST if not f.group_digits or f.browse_descending)
+    # Columnas de «Metadatos»: 40 campos; fuera los de casi un valor por archivo y los continuos
     browse = {field.key for field in browse_fields()}
-    assert len(browse) == 29, len(browse)
+    assert len(browse) == 40, len(browse)
     assert not browse & {"file_name", "title", "description", "folder", "file_size", "width",
                          "height", "track_distance", "track_gain", "track_loss",
-                         "track_max_elevation"}
+                         "track_max_elevation", "audio_track", "audio_disc", "audio_bitrate",
+                         "audio_cover_side"}
     assert [f.key for f in browse_fields("track")] == ["track_activity", "track_creator_app"]
+    assert len(fields_in_group("audio")) == 15 and len(browse_fields("audio")) == 11
     print(f"{len(FIELDS)} campos en {len(visible_groups())} grupos visibles.")
     print("Autoprueba finalizada correctamente.")
