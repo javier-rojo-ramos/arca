@@ -40,6 +40,8 @@ fila y lo escrito se interpreta antes de guardarlo ('value_parsing.py'; la caja 
 cambia la latitud y la longitud). Si no vale, la caja vuelve a su valor y avisa junto a
 ella ('EditableValue.reject'), sin preguntar ni guardar nada.
 
+1.3.2 El desplegable de vistas, plano sobre la cabecera más oscura ('COLORS.bg_header'
+      en su paleta: Fusion pinta un desplegable sin marco con el gris de los botones).
 1.3.1 El desplegable de vistas, 4 px más a la izquierda: a 8 px del borde, como el resto
       del inspector (pedido por el autor).
 1.3.0 GPS, altitud y dirección editables: lo escrito se interpreta ('value_parsing.py');
@@ -58,7 +60,7 @@ Prueba rápida (sin ventana; necesita PySide6):
     python -m ui_helpers.inspector.metadata_section
 """
 
-__version__ = "1.3.1"
+__version__ = "1.3.2"
 __all__ = ["MetadataSection", "multi_edit_question"]
 
 # Librerías estándar
@@ -67,6 +69,7 @@ from functools import partial
 from typing import Any
 
 # Librerías de terceros (Qt)
+from qtpy.QtGui import QColor, QPalette
 from qtpy.QtWidgets import QComboBox, QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 
 # Módulos del proyecto
@@ -81,6 +84,7 @@ from core.catalog.selection_metadata import FieldValue, fetch_field_values
 from core.catalog.selection_summary import SelectionSummary
 from core.userdata.editable_fields import field_for
 from ui_helpers.helpers.ui_message import MessageBoxHelper
+from ui_helpers.helpers.ui_theme import COLORS
 from ui_helpers.inspector.base_section import (
     InfoGrid,
     InfoRow,
@@ -169,6 +173,11 @@ class MetadataSection(InspectorSection):
         self._combo = QComboBox()
         self._combo.setObjectName("combo_inspector_metadata_preset")
         self._combo.setFrame(False)  # plano, como el texto de la cabecera
+        # Sin marco, Fusion lo pinta con el gris de los botones de la paleta: el de la
+        # cabecera, para que no se vea una caja sobre ella (desde que es más oscura)
+        palette = self._combo.palette()
+        palette.setColor(QPalette.ColorRole.Button, QColor(COLORS.bg_header))
+        self._combo.setPalette(palette)
         self._combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self._combo.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._combo.setToolTip("Qué metadatos se muestran")

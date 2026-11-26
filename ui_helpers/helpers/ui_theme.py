@@ -21,6 +21,8 @@ arrancar. Al ser una hoja de estilos de aplicación, también afecta a las
 ventanas que se creen después (ajustes, diálogos...) sin que sus controladores
 tengan que hacer nada.
 
+1.27.0 Las cabeceras de las secciones, con su propio color ('COLORS.bg_header': oscuras,
+       como la toolbar; antes, 'palette(button)', el de los botones). El autor, 26/11/2026.
 1.26.0 La flecha de «Personalizado» y del campo de una columna de «Metadatos», la de
        Fusion ('::menu-indicator' a la derecha del texto, con su color; 'MENU_ARROW_*'),
        en lugar de un «▾» en el texto, que Inter no tiene (GEN 21.3).
@@ -82,7 +84,7 @@ tengan que hacer nada.
       (QSS) se repasa en T2 y las tarjetas en T3.
 """
 
-__version__ = "1.26.0"
+__version__ = "1.27.0"
 __all__ = [
     "ACCENT_COLOR",
     "BAR_ICON_SIZE",
@@ -463,7 +465,7 @@ SidebarTreeView::item:selected:!active {{
    algo más clara que el fondo, SIN línea debajo, y el título en MAYÚSCULAS (lo pone la
    sección) y en negrita, como las interfaces actuales */
 QFrame#frame_section_header {{
-    background-color: palette(button);
+    background-color: {COLORS.bg_header};
     border: none;
 }}
 QToolButton#btn_section_header {{

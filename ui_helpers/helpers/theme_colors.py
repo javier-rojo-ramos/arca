@@ -9,9 +9,10 @@ por el autor el 02/11/2026).
 Capas, de más oscura a más clara (la profundidad se marca con escalones de gris, no con
 bordes, como en LightTable o darktable):
 
-    base     toolbar lateral, barra de menús
+    base     toolbar lateral, barra de menús; también las cabeceras de las secciones
+             ('bg_header', del mismo gris: franjas oscuras que separan las secciones)
     panel    barras laterales e inspector (el "fondo" de la ventana)
-    raised   cabeceras de sección, botones
+    raised   botones
     hover    elementos bajo el ratón
     input    campos de texto, listas y desplegables (un poco hundidos)
 
@@ -39,6 +40,9 @@ Este módulo NO depende de Qt: solo define valores. 'ui_theme.py' los convierte 
 paleta de Qt (QPalette) y en la hoja de estilos (QSS), y da a los demás el juego activo
 ('COLORS', 'CARD_COLORS', 'MARK_COLORS').
 
+1.13.0 'bg_header': las cabeceras de las secciones plegables (barra izquierda e inspector),
+       oscuras como la toolbar (#1a1a1a; antes, el gris de los botones, #2a2a2a, que apenas
+       se distinguía del panel). Elegido por el autor el 26/11/2026 entre seis variantes.
 1.12.0 Las tarjetas, otra vez con el gris secundario del tema ('text_dim', #999999): el
        borde al pasar el ratón y el nombre de una rechazada o no disponible (antes, fijados
        en #8c8c8c; el autor, 24/11/2026, para que sea coherente con el resto; GEN 21.2).
@@ -68,7 +72,7 @@ Prueba rápida (contraste del texto sobre cada fondo):
     python -m ui_helpers.helpers.theme_colors
 """
 
-__version__ = "1.12.0"
+__version__ = "1.13.0"
 __all__ = [
     "DARK",
     "DARK_CARDS",
@@ -92,7 +96,9 @@ class ThemeColors:
     Attributes:
         bg_base: Fondo más oscuro: marco, toolbar lateral, barra de menús.
         bg_panel: Fondo de las barras laterales, el inspector y los diálogos.
-        bg_raised: Cabeceras de sección y botones.
+        bg_raised: Botones (hasta el 26/11/2026, también las cabeceras de sección).
+        bg_header: Cabeceras de las secciones plegables (barra izquierda e inspector):
+            oscuras, como la toolbar, para que se distingan del panel.
         bg_hover: Fondo de un elemento bajo el ratón.
         bg_input: Campos de texto, listas y desplegables.
         bg_tooltip: Fondo de los textos emergentes.
@@ -129,6 +135,7 @@ class ThemeColors:
     bg_base: str
     bg_panel: str
     bg_raised: str
+    bg_header: str
     bg_hover: str
     bg_input: str
     bg_tooltip: str
@@ -161,6 +168,9 @@ DARK = ThemeColors(
     bg_base="#1a1a1a",
     bg_panel="#222222",
     bg_raised="#2a2a2a",
+    # Las cabeceras, oscuras como la toolbar (el autor, 26/11/2026, entre seis variantes:
+    # más clara, con rayas... la que más las separa del panel con menos recursos)
+    bg_header="#1a1a1a",
     bg_hover="#333333",
     bg_input="#1c1c1c",
     bg_tooltip="#333333",
@@ -432,6 +442,7 @@ if __name__ == "__main__":
         "bg_base": theme.bg_base,
         "bg_panel": theme.bg_panel,
         "bg_raised": theme.bg_raised,
+        "bg_header": theme.bg_header,
         "bg_hover": theme.bg_hover,
         "bg_input": theme.bg_input,
     }
@@ -450,6 +461,8 @@ if __name__ == "__main__":
     # Las capas, de más oscura a más clara (la profundidad se ve sin bordes)
     order = [theme.bg_base, theme.bg_panel, theme.bg_raised, theme.bg_hover]
     assert order == sorted(order, key=_luminance), order
+    # Las cabeceras de sección, más oscuras que el panel (se distinguen de él y de las filas)
+    assert _luminance(theme.bg_header) < _luminance(theme.bg_panel)
     # La raya entre zonas, algo más clara que los paneles que separa
     assert _luminance(theme.divider) > _luminance(theme.bg_panel) > _luminance(theme.bg_base)
     # Iconos de estado (éxito, aviso, error): se distinguen sobre la barra de estado y los
