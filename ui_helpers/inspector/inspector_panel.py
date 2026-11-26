@@ -12,6 +12,8 @@ plegables una debajo de otra dentro de un área con desplazamiento. Cada secció
     ▼ LISTA DE PALABRAS CLAVE  el árbol con casillas, siempre (keyword_list_section.py)
     ▼ METADATOS     cámara, exposición, ubicación... de la biblioteca Imagen, con un
                     desplegable de vistas en la cabecera (metadata_section.py)
+    ▼ AUDIO         etiquetas y datos técnicos de las canciones (audio_section.py; solo si
+                    todo es de la biblioteca Música)
 
 El ORDEN de las secciones, si el usuario las tiene a la vista y si están plegadas lo
 lleva el modelo de colocación ('ui_helpers/layout/'), POR MODO: el panel se une a él con
@@ -41,6 +43,7 @@ Las secciones que no tienen nada que mostrar para lo seleccionado se ocultan ent
 El título de cada sección puede cambiar con lo que se ve ('InspectorSection.title_for'):
 p. ej. «SELECCIÓN» con algo seleccionado y «SELECCIÓN (VISTA ACTUAL)» sin selección.
 
+1.9.0 Sección «Audio» (MUS 2.1).
 1.8.0 Sección «Track» (debajo de «Selección»).
 1.7.1 El menú de las secciones, también con el clic derecho en el hueco vacío del panel.
 1.7.0 Las secciones, en una 'SectionStack' colocada por el modelo de colocación, por modo
@@ -68,7 +71,7 @@ El aspecto se define en la hoja de estilos global (ui_helpers/helpers/ui_theme.p
 nombres de objeto 'scroll_inspector', 'widget_inspector_content' y los 'lbl_inspector_*'.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 __all__ = ["DEFAULT_SECTIONS", "InspectorPanel"]
 
 # Librerías estándar
@@ -81,6 +84,7 @@ from qtpy.QtWidgets import QFrame, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 # Módulos del proyecto
 from core.catalog.selection_summary import SelectionSummary
+from ui_helpers.inspector.audio_section import AudioSection
 from ui_helpers.inspector.base_section import InspectorSection, set_secondary_text
 from ui_helpers.inspector.keyword_editor_section import KeywordEditorSection
 from ui_helpers.inspector.keyword_list_section import KeywordListSection
@@ -101,6 +105,7 @@ DEFAULT_SECTIONS: tuple[Callable[[QWidget], InspectorSection], ...] = (
     KeywordEditorSection,   # la caja de texto (con cualquier selección)
     KeywordListSection,     # el árbol con casillas (siempre)
     MetadataSection,        # solo si todo es de la biblioteca Imagen
+    AudioSection,           # solo si todo es de la biblioteca Música
 )
 
 

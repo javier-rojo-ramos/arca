@@ -99,14 +99,14 @@ Del lector de GPX (`core/metadata/track/`, sin ExifTool), en el orden de la secc
 
 ### Música
 
-**Estado (25/11/2026)**: las canciones se leen solas desde `MUS 1.3` (`core/metadata/audio/extractor.py`); hoy se ven los datos que están en `media_items` (título, artista, año, comentario y duración: «Selección», la tarjeta, el filtro de texto, las colecciones, la barra de filtros y el orden) y los de `audio_details` aún no; el inspector, en `MUS 2.1`; el orden, en `MUS 2.2`; los filtros y las colecciones, en `MUS 2.3`; las barras, en `MUS 4`. Las filas del inspector, en el orden acordado ([MOD_MUSICA.md](MOD_MUSICA.md) §7.1). La tabla campo ↔ etiqueta es `core/audio/tag_map.py`.
+**Estado (26/11/2026)**: las canciones se leen solas desde `MUS 1.3` (`core/metadata/audio/extractor.py`). Los datos que están en `media_items` (título, artista, año, comentario y duración) se ven en «Selección», la tarjeta, el filtro de texto, las colecciones, la barra de filtros y el orden; desde `MUS 2.1`, todos los de las dos tablas siguientes (las filas «Insp.»), en la sección «Audio» del inspector, de solo lectura (`ui_helpers/inspector/audio_section.py`, con `core/catalog/audio_stats.py`); el orden, en `MUS 2.2`; los filtros y las colecciones, en `MUS 2.3`; las barras, en `MUS 4`. Las filas del inspector, en el orden acordado ([MOD_MUSICA.md](MOD_MUSICA.md) §7.1). La tabla campo ↔ etiqueta es `core/audio/tag_map.py`.
 
 | Dato | Dónde se guarda | ID3 (MP3, WAV, AIFF) | Vorbis (FLAC, Ogg, Opus) | MP4 (M4A) | Dónde se verá | ¿Se cambiará? |
 |---|---|---|---|---|---|---|
 | Título | `title` (sin título, el nombre del archivo) | `TIT2` | `TITLE` | `©nam` | Insp. «Título»; filtro de texto; Colección «Título» | ² |
 | Artista | `creator` | `TPE1` | `ARTIST` | `©ART` | Insp. «Artista»; Colección y Filtro «Autor»; barra «Artistas» (`MUS 4.1`) | ² |
 | Álbum | `audio_details.album` | `TALB` | `ALBUM` | `©alb` | Insp. «Álbum»; barra «Artistas» ▸ álbum (`MUS 4.1`); Orden | ² |
-| Año | `content_created_at` (con precisión de año si solo trae el año; sin año, sin fecha; el origen, `id3`, `vorbis` o `mp4`) | `TDRC` (en v2.3, `TYER`) | `DATE` (o `YEAR`) | `©day` | Insp. «Año»; barra «Fechas»; Colección y Filtro «Fecha de captura»; Orden | ² |
+| Año | `content_created_at` (con precisión de año si solo trae el año; sin año, sin fecha; el origen, `id3`, `vorbis` o `mp4`) | `TDRC` (en v2.3, `TYER`) | `DATE` (o `YEAR`) | `©day` | Insp. «Año»; barra «Años» (`MUS 4.1`; hoy, «Fechas»); Colección y Filtro «Fecha de captura»; Orden | ² |
 | Pista | `audio_details.track_number`, `track_total` | `TRCK` («3/12») | `TRACKNUMBER` y `TRACKTOTAL` (o `TOTALTRACKS`) | `trkn` | Insp. «Pista» («22 / 25»); Orden del álbum | ² |
 | Disco | `audio_details.disc_number`, `disc_total` | `TPOS` | `DISCNUMBER` y `DISCTOTAL` (o `TOTALDISCS`) | `disk` | Insp. «Disco»; Orden del álbum | ² |
 | Género | `audio_details.genre` (varios, unidos con «; ») | `TCON` (también «(17)», el número de ID3v1) | `GENRE` | `©gen` (o `gnre`, el número) | Insp. «Género»; barra «Géneros» (`MUS 4.2`); Colección y Filtro | ² |
@@ -122,7 +122,7 @@ Los datos técnicos y la carátula los da mutagen en todos los formatos (`core/a
 |---|---|---|---|---|
 | Duración | `duration` | La cabecera del audio | Insp. «Duración»; la tarjeta; Orden «Duración» (ya hoy) | — |
 | Formato | `audio_details.codec`, `codec_detail` | El tipo de archivo y su códec («AAC LC») | Insp. «Formato» | — |
-| Calidad | `audio_details.bitrate` (la media), `bitrate_mode`, `sample_rate`, `channels`, `bit_depth` (solo sin pérdida), `lossless` | La cabecera del audio; en Ogg Vorbis, la tasa se calcula ([TRAMPAS.md](TRAMPAS.md)) | Insp. «Calidad» («VBR · 277 kbps · 44,1 kHz · Estéreo») | — |
+| Calidad | `audio_details.bitrate` (la media), `bitrate_mode`, `sample_rate`, `channels`, `bit_depth` (solo sin pérdida), `lossless` | La cabecera del audio; en Ogg Vorbis, la tasa se calcula ([TRAMPAS.md](TRAMPAS.md)) | Insp. «Calidad» («VBR · 277 kbps · 44,1 kHz · Estéreo»; también «CBR» y «ABR»; con varias canciones, la tasa como intervalo) | — |
 | Etiqueta | `audio_details.tag_type` | Las etiquetas del archivo («ID3v2.3 + ID3v1», «Vorbis», «MP4») | Insp. «Etiqueta» | — |
 | Carátula | `audio_details.picture_count` y, de la primera portada (o la primera imagen), `cover_type`, `cover_mime`, `cover_width`, `cover_height`, `cover_bytes` y `cover_hash` (la huella) | `APIC` (ID3); bloque PICTURE (FLAC) o `METADATA_BLOCK_PICTURE` (Ogg); `covr` (MP4, siempre «Portada») | La miniatura (`MUS 3`); Insp. «Tipo» e «Imagen» (`MUS 9.1`); la carátula del álbum, por la huella | `MUS 9`: en el archivo |
 

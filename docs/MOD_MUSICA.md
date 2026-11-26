@@ -1,7 +1,7 @@
 # Arca Media — Módulo Música: arquitectura y plan
 
 > Documento del módulo Música (en el código y en la interfaz, el módulo **Audio**: `AudioModule`, biblioteca `audio`). Tiene dos partes: **I, arquitectura** (cómo está hecho y cómo encaja con el resto) y **II, planificación** (fases y pasos, con los códigos `MUS` de [PENDIENTE.md](PENDIENTE.md)).
-> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`. Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
+> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`; hecho `MUS 2.1` (la sección «Audio» del inspector, de solo lectura). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
 > Índice: [INDEX.md](INDEX.md). Decisiones: [DECISIONES.md](DECISIONES.md) (16/11/2026).
 
 ## Resumen
@@ -45,12 +45,12 @@ Como en Tracks: lo que no necesita ni Qt ni la base de datos, en un paquete de `
 | Tabla campo ↔ etiqueta de cada formato; leer y escribir etiquetas y carátulas con mutagen | `core/audio/` (sin Qt ni BD): `tag_map.py` (la tabla), `tag_reader.py` (`read_audio`), `picture_types.py` (los tipos de imagen); desde `MUS 1.1` | **Una sola tabla** para el extractor y para el escritor: los dos entienden lo mismo |
 | Extractor | `core/metadata/audio/`: `extractor.py` (con `AUDIO_FIELDS_VERSION`; no hace falta un `fields.py`: la tabla es `core/audio/tag_map.py`) e `inspect_cli.py` | `MetadataExtractor` con `details_table = "audio_details"`, como `TrackExtractor`; registrado en `core/metadata/registry.py` (si mutagen está instalado) |
 | Tabla de detalles | `core/catalog/catalog_schema.py`, la siguiente migración libre (la 5 fue el registro de operaciones de `CAT 4` y la 6, las carpetas de `CAT 5`) | `audio_details` (§3) |
-| Consultas | `core/catalog/` | Datos de la sección del inspector (como `track_stats.py`), valores de las secciones de la barra, filas de la vista de lista |
+| Consultas | `core/catalog/` | Datos de la sección del inspector (`audio_stats.py`, desde `MUS 2.1`), valores de las secciones de la barra, filas de la vista de lista |
 | Origen de la miniatura | `core/thumbnails/sources/audio_cover_source.py` (nuevo) | Se registra en `core/thumbnails/registry.py` |
 | Campos editables | `core/userdata/editable_fields.py` | Una línea por campo, con `table="audio_details"` y `media_types` de audio |
 | Escritor | `core/userdata/audio_writer.py` (nuevo) | Declara qué campos sabe guardar en cada formato; el trabajo que escribe sigue siendo el de `sync.py` |
 | Módulo y barra | `controllers/app_modules/audio_module.py`, `ui_helpers/sidebars/sections/` | Secciones nuevas dadas de alta en `section_registry.py` |
-| Inspector | `ui_helpers/inspector/audio_section.py` (nuevo) | Como `track_section.py`; de la biblioteca `audio` (sale también en el Catálogo con canciones seleccionadas) |
+| Inspector | `ui_helpers/inspector/audio_section.py` (desde `MUS 2.1`) | Como `track_section.py`; de la biblioteca `audio` (sale también en el Catálogo con canciones seleccionadas); los textos, en `formatting.py` |
 | Vista de lista | `ui_helpers/widgets/` y `ui_helpers/models/` (nuevos) | Una vista más del centro (`CenterView`); sirve a otros módulos |
 
 `core/audio/` y `core/metadata/audio/` no usan Qt. La interfaz no toca mutagen: lee del catálogo y pide los cambios por la cola de edición.
@@ -195,7 +195,8 @@ Acordada con el autor el 25/11/2026, tras ver una muestra hecha con las piezas r
 - Los diez de arriba son los campos de la canción: de solo lectura en `MUS 2.1` y editables desde `MUS 7`. Los cuatro de debajo de la raya son datos técnicos, siempre de solo lectura (los da el extractor).
 - La pista y el disco, cada uno con su total en la misma caja («22 / 25»), como en la muestra.
 - Descartadas: el año, la pista y el género en una sola fila, como en Mp3tag (al género le quedaban unos 45 px), y el año, la pista y el disco en una fila con el género aparte.
-- **A tener en cuenta en `MUS 2.1`**: «Artista del álbum» es la etiqueta más larga del inspector. La columna de etiquetas, común a todas las secciones, pasaría de 87 a 97 px, y los valores de «Metadatos» y «Track» se moverían 10 px a la derecha.
+- **Hecha en `MUS 2.1`** (26/11/2026; `audio_section.py`, de solo lectura; los datos, de `core/catalog/audio_stats.py`). Decidido por el autor al hacerla: «Artista del álbum», la etiqueta más larga del inspector, ensancha la columna de etiquetas de todas las secciones de 87 a 97 px (los valores de «Metadatos» y «Track», 10 px a la derecha); «Calidad» con el modo de la tasa de bits, también «CBR» («CBR · 128 kbps · 44,1 kHz · Estéreo»); el comentario, en una línea hasta `MUS 7` (entero en el texto emergente); el título de la sección, «Audio» con una canción y con varias.
+- **Con varias canciones**: cada campo, el valor común, «Varios» en gris (distintos, o unas con valor y otras sin él) o nada, con las reglas de «Metadatos»; la duración, sumada («Suma de las 13 canciones», en el emergente); en «Calidad», la tasa como intervalo («114 – 136 kbps · 44,1 kHz · Estéreo») y, de lo demás, solo lo que tienen igual todas. Al ancho de 354 px, dos textos de «Calidad» no caben y se recortan con «…» (enteros en el emergente): el de un álbum VBR («VBR · 239 – 277 kbps · 44,1 kHz · Estéreo», 227 px para 209) y, previsiblemente, el de un FLAC de más de 1.000 kbps.
 - La carátula va debajo, en «Audio» o en su propia sección (§6, M8).
 - En el registro de secciones, detrás de las comunes (`order` de 400 en adelante: [DECISIONES.md](DECISIONES.md), 25/11/2026).
 
@@ -245,7 +246,7 @@ Códigos de [PENDIENTE.md](PENDIENTE.md). El orden es el de las fases; dentro de
 
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|
-| **MUS 2.1** Sección «Audio» del inspector | De solo lectura: los campos y los datos técnicos, con la forma de §7.1; con varias canciones, lo común y «Varios», y la duración sumada | Nuevos: `ui_helpers/inspector/audio_section.py`, la consulta en `core/catalog/`; `section_registry.py` | Los valores, los de Mp3tag |
+| ~~**MUS 2.1** Sección «Audio» del inspector~~ (hecho el 26/11/2026) | De solo lectura: los campos y los datos técnicos, con la forma de §7.1; con varias canciones, lo común y «Varios», y la duración sumada | Nuevos: `ui_helpers/inspector/audio_section.py`, la consulta en `core/catalog/`; `section_registry.py` | Los valores, los de Mp3tag |
 | **MUS 2.2** Orden | Artista, álbum, pista, año y duración (álbum: por disco y pista) | `grid_orders.py`, `audio_module.py` | Un álbum sale en su orden |
 | **MUS 2.3** Filtros y colecciones inteligentes | Campos del grupo «Audio» (`smart_fields.py`); columnas de «Metadatos» | `smart_fields.py` y lo que use la barra de filtros | «Género es…», «Álbum contiene…» |
 

@@ -19,6 +19,12 @@ Tracks (sección «Track»):
     altitud       '1.200 – 2.100 m'            velocidad      '2,6 km/h'
     número        '2.566'
 
+Música (sección «Audio»):
+    formato       'MP3', 'FLAC', 'AAC LC'      pista / disco  '22 / 25', '3'
+    calidad       'VBR · 277 kbps · 44,1 kHz · Estéreo', '883 kbps · 44,1 kHz · 16 bits · Estéreo'
+
+1.8.0 Formatos de las canciones: 'format_audio_format', 'format_audio_quality' (con
+      'format_bitrate', 'format_sample_rate' y 'format_channels') y 'format_part' (MUS 2.1).
 1.7.1 Orígenes de la fecha de las canciones ('id3', 'vorbis', 'mp4'): «etiquetas de la
       canción (ID3)»... (MUS 1.3).
 1.7.0 'format_camera': si el modelo empieza por una marca conocida, solo el modelo
@@ -41,7 +47,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.inspector.formatting
 """
 
-__version__ = "1.7.1"
+__version__ = "1.8.0"
 __all__ = [
     "DATE_SOURCE_TEXTS",
     "EXPOSURE_PROGRAMS",
@@ -51,8 +57,12 @@ __all__ = [
     "WEEKDAY_NAMES",
     "format_altitude",
     "format_altitude_range",
+    "format_audio_format",
+    "format_audio_quality",
+    "format_bitrate",
     "format_bytes_exact",
     "format_camera",
+    "format_channels",
     "format_codec",
     "format_count",
     "format_date",
@@ -71,6 +81,8 @@ __all__ = [
     "format_gps",
     "format_iso",
     "format_media_types",
+    "format_part",
+    "format_sample_rate",
     "format_shutter",
     "format_size",
     "format_speed",
@@ -167,6 +179,20 @@ _CODECS: dict[str, str] = {
     "apch": "ProRes 422 HQ",
     "ap4h": "ProRes 4444",
 }
+
+# Formatos de audio: 'audio_details.codec' -> nombre (uno que no esté, en mayúsculas)
+_AUDIO_FORMATS: dict[str, str] = {
+    "mp3": "MP3",
+    "flac": "FLAC",
+    "aac": "AAC",
+    "alac": "ALAC",
+    "vorbis": "Ogg Vorbis",
+    "opus": "Opus",
+}
+
+# Modo de la tasa de bits de un MP3 ('audio_details.bitrate_mode'): constante, variable o
+# media (decidido por el autor el 26/11/2026: los tres, también la constante)
+_BITRATE_MODES: dict[str, str] = {"cbr": "CBR", "vbr": "VBR", "abr": "ABR"}
 
 # Los ocho rumbos de la dirección de la foto (sectores de 45°, como Lightroom)
 _DIRECTIONS = ("Norte", "Noreste", "Este", "Sureste", "Sur", "Suroeste", "Oeste", "Noroeste")
@@ -500,6 +526,74 @@ def format_codec(codec: str | None) -> str:
     return _CODECS.get(codec.strip().lower(), codec.strip())
 
 
+def format_audio_format(codec: str | None, detail: str | None = None) -> str:
+    """Formato de una canción: la descripción de mutagen si la hay ('AAC LC'); si no, el
+    nombre del formato ('mp3' -> 'MP3', 'vorbis' -> 'Ogg Vorbis')."""
+    if detail and detail.strip():
+        return detail.strip()
+    if not codec or not codec.strip():
+        return ""
+    return _AUDIO_FORMATS.get(codec.strip().lower(), codec.strip().upper())
+
+
+def format_part(number: int | None, total: int | None) -> str:
+    """Pista o disco con su total: '22 / 25'; sin total, '22'; sin número, ''."""
+    if number is None:
+        return ""
+    return f"{number} / {total}" if total else str(number)
+
+
+def format_bitrate(lowest: int | None, highest: int | None = None) -> str:
+    """Tasa de bits (en bits por segundo) en kbps: '128 kbps', '1.411 kbps'. Con dos
+    valores distintos (varias canciones), el intervalo: '239 – 277 kbps'."""
+    values = [round(bps / 1000) for bps in (lowest, highest) if bps is not None and bps > 0]
+    if not values:
+        return ""
+    low, high = min(values), max(values)
+    if low == high:
+        return f"{format_count(low)} kbps"
+    return f"{format_count(low)} – {format_count(high)} kbps"
+
+
+def format_sample_rate(hertz: int | None) -> str:
+    """Frecuencia de muestreo: '44,1 kHz', '48 kHz', '22,05 kHz'."""
+    if not hertz or hertz <= 0:
+        return ""
+    return f"{_trimmed(hertz / 1000, 2)} kHz"
+
+
+def format_channels(channels: int | None) -> str:
+    """'Mono', 'Estéreo' o '6 canales'."""
+    if not channels or channels <= 0:
+        return ""
+    if channels == 1:
+        return "Mono"
+    return "Estéreo" if channels == 2 else f"{channels} canales"
+
+
+def format_audio_quality(
+    mode: str | None,
+    bitrate_min: int | None,
+    bitrate_max: int | None,
+    sample_rate: int | None,
+    bit_depth: int | None,
+    channels: int | None,
+) -> str:
+    """Fila «Calidad» de una o varias canciones: el modo de la tasa de bits, la tasa (o su
+    intervalo), la frecuencia, los bits (solo los formatos sin pérdida los tienen) y los
+    canales, unidos con ' · '. Lo que falte (o no sea común a todas: quien llama pasa
+    None) no sale: 'VBR · 277 kbps · 44,1 kHz · Estéreo'."""
+    mode_text = _BITRATE_MODES.get(mode.strip().lower(), mode.strip()) if mode else ""
+    parts = (
+        mode_text,
+        format_bitrate(bitrate_min, bitrate_max),
+        format_sample_rate(sample_rate),
+        f"{bit_depth} bits" if bit_depth else "",
+        format_channels(channels),
+    )
+    return " · ".join(part for part in parts if part)
+
+
 if __name__ == "__main__":
     # Autoprueba. Ejecutar desde la raíz del proyecto:
     #   python -m ui_helpers.inspector.formatting
@@ -581,4 +675,27 @@ if __name__ == "__main__":
     assert format_altitude_range(None, 5) == ""
     assert format_speed(2.61) == "2,6 km/h" and format_speed(None) == ""
     assert format_codec("hvc1") == "HEVC (H.265)" and format_codec("xyz") == "xyz"
+    # Música
+    assert format_audio_format("mp3") == "MP3" and format_audio_format("vorbis") == "Ogg Vorbis"
+    assert format_audio_format("aac", "AAC LC") == "AAC LC" and format_audio_format("wma") == "WMA"
+    assert format_audio_format(None) == "" and format_audio_format("flac", " ") == "FLAC"
+    assert format_part(22, 25) == "22 / 25" and format_part(3, None) == "3"
+    assert format_part(None, 12) == "" and format_part(1, 0) == "1"
+    assert format_bitrate(128000) == "128 kbps" and format_bitrate(1_411_200) == "1.411 kbps"
+    assert format_bitrate(238896, 277471) == "239 – 277 kbps"
+    assert format_bitrate(128000, 128400) == "128 kbps" and format_bitrate(None) == ""
+    assert format_sample_rate(44100) == "44,1 kHz" and format_sample_rate(48000) == "48 kHz"
+    assert format_sample_rate(22050) == "22,05 kHz" and format_sample_rate(None) == ""
+    assert [format_channels(n) for n in (1, 2, 6, None)] == ["Mono", "Estéreo", "6 canales", ""]
+    assert format_audio_quality("vbr", 277471, 277471, 44100, None, 2) == (
+        "VBR · 277 kbps · 44,1 kHz · Estéreo"
+    )
+    assert format_audio_quality("cbr", 128000, None, 44100, None, 2) == (
+        "CBR · 128 kbps · 44,1 kHz · Estéreo"
+    )
+    assert format_audio_quality(None, 882814, None, 44100, 16, 2) == (
+        "883 kbps · 44,1 kHz · 16 bits · Estéreo"
+    )
+    assert format_audio_quality(None, 71479, 882814, None, None, 2) == "71 – 883 kbps · Estéreo"
+    assert format_audio_quality(None, None, None, None, None, None) == ""
     print("Autoprueba finalizada correctamente.")

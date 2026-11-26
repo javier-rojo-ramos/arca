@@ -34,9 +34,9 @@ Reglas:
       huecos (100, 200...) para poder intercalar. Con el mismo 'order', la registrada antes.
     - En el inspector, primero las secciones comunes a todos los módulos (de 100 a 300:
       «Selección», «Palabras clave» y «Lista de palabras clave») y después las de cada
-      biblioteca (de 400 en adelante: «Metadatos», «Track»...; decidido por el autor el
-      25/11/2026). Las de bibliotecas distintas no salen a la vez, así que entre ellas el
-      orden no se nota.
+      biblioteca (de 400 en adelante: «Metadatos», «Track», «Audio»...; decidido por el
+      autor el 25/11/2026). Las de bibliotecas distintas no salen a la vez, así que entre
+      ellas el orden no se nota.
 
 Uso:
     from ui_helpers.layout.section_registry import SECTION_REGISTRY, Sidebar
@@ -45,6 +45,7 @@ Uso:
     SECTION_REGISTRY.defaults("image", Sidebar.LEFT)  # sus secciones, en el orden de partida
     SECTION_REGISTRY.get("folders").title_for("image")
 
+1.8.0 Sección «Audio» del inspector, detrás de «Track» (MUS 2.1).
 1.7.0 La «Lista de palabras clave» del inspector empieza plegada (la de la barra izquierda
       de Imagen, desplegada, como antes).
 1.6.0 La sección «Track» empieza detrás de las comunes (antes, entre «Selección» y
@@ -66,7 +67,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m ui_helpers.layout.section_registry
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __all__ = [
     "LEFT",
     "RIGHT",
@@ -266,6 +267,8 @@ def _build_default_registry() -> SectionRegistry:
     registry.register(SectionSpec("metadata", "Metadatos", RIGHT, 400))
     # Los datos del recorrido: solo sale con tracks seleccionados (en cualquier modo)
     registry.register(SectionSpec("track", "Track", RIGHT, 500))
+    # Las etiquetas y los datos técnicos: solo con canciones seleccionadas (en cualquier modo)
+    registry.register(SectionSpec("audio", "Audio", RIGHT, 600))
     return registry
 
 
@@ -291,7 +294,7 @@ if __name__ == "__main__":
     assert reg.get("library").title_for("audio") == "Biblioteca - Música"
     assert _ids(reg, "tracks", Sidebar.LEFT) == ["library", "folders", "dates"]
     assert reg.get("library").title_for("tracks") == "Biblioteca - Tracks"
-    inspector = ["selection", "keyword_editor", "keyword_list", "metadata", "track"]
+    inspector = ["selection", "keyword_editor", "keyword_list", "metadata", "track", "audio"]
     for mode_key in reg.mode_keys():
         assert _ids(reg, mode_key, Sidebar.RIGHT) == inspector, mode_key
     # Plegadas de partida: solo la «Lista de palabras clave» del inspector

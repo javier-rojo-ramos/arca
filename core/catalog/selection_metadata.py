@@ -17,6 +17,7 @@ apertura; el GPS: latitud y longitud): su valor es la tupla de todas.
 Columnas: 'tabla.columna', con estas tablas:
     m       media_items (la del propio elemento)
     photo   photo_details        video   video_details        track   track_details
+    audio   audio_details
 Para cada tipo de medio se dan sus columnas; '*' vale para cualquier tipo. Un tipo sin
 columnas no tiene ese campo (cuenta como "sin valor"): p. ej. la ISO de un vídeo.
 
@@ -32,13 +33,14 @@ Columnas calculadas (no existen en la tabla; se escriben igual):
 Rendimiento: una sola consulta por trozo de 500 'id', con 'COUNT(DISTINCT ...)' en SQL:
 seleccionar miles de fotos (Ctrl+A) no trae miles de filas a Python.
 
+1.2.0 Tabla 'audio' (audio_details), para la sección «Audio» del inspector (MUS 2.1).
 1.1.0 Columna calculada 'm.file_title' (título propio; paso C.5).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.selection_metadata
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["EMPTY", "MIXED", "VALUE", "FieldSource", "FieldValue", "fetch_field_values"]
 
 # Librerías estándar
@@ -60,10 +62,11 @@ _TABLES: dict[str, str] = {
     "photo": "photo_details",
     "video": "video_details",
     "track": "track_details",
+    "audio": "audio_details",
 }
 
 # Una referencia de columna válida ('m.width', 'photo.iso'): evita SQL inyectado por error
-_COLUMN_REF = re.compile(r"^(m|photo|video|track)\.([a-z_][a-z0-9_]*)$")
+_COLUMN_REF = re.compile(r"^(m|photo|video|track|audio)\.([a-z_][a-z0-9_]*)$")
 
 # Columnas calculadas (ver el docstring del módulo): referencia -> expresión SQL
 _COMPUTED_COLUMNS: dict[str, str] = {
@@ -270,6 +273,21 @@ if __name__ == "__main__":
     db.execute("UPDATE media_items SET title = 'Atardecer' WHERE id = ?", (untitled[0],))
     assert fetch_field_values(db, untitled[:1], own)["title"] == FieldValue(VALUE, ("Atardecer",))
     assert fetch_field_values(db, untitled, own)["title"] == FieldValue(MIXED)
+
+    # 5c. Canciones: columnas de 'audio_details'
+    songs = [add(f"s{i}.mp3", "audio") for i in range(2)]
+    db.executemany(
+        "INSERT INTO audio_details(media_id, album, track_number) VALUES (?, 'Destrangis', ?)",
+        [(media_id, i + 1) for i, media_id in enumerate(songs)],
+    )
+    audio = [
+        FieldSource("album", {"audio": ("audio.album",)}),
+        FieldSource("track", {"audio": ("audio.track_number", "audio.track_total")}),
+    ]
+    both_songs = fetch_field_values(db, songs, audio)
+    assert both_songs["album"] == FieldValue(VALUE, ("Destrangis",))
+    assert both_songs["track"] == FieldValue(MIXED)
+    assert fetch_field_values(db, songs[:1], audio)["track"] == FieldValue(VALUE, (1, None))
 
     # 6. Una columna mal escrita se rechaza (no se mete en el SQL)
     try:
