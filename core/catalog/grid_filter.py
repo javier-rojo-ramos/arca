@@ -50,16 +50,23 @@ Ejemplo:
                            Rule("description", ...), Rule("keyword", ...))),)
 
 «Todos los campos disponibles» con «No contiene» es «ningún campo lo contiene» (MATCH_ALL
-de «no contiene»); con los demás operadores, «alguno» (MATCH_ANY). Son los campos comunes y
-los propios de cada tipo de archivo (decidido por el autor el 26/11/2026): hoy, los de las
-canciones (artista, álbum, artista del álbum, género y compositor). Un campo de un tipo solo
-coincide con los archivos de ese tipo (como en las colecciones inteligentes), así que con
-«No contiene» va en un grupo, «no es una canción» O «el álbum no lo contiene»: si no, ninguna
-foto pasaría el filtro.
+de «no contiene»); con los demás operadores, «alguno» (MATCH_ANY). Son los campos de texto
+comunes (nombre, título, descripción, palabras clave, autor, copyright y ubicación) y los
+propios de cada tipo de archivo (decidido por el autor el 26/11/2026): la cámara y el
+objetivo de las fotos, las etiquetas de las canciones y el programa que creó un track. Una
+sola lista para todos los módulos: un campo de un tipo solo coincide con los archivos de
+ese tipo (como en las colecciones inteligentes) y cada módulo solo muestra los de su
+biblioteca, así que cada uno busca, en la práctica, en sus campos (el Catálogo, en todos).
+Por eso, con «No contiene», un campo de un tipo va en un grupo, «no es una canción» O «el
+álbum no lo contiene»: si no, ninguna foto pasaría el filtro.
 
 Todo es inmutable ('frozen'): un filtro se compara con '==' y se cambia creando otro
 ('with_panel', 'cleared', 'toggled', 'dataclasses.replace').
 
+1.5.0 «Todos los campos disponibles», también en el autor, el copyright y la ubicación
+      (ciudad, región, país y lugar), en la cámara y el objetivo de las fotos y en «Creado
+      con» de los tracks (pedido por el autor el 26/11/2026); el artista de las canciones,
+      con el autor (es la misma columna).
 1.4.0 «Todos los campos disponibles», también en las etiquetas de las canciones (artista,
       álbum, artista del álbum, género y compositor; MUS 2.3), con el grupo de «No contiene».
 1.3.0 Columnas de «Metadatos» ('MetadataColumn', 'MetadataFilter', 'metadata_rule',
@@ -72,7 +79,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.grid_filter
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "COLOR_NONE",
     "FILTER_ATTRIBUTES",
@@ -125,9 +132,18 @@ TEXT_ALL_FIELDS = "all"  # «Todos los campos disponibles»
 TEXT_FILE_NAME = "file_name"  # «Nombre de archivo»
 TEXT_FIELDS: dict[str, tuple[str, ...]] = {
     TEXT_ALL_FIELDS: (
-        "file_name", "title", "description", "keyword",
+        # Los comunes (como «Cualquier campo con búsqueda» de Lightroom). «Autor» es también
+        # el artista de las canciones: «Artista» (audio_artist) sería la misma columna
+        "file_name", "title", "description", "keyword", "creator", "copyright",
+        "city", "region", "country", "sublocation",
+        # Las fotos: la cámara y el objetivo (los vídeos los guardan en otra tabla, que los
+        # campos de «Imagen» no miran)
+        "camera_make", "camera_model", "lens_model",
         # Las canciones (MUS 2.3)
-        "audio_artist", "audio_album", "audio_album_artist", "audio_genre", "audio_composer",
+        "audio_album", "audio_album_artist", "audio_genre", "audio_composer",
+        # Los tracks: el programa o el dispositivo que creó el GPX (la actividad es una lista:
+        # se guarda su clave en inglés; se filtra con su columna de «Metadatos»)
+        "track_creator_app",
     ),
     TEXT_FILE_NAME: ("file_name",),
 }  # fmt: skip
@@ -614,7 +630,8 @@ if __name__ == "__main__":
                                               Rule("audio_album", "not_contains", "boda")))
     for key in TEXT_FIELDS[TEXT_ALL_FIELDS]:  # cada campo de un tipo, de uno solo
         assert len(FIELDS[key].media_types) <= 1, key
-    # Con datos: «boda» en el nombre de una foto y en el álbum de una canción
+    # Con datos: «boda» en el nombre de una foto y en el álbum de una canción; una foto de
+    # Huesca hecha con un iPhone y un track de un Garmin
     import sqlite3
 
     from core.catalog.catalog_schema import apply_migrations, configure_connection
@@ -626,7 +643,9 @@ if __name__ == "__main__":
     for name, media_type, album, genre in (("boda.jpg", "photo", None, None),
                                            ("playa.jpg", "photo", None, None),
                                            ("s.mp3", "audio", "Boda flamenca", "Rumba"),
-                                           ("r.mp3", "audio", "Directo", "Rock")):  # fmt: skip
+                                           ("r.mp3", "audio", "Directo", "Rock"),
+                                           ("p.jpg", "photo", None, None),
+                                           ("t.gpx", "track", None, None)):  # fmt: skip
         media_id = db.execute(
             "INSERT INTO media_items(storage_location_id, relative_path, file_name, title, "
             "media_type, mime_type, file_size, file_mtime_ns) VALUES (1, ?, ?, ?, ?, 'x/y', 1, 0)",
@@ -635,15 +654,27 @@ if __name__ == "__main__":
         if album:
             db.execute("INSERT INTO audio_details(media_id, album, genre) VALUES (?, ?, ?)",
                        (media_id, album, genre))  # fmt: skip
+    db.execute("UPDATE media_items SET city = 'Huesca' WHERE file_name = 'p.jpg'")
+    db.execute("INSERT INTO photo_details(media_id, camera_model) "
+               "SELECT id, 'iPhone 15' FROM media_items WHERE file_name = 'p.jpg'")
+    db.execute("INSERT INTO track_details(media_id, creator_app) "
+               "SELECT id, 'Garmin Connect' FROM media_items WHERE file_name = 't.gpx'")
 
     def found(grid_filter: GridFilter) -> list[str]:
         where, params = rules_to_sql(grid_filter.rule_sets()[0])
         rows = db.execute(f"SELECT file_name FROM media_items AS m WHERE {where}", params)
         return sorted(name for (name,) in rows)
 
+    def search(operator: str, word: str) -> list[str]:
+        return found(replace(on, text=TextFilter(TEXT_ALL_FIELDS, operator, word)))
+
     assert found(on) == ["boda.jpg", "s.mp3"]
-    assert found(not_on) == ["playa.jpg", "r.mp3"], found(not_on)  # las fotos, también
-    assert found(replace(on, text=TextFilter(TEXT_ALL_FIELDS, "starts_with", "roc"))) == ["r.mp3"]
+    # «No contiene»: las fotos y el track, también (no tienen álbum)
+    assert found(not_on) == ["p.jpg", "playa.jpg", "r.mp3", "t.gpx"], found(not_on)
+    assert search("starts_with", "roc") == ["r.mp3"]
+    assert search("contains", "HUESCA") == ["p.jpg"] and search("contains", "iphone") == ["p.jpg"]
+    assert search("contains", "garmin") == ["t.gpx"]
+    assert search("not_contains", "garmin") == ["boda.jpg", "p.jpg", "playa.jpg", "r.mp3", "s.mp3"]
     only_name = replace(on, text=TextFilter(TEXT_FILE_NAME, "ends_with", " .JPG "))
     assert only_name.rule_sets() == (RuleSet(MATCH_ANY, (Rule("file_name", "ends_with", ".JPG"),)),)
     for operator in TEXT_OPERATORS:  # todas las combinaciones son reglas válidas
