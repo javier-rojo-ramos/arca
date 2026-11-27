@@ -12,6 +12,7 @@
 | Entrega | Qué comprobar |
 |---|---|
 | **`MUS 6.1a`: el tipo de etiqueta como dato** (27/11/2026; `core/audio/tag_set.py` 1.0.0, `tag_reader` 1.5.0; sin interfaz) | Nada que ver en la aplicación: el tipo de etiqueta («Etiqueta» en la sección «Audio», «Tipo de etiqueta» en «Metadatos») sale igual que antes; el asistente releyó las 4 876 canciones y todas dan el mismo texto que el guardado en el catálogo. Si se quiere, `python scripts/run_selftests.py audio` (8 de 8). Leer en [MOD_MUSICA.md](MOD_MUSICA.md) §5 las reglas acordadas, por si algo no está como se habló |
+| **`MUS 6.1b`: el ID3v1** (27/11/2026; `core/audio/id3v1.py` 1.0.0; sin interfaz) | Nada que ver en la aplicación. En [MOD_MUSICA.md](MOD_MUSICA.md) §5, «El ID3v1»: cómo se adapta lo editado (sobre todo, que una letra con un acento que Latin-1 no tiene pierde el acento, ř → r, y que «Pop Folk», «BSO» y «Opera Pop» quedarían sin género). Se probará escribiendo en archivos con `MUS 6.1c` |
 
 ## Comprobaciones sueltas
 
@@ -190,6 +191,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 27/11/2026: hecho `MUS 6.1b`, el ID3v1 (`id3v1.py`): leerlo y componerlo, cambiando solo lo editado y adaptado a sus límites (Latin-1, 30 caracteres, el género de su lista). Lo que compone, el lector lo lee igual, salvo el comentario: mutagen lo da con la descripción «ID3v1 Comment» y el lector no lo toma (ya pasaba; ninguna canción del autor tiene ID3v1).
 - 27/11/2026: acordadas con el autor las reglas de escritura de las canciones, a la vista de su configuración de Mp3tag: editar escribe en las etiquetas que el archivo ya tiene y no añade ni quita ninguna; si falta el ID3v2, la etiqueta preferida de las Opciones (ID3v2.3 UTF-16 de partida, sin ID3v1); cambiar el tipo, solo con «Reescribir etiquetas…» (`MUS 8.4`, nuevo). `MUS 6.1`, en cuatro pasos; hecho `MUS 6.1a`, el tipo de etiqueta como dato (`tag_set.py`), con el mismo texto de siempre. Medido de paso: guardar con mutagen como dice su documentación borraría marcos en unas 90 canciones ([TRAMPAS.md](TRAMPAS.md)).
 - 26/11/2026: verificadas las cabeceras oscuras y, después, las estrellas. Las estrellas de la barra inferior y de «Atributos», separadas como los colores (5 px): el recuadro del ratón ya no pisa las de al lado. Las de las tarjetas, igual.
 - 26/11/2026: las cabeceras de las secciones (barra izquierda e inspector), oscuras como la barra de herramientas, para que se distingan del panel: elegidas por el autor entre seis variantes (más clara, más oscura, con rayas). El redondeo de la carátula, probado con capturas, queda para más adelante.
@@ -199,4 +201,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 26/11/2026: `MUS 5.3`, la vista de álbumes de Música (idea del autor): una tarjeta por álbum, con su carátula y sus canciones; seleccionarla es seleccionarlas y lo que se haga, a todas; doble clic entra en el álbum y Esc vuelve. Es la primera tarjeta agrupada (`GEN 17`): las filas del modelo de la cuadrícula llevan sus archivos.
 - 26/11/2026: verificado `MUS 3.1`. Cerrado `MUS 1.4` con el recuento de las 4 876 canciones (ningún género ni artista con varios valores: las listas siguen como texto). `MUS 3.2` (`folder.jpg` de reserva), sin decidir: en las carpetas del autor no hay imágenes sueltas. Lo siguiente, la vista de álbumes.
 - 26/11/2026: verificada la búsqueda de «Texto» con los campos de cada módulo. Hecho `MUS 3.1`: la carátula de cada canción como miniatura (con mutagen, los cuatro tamaños de siempre: elegido por el autor entre tres opciones medidas con su música); una canción sin carátula lleva el marcador y no cuenta como error. `MUS 4.2` («Géneros»), aplazado.
-- 26/11/2026: verificado `MUS 2.3`. «Texto» ▸ «Todos los campos disponibles», con los campos de cada módulo (acordado con el autor): también el autor, el copyright y la ubicación, la cámara y el objetivo de las fotos y «Creado con» de los tracks; una sola lista para todos los módulos (cada uno solo muestra su biblioteca).
