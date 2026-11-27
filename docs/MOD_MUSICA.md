@@ -411,3 +411,4 @@ Descargar etiquetas y carátulas (MusicBrainz y Cover Art Archive, sin clave). L
 | **M7** | Cada paso | Los textos del módulo y, si se quiere, llamarlo «Música» también en la interfaz |
 | ~~**M8**~~ | `MUS 9.1` | Decidida el 26/11/2026: en su propia sección «Carátula», detrás de «Audio», con sus acciones en un botón de la cabecera (§6) |
 | **M9** | `MUS 9` | El botón de hacer cuadrada la carátula: si se hace, recortando o rellenando (cambia la imagen guardada en el archivo) |
+| **M10** | `MUS 7`, `MUS 8.1` | El formato de la pista y el disco al escribir: hoy, el número tal cual («7/15»); las canciones del autor la guardan con cero delante («01»), y algunos reproductores ordenan como texto. Propuesta: respetar el formato que ya tenga el archivo (visto el 27/11/2026, al comprobar `MUS 6.1c` en Mp3tag) |
