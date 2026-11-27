@@ -5,6 +5,8 @@ cargar, guardar y mantener la configuración de la aplicación en un archivo JSO
 
 En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 
+1.23 Se añaden 'audio_id3_version' y 'audio_include_id3v1' (la etiqueta preferida de los
+      MP3; Opciones > Música).
 1.22 Se añaden 'map_search_history' (las últimas búsquedas de la caja del mapa) y
       'geocoding_url' (la dirección del servicio de búsqueda de lugares; None = Nominatim).
 1.21 Se añade 'profile_waypoint_tips' (el texto de los waypoints también al recorrer el
@@ -33,7 +35,7 @@ En DEFAULTS se establecen las variables que se guardarán en el archivo JSON.
 1.01 Se modifica el método 'set' para evitar restauraciones parciales.
 """
 
-__version__ = "1.22"
+__version__ = "1.23"
 __all__ = ["ConfigManager"]
 
 # Librerías estándar
@@ -50,6 +52,8 @@ from typing import Any, ClassVar
 # Módulos del proyecto
 from config.app_constants import (
     SETTING_ACTIVE_MODULE,
+    SETTING_AUDIO_ID3_VERSION,
+    SETTING_AUDIO_INCLUDE_ID3V1,
     SETTING_CONFIRM_MULTI_EDIT,
     SETTING_FILTER_METADATA_HEIGHT,
     SETTING_FILTER_PRESETS,
@@ -136,6 +140,10 @@ class ConfigManager:
         # El texto de los waypoints en el mapa, también al recorrer el perfil (Opciones >
         # Tracks; activado de partida: el autor, 22/11/2026)
         SETTING_PROFILE_WAYPOINT_TIPS: True,
+        # La etiqueta preferida de los MP3 (Opciones > Música): ID3v2.3, sin ID3v1, como el
+        # Mp3tag del autor (27/11/2026)
+        SETTING_AUDIO_ID3_VERSION: 3,
+        SETTING_AUDIO_INCLUDE_ID3V1: False,
         # Orden, visibilidad y plegado de las secciones de las barras laterales, por modo
         # (None = la colocación de partida; ver 'ui_helpers/layout/')
         SETTING_SECTION_LAYOUT: None,

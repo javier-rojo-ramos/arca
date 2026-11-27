@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| — | Nada pendiente (el 27/11/2026, el autor comprobó `MUS 6.1a` a `6.1c` en Mp3tag) |
+| **`MUS 6.1d`: Opciones > Música** (27/11/2026; `ui_helpers/dialogs/music_settings_page.py` 1.0.0, `settings_dialog` 1.8.0, `tag_set` 1.1.0, `app_config_manager` 1.23; sin efecto hasta `MUS 6.2`) | En Opciones, la sección «Música» detrás de «Tracks», con su icono; dentro, «Etiquetas de los MP3»: «ID3v2.3 UTF-16» marcado y «ID3v2.4 UTF-8» (solo uno a la vez), con su ayuda debajo, y la casilla «Crear también ID3v1», desmarcada, con la suya (la variante C que eligió el autor: cada ayuda, bajo su opción); los textos y cómo se ve, como las demás páginas. Cambiar las dos cosas, «Aceptar», volver a abrir Opciones: siguen cambiadas; también tras reiniciar la aplicación. «Cancelar» no guarda nada |
 
 ## Comprobaciones sueltas
 
@@ -194,6 +194,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 27/11/2026: hecho `MUS 6.1d`, Opciones > Música (la etiqueta preferida de los MP3: «ID3v2.3 UTF-16» o «ID3v2.4 UTF-8» e «Crear también ID3v1»); con él, `MUS 6.1` completo. Verificados antes `MUS 6.1a` a `6.1c` en Mp3tag (con las «Etiquetas extendidas»: la valoración de otro programa y la letra, conservadas).
 - 27/11/2026: hecho `MUS 6.1c`, el motor que escribe las etiquetas de los MP3 (`tag_writer.py`): solo lo editado, en un temporal comprobado (lo editado, lo demás marco a marco, el ID3v1 y el audio) que sustituye al original conservando su fecha de creación. Probado con copias de 9 canciones del autor elegidas por lo raro de sus etiquetas y dos casos más (solo ID3v1 y sin etiquetas): todo lo no editado, igual, y el audio, idéntico. Nada lo usa todavía (`MUS 6.2`).
 - 27/11/2026: hecho `MUS 6.1b`, el ID3v1 (`id3v1.py`): leerlo y componerlo, cambiando solo lo editado y adaptado a sus límites (Latin-1, 30 caracteres, el género de su lista). Lo que compone, el lector lo lee igual, salvo el comentario: mutagen lo da con la descripción «ID3v1 Comment» y el lector no lo toma (ya pasaba; ninguna canción del autor tiene ID3v1).
 - 27/11/2026: acordadas con el autor las reglas de escritura de las canciones, a la vista de su configuración de Mp3tag: editar escribe en las etiquetas que el archivo ya tiene y no añade ni quita ninguna; si falta el ID3v2, la etiqueta preferida de las Opciones (ID3v2.3 UTF-16 de partida, sin ID3v1); cambiar el tipo, solo con «Reescribir etiquetas…» (`MUS 8.4`, nuevo). `MUS 6.1`, en cuatro pasos; hecho `MUS 6.1a`, el tipo de etiqueta como dato (`tag_set.py`), con el mismo texto de siempre. Medido de paso: guardar con mutagen como dice su documentación borraría marcos en unas 90 canciones ([TRAMPAS.md](TRAMPAS.md)).
@@ -203,4 +204,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 26/11/2026: verificado `MUS 9.1` (la raya alrededor de la carátula se queda). A petición del autor, el contenido de todas las secciones del inspector empieza a 8 px de la cabecera, como a los lados (antes, a 4 en las de filas y a 6 en «Selección»).
 - 26/11/2026: verificado `MUS 5.3`. Hecho `MUS 9.1`, adelantado a petición del autor (antes de editar las etiquetas y de la vista de lista): la sección «Carátula» del inspector, de solo lectura, en su propia sección (M8, decidida): la carátula de lo seleccionado, cuadrada y a todo el ancho, leída de la caché (la de 1200 px), con «Tipo» e «Imagen»; con varias canciones, cada fila con su regla y la imagen solo si es la misma en todas.
 - 26/11/2026: `MUS 5.3`, la vista de álbumes de Música (idea del autor): una tarjeta por álbum, con su carátula y sus canciones; seleccionarla es seleccionarlas y lo que se haga, a todas; doble clic entra en el álbum y Esc vuelve. Es la primera tarjeta agrupada (`GEN 17`): las filas del modelo de la cuadrícula llevan sus archivos.
-- 26/11/2026: verificado `MUS 3.1`. Cerrado `MUS 1.4` con el recuento de las 4 876 canciones (ningún género ni artista con varios valores: las listas siguen como texto). `MUS 3.2` (`folder.jpg` de reserva), sin decidir: en las carpetas del autor no hay imágenes sueltas. Lo siguiente, la vista de álbumes.

@@ -136,7 +136,7 @@ python -m core.audio.tag_map                                  (tabla campo ↔ e
 python -m core.audio.tag_reader                               (con mutagen: crea un MP3 y un FLAC mínimos; ID3 v2.3, v2.4 y v1, APEv2, sin etiquetas, Vorbis, MP4 e imágenes en memoria; lo que no se lee)
 python -m core.audio.id3v1                                    (sin archivos: componer y leer el ID3v1, ida y vuelta; adaptar lo editado a sus límites; solo cambia lo editado)
 python -m core.audio.tag_writer                               (con mutagen: crea MP3 mínimos y escribe en ellos: ID3v2.3 con de todo, ID3v1 y APEv2; ID3v2.4; sin etiquetas; solo ID3v1; ID3v2.2; lo que no vale, solo lectura, marcos repetidos, el original que cambia y la comprobación que falla, sin tocar el original)
-python -m core.audio.tag_set                                  (sin mutagen: el texto del tipo de etiqueta, ida y vuelta, y la tabla de en qué etiquetas se escribe al editar)
+python -m core.audio.tag_set                                  (sin mutagen: el texto del tipo de etiqueta, ida y vuelta, la tabla de en qué etiquetas se escribe al editar y la preferida de las Opciones)
 
 # core.userdata
 python -m core.userdata.editable_fields                        (las etiquetas que se escriben son las mismas que se leen)
@@ -208,6 +208,7 @@ python -m ui_helpers.widgets.filter_bar                        (pestañas, «Nin
 python -m ui_helpers.widgets.map_search_box                    (la caja de búsqueda del mapa: Intro una sola vez, recientes, «Borrar...», Esc, flechas, la lupa; sin ventana)
 python -m ui_helpers.widgets.filter_preset_button              (texto del botón, menú, ✓, qué se puede pulsar; sin ventana)
 python -m ui_helpers.dialogs.tracks_settings_page              (página «Tracks»: cargar, guardar solo lo cambiado, restaurar los colores, valores raros; no abre ninguna ventana)
+python -m ui_helpers.dialogs.music_settings_page               (página «Música»: la de partida, guardar solo lo cambiado, abrir de nuevo, valores raros; no abre ninguna ventana)
 python -m ui_helpers.dialogs.section_layout_page               (página «Paneles» de Opciones: casillas, orden, restaurar, aceptar y cancelar, con una configuración de mentira; sin ventana)
 python -m ui_helpers.widgets.keyword_checklist
 python -m ui_helpers.widgets.section_stack                     (secciones colocadas por el modelo: orden, visible y disponible, plegar, cambio de modo, restaurar; el menú y el clic derecho en la cabecera; arrastrar las cabeceras con eventos de ratón; sin ventana)

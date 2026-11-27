@@ -215,6 +215,13 @@ SETTING_PROFILE_SLOPE_MODE = "profile_slope_mode"
 # de interés (waypoint) por el que pasa el punto ámbar (Opciones > Tracks): bool
 SETTING_PROFILE_WAYPOINT_TIPS = "profile_waypoint_tips"
 
+# La etiqueta preferida de los MP3 (Opciones > Música; docs/MOD_MUSICA.md §5): la versión de
+# su ID3v2 (3 o 4) y si incluye ID3v1 (bool). Se usa al crear una etiqueta donde falta y
+# como destino de «Reescribir etiquetas» (MUS 8.4). Lo que no valga, la de partida
+# ('core/audio/tag_set.mp3_tags_from_settings')
+SETTING_AUDIO_ID3_VERSION = "audio_id3_version"
+SETTING_AUDIO_INCLUDE_ID3V1 = "audio_include_id3v1"
+
 # Las últimas búsquedas de la caja del mapa (GEN 8.4), cada una con su lugar: lista de
 # {query, name, label, latitude, longitude, bounds} ('core/maps/geocoding.history_to_settings').
 # Una para toda la aplicación; como mucho 10, la más reciente primero

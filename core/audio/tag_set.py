@@ -34,18 +34,21 @@ docs/MOD_MUSICA.md §5):
 La codificación del texto va con la versión (v2.3, UTF-16; v2.4, UTF-8; como Mp3tag): la
 decide el escritor ('tag_writer.py', MUS 6.1c).
 
+1.1.0 'mp3_tags_from_settings': la etiqueta preferida a partir de las dos opciones de
+      Opciones > Música (MUS 6.1d).
 1.0.0 Primera versión (27/11/2026; docs/MOD_MUSICA.md, paso MUS 6.1a).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.audio.tag_set
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "DEFAULT_MP3_TAGS",
     "ID3V2_VERSIONS",
     "ID3V2_WRITE_VERSIONS",
     "TagSet",
+    "mp3_tags_from_settings",
     "tags_for_edit",
 ]
 
@@ -158,6 +161,25 @@ class TagSet:
 # La etiqueta preferida de los MP3 mientras no se elija otra en las Opciones: ID3v2.3 (en
 # UTF-16), sin ID3v1, como el Mp3tag del autor (27/11/2026)
 DEFAULT_MP3_TAGS = TagSet(id3v2=3)
+
+
+def mp3_tags_from_settings(id3_version: object, include_id3v1: object) -> TagSet:
+    """La etiqueta preferida de los MP3 a partir de sus dos opciones (Opciones > Música:
+    las claves 'audio_id3_version' y 'audio_include_id3v1' de settings.json).
+
+    Cada una que no valga (una versión que no se escribe, algo que no es un sí o un no),
+    la de 'DEFAULT_MP3_TAGS': así la página de las Opciones y el trabajo de escritura
+    entienden lo mismo de un settings.json tocado a mano.
+    """
+    valid_version = (
+        isinstance(id3_version, int)
+        and not isinstance(id3_version, bool)
+        and id3_version in ID3V2_WRITE_VERSIONS
+    )
+    return TagSet(
+        id3v2=id3_version if valid_version else DEFAULT_MP3_TAGS.id3v2,
+        id3v1=include_id3v1 if isinstance(include_id3v1, bool) else DEFAULT_MP3_TAGS.id3v1,
+    )
 
 
 def tags_for_edit(current: TagSet, preferred: TagSet) -> TagSet:
@@ -274,6 +296,15 @@ if __name__ == "__main__":
         result = tags_for_edit(TagSet.from_text(current), preferred)
         assert result.text == expected, (current, preferred.text, result.text)
     assert tags_for_edit(TagSet(), DEFAULT_MP3_TAGS).text == "ID3v2.3"
+
+    # --- La preferida de las Opciones; lo que no valga, la de partida
+    assert mp3_tags_from_settings(3, False) == DEFAULT_MP3_TAGS
+    assert mp3_tags_from_settings(4, True) == TagSet(id3v2=4, id3v1=True)
+    assert mp3_tags_from_settings(None, None) == DEFAULT_MP3_TAGS  # sin guardar
+    for bad_version in (2, 5, "4", 4.0, True):
+        assert mp3_tags_from_settings(bad_version, True) == TagSet(id3v2=3, id3v1=True)
+    assert mp3_tags_from_settings(4, "sí") == TagSet(id3v2=4)
+    tags_for_edit(TagSet(), mp3_tags_from_settings("x", 1))  # siempre vale como preferida
 
     # --- Lo que no vale como preferida
     for bad_preferred in (

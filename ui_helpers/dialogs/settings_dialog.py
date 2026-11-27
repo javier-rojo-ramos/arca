@@ -22,6 +22,8 @@ leerlo en 'load()' y guardarlo en 'save()' (y añadir la clave a
 
 Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 
+1.8.0 Sección «Música», detrás de «Tracks» (la etiqueta preferida de los MP3; en su propio
+      archivo: 'music_settings_page.py'; docs/MOD_MUSICA.md, MUS 6.1d).
 1.7.2 La negrita de sus textos con HTML ('<b>'), en SemiBold (600) con
       'theme_fonts.rich_text': un '<b>' pide 700, que FreeType (Linux) engorda (GEN 21.2).
 1.7.1 La cabecera de cada página, con el tamaño de 'theme_fonts' (16 px, en SemiBold),
@@ -48,7 +50,7 @@ Los cambios se guardan solo al pulsar "Aceptar"; "Cancelar" no guarda nada.
 1.1.0 Sección "Catálogo": mostrar o no los elementos de las subcarpetas.
 """
 
-__version__ = "1.7.2"
+__version__ = "1.8.0"
 __all__ = [
     "PAGES",
     "CatalogPage",
@@ -587,6 +589,7 @@ def _clear_quietly(store: TileStore, key: str) -> None:
 # Las páginas «Paneles» y «Tracks» están en su archivo (esta ventana ya es grande). Se
 # importan AQUÍ, y no arriba con las demás importaciones, porque ellas importan
 # 'SettingsPage' de este módulo: a estas alturas ya está definida y el cruce no da problemas
+from ui_helpers.dialogs.music_settings_page import MusicSettingsPage
 from ui_helpers.dialogs.section_layout_page import SectionLayoutPage
 from ui_helpers.dialogs.tracks_settings_page import TracksSettingsPage
 
@@ -598,6 +601,7 @@ PAGES: tuple[type[SettingsPage], ...] = (
     MetadataPage,
     MapSettingsPage,
     TracksSettingsPage,
+    MusicSettingsPage,
     SectionLayoutPage,
 )
 
