@@ -43,6 +43,8 @@ La tasa de bits es la MEDIA, como la de Mp3tag (comparado con las 75 canciones d
 la que da mutagen, salvo en Ogg Vorbis, donde mutagen da la nominal de la cabecera y se
 calcula con el tamaño del archivo sin las etiquetas.
 
+1.5.0 El tipo de etiqueta ('AudioInfo.tag_type') se calcula con 'tag_set.TagSet', con el
+      mismo texto que antes (MUS 6.1a).
 1.4.0 'read_cover': los bytes de la carátula, para su miniatura (MUS 3.1); 'cover_index',
       la regla de cuál es la carátula, una sola para 'AudioInfo.cover' y 'read_cover'.
 1.3.0 La huella de cada imagen ('AudioPicture.digest', BLAKE2) y la familia de la etiqueta
@@ -57,7 +59,7 @@ temporal):
     python -m core.audio.tag_reader
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "ID3_FAMILY",
     "MP4_FAMILY",
@@ -116,6 +118,7 @@ from core.audio.tag_map import (
     TAG_FIELDS,
     TagField,
 )
+from core.audio.tag_set import TagSet
 
 # Familias de etiquetas ('AudioInfo.tag_family'; las de 'tag_map.py')
 ID3_FAMILY = "id3"
@@ -177,6 +180,8 @@ _VORBIS_PICTURE_KEY = "METADATA_BLOCK_PICTURE"
 # (su pie, de 32 bytes, empieza por «APETAGEX»; antes del ID3v1 si lo hay)
 _ID3V1_SIZE = 128
 _APE_FOOTER = b"APETAGEX"
+# Nombre de la clase de mutagen de las etiquetas APEv2 (las de WavPack, Musepack...)
+_APE_NAME = "APEv2"
 _TAIL_SIZE = _ID3V1_SIZE + 32
 
 # Errores que puede dar mutagen (o lo que hay debajo) con un archivo dañado
@@ -325,7 +330,7 @@ def read_audio(path: Path) -> AudioInfo:
     return AudioInfo(
         tags=audio_tags,
         technical=_technical(audio, path),
-        tag_type=_tag_type(audio, path),
+        tag_type=_tag_set(audio, path).text,
         pictures=pictures,
         tag_family=family,
     )
@@ -638,28 +643,35 @@ def _mp4_codec(codec: str) -> str | None:
     return {"alac": "alac", "ac-3": "ac3", "ec-3": "eac3"}.get(codec, codec or None)
 
 
-def _tag_type(audio: Any, path: Path) -> str:
-    """El tipo de etiqueta, como la columna «Tag» de Mp3tag; vacío si no tiene."""
+def _tag_set(audio: Any, path: Path) -> TagSet:
+    """Las etiquetas que tiene el archivo ('TagSet'; su texto, el de la columna «Tag» de
+    Mp3tag)."""
     tags = audio.tags
-    parts: list[str] = []
+    found: dict[str, Any] = {}
     if isinstance(tags, ID3):
         major, minor = tags.version[:2]
-        # Solo ID3v1: mutagen lo carga como un ID3 de versión 1.1
-        parts.append("ID3v1" if major == 1 else f"ID3v2.{minor}")
+        if major == 1:
+            found["id3v1"] = True  # solo ID3v1: mutagen lo carga como un ID3 de versión 1.1
+        else:
+            found["id3v2"] = minor
     elif isinstance(tags, VComment) or (isinstance(audio, FLAC) and tags is not None):
-        parts.append("Vorbis")
+        found["vorbis"] = True
     elif isinstance(tags, MP4Tags):
-        parts.append("MP4")
+        found["mp4"] = True
     elif tags is not None:
-        parts.append(type(tags).__name__.removesuffix("Tags"))  # ASF, APEv2...
+        name = type(tags).__name__.removesuffix("Tags")  # ASF, APEv2 (WavPack)...
+        if name == _APE_NAME:
+            found["ape"] = True
+        else:
+            found["other"] = name
     if isinstance(audio, MP3):
         # Las que van al final del archivo: mutagen une el ID3v1 al ID3v2 sin decirlo
         tail = _file_tail(path)
-        if tail[-_ID3V1_SIZE:].startswith(b"TAG") and parts and parts[0] != "ID3v1":
-            parts.append("ID3v1")
+        if tail[-_ID3V1_SIZE:].startswith(b"TAG") and found:
+            found["id3v1"] = True
         if _APE_FOOTER in tail:
-            parts.append("APEv2")
-    return " + ".join(parts)
+            found["ape"] = True
+    return TagSet(**found)
 
 
 def _file_tail(path: Path) -> bytes:
@@ -869,6 +881,13 @@ if __name__ == "__main__":
         # El mismo MP3 en ID3v2.4, sin ID3v1; y otro solo con ID3v1
         id3.save(mp3, v2_version=4, v1=0)
         assert read_audio(mp3).tag_type == "ID3v2.4"
+        # Con un APEv2 al final (basta su pie: solo se detecta) y sin ninguna etiqueta
+        with_ape = root / "con_ape.mp3"
+        with_ape.write_bytes(mp3.read_bytes() + b"APETAGEX" + bytes(24))
+        assert read_audio(with_ape).tag_type == "ID3v2.4 + APEv2"
+        bare = root / "sin_etiquetas.mp3"
+        bare.write_bytes(frame * 10)
+        assert read_audio(bare).tag_type == ""
         only_v1 = root / "solo_v1.mp3"
         only_v1.write_bytes(frame * 10)
         id3 = ID3()

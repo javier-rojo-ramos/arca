@@ -3,7 +3,7 @@
 > Dónde está el proyecto HOY. Se actualiza al terminar cada paso: lo nuevo entra en «Pendiente de verificar» y en «Últimos cambios»; cuando el autor lo comprueba, pasa a «Verificado». El detalle de cómo se probó cada entrega está en [HISTORIAL.md](HISTORIAL.md).
 > Índice: [INDEX.md](INDEX.md).
 
-**Actualizado**: 26/11/2026.
+**Actualizado**: 27/11/2026.
 
 **En resumen**: el Catálogo funciona de punta a punta con imágenes: añadir y sincronizar carpetas, metadatos con ExifTool, miniaturas, cuadrícula y vista individual, clasificación (valoración, marca, color y selección rápida) guardada también en los archivos, palabras clave, colecciones (también inteligentes, con grupos de reglas), barra de filtros («Texto», «Atributos», «Metadatos» y ajustes personalizados) e inspector, que edita las palabras clave en todos los módulos y, en las fotos y vídeos de Imagen, el título, el pie, el creador, el copyright, la ubicación y el GPS (también guardados en los archivos). El módulo Imagen navega por carpetas, fechas y palabras clave. Vídeo, audio, GPX y ebooks se catalogan y se clasifican en bibliotecas. Música lee las etiquetas de las canciones y tiene su sección «Audio» en el inspector, «Artistas» y «Años» en la barra, su orden y sus campos en los filtros y las colecciones; Vídeo muestra su biblioteca con la barra de Tracks (biblioteca, carpetas y fechas), a falta de su navegación propia. Lo siguiente, en [PENDIENTE.md](PENDIENTE.md).
 
@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| — | Nada pendiente (el 26/11/2026, el autor comprobó todo lo entregado) |
+| **`MUS 6.1a`: el tipo de etiqueta como dato** (27/11/2026; `core/audio/tag_set.py` 1.0.0, `tag_reader` 1.5.0; sin interfaz) | Nada que ver en la aplicación: el tipo de etiqueta («Etiqueta» en la sección «Audio», «Tipo de etiqueta» en «Metadatos») sale igual que antes; el asistente releyó las 4 876 canciones y todas dan el mismo texto que el guardado en el catálogo. Si se quiere, `python scripts/run_selftests.py audio` (8 de 8). Leer en [MOD_MUSICA.md](MOD_MUSICA.md) §5 las reglas acordadas, por si algo no está como se habló |
 
 ## Comprobaciones sueltas
 
@@ -190,6 +190,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HISTORIAL.md](HISTORIAL.md)).
 
+- 27/11/2026: acordadas con el autor las reglas de escritura de las canciones, a la vista de su configuración de Mp3tag: editar escribe en las etiquetas que el archivo ya tiene y no añade ni quita ninguna; si falta el ID3v2, la etiqueta preferida de las Opciones (ID3v2.3 UTF-16 de partida, sin ID3v1); cambiar el tipo, solo con «Reescribir etiquetas…» (`MUS 8.4`, nuevo). `MUS 6.1`, en cuatro pasos; hecho `MUS 6.1a`, el tipo de etiqueta como dato (`tag_set.py`), con el mismo texto de siempre. Medido de paso: guardar con mutagen como dice su documentación borraría marcos en unas 90 canciones ([TRAMPAS.md](TRAMPAS.md)).
 - 26/11/2026: verificadas las cabeceras oscuras y, después, las estrellas. Las estrellas de la barra inferior y de «Atributos», separadas como los colores (5 px): el recuadro del ratón ya no pisa las de al lado. Las de las tarjetas, igual.
 - 26/11/2026: las cabeceras de las secciones (barra izquierda e inspector), oscuras como la barra de herramientas, para que se distingan del panel: elegidas por el autor entre seis variantes (más clara, más oscura, con rayas). El redondeo de la carátula, probado con capturas, queda para más adelante.
 - 26/11/2026: verificados el margen del inspector y, después, el de la barra izquierda. Con el mismo criterio, la barra izquierda: la primera fila de cada sección, a 8 px de la cabecera (antes, a 2). Los 8 px los pone ahora el cuerpo de las secciones plegables, el mismo en las dos barras.
@@ -199,4 +200,3 @@ Los más recientes primero; se guardan los 10 últimos (los anteriores, en [HIST
 - 26/11/2026: verificado `MUS 3.1`. Cerrado `MUS 1.4` con el recuento de las 4 876 canciones (ningún género ni artista con varios valores: las listas siguen como texto). `MUS 3.2` (`folder.jpg` de reserva), sin decidir: en las carpetas del autor no hay imágenes sueltas. Lo siguiente, la vista de álbumes.
 - 26/11/2026: verificada la búsqueda de «Texto» con los campos de cada módulo. Hecho `MUS 3.1`: la carátula de cada canción como miniatura (con mutagen, los cuatro tamaños de siempre: elegido por el autor entre tres opciones medidas con su música); una canción sin carátula lleva el marcador y no cuenta como error. `MUS 4.2` («Géneros»), aplazado.
 - 26/11/2026: verificado `MUS 2.3`. «Texto» ▸ «Todos los campos disponibles», con los campos de cada módulo (acordado con el autor): también el autor, el copyright y la ubicación, la cámara y el objetivo de las fotos y «Creado con» de los tracks; una sola lista para todos los módulos (cada uno solo muestra su biblioteca).
-- 26/11/2026: verificado `MUS 2.2`; el autor añadió unas 5 000 canciones (4 876, todas leídas en unos segundos). Hecho `MUS 2.3`: el grupo «Audio» de las colecciones inteligentes, completo (15 campos; 11, también columnas de «Metadatos»), con «Año» como número; en Música, «Metadatos» empieza con «Género», «Artista del álbum» y «Álbum»; «Texto» busca también en las etiquetas de las canciones (decidido: en los campos propios de cada módulo) y el orden «Tasa de bits» (pedido por el autor).

@@ -1,7 +1,7 @@
 # Arca Media — Módulo Música: arquitectura y plan
 
 > Documento del módulo Música (en el código y en la interfaz, el módulo **Audio**: `AudioModule`, biblioteca `audio`). Tiene dos partes: **I, arquitectura** (cómo está hecho y cómo encaja con el resto) y **II, planificación** (fases y pasos, con los códigos `MUS` de [PENDIENTE.md](PENDIENTE.md)).
-> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`; hechos `MUS 2.1` (la sección «Audio» del inspector, de solo lectura) y `MUS 4.1` («Artistas» y «Años» en la barra, en lugar de «Fechas»), `MUS 2.2` (el orden: «Artista», «Álbum», «Año» y «Título»), `MUS 2.3` (los campos de audio en las colecciones inteligentes y en la barra de filtros) `MUS 3.1` (la carátula como miniatura), `MUS 5.3` (la vista de álbumes) y, adelantado, `MUS 9.1` (la sección «Carátula» del inspector). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
+> **Estado (16/11/2026): diseño acordado con el autor; sin implementar.** El 25/11/2026, acordada la sección «Audio» del inspector (§7.1) y hechos `MUS 1.1` (la base de audio, `core/audio/`), `MUS 1.2` (la tabla `audio_details`) y `MUS 1.3` (el extractor: las canciones se leen solas). El 26/11/2026, acordada la barra izquierda (§7.2) y el orden de los pasos siguientes: `MUS 2.1`, `MUS 4.1`, y después `MUS 2.2` y `2.3`; hechos `MUS 2.1` (la sección «Audio» del inspector, de solo lectura) y `MUS 4.1` («Artistas» y «Años» en la barra, en lugar de «Fechas»), `MUS 2.2` (el orden: «Artista», «Álbum», «Año» y «Título»), `MUS 2.3` (los campos de audio en las colecciones inteligentes y en la barra de filtros) `MUS 3.1` (la carátula como miniatura), `MUS 5.3` (la vista de álbumes) y, adelantado, `MUS 9.1` (la sección «Carátula» del inspector). El 27/11/2026, acordadas las reglas de escritura (§5: en qué etiquetas, la etiqueta preferida, el ID3v1, `MUS 8.4`) y `MUS 6.1` partido en cuatro pasos; hecho `MUS 6.1a` (el tipo de etiqueta como dato). Todo lo de la parte I que no esté en «Punto de partida» es lo PREVISTO: cuando un paso se entregue, su parte se corrige aquí y pasa a [FLUJOS.md](FLUJOS.md), [ARQUITECTURA.md](ARQUITECTURA.md), [MODELO_DE_DATOS.md](MODELO_DE_DATOS.md) y [METADATOS.md](METADATOS.md). Si el código y este documento no coinciden, manda el código.
 > Índice: [INDEX.md](INDEX.md). Decisiones: [DECISIONES.md](DECISIONES.md) (16/11/2026).
 
 ## Resumen
@@ -14,7 +14,7 @@
 |---|---|
 | Biblioteca | **mutagen**, para leer y para escribir (Python puro; ID3 v2.3 y v2.4, FLAC, Ogg/Opus, M4A, carátulas). Licencia GPL: sin problema en uso interno |
 | Formatos | **Leer**: MP3, FLAC, M4A y Ogg/Opus. **Escribir**: primero MP3; cada formato más, cuando haya archivos reales con los que compararlo |
-| ID3 al escribir | Se conserva la versión que tenga el archivo; sin etiqueta, v2.3. El ID3v1 se actualiza si existe; ni se crea ni se quita |
+| Etiquetas al escribir | Editar escribe en las que el archivo ya tiene (con su versión de ID3v2; el ID3v1, si lo tiene, al día) y no añade ni quita ninguna; si falta el ID3v2, la etiqueta preferida de las Opciones (ID3v2.3 de partida). Cambiar el tipo, solo con «Reescribir etiquetas…» (`MUS 8.4`). Acordado el 27/11/2026: §5 |
 | Campos | Título, artista, álbum, artista del álbum, pista / total, disco / total, año, género, compositor y comentario. Letras y BPM, después |
 | Listas (varios géneros o artistas) | Primero como texto; las tablas propias, si los archivos reales las piden (se cuenta en `MUS 1`) |
 | Marca de cambio pendiente | Sigue siendo un bit por campo (`metadata_edit_pending`); se revisa con Vídeo |
@@ -42,7 +42,7 @@ Como en Tracks: lo que no necesita ni Qt ni la base de datos, en un paquete de `
 
 | Qué | Dónde | Notas |
 |---|---|---|
-| Tabla campo ↔ etiqueta de cada formato; leer y escribir etiquetas y carátulas con mutagen | `core/audio/` (sin Qt ni BD): `tag_map.py` (la tabla), `tag_reader.py` (`read_audio`), `picture_types.py` (los tipos de imagen); desde `MUS 1.1` | **Una sola tabla** para el extractor y para el escritor: los dos entienden lo mismo |
+| Tabla campo ↔ etiqueta de cada formato; leer y escribir etiquetas y carátulas con mutagen | `core/audio/` (sin Qt ni BD): `tag_map.py` (la tabla), `tag_reader.py` (`read_audio`), `picture_types.py` (los tipos de imagen); desde `MUS 1.1`. `tag_set.py` (el tipo de etiqueta y en qué etiquetas se escribe; desde `MUS 6.1a`). Previstos: `id3v1.py` (`MUS 6.1b`) y `tag_writer.py` (el motor, `MUS 6.1c`) | **Una sola tabla** para el extractor y para el escritor: los dos entienden lo mismo |
 | Extractor | `core/metadata/audio/`: `extractor.py` (con `AUDIO_FIELDS_VERSION`; no hace falta un `fields.py`: la tabla es `core/audio/tag_map.py`) e `inspect_cli.py` | `MetadataExtractor` con `details_table = "audio_details"`, como `TrackExtractor`; registrado en `core/metadata/registry.py` (si mutagen está instalado) |
 | Tabla de detalles | `core/catalog/catalog_schema.py`, la siguiente migración libre (la 5 fue el registro de operaciones de `CAT 4` y la 6, las carpetas de `CAT 5`) | `audio_details` (§3) |
 | Consultas | `core/catalog/` | Datos de las secciones del inspector (`audio_stats.py`, desde `MUS 2.1`; `cover_stats.py`, desde `MUS 9.1`), valores de las secciones de la barra, filas de la vista de lista |
@@ -144,7 +144,22 @@ Un archivo puede traer varios géneros o varios artistas. En la primera versión
 
 - **Por la cola de siempre**: editar cambia el catálogo y marca el campo como pendiente; el trabajo de `sync.py` lo escribe en segundo plano, lo comprueba releyendo y quita la marca. La opción «Escribir los cambios en los archivos» y la pregunta de las tandas grandes valen igual.
 - **Un campo, varios escritores**: el escritor de audio declara qué campos sabe guardar en cada formato. Lo que no sabe (o un formato que aún no escribe) va al `.arca.json`, como hoy.
-- **Solo lo editado**: se cambian los campos pendientes y se conservan las etiquetas que la aplicación no conoce. La versión de ID3 no se cambia; el ID3v1, solo si ya estaba.
+- **Solo lo editado**: se cambian los campos pendientes y se conservan las etiquetas que la aplicación no conoce. Con mutagen, eso obliga a abrir el ID3 sin convertirlo y guardarlo en la misma versión: guardando como dice su documentación se perderían marcos ([TRAMPAS.md](TRAMPAS.md), 27/11/2026).
+- **En qué etiquetas** (acordado con el autor el 27/11/2026, a la vista de su configuración de Mp3tag; [DECISIONES.md](DECISIONES.md); la regla, en `core/audio/tag_set.py`, `tags_for_edit`):
+  1. Editar escribe en las etiquetas que el archivo **ya tiene**, y en cada una solo los campos editados. Nunca añade ni quita una etiqueta ni cambia la versión del ID3v2.
+  2. Solo si le **falta la principal** (un MP3 sin ID3v2, o solo con ID3v1) se añade la **etiqueta preferida**, completa (con todo lo que se lee del archivo). Lo que tenía se queda: el ID3v1, al día; el APEv2 (que no se lee), sin tocar. Un ID3v2.2 cuenta como si faltara (mutagen no lo escribe).
+  3. **Cambiar el tipo** (convertir de versión, quitar el ID3v1 o el APEv2, limpiar) es solo cosa de «Reescribir etiquetas…» (`MUS 8.4`), a petición y con vista previa.
+
+  | El archivo tiene | Después de editar |
+  |---|---|
+  | ID3v2.3 / ID3v2.4 | Lo mismo |
+  | ID3v2.3 + ID3v1 | Lo mismo, las dos al día |
+  | Solo ID3v1 | ID3v2.3 (nueva, completa) + ID3v1 al día |
+  | Nada | La preferida: ID3v2.3 (más ID3v1, si se marca) |
+  | ID3v2.3 + APEv2 | Lo mismo; el APEv2, sin tocar |
+  | Vorbis (FLAC, Ogg), MP4 (M4A) | La suya (`MUS 6.3`, `6.4`) |
+- **La etiqueta preferida**, en Opciones > Música (`MUS 6.1d`): «ID3v2.3 UTF-16» (de partida) o «ID3v2.4 UTF-8», y la casilla «Incluir ID3v1» (desmarcada), como el Mp3tag del autor; la «ID3v2.3 ISO-8859-1» de Mp3tag no se ofrece. Se usa al crear una etiqueta donde falta y como destino de `MUS 8.4`. Lo que se escribe va en la codificación de su versión: UTF-16 en v2.3, UTF-8 en v2.4.
+- **El ID3v1**, adaptado a sus límites y cambiando solo lo editado (`MUS 6.1b`): 30 caracteres en título, artista y álbum, 28 en el comentario (los otros dos bytes son la pista); el año en 4 cifras; la pista hasta 255, sin total; el género, de su lista (si no está, sin género); disco, artista del álbum y compositor no existen; en Latin-1 (caben los acentos y la ñ), con los caracteres que tienen un equivalente claro cambiados (’ → ', — → -, … → ...) y «?» en el resto. Se comprueba contra el valor ya adaptado.
 - **El audio no se toca**: tras escribir se comprueba, además de las etiquetas, que los bytes del audio son los mismos que antes.
 - **Sin riesgo de perder o corromper un archivo** (decidido por el autor el 16/11/2026): mutagen escribe sobre el propio archivo, así que la aplicación escribe en un **archivo temporal de la misma carpeta, lo comprueba y sustituye el original** (lo que hace ExifTool con las fotos). Si algo falla, el original sigue intacto y el temporal se borra. «Sin generar copias» quiere decir que no quedan archivos duplicados, no que no haya temporal.
 - **Fecha de modificación**: cambia, como en las fotos; el catálogo anota el tamaño y la fecha nuevos sin releer ni regenerar la miniatura.
@@ -347,8 +362,11 @@ Sin interfaz: se prueba con copias antes de que nada lo use. El escritor es una 
 
 | Paso | Objetivo | Archivos | Aceptación |
 |---|---|---|---|
-| **MUS 6.1** Escritor de MP3 | `write_tags` para ID3, con las reglas de §5 (solo lo editado, versión conservada, comprobación de etiquetas y de audio) | `core/audio/`; nuevo: `core/userdata/audio_writer.py` | Autoprueba de ida y vuelta; copias de canciones reales, leídas después por Mp3tag, foobar2000, el Explorador y el móvil |
-| **MUS 6.2** En la cola | Campos de audio en `editable_fields.py`; `sync.py` usa el escritor; lo que no sabe guardar, al `.arca.json`; los errores, a la lista de errores (`GEN 6.1`) | `editable_fields.py`, `policy.py`, `sync.py` | Autoprueba de `sync` con audio: catálogo → archivos → catálogo nuevo; las fotos, igual que antes |
+| ~~**MUS 6.1a** El tipo de etiqueta~~ (hecho el 27/11/2026) | `TagSet` (el tipo como dato, con el texto de siempre y su vuelta) y `tags_for_edit` (en qué etiquetas se escribe, §5); el lector calcula el tipo con él | Nuevo: `core/audio/tag_set.py`; `tag_reader.py` | Autoprueba con la tabla de §5; las 4 876 canciones del autor, con el mismo tipo que el guardado en el catálogo |
+| **MUS 6.1b** El ID3v1 | Leerlo y componerlo con sus límites (§5), cambiando solo lo editado | Nuevo: `core/audio/id3v1.py` | Autoprueba sin archivos |
+| **MUS 6.1c** El motor de MP3 | `write_tags(path, changes, preferred)` con las reglas de §5: temporal, ID3v2 sin convertir y en su versión, ID3v1, comprobación (lo editado, el resto de marcos, el audio, la versión) y sustitución conservando la fecha de creación | Nuevo: `core/audio/tag_writer.py` | Autoprueba con MP3 mínimos; copias de canciones reales, leídas después por Mp3tag, foobar2000, el Explorador y el móvil |
+| **MUS 6.1d** Opciones > Música | La etiqueta preferida: «ID3v2.3 UTF-16» o «ID3v2.4 UTF-8» y «Incluir ID3v1» | Nuevo: `ui_helpers/dialogs/music_settings_page.py`; `settings_dialog.py`, `app_constants.py`, `app_config_manager.py` | La página, guardada al pulsar «Aceptar» (sin efecto hasta `MUS 6.2`) |
+| **MUS 6.2** En la cola | `core/userdata/audio_writer.py` (el escritor de la cola, con `fields_for`) con la preferida de las Opciones; campos de audio en `editable_fields.py`; `sync.py` usa el escritor; lo que no sabe guardar, al `.arca.json`; si cambia el tipo de etiqueta, se relee; los errores, a la lista de errores (`GEN 6.1`) | `audio_writer.py`, `writers.py`, `editable_fields.py`, `policy.py`, `sync.py` | Autoprueba de `sync` con audio: catálogo → archivos → catálogo nuevo; las fotos, igual que antes |
 | **MUS 6.3** FLAC | Comentarios Vorbis | Lo mismo | Cuando haya archivos reales |
 | **MUS 6.4** M4A y Ogg/Opus | Átomos MP4; Vorbis en Ogg | Lo mismo | Cuando haya archivos reales |
 
@@ -367,6 +385,7 @@ En una ventana, sobre la selección, con vista previa de lo que va a cambiar; ca
 - **MUS 8.1** Numerar pistas; mayúsculas y minúsculas; buscar y reemplazar.
 - **MUS 8.2** Nombre de archivo → etiqueta, con un patrón (`%artista% - %título%`).
 - **MUS 8.3** Etiqueta → nombre de archivo: **renombra originales**; paso aparte, con su decisión (la ruta del catálogo y la entrada del `.arca.json` cambian con el archivo).
+- **MUS 8.4** «Reescribir etiquetas…» (acordado con el autor el 27/11/2026, §5): la única forma de cambiar el tipo de etiqueta. Sobre la selección, con el destino (de partida, la etiqueta preferida de las Opciones) y una casilla «Conservar lo que la aplicación no muestra (letras, valoraciones de otros programas, marcos de iTunes…)»: marcada, **convierte**; desmarcada, **limpia** (solo los campos del inspector y la carátula). Vista previa por tipo («ID3v2.4 → ID3v2.3: 12 canciones»), aviso y trabajo largo que se puede cancelar; con el mismo motor (`tag_writer.py`) y su regla en `tag_set.py`. «Limpiar y escribir desde el nombre del archivo» es esta herramienta y después `MUS 8.2`.
 
 ### Fase MUS 9 — Carátulas: cambiarlas y guardarlas
 

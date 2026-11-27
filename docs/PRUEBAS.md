@@ -133,7 +133,8 @@ python -m core.tracks.activities                               (lista de activid
 python -m core.audio.codecs                                   (nombres de los formatos: los de la lista y uno que no está)
 python -m core.audio.picture_types                            (tipos de imagen: los 21 de ID3 y FLAC, los que se ofrecen; con mutagen, sus números)
 python -m core.audio.tag_map                                  (tabla campo ↔ etiqueta: completa y sin repetidos)
-python -m core.audio.tag_reader                               (con mutagen: crea un MP3 y un FLAC mínimos; ID3 v2.3, v2.4 y v1, Vorbis, MP4 e imágenes en memoria; lo que no se lee)
+python -m core.audio.tag_reader                               (con mutagen: crea un MP3 y un FLAC mínimos; ID3 v2.3, v2.4 y v1, APEv2, sin etiquetas, Vorbis, MP4 e imágenes en memoria; lo que no se lee)
+python -m core.audio.tag_set                                  (sin mutagen: el texto del tipo de etiqueta, ida y vuelta, y la tabla de en qué etiquetas se escribe al editar)
 
 # core.userdata
 python -m core.userdata.editable_fields                        (las etiquetas que se escriben son las mismas que se leen)
