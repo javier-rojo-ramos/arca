@@ -43,6 +43,8 @@ La tasa de bits es la MEDIA, como la de Mp3tag (comparado con las 75 canciones d
 la que da mutagen, salvo en Ogg Vorbis, donde mutagen da la nominal de la cabecera y se
 calcula con el tamaño del archivo sin las etiquetas.
 
+1.6.0 'open_audio' y 'tag_set_of', públicas (antes '_open' y '_tag_set'): el escritor
+      ('tag_writer.py', MUS 6.1c) abre las canciones y ve sus etiquetas como el lector.
 1.5.0 El tipo de etiqueta ('AudioInfo.tag_type') se calcula con 'tag_set.TagSet', con el
       mismo texto que antes (MUS 6.1a).
 1.4.0 'read_cover': los bytes de la carátula, para su miniatura (MUS 3.1); 'cover_index',
@@ -59,7 +61,7 @@ temporal):
     python -m core.audio.tag_reader
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = [
     "ID3_FAMILY",
     "MP4_FAMILY",
@@ -71,6 +73,7 @@ __all__ = [
     "AudioTechnical",
     "UnsupportedAudioError",
     "cover_index",
+    "open_audio",
     "parse_pair",
     "picture_digest",
     "pictures_from_flac",
@@ -79,6 +82,7 @@ __all__ = [
     "pictures_from_vorbis",
     "read_audio",
     "read_cover",
+    "tag_set_of",
     "tags_from_id3",
     "tags_from_mp4",
     "tags_from_vorbis",
@@ -310,7 +314,7 @@ def read_audio(path: Path) -> AudioInfo:
         UnsupportedAudioError: Si mutagen no reconoce el formato.
         AudioReadError: Si el archivo no se puede leer.
     """
-    audio = _open(path)
+    audio = open_audio(path)
     tags = audio.tags
     family: str | None = None
     if isinstance(tags, ID3):  # MP3, WAV, AIFF
@@ -330,7 +334,7 @@ def read_audio(path: Path) -> AudioInfo:
     return AudioInfo(
         tags=audio_tags,
         technical=_technical(audio, path),
-        tag_type=_tag_set(audio, path).text,
+        tag_type=tag_set_of(audio, path).text,
         pictures=pictures,
         tag_family=family,
     )
@@ -345,7 +349,7 @@ def read_cover(path: Path) -> bytes | None:
     Raises:
         UnsupportedAudioError, AudioReadError: Como 'read_audio'.
     """
-    images = _picture_data(_open(path))
+    images = _picture_data(open_audio(path))
     position = cover_index([type_key for type_key, _data in images])
     return None if position is None else images[position][1]
 
@@ -363,8 +367,13 @@ def cover_index(type_keys: Sequence[str | None]) -> int | None:
     return 0 if type_keys else None
 
 
-def _open(path: Path) -> Any:
-    """Abre una canción con mutagen (los errores, los de 'read_audio')."""
+def open_audio(path: Path) -> Any:
+    """Abre una canción con mutagen (el objeto de mutagen: 'MP3', 'FLAC'...). La usa
+    también el escritor ('tag_writer.py'), para abrirla igual que el lector.
+
+    Raises:
+        UnsupportedAudioError, AudioReadError: Como 'read_audio'.
+    """
     try:
         audio = mutagen.File(path)
     except _READ_ERRORS as error:
@@ -643,9 +652,10 @@ def _mp4_codec(codec: str) -> str | None:
     return {"alac": "alac", "ac-3": "ac3", "ec-3": "eac3"}.get(codec, codec or None)
 
 
-def _tag_set(audio: Any, path: Path) -> TagSet:
-    """Las etiquetas que tiene el archivo ('TagSet'; su texto, el de la columna «Tag» de
-    Mp3tag)."""
+def tag_set_of(audio: Any, path: Path) -> TagSet:
+    """Las etiquetas que tiene una canción ya abierta con 'open_audio' ('TagSet'; su texto,
+    el de la columna «Tag» de Mp3tag). La usa también el escritor: así los dos ven las
+    mismas etiquetas."""
     tags = audio.tags
     found: dict[str, Any] = {}
     if isinstance(tags, ID3):
