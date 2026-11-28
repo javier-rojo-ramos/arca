@@ -11,7 +11,7 @@
 
 | Entrega | Qué comprobar |
 |---|---|
-| **`MUS 6.4`: M4A** (28/11/2026; `core/audio/mp4_writer.py` 1.0.0, `tag_writer` 1.3.0, `policy` 1.6.0) | Nada en la aplicación hasta `MUS 7`. En **Mp3tag**, las copias de la prueba del asistente (carpeta «Prueba MUS 6.4» de su *scratchpad*: «editadas» y «originales», con 3 M4A tuyos): en cada editada, lo que dice el mensaje de la entrega, y lo demás como en su original (también la carátula y, en «Etiquetas extendidas», ITUNSMPB y los demás); que suenan (foobar2000) |
+| — | Nada pendiente (el 28/11/2026, el autor comprobó `MUS 6.4` en Mp3tag) |
 
 ## Comprobaciones sueltas
 
@@ -40,6 +40,7 @@ Detalles concretos de entregas ya verificadas que todavía no se han mirado. Se 
 
 ## Verificado por el autor (Windows)
 
+- **`MUS 6.4`: M4A** (28/11/2026; `mp4_writer` 1.0.0, `tag_writer` 1.3.0, `policy` 1.6.0; con una captura de Mp3tag): en las copias de la prueba del asistente, lo editado en cada M4A (el título, el artista del álbum y la pista; «Rock; Pop» y el compositor; dos artistas, sin álbum y el disco), con la etiqueta «MP4», el mismo códec y la misma tasa que su original. Después, la carátula y que suenan. iTunSMPB, Encoding Params y el programa (©too), que Mp3tag no enseña, comparados por el asistente: iguales que en su original.
 - **`MUS 6.3b`: FLAC, Ogg y Opus** (28/11/2026; `vorbis_writer` 1.0.0, `tag_writer` 1.2.0, `policy` 1.5.0; con una captura de Mp3tag): en las copias de la prueba del asistente, lo editado en cada FLAC y Ogg, y lo demás como en su original.
 - **`MUS 6.3a`: el motor de escritura, por familias** (28/11/2026; `tag_writer` 1.1.0, `write_base` 1.0.0, `id3_writer` 1.0.0; refactorización): escribe igual que antes; visto con `6.3b`.
 - **`MUS 6.2b`: el MP3, partido** (28/11/2026; `audio_writer` 1.0.0, `audio_fields` 1.0.0, `policy` 1.4.0, `editable_fields` 1.4.0, `writers` 1.2.0, `sync` 1.13.0, `job_coordinator` 1.2.0; con una captura de Mp3tag): en las copias de la prueba del asistente, cada edición en su MP3 (el álbum y «Rock; Pop»; «Moby; Invitado» y el comentario; el título y la pista 7/20), las tres con ID3v2.3.
