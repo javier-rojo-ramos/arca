@@ -179,7 +179,7 @@ ui_helpers/                          Diálogos (ui_file_dialogs), mensajes (ui_m
     keyword_editor_section.py          «Palabras clave» (con cualquier selección, en todos los módulos): caja con comas (KeywordTextEdit: Intro, Esc, sugerencias, Ctrl+K) y «Últimas palabras clave»; cambios con apply_keyword_changes
     keyword_list_section.py            «Lista de palabras clave» (siempre): KeywordChecklist (árbol con casillas, flecha «ver sus fotos», soltar tarjetas); cambios con apply_keyword_changes
     metadata_section.py                Sección «Metadatos» (biblioteca Imagen): desplegable de vistas en la cabecera, filas de metadata_fields.py, valores con fetch_field_values; los campos de EDITABLE_KEYS, con cajas (cambios con update_metadata_fields; aviso «Edición múltiple»)
-    editable_row.py                    EditableValue: caja editable de una línea o de varias (Intro, Esc, Tab, Mayús+Intro; «Varios» como Lightroom; señal committed; reject: vuelve y avisa junto a la caja)
+    editable_row.py                    EditableValue: caja editable de una línea o de varias (Intro, Esc, Tab, Mayús+Intro o Ctrl+Intro; «Varios» como Lightroom; señal committed; reject: vuelve y avisa junto a la caja)
     value_parsing.py                   Lo escrito en las cajas del GPS, la altitud y la dirección (formas aceptadas, límites, avisos INVALID_TEXTS); NUMERIC_COLUMNS: las columnas de cada caja; sin Qt
     selection_section.py               Sección «Selección»: nombre, carpeta, tamaño, fecha, contenido, biblioteca y estado
     track_section.py                   TrackSection: «Track» (distancia, desnivel, altitud, duración, velocidad, puntos, actividad y programa de los tracks seleccionados; con varios, sumados); pide sus datos con fetch_track_stats

@@ -18,7 +18,7 @@ común a todas:
       Intro, además, la caja suelta el foco y vuelve a verse como texto (si siguiera con
       el borde de acento, parecería que no se ha aplicado; pedido por el autor).
     - Esc: vuelve al valor que se mostró. Tab: a la caja siguiente. En la de varias
-      líneas, Mayús+Intro hace un salto de línea.
+      líneas, Mayús+Intro hace un salto de línea; Ctrl+Intro también (la de Mp3tag).
     - 'is_editing()': el usuario está escribiendo (tiene el foco y ha cambiado algo); quien
       refresca la caja no debe pisarle el texto.
 
@@ -30,6 +30,8 @@ Como en la caja de palabras clave ('keyword_editor_section.py'), las teclas se a
 en subclases ('keyPressEvent') y salir de la caja para abrir su menú contextual
 ('PopupFocusReason') no cuenta como salir.
 
+1.5.0 Ctrl+Intro, también salto de línea en la caja de varias líneas, como Mayús+Intro (la
+      de Mp3tag; pedido por el autor el 28/11/2026).
 1.4.0 El aviso de 'reject', propio ('_Notice', con la paleta y el marco de los textos
       emergentes): el de Qt ('QToolTip') se ocultaba en cuanto cambiaba el foco, y
       aplicar lo escrito siempre lo cambia (Intro suelta el foco; Tab y un clic fuera,
@@ -50,7 +52,7 @@ Prueba rápida (sin ventana; necesita PySide6):
     python -m ui_helpers.inspector.editable_row
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = ["MULTI_LINE_ROWS", "REJECT_NOTICE_MS", "EditableValue"]
 
 # Librerías de terceros (Qt)
@@ -76,6 +78,8 @@ from ui_helpers.inspector.metadata_fields import MIXED_TEXT
 MULTI_LINE_ROWS = 3
 
 _ENTER_KEYS = (Qt.Key.Key_Return, Qt.Key.Key_Enter)
+# Con Intro, hacen un salto de línea en la caja de varias líneas (sin ellas, Intro aplica)
+_NEW_LINE_MODIFIERS = Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier
 
 # Cuánto tiempo se ve el aviso de un valor no válido (milisegundos)
 REJECT_NOTICE_MS = 6000
@@ -112,8 +116,8 @@ class _LineEditor(QLineEdit):
 
 
 class _TextEditor(QPlainTextEdit):
-    """Caja de varias líneas: Intro aplica, Mayús+Intro salto de línea, Esc deshace, salir
-    aplica."""
+    """Caja de varias líneas: Intro aplica, Mayús+Intro o Ctrl+Intro salto de línea, Esc
+    deshace, salir aplica."""
 
     enter_pressed = Signal()
     commit_requested = Signal()  # al salir de la caja
@@ -123,7 +127,8 @@ class _TextEditor(QPlainTextEdit):
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() in _ENTER_KEYS:
             event.accept()
-            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            # Mayús+Intro, la habitual donde Intro aplica; Ctrl+Intro, la de Mp3tag
+            if event.modifiers() & _NEW_LINE_MODIFIERS:
                 # Un párrafo nuevo (no el separador de línea que pondría Qt): en el texto
                 # sale como '\n'
                 self.textCursor().insertText("\n")
@@ -428,7 +433,7 @@ if __name__ == "__main__":
     assert received == ["León", None]
     print("2. «Varios»: como en Lightroom")
 
-    # 3. Varias líneas: Mayús+Intro, salto de línea; Intro, aplica
+    # 3. Varias líneas: Mayús+Intro y Ctrl+Intro, salto de línea; Intro, aplica
     received.clear()
     text = EditableValue(multiline=True)
     text.committed.connect(received.append)
@@ -437,10 +442,12 @@ if __name__ == "__main__":
     editor.moveCursor(editor.textCursor().MoveOperation.End)
     QTest.keyClick(editor, Qt.Key.Key_Return, Qt.KeyboardModifier.ShiftModifier)
     QTest.keyClicks(editor, "Segunda")
-    assert text.text() == "Primera\nSegunda" and received == []
+    QTest.keyClick(editor, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
+    QTest.keyClicks(editor, "Tercera")
+    assert text.text() == "Primera\nSegunda\nTercera" and received == []
     QTest.keyClick(editor, Qt.Key.Key_Return)
-    assert received == ["Primera\nSegunda"], received
-    print("3. Varias líneas: Mayús+Intro, nueva línea; Intro, aplica")
+    assert received == ["Primera\nSegunda\nTercera"], received
+    print("3. Varias líneas: Mayús+Intro y Ctrl+Intro, nueva línea; Intro, aplica")
 
     # 4. Un aviso que se lleva el foco no vuelve a avisar (sin bucles)
     received.clear()
