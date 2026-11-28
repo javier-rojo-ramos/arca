@@ -21,7 +21,7 @@ la base de datos, se guardan en UN único sitio por formato:
                   artista, álbum, pista...; 'audio_fields.AUDIO_TAG_COLUMNS'), dentro del
                   propio archivo, como Mp3tag; la valoración, la marca, el color, las
                   palabras clave y lo demás, en su entrada del '.arca.json'. MP3 (desde
-                  MUS 6.2b), FLAC, Ogg y Opus (MUS 6.3b); M4A, con MUS 6.4.
+                  MUS 6.2b), FLAC, Ogg y Opus (MUS 6.3b) y M4A (MUS 6.4).
 
 Un solo destino por formato, a propósito: si el mismo dato viviera en dos sitios,
 podrían acabar distintos sin saber cuál vale. En un destino partido, cada DATO sigue
@@ -52,6 +52,9 @@ leerían del destino nuevo (vacío). Si algún día hiciera falta, habría que m
 Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.policy
 
+1.6.0 M4A, también AUDIO_TAGS (MUS 6.4: ya se escriben sus etiquetas MP4). Un M4A
+      fragmentado o con un 'meta' sin etiquetas (muy raros) no se escribe: lo editado se
+      queda pendiente, con su error.
 1.5.0 FLAC, Ogg y Opus, también AUDIO_TAGS (MUS 6.3b: ya se escriben sus comentarios
       Vorbis). Un '.ogg' que no es Vorbis ni Opus (Ogg FLAC, Speex: muy raros) no se
       escribe: lo editado se queda pendiente, con su error.
@@ -66,7 +69,7 @@ Prueba rápida (desde la raíz del proyecto):
       usa la escritura para no escribir en un archivo que aún no se ha leído).
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = [
     "UserDataDestination",
     "destination_for",
@@ -136,9 +139,9 @@ _SIDECAR_EXTENSIONS: frozenset[str] = frozenset(
     }
 )  # fmt: skip
 
-# Canciones cuyas etiquetas se escriben en el propio archivo (las demás, al '.arca.json'
-# hasta que se escriban: M4A en MUS 6.4). FLAC, Ogg y Opus, desde MUS 6.3b
-_AUDIO_TAG_EXTENSIONS: frozenset[str] = frozenset({"mp3", "flac", "ogg", "opus"})
+# Canciones cuyas etiquetas se escriben en el propio archivo (las demás, WAV y AIFF, todo
+# al '.arca.json'). FLAC, Ogg y Opus, desde MUS 6.3b; M4A, desde MUS 6.4
+_AUDIO_TAG_EXTENSIONS: frozenset[str] = frozenset({"mp3", "flac", "ogg", "opus", "m4a"})
 
 # Las extensiones de cada destino (lo que no está en ninguna, FOLDER_FILE)
 _EXTENSIONS: dict[UserDataDestination, frozenset[str]] = {
@@ -272,8 +275,8 @@ if __name__ == "__main__":
         "dng": D.XMP_EMBEDDED, "cr3": D.XMP_SIDECAR, ".NEF": D.XMP_SIDECAR,
         "mp4": D.FOLDER_FILE, "mkv": D.FOLDER_FILE, "mp3": D.AUDIO_TAGS,
         "gpx": D.FOLDER_FILE, "epub": D.FOLDER_FILE, "bmp": D.FOLDER_FILE,
-        "jxl": D.FOLDER_FILE, "flac": D.AUDIO_TAGS, "m4a": D.FOLDER_FILE, "OGG": D.AUDIO_TAGS,
-        "opus": D.AUDIO_TAGS, "wav": D.FOLDER_FILE,
+        "jxl": D.FOLDER_FILE, "flac": D.AUDIO_TAGS, "m4a": D.AUDIO_TAGS, "OGG": D.AUDIO_TAGS,
+        "opus": D.AUDIO_TAGS, "wav": D.FOLDER_FILE, "aiff": D.FOLDER_FILE, ".M4A": D.AUDIO_TAGS,
         "": D.FOLDER_FILE, None: D.FOLDER_FILE,
         "IMG_0001.CR3": D.XMP_SIDECAR, "a/b/foto.Jpeg": D.XMP_EMBEDDED,
         Path("x/peli.MKV"): D.FOLDER_FILE, "Musica/01 - Cancion.MP3": D.AUDIO_TAGS,
@@ -296,7 +299,7 @@ if __name__ == "__main__":
         assert (uses_xmp(value), has_folder_entry(value), waits_for_first_read(value)) == (
             expected
         ), value
-    assert first_read_extensions() == xmp_extensions() | {"mp3", "flac", "ogg", "opus"}
+    assert first_read_extensions() == xmp_extensions() | {"mp3", "flac", "ogg", "opus", "m4a"}
     assert all(waits_for_first_read(ext) for ext in first_read_extensions())
     # Qué guarda el '.arca.json': todo (FOLDER_FILE), nada (XMP) o, en un MP3, lo que no
     # va a sus etiquetas (la valoración, las palabras clave, la ubicación...)

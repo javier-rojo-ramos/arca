@@ -46,13 +46,13 @@ Los vídeos con GPS salen en el mapa. El fotograma como miniatura, en `VID 4`.
 
 | Formatos | Se cataloga | Miniatura | Metadatos | Datos del usuario |
 |---|---|---|---|---|
-| MP3, M4A, FLAC, OGG, OPUS, WAV, AIFF, AIF | Sí | La carátula incrustada (desde `MUS 3.1`); sin ella, la genérica; con la duración | Sí, con mutagen (`MUS 1.3`): etiquetas (ID3, Vorbis o MP4), datos técnicos y carátula | `.arca.json`; en MP3 (`MUS 6.2b`), FLAC, Ogg y Opus (`MUS 6.3b`), lo editado de sus etiquetas, en el propio archivo; en M4A, con `MUS 6.4`; WAV y AIFF, todo en el `.arca.json` |
+| MP3, M4A, FLAC, OGG, OPUS, WAV, AIFF, AIF | Sí | La carátula incrustada (desde `MUS 3.1`); sin ella, la genérica; con la duración | Sí, con mutagen (`MUS 1.3`): etiquetas (ID3, Vorbis o MP4), datos técnicos y carátula | `.arca.json`; en MP3 (`MUS 6.2b`), FLAC, Ogg y Opus (`MUS 6.3b`) y M4A (`MUS 6.4`), lo editado de sus etiquetas, en el propio archivo; WAV y AIFF, todo en el `.arca.json` |
 | AAC (sin contenedor) | Sí | Genérica, con la duración | Solo los datos técnicos (mutagen no lee sus etiquetas) | `.arca.json` |
 | MKA | Sí | Genérica | No (mutagen no lee Matroska: «sin soporte todavía») | `.arca.json` |
 | WMA | Solo si el sistema conoce la extensión † | Genérica | Solo los datos técnicos (sus etiquetas ASF no se traducen) | `.arca.json` |
 | APE, DSF, M4B (audiolibro) | No | — | — | — |
 
-Desde `MUS 6.2b` (28/11/2026), el MP3 es un formato **partido** (destino `AUDIO_TAGS` de `core/userdata/policy.py`): lo editado de sus etiquetas (título, artista, comentario, álbum, artista del álbum, pista, disco, género y compositor) se escribe en el propio archivo, y la valoración, la marca, el color, las palabras clave y lo demás, en el `.arca.json`. Desde `MUS 6.3b`, igual FLAC, Ogg y Opus (comentarios Vorbis); un `.ogg` que no es Vorbis ni Opus (Ogg FLAC, Speex: muy raros) no se escribe y lo editado se queda pendiente, con su error. M4A, todo en el `.arca.json` hasta `MUS 6.4`. Las carátulas, en `MUS 9`.
+Desde `MUS 6.2b` (28/11/2026), el MP3 es un formato **partido** (destino `AUDIO_TAGS` de `core/userdata/policy.py`): lo editado de sus etiquetas (título, artista, comentario, álbum, artista del álbum, pista, disco, género y compositor) se escribe en el propio archivo, y la valoración, la marca, el color, las palabras clave y lo demás, en el `.arca.json`. Desde `MUS 6.3b`, igual FLAC, Ogg y Opus (comentarios Vorbis); un `.ogg` que no es Vorbis ni Opus (Ogg FLAC, Speex: muy raros) no se escribe y lo editado se queda pendiente, con su error. Desde `MUS 6.4`, igual M4A (sus átomos MP4); uno fragmentado o con un átomo «meta» sin etiquetas (muy raros) no se escribe y lo editado se queda pendiente, con su error. Las carátulas, en `MUS 9`.
 
 ## Tracks
 

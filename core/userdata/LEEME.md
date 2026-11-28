@@ -32,7 +32,7 @@ core/userdata/
 | `XMP_EMBEDDED` | JPEG, TIFF, PNG, WebP, GIF, PSD, DNG, HEIC/HEIF/AVIF | Dentro del propio archivo (como Lightroom) |
 | `XMP_SIDECAR` | RAW propietarios: CR2, CR3, NEF, ARW, ORF, RW2, RAF, PEF... | `IMG_0001.xmp` junto al original (se reutiliza `IMG_0001.CR3.xmp` si ya existe) |
 | `FOLDER_FILE` | Todo lo demás: vídeo, audio (salvo MP3), ebooks, GPX, BMP, JPEG XL... | Un `.arca.json` oculto por carpeta, con una entrada por archivo |
-| `AUDIO_TAGS` | MP3 (desde `MUS 6.2b`), FLAC, Ogg y Opus (desde `MUS 6.3b`); M4A, con `MUS 6.4` | **Partido**: lo editado de sus etiquetas (título, artista, comentario, álbum, artista del álbum, pista, disco, género, compositor; `audio_fields.py`), en el propio archivo; la valoración, la marca, el color, las palabras clave y lo demás, en su entrada del `.arca.json` |
+| `AUDIO_TAGS` | MP3 (desde `MUS 6.2b`), FLAC, Ogg y Opus (desde `MUS 6.3b`) y M4A (desde `MUS 6.4`) | **Partido**: lo editado de sus etiquetas (título, artista, comentario, álbum, artista del álbum, pista, disco, género, compositor; `audio_fields.py`), en el propio archivo; la valoración, la marca, el color, las palabras clave y lo demás, en su entrada del `.arca.json` |
 
 Un solo destino por formato, a propósito: si el mismo dato viviera en dos sitios podrían
 acabar distintos sin saber cuál vale (en uno partido, cada dato sigue teniendo un sitio). Lo que no está en ninguna lista va a `FOLDER_FILE`,

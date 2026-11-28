@@ -2,8 +2,8 @@
 
 Este módulo NO depende de Qt ni de la base de datos: recibe una ruta y lo editado, y deja el
 archivo con lo editado o como estaba. Es el motor del escritor de audio de la cola de
-escritura ('core/userdata/audio_writer.py', MUS 6.2). Hoy escribe MP3 (ID3v2 e ID3v1), FLAC,
-Ogg Vorbis y Opus (comentarios Vorbis); M4A, en MUS 6.4.
+escritura ('core/userdata/audio_writer.py', MUS 6.2). Escribe MP3 (ID3v2 e ID3v1), FLAC,
+Ogg Vorbis y Opus (comentarios Vorbis) y M4A (MP4).
 
     result = write_tags(path, {"title": "Vino Tinto", "track": (3, 12)}, preferred)
     result.written         # False si ya tenía esos valores (el archivo no se toca)
@@ -15,8 +15,8 @@ vaciar; lo que no vale es 'ValueError' o 'TypeError').
 
 DOS PARTES (MUS 6.3a): aquí, el recorrido común de toda escritura; lo propio de cada familia
 de etiquetas, en su módulo, con la interfaz 'write_base.FormatWriter': 'id3_writer.py' (el
-MP3) y 'vorbis_writer.py' (FLAC, Ogg Vorbis y Opus). Una familia nueva es un módulo y una
-línea en '_FORMAT_WRITERS'.
+MP3), 'vorbis_writer.py' (FLAC, Ogg Vorbis y Opus) y 'mp4_writer.py' (M4A). Una familia
+nueva es un módulo y una línea en '_FORMAT_WRITERS'.
 
 CÓMO ESCRIBE (docs/MOD_MUSICA.md §5; reglas acordadas con el autor el 16 y el 27/11/2026):
     1. La familia del archivo ('_FORMAT_WRITERS'); si no hay ninguna, 'UnsupportedAudioWriteError'.
@@ -35,16 +35,18 @@ CÓMO ESCRIBE (docs/MOD_MUSICA.md §5; reglas acordadas con el autor el 16 y el 
 Si algo falla, el original queda como estaba, el temporal se borra y se lanza
 'AudioWriteError'. La fecha de modificación del archivo cambia, como con las fotos.
 
+1.3.0 La familia MP4: M4A ('mp4_writer.py', MUS 6.4).
 1.2.0 La familia Vorbis: FLAC, Ogg Vorbis y Opus ('vorbis_writer.py', MUS 6.3b).
 1.1.0 En dos partes (MUS 6.3a): el recorrido común, aquí; lo del MP3, a 'id3_writer.py'; lo
       que comparten, a 'write_base.py'. Nada cambia en lo que hace.
 1.0.0 Primera versión (27/11/2026; docs/MOD_MUSICA.md, paso MUS 6.1c).
 
-Prueba rápida (desde la raíz del proyecto; crea MP3 mínimos en una carpeta temporal):
+Prueba rápida (desde la raíz del proyecto; crea MP3, FLAC, Ogg, Opus y M4A mínimos en una
+carpeta temporal):
     python -m core.audio.tag_writer
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["AudioWriteError", "TagWriteResult", "UnsupportedAudioWriteError", "write_tags"]
 
 # Librerías estándar
@@ -61,6 +63,7 @@ from loguru import logger
 
 # Módulos del proyecto
 from core.audio.id3_writer import Id3Writer
+from core.audio.mp4_writer import Mp4Writer
 from core.audio.tag_reader import AudioReadError, UnsupportedAudioError, open_audio, tag_set_of
 from core.audio.tag_set import DEFAULT_MP3_TAGS, TagSet, tags_for_edit
 from core.audio.vorbis_writer import VorbisWriter
@@ -86,7 +89,7 @@ _REPLACEFILE_IGNORE_MERGE_ERRORS = 0x00000002
 _TRANSIENT_WINERRORS: frozenset[int] = frozenset({5, 32, 33})
 
 # Las familias de etiquetas que se escriben, cada una con lo suyo ('write_base.FormatWriter')
-_FORMAT_WRITERS: tuple[FormatWriter, ...] = (Id3Writer(), VorbisWriter())
+_FORMAT_WRITERS: tuple[FormatWriter, ...] = (Id3Writer(), VorbisWriter(), Mp4Writer())
 
 
 class _VerifyError(AudioWriteError):
@@ -129,7 +132,7 @@ def write_tags(
     writer = next((family for family in _FORMAT_WRITERS if family.handles(audio)), None)
     if writer is None:
         raise UnsupportedAudioWriteError(
-            f"Todavía no se escriben las etiquetas de «{path.name}» (solo las de MP3, FLAC, Ogg Vorbis y Opus)"
+            f"Todavía no se escriben las etiquetas de «{path.name}» (solo las de MP3, FLAC, Ogg Vorbis, Opus y M4A)"
         )
 
     current = tag_set_of(audio, path)
@@ -263,7 +266,8 @@ def _replace_file_windows(replaced: Path, replacement: Path) -> None:
 
 
 if __name__ == "__main__":
-    # Autoprueba (sin Qt). Crea MP3 mínimos en una carpeta temporal y escribe en ellos.
+    # Autoprueba (sin Qt). Crea MP3, FLAC, Ogg, Opus y M4A mínimos en una carpeta temporal y
+    # escribe en ellos.
     # Desde la raíz del proyecto:
     #     python -m core.audio.tag_writer
     import stat
@@ -291,11 +295,12 @@ if __name__ == "__main__":
         TYER,
         Encoding,
     )
+    from mutagen.mp4 import MP4, Atom, Atoms
     from mutagen.ogg import OggPage
     from mutagen.oggopus import OggOpus
     from mutagen.oggvorbis import OggVorbis
 
-    from core.audio import id3_writer
+    from core.audio import id3_writer, mp4_writer
     from core.audio.id3v1 import ID3V1_SIZE, NO_GENRE, Id3v1Tag, build_id3v1, parse_id3v1
     from core.audio.tag_reader import read_audio
 
@@ -714,6 +719,212 @@ if __name__ == "__main__":
         assert after_packets[0] == before_packets[0] and after_packets[2:] == before_packets[2:]
         song = read_audio(opus).tags
         assert (song.title, song.date) == ("Opus nuevo", "2001"), song
+
+        # --- 8. MP4 (MUS 6.4): M4A
+        def box(name: bytes, *parts: bytes) -> bytes:
+            """Un átomo con su contenido."""
+            return Atom.render(name, b"".join(parts))
+
+        def data_box(flags: int, payload: bytes) -> bytes:
+            """El átomo 'data' de una etiqueta ('flags': su tipo; 1 es texto, 0 «implícito»)."""
+            return box(b"data", struct.pack(">2I", flags, 0), payload)
+
+        samples = [bytes([number]) * (90 + 7 * number) for number in range(40)]
+        # Trozos de 3 muestras y uno de 1 al final (dos rachas en 'stsc'), como un codificador
+        chunk_samples = [3] * 13 + [1]
+        # Como los M4A del autor: el género como número ('gnre', 18 es Rock), la carátula de
+        # tipo «implícito», el programa, iTunSMPB y el orden del álbum
+        m4a_tags = [
+            box(b"\xa9nam", data_box(1, b"Viejo")),
+            box(b"\xa9ART", data_box(1, b"Estopa")),
+            box(b"gnre", data_box(0, struct.pack(">H", 18))),
+            box(b"trkn", data_box(0, struct.pack(">4H", 0, 3, 12, 0))),
+            box(b"\xa9too", data_box(1, b"iTunes 12.9")),
+            box(b"covr", data_box(0, b"\xff\xd8\xff\xe0portada")),
+            box(b"----", box(b"mean", bytes(4), b"com.apple.iTunes"),
+                box(b"name", bytes(4), b"iTunSMPB"), data_box(1, b" 00000000 00000840")),
+            box(b"soal", data_box(1, b"Orden")),
+        ]  # fmt: skip
+
+        def new_m4a(
+            name: str, items: list[bytes] | None, padding: int = 0, chapters: bool = True
+        ) -> Path:
+            """Un M4A mínimo: la cabecera ('moov', con una pista y sus tablas) antes del audio
+            ('mdat'), con esas etiquetas en bruto (None: sin 'meta'), relleno junto a ellas y
+            capítulos de Nero ('chpl'); sin capítulos ni etiquetas, sin 'udta'."""
+
+            def moov(offsets: list[int]) -> bytes:
+                sizes = [len(sample) for sample in samples]
+                table_sizes = struct.pack(f">2I{len(sizes)}I", 0, len(sizes), *sizes)
+                table_offsets = struct.pack(f">{len(offsets) + 1}I", len(offsets), *offsets)
+                stbl = box(
+                    b"stbl",
+                    box(b"stsd", bytes(4), struct.pack(">I", 0)),
+                    box(b"stts", bytes(4), struct.pack(">3I", 1, len(samples), 1024)),
+                    box(b"stsc", bytes(4), struct.pack(">7I", 2, 1, 3, 1, 14, 1, 1)),
+                    box(b"stsz", bytes(4), table_sizes),
+                    box(b"stco", bytes(4), table_offsets),
+                )
+                mdia = box(
+                    b"mdia",
+                    box(b"mdhd", bytes(4), struct.pack(">4I2H", 0, 0, 44100, 40 * 1024, 0x55C4, 0)),
+                    box(b"hdlr", bytes(8), b"soun", bytes(12), b"SoundHandler\x00"),
+                    box(b"minf", box(b"smhd", bytes(8)), stbl),
+                )  # fmt: skip
+                parts = []
+                if chapters:
+                    parts.append(box(
+                        b"chpl", b"\x01" + bytes(7), bytes([2]),
+                        struct.pack(">Q", 0), bytes([5]), b"Uno 1",
+                        struct.pack(">Q", 50_000_000), bytes([5]), b"Dos 2",
+                    ))  # fmt: skip
+                if items is not None:
+                    meta = [bytes(4), box(b"hdlr", bytes(8), b"mdirappl", bytes(9))]
+                    meta.append(box(b"ilst", *items))
+                    if padding:
+                        meta.append(box(b"free", bytes(padding)))
+                    parts.append(box(b"meta", *meta))
+                mvhd = box(
+                    b"mvhd", bytes(4), struct.pack(">4I", 0, 0, 44100, 40 * 1024),
+                    struct.pack(">IH", 0x10000, 0x100), bytes(70), struct.pack(">I", 2),
+                )  # fmt: skip
+                tkhd = box(b"tkhd", b"\x00\x00\x00\x07", bytes(80))
+                udta = box(b"udta", *parts) if parts else b""
+                return box(b"moov", mvhd, box(b"trak", tkhd, mdia), udta)
+
+            ftyp = box(b"ftyp", b"M4A ", bytes(4), b"M4A mp42isom")
+            free = box(b"free", bytes(64))  # como los del autor: tras la cabecera (no se usa)
+            position = len(ftyp) + len(moov([0] * len(chunk_samples))) + len(free) + 8
+            offsets, sample = [], 0
+            for count in chunk_samples:
+                offsets.append(position)
+                position += sum(len(item) for item in samples[sample : sample + count])
+                sample += count
+            m4a_path = root / name
+            m4a_path.write_bytes(ftyp + moov(offsets) + free + box(b"mdat", *samples))
+            return m4a_path
+
+        def m4a_items(m4a_path: Path) -> dict[bytes, list[bytes]]:
+            """Los átomos de etiqueta de un M4A, enteros y en bruto (leídos aparte)."""
+            found: dict[bytes, list[bytes]] = {}
+            with m4a_path.open("rb") as file:
+                for child in Atoms(file)[b"moov.udta.meta.ilst"].children:
+                    file.seek(child.offset)
+                    found.setdefault(child.name, []).append(file.read(child.length))
+            return found
+
+        def m4a_audio(m4a_path: Path) -> tuple[int, list[bytes]]:
+            """Dónde empieza el audio de un M4A y sus muestras, leídas aparte con su 'stco'."""
+            with m4a_path.open("rb") as file:
+                stbl = Atoms(file)[b"moov.trak.mdia.minf.stbl"]
+                _ok, table = next(stbl.findall(b"stco")).read(file)
+                offsets = struct.unpack(f">{len(chunk_samples)}I", table[8:])
+                found, sample = [], 0
+                for offset, count in zip(offsets, chunk_samples, strict=True):
+                    file.seek(offset)
+                    found += [file.read(len(item)) for item in samples[sample : sample + count]]
+                    sample += count
+            return offsets[0], found
+
+        # a) Sin relleno (como 178 de los 291 del autor): lo editado, en su átomo (varios
+        #    valores, en un texto; sin total, 0); lo demás, byte a byte (también 'gnre' y la
+        #    carátula, que mutagen cambiaría); el audio se desplaza, con sus tablas al día
+        rich_m4a = new_m4a("rica.m4a", m4a_tags)
+        original_m4a = rich_m4a.read_bytes()
+        before_items = m4a_items(rich_m4a)
+        before_offset, before_samples = m4a_audio(rich_m4a)
+        assert before_samples == samples
+        song = read_audio(rich_m4a)
+        assert song.tag_type == "MP4" and (song.tags.genre, song.tags.track_number) == ("Rock", 3)
+        result = write_tags(rich_m4a, {
+            "title": "Nuevo", "artist": "A; B", "track": (4, None), "comment": "Nota",
+        })  # fmt: skip
+        assert result.written and result.tags_after == TagSet(mp4=True), result
+        assert not result.tags_changed
+        after_items = m4a_items(rich_m4a)
+        for name in (b"gnre", b"covr", b"----", b"\xa9too", b"soal"):
+            assert after_items[name] == before_items[name], name
+        m4a = MP4(rich_m4a)
+        assert m4a.tags["\xa9nam"] == ["Nuevo"] and m4a.tags["\xa9ART"] == ["A; B"]
+        assert m4a.tags["trkn"] == [(4, 0)] and m4a.tags["\xa9cmt"] == ["Nota"]
+        assert [(c.start, c.title) for c in m4a.chapters] == [(0.0, "Uno 1"), (5.0, "Dos 2")]
+        after_offset, after_samples = m4a_audio(rich_m4a)
+        assert after_offset > before_offset and after_samples == samples
+        song = read_audio(rich_m4a).tags
+        assert (song.title, song.artist, song.genre, song.comment) == (
+            "Nuevo", "A; B", "Rock", "Nota"
+        ), song  # fmt: skip
+        assert (song.track_number, song.track_total) == (4, None), song
+        mtime = rich_m4a.stat().st_mtime_ns  # lo mismo otra vez: no se toca
+        assert not write_tags(rich_m4a, {"title": "Nuevo", "track": (4, None)}).written
+        assert rich_m4a.stat().st_mtime_ns == mtime
+
+        # b) El género: al editarlo se quita 'gnre'; al vaciarlo, se quitan los dos
+        write_tags(rich_m4a, {"genre": "Pop; Rock"})
+        after_items = m4a_items(rich_m4a)
+        assert b"gnre" not in after_items and MP4(rich_m4a).tags["\xa9gen"] == ["Pop; Rock"]
+        assert read_audio(rich_m4a).tags.genre == "Pop; Rock"
+        assert after_items[b"covr"] == before_items[b"covr"]
+        two_genres = new_m4a("dos_generos.m4a", [*m4a_tags, box(b"\xa9gen", data_box(1, b"Pop"))])
+        assert read_audio(two_genres).tags.genre == "Rock; Pop"
+        write_tags(two_genres, {"genre": None})
+        assert not {b"gnre", b"\xa9gen"} & set(m4a_items(two_genres))
+        assert read_audio(two_genres).tags.genre is None
+
+        # c) Sin etiquetas (ni 'udta'): se le crean, con lo editado
+        bare_m4a = new_m4a("sin_etiquetas.m4a", None, chapters=False)
+        assert read_audio(bare_m4a).tag_type == ""
+        result = write_tags(bare_m4a, {"title": "Nuevo", "disc": (1, 2)})
+        assert result.tags_changed and read_audio(bare_m4a).tag_type == "MP4"
+        assert MP4(bare_m4a).tags["disk"] == [(1, 2)] and m4a_audio(bare_m4a)[1] == samples
+
+        # d) Con relleno junto a las etiquetas: el audio no se mueve
+        padded = new_m4a("relleno.m4a", m4a_tags, padding=2048)
+        size, start = padded.stat().st_size, m4a_audio(padded)[0]
+        write_tags(padded, {"title": "Con relleno", "track": None, "album": "Álbum"})
+        assert padded.stat().st_size == size and m4a_audio(padded) == (start, samples)
+        assert "trkn" not in MP4(padded).tags and MP4(padded).tags["\xa9alb"] == ["Álbum"]
+
+        # e) Lo que no se escribe (el archivo, como estaba): un MP4 fragmentado, un 'meta'
+        #    sin etiquetas; y lo que nota la comprobación: si mutagen volviera a escribir
+        #    los átomos no editados ('gnre' a ©gen, el tipo de la carátula), o el audio
+        fragmented = new_m4a("fragmentado.m4a", m4a_tags)
+        with fragmented.open("ab") as file:
+            file.write(box(b"moof", box(b"mfhd", bytes(8))))
+        content = fragmented.read_bytes()
+        expect_error(AudioWriteError, fragmented, {"title": "No"})
+        assert fragmented.read_bytes() == content
+        no_ilst = new_m4a("meta_sin_ilst.m4a", [])
+        content = no_ilst.read_bytes()
+        assert content.count(b"\x00\x00\x00\x08ilst") == 1  # el mismo tamaño: nada se mueve
+        no_ilst.write_bytes(content.replace(b"\x00\x00\x00\x08ilst", b"\x00\x00\x00\x08free"))
+        assert MP4(no_ilst).tags is None
+        expect_error(AudioWriteError, no_ilst, {"title": "No"})
+        real_keep = mp4_writer._keep_untouched
+
+        def keep_nothing(tags: Any, untouched: list[tuple[str, bytes]], edited: Any) -> None:
+            """Sin copiar en bruto lo no editado: mutagen lo vuelve a escribir a su manera."""
+
+        mp4_writer._keep_untouched = keep_nothing
+        normalized = root / "normalizada.m4a"
+        normalized.write_bytes(original_m4a)
+        try:
+            expect_error(AudioWriteError, normalized, {"title": "No"})
+        finally:
+            mp4_writer._keep_untouched = real_keep
+        assert normalized.read_bytes() == original_m4a
+
+        def digest_of(m4a_path: Path) -> str:
+            """La huella del audio de un M4A, la de su escritor."""
+            with m4a_path.open("rb") as file:
+                return mp4_writer._audio_digest(Atoms(file), file)
+
+        other_audio = root / "otro_audio.m4a"
+        other_audio.write_bytes(original_m4a)
+        with other_audio.open("r+b") as file:
+            file.seek(before_offset + 500)
+            file.write(b"\xee")
+        assert digest_of(other_audio) != digest_of(normalized)
 
         # Ningún temporal se ha quedado en la carpeta
         leftovers = list(root.glob(f"*{_TEMP_SUFFIX}"))

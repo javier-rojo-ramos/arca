@@ -2,7 +2,8 @@
 
 Este módulo NO depende de Qt ni de la base de datos. Lo usan el motor de escritura
 ('tag_writer.py': el recorrido común de toda escritura, que elige la familia) y el escritor
-de cada familia de etiquetas ('id3_writer.py', el MP3; Vorbis y MP4, en MUS 6.3b y 6.4).
+de cada familia de etiquetas ('id3_writer.py', el MP3; 'vorbis_writer.py', FLAC, Ogg y Opus;
+'mp4_writer.py', M4A).
 
     FormatWriter      la interfaz de una familia: qué archivos atiende, su etiqueta
                       preferida, y preparar, guardar y comprobar lo editado
@@ -18,6 +19,7 @@ es 'ValueError' ('TypeError' si no es un texto): es un error de quien llama, no 
 Varios valores («Rock; Pop») en el artista, el artista del álbum, el compositor y el género
 ('LIST_FIELDS'), sin repetidos; cada familia decide cómo los guarda.
 
+1.0.1 Los comentarios, al día con las familias que se escriben (MUS 6.4).
 1.0.0 Primera versión (28/11/2026; docs/MOD_MUSICA.md, paso MUS 6.3a): lo común de
       'tag_writer.py' 1.0.0 (MUS 6.1c), movido sin cambiar lo que hace, y la interfaz de una
       familia ('FormatWriter', 'PreparedWrite').
@@ -26,7 +28,7 @@ Prueba rápida (desde la raíz del proyecto; sin archivos):
     python -m core.audio.write_base
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = [
     "DATE_PATTERN",
     "LIST_FIELDS",
@@ -76,7 +78,8 @@ class AudioWriteError(Exception):
 
 
 class UnsupportedAudioWriteError(AudioWriteError):
-    """Las etiquetas de ese formato todavía no se escriben (hoy, todo lo que no es MP3)."""
+    """Las etiquetas de ese formato todavía no se escriben (hoy, WAV, AIFF y lo que no es
+    MP3, FLAC, Ogg, Opus ni M4A)."""
 
 
 @dataclass(frozen=True, slots=True)
