@@ -43,6 +43,10 @@ extractor, o el archivo cambiado: también al escribirle la valoración) se cons
 guardada, porque la de modificación ya es otra. Si ahora trae una fecha de verdad, manda
 esa (docs/DECISIONES.md, 21/11/2026).
 
+2.8.0 El año de las canciones, editable (MUS 7.1a): un campo de 'media_items' que es solo
+      de algunos tipos se aplica desde el '.arca.json' (o se conserva si está dañado)
+      solo en ellos, con las columnas que van con él (su precisión); y mientras está
+      pendiente, lo leído del archivo no pisa esas columnas ('GUARDED_MAIN_COLUMNS').
 2.7.0 Lo editado que guarda el '.arca.json' se aplica a los formatos con entrada en él
       ('policy.has_folder_entry') y solo en los campos que guarda (con uno dañado, solo
       esos se dejan sin tocar); antes, a todos los formatos sin XMP. Nada cambia: hoy son
@@ -73,7 +77,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.metadata.processor
 """
 
-__version__ = "2.7.0"
+__version__ = "2.8.0"
 __all__ = [
     "DEFAULT_BATCH_SIZE",
     "SCAN_STAGE_METADATA",
@@ -104,9 +108,13 @@ from core.metadata.base import (
 from core.metadata.registry import ExtractorRegistry, default_registry
 from core.userdata.editable_fields import (
     EDITABLE_COLUMNS,
+    GUARDED_MAIN_COLUMNS,
+    LINKED_COLUMNS,
     MAIN_COLUMNS,
+    applies_to,
     default_title,
     field_for,
+    linked_values,
     unless_pending_sql,
     upsert_sql,
 )
@@ -564,24 +572,29 @@ def _write_success(
     detail_edits = [
         column for column in EDITABLE_COLUMNS if field_for(column).table == extractor.details_table
     ] if extractor.details_table else []
+    # Los campos de 'media_items' de este tipo de archivo (el año, solo en las canciones)
+    media_type = extractor.media_type.value
+    main_edits = [column for column in MAIN_COLUMNS if applies_to(column, media_type)]
     if has_folder_entry(outcome.extension):
         if outcome.folder_edits is None:
             # '.arca.json' dañado: no se sabe qué se editó; mejor no tocar las columnas
-            # que guarda (las demás salen del archivo)
+            # que guarda, ni las que van con ellas (las demás salen del archivo)
             kept = folder_file_fields(outcome.extension)
-            for column in MAIN_COLUMNS:
+            for column in main_edits:
                 if kept is None or column in kept:
-                    values.pop(column, None)
+                    for name in (column, *LINKED_COLUMNS.get(column, ())):
+                        values.pop(name, None)
             for column in detail_edits:
                 if kept is None or column in kept:
                     details.pop(column, None)
         else:
             for column, value in outcome.folder_edits.items():
-                if column in MAIN_COLUMNS:
+                if column in main_edits:
                     values[column] = value
+                    values.update(linked_values(column, value))  # la precisión del año
                 elif column in detail_edits:
                     details[column] = value
-                # (un campo de la tabla de otro tipo de archivo no es de este: se ignora)
+                # (un campo de otro tipo de archivo no es de este: se ignora)
     # El título es NOT NULL: sin título, el nombre del archivo sin extensión
     if "title" in values and values["title"] is None:
         values["title"] = default_title(PurePosixPath(outcome.relative_path).name)
@@ -597,9 +610,10 @@ def _write_success(
                 values.pop(column, None)
     # Los nombres de columna salen de listas cerradas (las de arriba y la de los campos
     # editables): no hay inyección SQL. Un campo editado pendiente de escribir en el
-    # archivo no se pisa (se comprueba en la misma sentencia: 'unless_pending_sql')
+    # archivo no se pisa, ni las columnas que van con él (la precisión del año): se
+    # comprueba en la misma sentencia ('unless_pending_sql')
     assignments = [
-        unless_pending_sql(column) if column in MAIN_COLUMNS else f"{column} = ?"
+        unless_pending_sql(column) if column in GUARDED_MAIN_COLUMNS else f"{column} = ?"
         for column in values
     ]
     assignments += ["scan_version = ?", "last_scanned_at = CURRENT_TIMESTAMP"]

@@ -140,10 +140,10 @@ python -m core.audio.tag_writer                               (con mutagen: crea
 python -m core.audio.tag_set                                  (sin mutagen: el texto del tipo de etiqueta, ida y vuelta, la tabla de en qué etiquetas se escribe al editar y la preferida de las Opciones)
 
 # core.userdata
-python -m core.userdata.editable_fields                        (las etiquetas que se escriben son las mismas que se leen)
+python -m core.userdata.editable_fields                        (las etiquetas que se escriben son las mismas que se leen; el año de las canciones, con su precisión y su origen)
 python -m core.userdata.folder_file
 python -m core.userdata.policy
-python -m core.userdata.sync                                   (ExifTool; ida y vuelta completa; los escritores de 'writers.py', un archivo repartido entre dos destinos y un MP3: sus etiquetas al archivo y lo demás al .arca.json)
+python -m core.userdata.sync                                   (ExifTool; ida y vuelta completa; los escritores de 'writers.py', un archivo repartido entre dos destinos y un MP3: sus etiquetas al archivo y lo demás al .arca.json, también el año, que al releer no se pisa; y el año de un WAV, en el .arca.json como número)
 python -m core.userdata.audio_fields                           (sin archivos: qué columnas van a las etiquetas de una canción; lo pendiente, para el motor; las parejas)
 python -m core.userdata.xmp_writer                             (ExifTool)
 

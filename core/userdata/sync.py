@@ -55,6 +55,10 @@ Dos sentidos:
          archivo, el procesador con 'folder_file_edits'. En los formatos con XMP, los
          escribe el procesador como cualquier metadato extraído (salvo lo pendiente).
 
+1.14.0 El año de las canciones (MUS 7.1a): lo editado del '.arca.json' de un campo de
+       'media_items' que es solo de algunos tipos se aplica solo en ellos, con las
+       columnas que van con él (su precisión). Autoprueba: el año de un MP3, de ida y
+       vuelta, y el de un WAV, por el '.arca.json'.
 1.13.0 El MP3, partido (MUS 6.2b): con el escritor de sus etiquetas ('audio_writer.py',
        en 'default_writers'). 'WriteItem.reread' (un MP3 con su ID3v2 nuevo): solo se
        releen sus metadatos, y cuenta en 'rescan_requested'. 'exiftool_missing', solo si
@@ -99,7 +103,7 @@ Prueba rápida (desde la raíz del proyecto; la parte de XMP necesita ExifTool):
     python -m core.userdata.sync
 """
 
-__version__ = "1.13.0"
+__version__ = "1.14.0"
 __all__ = [
     "SCAN_STAGE_USERDATA",
     "FolderFileCache",
@@ -133,8 +137,10 @@ from core.metadata.keyword_tags import FileKeywords
 from core.userdata.editable_fields import (
     EDITABLE_COLUMNS,
     applies_sql,
+    applies_to,
     default_title,
     field_for,
+    linked_values,
     pending_columns,
     read_sql,
     unless_pending_sql,
@@ -804,7 +810,9 @@ def _apply_edited_values(
     """Pone en un elemento los metadatos editados del archivo de carpeta.
 
     No toca los campos pendientes de escribir (su cambio es más nuevo). Un título vaciado
-    vuelve al nombre del archivo sin extensión.
+    vuelve al nombre del archivo sin extensión. Un campo que no es de su tipo de archivo
+    (el año, en una foto) se pasa por alto; las columnas que van con un campo (la
+    precisión del año), con él.
 
     Returns:
         True si cambió algo.
@@ -815,24 +823,29 @@ def _apply_edited_values(
     changed = False
     for column in [column for column in edits if field_for(column).table]:
         changed |= _apply_detail_edit(conn, media_id, column, edits[column])
+    row = conn.execute("SELECT media_type FROM media_items WHERE id = ?", (media_id,)).fetchone()
+    media_type = row[0] if row else None
     values = {
         column: default_title(file_name) if column == "title" and value is None else value
         for column, value in edits.items()
-        if not field_for(column).table
+        if not field_for(column).table and applies_to(column, media_type)
     }
     if not values:
         return changed
+    linked: dict[str, str | None] = {}
+    for column, value in values.items():
+        linked.update(linked_values(column, value))
     # Nombres de columna de la lista cerrada de 'editable_fields.py': sin inyección SQL.
     # Cada columna conserva su valor si su bit está pendiente; solo se cuenta como cambio
     # si alguna columna no pendiente tenía otro valor.
-    assignments = ", ".join(unless_pending_sql(column) for column in values)
+    assignments = ", ".join(unless_pending_sql(column) for column in [*values, *linked])
     changed_condition = " OR ".join(
         f"(NOT metadata_edit_pending & {field_for(column).bit} AND {column} IS NOT ?)"
         for column in values
     )
     cursor = conn.execute(
         f"UPDATE media_items SET {assignments} WHERE id = ? AND ({changed_condition})",
-        (*values.values(), media_id, *values.values()),
+        (*values.values(), *linked.values(), media_id, *values.values()),
     )
     return changed or cursor.rowcount > 0
 
@@ -1384,6 +1397,13 @@ if __name__ == "__main__":
             (media_id,),
         ).fetchone())  # fmt: skip
 
+    def date_of(conn: sqlite3.Connection, media_id: int) -> tuple:
+        """La fecha de una canción (la de su año) y su precisión."""
+        return tuple(conn.execute(
+            "SELECT content_created_at, content_date_precision FROM media_items WHERE id = ?",
+            (media_id,),
+        ).fetchone())  # fmt: skip
+
     with tempfile.TemporaryDirectory() as tmp:
         library = Path(tmp) / "Musica"
         library.mkdir()
@@ -1404,13 +1424,17 @@ if __name__ == "__main__":
         # a) Sin leer, no se escribe (espera a su primera lectura, como las fotos); al
         #    leerlo, lo pendiente no se pisa
         update_user_field(catalog, [song_id], "rating", 2)
-        update_metadata_fields(catalog, [song_id], {"album": "Destrangis (reedición)"})
+        update_metadata_fields(
+            catalog, [song_id], {"album": "Destrangis (reedición)", "content_created_at": 2001}
+        )
         catalog.commit()
         mtime_before = song.stat().st_mtime_ns
         assert pending(catalog) == 0 and write_pending_user_data(catalog).total == 0
         assert song.stat().st_mtime_ns == mtime_before
         process_pending_metadata(catalog, registry=audio_registry)
         assert audio_row(catalog, song_id)[4] == "Destrangis (reedición)"
+        # El año (el MP3 no tiene): ni la fecha ni su precisión se pisan
+        assert date_of(catalog, song_id) == ("2001-01-01 00:00:00", "year")
 
         # b) Escritura: las etiquetas, al MP3; lo demás, al '.arca.json'. Al MP3 sin
         #    etiquetas se le crea el ID3v2 (la preferida) y se relee
@@ -1433,13 +1457,14 @@ if __name__ == "__main__":
         assert (tags.track_number, tags.track_total, tags.genre, tags.comment) == (
             3, 12, "Rock", "Primer disco"
         ), tags  # fmt: skip
+        assert tags.date == "2001", tags
         entry = read_folder_file(library).items[song.name]
         assert (entry["rating"], entry["flag"], entry["color_label"]) == (2, 1, "red"), entry
         assert entry["keywords"] == [["Rumba"]] and entry["city"] == "Barcelona", entry
         # Lo de las etiquetas, solo en el archivo (un dato, un sitio)
-        assert not {"title", "creator", "description", "album", "track_number", "genre"} & set(
-            entry
-        ), entry
+        assert not {
+            "title", "creator", "description", "album", "track_number", "genre", "year",
+        } & set(entry), entry  # fmt: skip
         assert (read_audio(bare).tag_type, read_audio(bare).tags.album) == ("ID3v2.3", "Nuevo")
         # El catálogo relee el que tiene etiqueta nueva y no ve falsos cambios en ninguno
         process_pending_metadata(catalog, registry=audio_registry)
@@ -1458,9 +1483,39 @@ if __name__ == "__main__":
             "Destrangis (reedición)", 3, 12, "Rock",
         ), audio_row(rebuilt, new_id)  # fmt: skip
         assert user_values(rebuilt)[song.name] == (2, 1, "red")
+        assert date_of(rebuilt, new_id) == ("2001-01-01 00:00:00", "year")
         assert media_keyword_paths(rebuilt, new_id) == [("Rumba",)]
         assert pending(rebuilt) == 0
         print("MP3: sus etiquetas en el archivo y lo demás en el .arca.json, de ida y vuelta")
+        catalog.close()
+        rebuilt.close()
+
+        # d) Un WAV (sus etiquetas no se escriben): todo al '.arca.json', también el año
+        #    (MUS 7.1a), como número; y de vuelta en un catálogo nuevo, con su precisión
+        import struct
+
+        takes = Path(tmp) / "Maquetas"
+        takes.mkdir()
+        wav = takes / "Toma 1.wav"
+        fmt = struct.pack("<HHIIHH", 1, 2, 44100, 44100 * 4, 4, 16)
+        body = b"WAVE" + b"fmt " + struct.pack("<I", len(fmt)) + fmt
+        body += b"data" + struct.pack("<I", 400) + bytes(400)
+        wav.write_bytes(b"RIFF" + struct.pack("<I", len(body)) + body)
+        catalog = new_catalog()
+        add_folder(catalog, takes)
+        process_pending_metadata(catalog, registry=audio_registry)
+        wav_id = ids(catalog)[wav.name]
+        update_metadata_fields(catalog, [wav_id], {"content_created_at": 1999, "album": "Demos"})
+        catalog.commit()
+        result = write_pending_user_data(catalog)
+        assert (result.written, result.failed) == (1, 0) and pending(catalog) == 0, result.summary()
+        entry = read_folder_file(takes).items[wav.name]
+        assert entry["year"] == 1999 and entry["album"] == "Demos", entry
+        rebuilt = new_catalog()
+        add_folder(rebuilt, takes)
+        process_pending_metadata(rebuilt, registry=audio_registry)
+        assert date_of(rebuilt, ids(rebuilt)[wav.name]) == ("1999-01-01 00:00:00", "year")
+        print("WAV: el año, en el .arca.json como número, de ida y vuelta")
         catalog.close()
         rebuilt.close()
 

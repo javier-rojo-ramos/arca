@@ -29,6 +29,9 @@ solo la mitad del trabajo: 'update_user_field' deja además el elemento PENDIENT
 archivo, en su sidecar XMP o en el archivo de carpeta, para que sobreviva a recrear el
 catálogo.
 
+2.8.0 'update_metadata_fields': un campo de 'media_items' que es solo de algunos tipos (el
+      año de las canciones, MUS 7.1a) se guarda solo en ellos, con las columnas que van
+      con él (su precisión: 'editable_fields.linked_values').
 2.7.0 'update_metadata_fields' guarda también los campos editables de una tabla de
       detalles (la actividad de un track), solo en los elementos a los que se aplican.
 2.6.0 'fetch_grid_rows' trae 'track_overview': el contorno de los tracks (de
@@ -66,7 +69,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_queries
 """
 
-__version__ = "2.7.0"
+__version__ = "2.8.0"
 # ruff: noqa: RUF022
 __all__ = [
     "AVAILABLE",
@@ -108,6 +111,7 @@ from core.userdata.editable_fields import (
     default_title,
     field_for,
     incomplete_pairs,
+    linked_values,
     normalize_value,
 )
 
@@ -452,7 +456,10 @@ def update_metadata_fields(
 
     Un campo de una tabla de detalles (la actividad de un track) se guarda en ella (se
     crea su fila si aún no existe) y solo en los elementos a los que se aplica (los
-    tracks): en los demás 'id', ni se guarda ni queda pendiente.
+    tracks): en los demás 'id', ni se guarda ni queda pendiente. Igual un campo de
+    'media_items' que es solo de algunos tipos: el año de las canciones (en la columna de
+    la fecha, que en las fotos es la de captura). Las columnas que van con un campo (la
+    precisión del año: 'linked_values') se guardan con él.
 
     Un título vacío (None, '' o solo espacios) vuelve, en cada elemento, al nombre de su
     archivo sin extensión ('title' es NOT NULL), y queda pendiente igual: en el archivo se
@@ -478,10 +485,20 @@ def update_metadata_fields(
         raise ValueError(f"{pair[0]!r} y {pair[1]!r} se cambian juntas (o se vacían las dos)")
     if not clean:
         return 0
-    # Los campos de 'media_items' van en una sola sentencia; los de las tablas de detalles,
-    # aparte, cada uno en la suya
+    # Los campos de 'media_items' de todos los tipos van en una sola sentencia; los de las
+    # tablas de detalles y los de 'media_items' que son solo de algunos tipos (el año de
+    # las canciones), aparte, cada uno en la suya y solo en esos tipos
     detail = {column: value for column, value in clean.items() if field_for(column).table}
-    main = {column: value for column, value in clean.items() if column not in detail}
+    typed = {
+        column: value
+        for column, value in clean.items()
+        if column not in detail and field_for(column).media_types
+    }
+    main = {
+        column: value
+        for column, value in clean.items()
+        if column not in detail and column not in typed
+    }
     bits = bits_for(main)
     reset_title = "title" in main and main["title"] is None
     assigned = {
@@ -489,6 +506,8 @@ def update_metadata_fields(
         for column, value in main.items()
         if not (column == "title" and value is None)
     }
+    for column, value in main.items():
+        assigned.update(linked_values(column, value))  # las columnas que van con él
     # Las columnas ya están validadas contra una lista cerrada: es seguro ponerlas en el SQL
     assignments = "".join(f"{column} = ?, " for column in assigned)
     ids = [int(i) for i in media_ids]
@@ -505,6 +524,19 @@ def update_metadata_fields(
                 (*assigned.values(), bits, *chunk),
             )
             touched = cursor.rowcount
+        for column, value in typed.items():
+            # Solo los elementos a los que se aplica (las canciones), con las columnas que
+            # van con él; todos los nombres, de la lista cerrada de 'editable_fields.py'
+            only, types = applies_sql(column)
+            columns = {column: value, **linked_values(column, value)}
+            sets = "".join(f"{name} = ?, " for name in columns)
+            cursor = conn.execute(
+                f"UPDATE media_items SET {sets}"
+                "metadata_edit_pending = metadata_edit_pending | ?, "
+                f"updated_at = CURRENT_TIMESTAMP WHERE id IN ({marks}){only}",
+                (*columns.values(), field_for(column).bit, *chunk, *types),
+            )
+            touched = max(touched, cursor.rowcount)
         for column, value in detail.items():
             spec = field_for(column)
             # Solo los elementos a los que se aplica el campo (p. ej. los tracks)
@@ -818,6 +850,42 @@ if __name__ == "__main__":
     assert gps("c.jpg")[:3] == (None, None, -12.5)  # sin cambios
     db.execute("UPDATE media_items SET metadata_edit_pending = ?, altitude = NULL, gps_direction = NULL "
                "WHERE file_name = 'c.jpg'", (pending_c,))
+    # El año de las canciones (MUS 7.1a): solo en ellas, como la fecha de su 1 de enero y
+    # con su precisión; al vaciarlo, sin precisión ni origen. En una foto (su fecha de
+    # captura), ni se guarda ni queda pendiente
+    def dated(name: str) -> tuple:
+        return db.execute(
+            "SELECT content_created_at, content_date_precision, content_date_source, "
+            "metadata_edit_pending FROM media_items WHERE file_name = ?",
+            (name,),
+        ).fetchone()
+
+    saved = {name: db.execute(
+        "SELECT media_type, content_created_at, content_date_precision, content_date_source, "
+        "copyright, metadata_edit_pending FROM media_items WHERE file_name = ?", (name,)
+    ).fetchone() for name in ("b.jpg", "c.jpg")}  # fmt: skip
+    db.execute("UPDATE media_items SET media_type = 'audio', content_date_source = 'id3' "
+               "WHERE file_name = 'b.jpg'")  # una canción, para la prueba
+    song_pending, photo = dated("b.jpg")[3], dated("c.jpg")
+    both = [ids["b.jpg"], ids["c.jpg"]]
+    assert update_metadata_fields(db, both, {"content_created_at": 1999}) == 1
+    assert dated("b.jpg") == ("1999-01-01 00:00:00", "year", "id3", song_pending | 4194304)
+    assert dated("c.jpg") == photo
+    # Con un campo de todos los tipos a la vez: cada uno, donde se aplica
+    assert update_metadata_fields(db, both, {"content_created_at": None, "copyright": "©"}) == 2
+    assert dated("b.jpg") == (None, None, None, song_pending | 4194304 | 8)
+    assert dated("c.jpg") == (*photo[:3], photo[3] | 8)
+    try:
+        update_metadata_fields(db, both, {"content_created_at": "1999"})
+        raise AssertionError("debía rechazar un año escrito como texto")
+    except TypeError:
+        pass
+    for name, row in saved.items():  # como estaban
+        db.execute(
+            "UPDATE media_items SET media_type = ?, content_created_at = ?, "
+            "content_date_precision = ?, content_date_source = ?, copyright = ?, "
+            "metadata_edit_pending = ? WHERE file_name = ?", (*row, name),
+        )  # fmt: skip
     titles = dict(db.execute("SELECT file_name, title FROM media_items"))
     assert titles == {"c.jpg": "c", "a.jpg": "a", "b.jpg": "b", "B2.jpg": "B2", "gone.jpg": "gone"}
 

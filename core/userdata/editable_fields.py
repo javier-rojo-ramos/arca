@@ -11,8 +11,9 @@ por su 'folder_key'). Lo que el escritor de un formato no sabe guardar va al '.a
 Un campo puede estar en 'media_items' o en una tabla de detalles ('table'), y no tener
 etiqueta XMP: el primero así es la ACTIVIDAD de un track ('track_details.activity_type').
 
-Cada campo editable (título, pie de ilustración, creador, copyright, ubicación, GPS y la
-actividad de los tracks) es una línea de 'EDITABLE_FIELDS', y de esa línea sale todo lo demás:
+Cada campo editable (título, pie de ilustración, creador, copyright, ubicación, GPS, la
+actividad de los tracks y los campos de las canciones) es una línea de 'EDITABLE_FIELDS', y
+de esa línea sale todo lo demás:
     - 'update_metadata_fields' (core/catalog/media_queries.py) guarda el valor en su
       columna (de 'media_items' o de su tabla de detalles) y pone el BIT del campo en
       'media_items.metadata_edit_pending' (pendiente de escribir en el archivo);
@@ -39,6 +40,14 @@ en docs/METADATOS.md):
       el nombre del archivo sin extensión ('default_title'), y un título igual a ese nombre
       cuenta como «sin título» ('file_title'): es lo que se escribe en el archivo y lo que
       muestra el inspector (vacío, en lugar de «IMG_0001»).
+    - El AÑO de una canción (MUS 7.1a) está en la columna de la fecha, que en las fotos y
+      los vídeos es la de captura: por eso es solo de las canciones ('media_types') y
+      todo lo que guarda un campo editable mira a qué tipos se aplica ('applies_sql',
+      'applies_to'). Se edita como un año (el autor, 28/11/2026: «el año en música es
+      simplemente un año»): el 1 de enero de ese año, con precisión 'year'. Su precisión
+      y su origen VAN CON ÉL ('LINKED_COLUMNS', 'linked_values'): se guardan al editarlo
+      y lo leído del archivo no los pisa mientras está pendiente. En el '.arca.json',
+      el año como número ("year": 1999; 'folder_value').
 
 Cómo añadir un campo:
     1. Una línea más en 'EDITABLE_FIELDS' con un BIT NUEVO (el doble del último). Un bit
@@ -51,6 +60,10 @@ Cómo añadir un campo:
     3. La clave del '.arca.json' tampoco se cambia después: está en los archivos de los
        usuarios.
 
+1.5.0 El año de las canciones, editable (MUS 7.1a): tipo YEAR, en 'content_created_at'
+      (bit 4194304) y solo de las canciones, con su precisión y su origen
+      ('LINKED_COLUMNS', 'linked_values', 'GUARDED_MAIN_COLUMNS'; 'unless_pending_sql'
+      vale también para ellas); 'applies_to' y 'folder_value'.
 1.4.0 Los campos de las canciones sin columna común, en 'audio_details' y solo de las
       canciones: álbum, artista del álbum, pista y total, disco y total, género y
       compositor (bits 16384 a 2097152; MUS 6.2b). Tipo nuevo, INTEGER (entero positivo),
@@ -69,25 +82,31 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.editable_fields
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "ALL_EDIT_BITS",
     "EDITABLE_COLUMNS",
     "EDITABLE_FIELDS",
+    "GUARDED_MAIN_COLUMNS",
     "INTEGER",
+    "LINKED_COLUMNS",
     "MAIN_COLUMNS",
     "MAIN_TABLE",
     "NUMBER",
     "PAIRED_COLUMNS",
     "TEXT",
     "XMP_COLUMNS",
+    "YEAR",
     "EditableField",
     "applies_sql",
+    "applies_to",
     "bits_for",
     "default_title",
     "field_for",
     "file_title",
+    "folder_value",
     "incomplete_pairs",
+    "linked_values",
     "normalize_value",
     "pending_columns",
     "read_sql",
@@ -106,6 +125,7 @@ from pathlib import Path
 TEXT = "text"
 NUMBER = "number"
 INTEGER = "integer"  # un entero positivo (la pista y el disco de una canción)
+YEAR = "year"  # un año, en una columna de fecha (el de una canción)
 
 # La tabla de los elementos: la de los campos comunes y la que lleva las marcas de pendiente
 MAIN_TABLE = "media_items"
@@ -127,8 +147,8 @@ class EditableField:
             ya las tiene. En los numéricos (GPS), su etiqueta EXIF.
         folder_key: Clave del valor en la entrada del archivo de carpeta ('.arca.json').
         multiline: True si admite saltos de línea (el pie de ilustración).
-        kind: TEXT (texto), NUMBER (número decimal: el GPS) o INTEGER (entero positivo:
-            la pista y el disco).
+        kind: TEXT (texto), NUMBER (número decimal: el GPS), INTEGER (entero positivo:
+            la pista y el disco) o YEAR (un año en una columna de fecha: el de una canción).
         limits: En los numéricos, (mínimo, máximo) admitidos; None = sin límites.
         circular: En los numéricos con límites, True si el valor da la vuelta (la
             dirección: 360° = 0°, −90° = 270°) en lugar de rechazarse.
@@ -240,17 +260,40 @@ EDITABLE_FIELDS: tuple[EditableField, ...] = (
     EditableField(
         "composer", 2097152, "", (), "composer", table="audio_details", media_types=("audio",)
     ),
+    # El año de una canción (MUS 7.1a): en la columna de la fecha de 'media_items' (en las
+    # fotos y los vídeos, la de captura, que no se edita), solo de las canciones y como un
+    # año. Su precisión y su origen van con él ('LINKED_COLUMNS')
+    EditableField(
+        "content_created_at", 4194304, "", (), "year", kind=YEAR, media_types=("audio",),
+    ),
 )  # fmt: skip
 
 # Columnas que se editan siempre juntas (una sola caja del inspector, «GPS»): o las dos
 # con valor, o las dos vacías. Media pareja no es una ubicación.
 PAIRED_COLUMNS: tuple[tuple[str, str], ...] = (("latitude", "longitude"),)
 
+# Columnas que van con un campo editable (no son campos: no tienen bit ni van al archivo):
+# se guardan al editarlo ('linked_values') y, mientras está pendiente, lo leído del archivo
+# no las pisa ('unless_pending_sql'). La precisión y el origen de la fecha van con el año
+LINKED_COLUMNS: dict[str, tuple[str, ...]] = {
+    "content_created_at": ("content_date_precision", "content_date_source"),
+}
+# Cada una, con el campo con el que va
+_LINKED_OWNER: dict[str, str] = {
+    linked: owner for owner, columns in LINKED_COLUMNS.items() for linked in columns
+}
+
 # Columnas editables, en el mismo orden
 EDITABLE_COLUMNS: tuple[str, ...] = tuple(spec.column for spec in EDITABLE_FIELDS)
 
 # Las que están en 'media_items' (las demás, cada una en su tabla de detalles)
 MAIN_COLUMNS: tuple[str, ...] = tuple(spec.column for spec in EDITABLE_FIELDS if spec.table is None)
+
+# Las de 'media_items' que lo leído de un archivo no pisa si su campo está pendiente: las
+# editables y las que van con ellas ('unless_pending_sql' en el procesador)
+GUARDED_MAIN_COLUMNS: frozenset[str] = frozenset(MAIN_COLUMNS) | frozenset(
+    linked for owner in MAIN_COLUMNS for linked in LINKED_COLUMNS.get(owner, ())
+)
 
 # Las que sabe guardar el escritor de XMP (las que tienen etiqueta)
 XMP_COLUMNS: tuple[str, ...] = tuple(spec.column for spec in EDITABLE_FIELDS if spec.xmp_tag)
@@ -264,6 +307,10 @@ _BY_COLUMN: dict[str, EditableField] = {spec.column: spec for spec in EDITABLE_F
 # líneas) y el tabulador. Los demás (NUL, retroceso...) no tienen sentido en un texto y
 # podrían romper el archivo de argumentos de ExifTool.
 _KEPT_CONTROLS = frozenset("\n\t")
+
+# Los años que valen: cuatro cifras («0000» es lo que escriben algunos programas sin dato)
+_FIRST_YEAR = 1000
+_LAST_YEAR = 9999
 
 
 def field_for(column: str) -> EditableField:
@@ -316,11 +363,14 @@ def unless_pending_sql(column: str) -> str:
 
     Ejemplo: 'title = CASE WHEN metadata_edit_pending & 1 THEN title ELSE ? END'.
 
+    Vale también para una columna que va con un campo ('LINKED_COLUMNS'): se protege con
+    el bit de ese campo (la precisión de la fecha, con el del año).
+
     Raises:
-        ValueError: Si la columna no es editable (así el nombre es siempre de la lista
-            cerrada y se puede poner en el SQL sin riesgo).
+        ValueError: Si la columna no es editable ni va con un campo editable (así el
+            nombre es siempre de la lista cerrada y se puede poner en el SQL sin riesgo).
     """
-    spec = field_for(column)
+    spec = field_for(_LINKED_OWNER.get(column, column))
     return f"{column} = CASE WHEN {_pending_sql(spec)} THEN {column} ELSE ? END"
 
 
@@ -361,10 +411,47 @@ def applies_sql(column: str) -> tuple[str, tuple[str, ...]]:
     return f" AND media_type IN ({', '.join('?' * len(types))})", types
 
 
+def applies_to(column: str, media_type: str | None) -> bool:
+    """True si un campo editable se aplica a ese tipo de archivo ('audio', 'image'...).
+
+    Raises:
+        ValueError: Si la columna no es editable.
+    """
+    types = field_for(column).media_types
+    return not types or media_type in types
+
+
+def linked_values(column: str, value: object) -> dict[str, str | None]:
+    """Lo que se guarda, junto a un campo editable ya normalizado, en las columnas que van
+    con él ('LINKED_COLUMNS'): con un año, su precisión ('year'; el origen se queda como
+    estaba); sin año, ni precisión ni origen (una fecha que no está no sale de ningún
+    sitio). Vacío si no tiene ninguna."""
+    if column not in LINKED_COLUMNS:
+        return {}
+    if value is None:
+        return dict.fromkeys(LINKED_COLUMNS[column])
+    return {"content_date_precision": "year"}
+
+
+def folder_value(column: str, value: object) -> object:
+    """Un valor ya normalizado tal como se guarda en el '.arca.json': el año, como número
+    (1999); los demás, tal cual ('normalize_value' lo devuelve a la columna al leerlo).
+
+    Raises:
+        ValueError: Si la columna no es editable.
+    """
+    if field_for(column).kind == YEAR and isinstance(value, str):
+        return int(value[:4])
+    return value
+
+
 def normalize_value(column: str, value: object) -> str | float | int | None:
     """Valor editado tal como se guarda: texto limpio o número, o None si queda vacío.
 
     Entero (la pista, el disco): un int positivo; vacío, None ('_normalize_integer').
+
+    Año (el de una canción): un int de cuatro cifras, como la fecha de su 1 de enero
+    («1999-01-01 00:00:00», el formato de la columna); vacío, None ('_normalize_year').
 
     Texto:
     - Los finales de línea pasan a ser '\\n'; en un campo de una línea, cada salto de
@@ -391,6 +478,8 @@ def normalize_value(column: str, value: object) -> str | float | int | None:
         return _normalize_number(spec, value)
     if spec.kind == INTEGER:
         return _normalize_integer(spec, value)
+    if spec.kind == YEAR:
+        return _normalize_year(spec, value)
     if value is None:
         return None
     if not isinstance(value, str):
@@ -435,6 +524,19 @@ def _normalize_integer(spec: EditableField, value: object) -> int | None:
     if value <= 0:
         raise ValueError(f"{spec.column!r} debe ser un número positivo: {value}")
     return value
+
+
+def _normalize_year(spec: EditableField, value: object) -> str | None:
+    """Valor de un año: la fecha de su 1 de enero, o None si está vacío. Como en el GPS, un
+    año escrito como texto ('1999') no se acepta: lo que escribe el usuario lo interpreta
+    el inspector."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"Valor no válido para {spec.column!r}: {value!r} (se esperaba un año)")
+    if not _FIRST_YEAR <= value <= _LAST_YEAR:
+        raise ValueError(f"{spec.column!r} debe ser un año de cuatro cifras: {value}")
+    return f"{value:04d}-01-01 00:00:00"
 
 
 def incomplete_pairs(values: Mapping[str, object]) -> tuple[tuple[str, str], ...]:
@@ -483,7 +585,7 @@ if __name__ == "__main__":
     # 1. Bits: potencias de 2 distintas; columnas y claves sin repetir
     bits = [spec.bit for spec in EDITABLE_FIELDS]
     assert all(bit > 0 and bit & (bit - 1) == 0 for bit in bits), bits
-    assert len(set(bits)) == len(bits) and ALL_EDIT_BITS == sum(bits) == (1 << 22) - 1
+    assert len(set(bits)) == len(bits) and ALL_EDIT_BITS == sum(bits) == (1 << 23) - 1
     assert len(set(EDITABLE_COLUMNS)) == len(EDITABLE_COLUMNS)
     assert len({spec.folder_key for spec in EDITABLE_FIELDS}) == len(EDITABLE_FIELDS)
     # Las claves de los datos del usuario que ya están en el '.arca.json' no se reutilizan
@@ -508,16 +610,18 @@ if __name__ == "__main__":
             assert spec.kind == NUMBER and sources[spec.column][0] == spec.xmp_tag, spec.column
             assert len(spec.legacy_tags) == 1 and spec.legacy_tags[0].startswith("GPS:"), spec
     print("Etiquetas: las mismas que la lectura de imagen (IMAGE_FIELDS)")
-    # Los campos de imagen de siempre están en 'media_items', con XMP y para todos los tipos
-    assert MAIN_COLUMNS == XMP_COLUMNS == EDITABLE_COLUMNS[:13]
-    assert all(not field_for(c).media_types for c in MAIN_COLUMNS)
+    # Los campos de imagen de siempre están en 'media_items', con XMP y para todos los
+    # tipos; el año de las canciones, también en 'media_items', pero solo de ellas
+    assert XMP_COLUMNS == EDITABLE_COLUMNS[:13]
+    assert MAIN_COLUMNS == (*XMP_COLUMNS, "content_created_at")
+    assert all(not field_for(c).media_types for c in XMP_COLUMNS)
     # La actividad: en su tabla de detalles, sin XMP y solo de los tracks
     activity = field_for("activity_type")
     assert (activity.table, activity.xmp_tag, activity.folder_key) == ("track_details", "", "activity")
     assert activity.media_types == ("track",) and activity.bit == 8192
     # Los de las canciones: en 'audio_details', sin XMP y solo de las canciones; la pista y
     # el disco, enteros
-    audio_columns = EDITABLE_COLUMNS[14:]
+    audio_columns = EDITABLE_COLUMNS[14:-1]
     assert audio_columns == (
         "album", "album_artist", "track_number", "track_total", "disc_number", "disc_total",
         "genre", "composer",
@@ -657,6 +761,61 @@ if __name__ == "__main__":
             pass
     assert normalize_value("album", "  Destrangis ") == "Destrangis"
     print("Enteros de la pista y el disco: positivos")
+
+    # 4b''. El año de una canción: solo de las canciones, como la fecha de su 1 de enero;
+    #       su precisión y su origen van con él; en el '.arca.json', como número
+    year = field_for("content_created_at")
+    assert (year.kind, year.bit, year.folder_key, year.table, year.xmp_tag) == (
+        YEAR, 4194304, "year", None, ""
+    )  # fmt: skip
+    assert applies_to("content_created_at", "audio") and not applies_to("content_created_at", "image")
+    assert applies_to("city", "image") and applies_to("album", "audio") and not applies_to("album", "video")
+    assert normalize_value("content_created_at", 1999) == "1999-01-01 00:00:00"
+    assert normalize_value("content_created_at", 1000) == "1000-01-01 00:00:00"
+    for empty in (None, "", "  "):
+        assert normalize_value("content_created_at", empty) is None
+    for bad, error in (((999,), ValueError), ((10000,), ValueError), ((0,), ValueError),
+                       (("1999",), TypeError), ((1999.0,), TypeError), ((True,), TypeError)):  # fmt: skip
+        try:
+            normalize_value("content_created_at", *bad)
+            raise AssertionError(f"debía rechazar {bad}")
+        except error:
+            pass
+    assert linked_values("content_created_at", "1999-01-01 00:00:00") == {
+        "content_date_precision": "year"
+    }  # fmt: skip
+    assert linked_values("content_created_at", None) == {
+        "content_date_precision": None, "content_date_source": None
+    }  # fmt: skip
+    assert linked_values("title", "x") == {} and linked_values("album", None) == {}
+    assert folder_value("content_created_at", "1999-01-01 00:00:00") == 1999
+    assert folder_value("content_created_at", None) is None and folder_value("city", "León") == "León"
+    # De ida y vuelta por el '.arca.json'
+    assert normalize_value("content_created_at", folder_value("content_created_at", "1999-01-01 00:00:00")) == (
+        "1999-01-01 00:00:00"
+    )  # fmt: skip
+    # Lo leído del archivo no pisa la fecha ni su precisión ni su origen si el año está
+    # pendiente; las demás columnas, sí
+    assert GUARDED_MAIN_COLUMNS == frozenset(MAIN_COLUMNS) | {"content_date_precision", "content_date_source"}
+    db = sqlite3.connect(":memory:")
+    db.execute(
+        "CREATE TABLE media_items (id INTEGER, content_created_at TEXT, content_date_precision TEXT, "
+        "content_date_source TEXT, duration REAL, metadata_edit_pending INTEGER)"
+    )
+    db.executemany(
+        "INSERT INTO media_items VALUES (?, '1999-01-01 00:00:00', 'year', 'id3', 1.0, ?)",
+        [(1, 0), (2, 4194304)],
+    )
+    columns = ("content_created_at", "content_date_precision", "content_date_source")
+    sets = ", ".join(unless_pending_sql(column) for column in columns)
+    db.execute(f"UPDATE media_items SET {sets}, duration = 2.0", ("2001-05-04 00:00:00", "day", "mp4"))
+    rows = {r[0]: r[1:] for r in db.execute("SELECT * FROM media_items")}
+    assert rows == {
+        1: ("2001-05-04 00:00:00", "day", "mp4", 2.0, 0),
+        2: ("1999-01-01 00:00:00", "year", "id3", 2.0, 4194304),
+    }, rows  # fmt: skip
+    db.close()
+    print("El año de las canciones: un año, con su precisión y su origen")
 
     # 4c. La latitud y la longitud, siempre juntas
     assert incomplete_pairs({"title": "x"}) == ()

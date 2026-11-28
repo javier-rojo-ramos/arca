@@ -32,7 +32,9 @@ Formato (versión 1):
       clave solo está si el campo se ha EDITADO, y entonces su valor manda siempre sobre
       lo que traiga el archivo (que la aplicación no modifica). "" = vaciado a propósito.
       El GPS (desde el 11/11/2026: "latitude", "longitude", "altitude", "gps_direction")
-      va como número; la latitud y la longitud, siempre juntas.
+      va como número; la latitud y la longitud, siempre juntas. El año de una canción
+      (desde el 28/11/2026, «"year"», solo en los formatos cuyas etiquetas no se escriben:
+      WAV y AIFF), también como número: «"year": 1999».
 
     - Las claves de 'items' son el NOMBRE del archivo (sin carpeta), tal como está en
       disco. En Windows y macOS (que no distinguen mayúsculas), si no hay coincidencia
@@ -52,6 +54,8 @@ Seguridad al escribir ('write_folder_file'):
     Los tres archivos empiezan por punto (el escáner los ignora) y en Windows se marcan
     además como ocultos.
 
+1.6.0 El año de las canciones (MUS 7.1a), como número («"year": 1999»: 'merge_entry'
+      con 'editable_fields.folder_value').
 1.5.0 El GPS editado (números): 'edited_values_from_entry' descarta lo que no vale (un
       texto, una latitud imposible, media pareja), como si la clave no estuviera.
 1.4.0 'merge_entry' escribe los metadatos editados (vaciado = ""). Autoprueba: el
@@ -63,7 +67,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.folder_file
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = [
     "BACKUP_FILE_NAME",
     "FOLDER_FILE_NAME",
@@ -95,7 +99,12 @@ from loguru import logger
 
 # Módulos del proyecto
 from core.catalog.color_labels import is_valid_color_label
-from core.userdata.editable_fields import EDITABLE_FIELDS, incomplete_pairs, normalize_value
+from core.userdata.editable_fields import (
+    EDITABLE_FIELDS,
+    folder_value,
+    incomplete_pairs,
+    normalize_value,
+)
 
 # Nombres de los archivos (empiezan por punto: ocultos en macOS y Linux, y el escáner
 # de carpetas los ignora)
@@ -363,7 +372,7 @@ def merge_entry(
     # valor manda sobre lo que traiga el archivo
     for spec in edited:
         value = values[spec.column]
-        merged[spec.folder_key] = "" if value is None else value
+        merged[spec.folder_key] = "" if value is None else folder_value(spec.column, value)
 
     if not merged:
         return None

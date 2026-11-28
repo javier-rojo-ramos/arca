@@ -21,22 +21,25 @@ La tabla (docs/MOD_MUSICA.md §3 y §5; acordada con el autor el 16 y el 28/11/2
     disc_number, disc_total     disc                 TPOS
     genre                       genre                TCON
     composer                    composer             TCOM
+    content_created_at          date                 TDRC (v2.4) o TYER (v2.3): el año,
+                                                     «1999» (MUS 7.1a)
 
 Es la misma correspondencia con la que el extractor guarda lo leído
-('core/metadata/audio/extractor.py'). El año ('content_created_at') no es editable todavía:
-con MUS 7.1, y como un año (el autor, 28/11/2026).
+('core/metadata/audio/extractor.py'). El año ('content_created_at', la fecha de su 1 de
+enero) se escribe como un año (el autor, 28/11/2026): «1999».
 
 Una PAREJA (la pista y su total, el disco y el suyo) va siempre entera: si está pendiente
 una de las dos columnas, se escribe la pareja con los valores del catálogo de las dos. Sin
 número no se guarda el total (ID3 solo admite «3/12» o «3»; decidido el 28/11/2026).
 
+1.1.0 El año ('content_created_at' -> 'date', como «1999»; MUS 7.1a).
 1.0.0 Primera versión (28/11/2026; docs/MOD_MUSICA.md, paso MUS 6.2b).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.audio_fields
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["AUDIO_TAG_COLUMNS", "tag_changes"]
 
 # Librerías estándar
@@ -58,13 +61,17 @@ _PAIR_COLUMNS: dict[str, tuple[str, str]] = {
     "track": ("track_number", "track_total"),
     "disc": ("disc_number", "disc_total"),
 }
+# Columna de fecha -> su campo (el año de una canción: se escribe como un año)
+_YEAR_COLUMNS: dict[str, str] = {"content_created_at": "date"}
 # Columna de una pareja -> su campo
 _PAIR_OF: dict[str, str] = {
     column: key for key, columns in _PAIR_COLUMNS.items() for column in columns
 }
 
 # Las columnas editables que van a las etiquetas de una canción
-AUDIO_TAG_COLUMNS: frozenset[str] = frozenset(_SINGLE_COLUMNS) | frozenset(_PAIR_OF)
+AUDIO_TAG_COLUMNS: frozenset[str] = (
+    frozenset(_SINGLE_COLUMNS) | frozenset(_PAIR_OF) | frozenset(_YEAR_COLUMNS)
+)
 
 
 def tag_changes(wanted: Mapping[str, Any], metadata: Mapping[str, Any]) -> dict[str, Any]:
@@ -82,6 +89,9 @@ def tag_changes(wanted: Mapping[str, Any], metadata: Mapping[str, Any]) -> dict[
     for column, value in wanted.items():
         if column in _SINGLE_COLUMNS:
             changes[_SINGLE_COLUMNS[column]] = value
+        elif column in _YEAR_COLUMNS:
+            # La fecha de su 1 de enero («1999-01-01 00:00:00»), como un año: «1999»
+            changes[_YEAR_COLUMNS[column]] = None if value is None else str(value)[:4]
         elif column in _PAIR_OF:
             key = _PAIR_OF[column]
             number_column, total_column = _PAIR_COLUMNS[key]
@@ -105,10 +115,10 @@ if __name__ == "__main__":
         assert tag_field(key).kind != PAIR, key
     for key in _PAIR_COLUMNS:
         assert tag_field(key).kind == PAIR, key
-    # Todos los campos de las etiquetas tienen su columna, salvo el año (con MUS 7.1)
-    covered = set(_SINGLE_COLUMNS.values()) | set(_PAIR_COLUMNS)
-    assert covered == {field.key for field in TAG_FIELDS} - {"date"}, covered
-    assert len(AUDIO_TAG_COLUMNS) == 11
+    # Todos los campos de las etiquetas tienen su columna (el año, desde MUS 7.1a)
+    covered = set(_SINGLE_COLUMNS.values()) | set(_PAIR_COLUMNS) | set(_YEAR_COLUMNS.values())
+    assert covered == {field.key for field in TAG_FIELDS}, covered
+    assert len(AUDIO_TAG_COLUMNS) == 12
 
     # --- Lo pendiente, como «lo editado»
     metadata = {
@@ -130,5 +140,8 @@ if __name__ == "__main__":
     assert tag_changes({"description": "Primer disco", "genre": None}, metadata) == {
         "comment": "Primer disco", "genre": None,
     }  # fmt: skip
+    # El año, como un año; vaciado, None
+    assert tag_changes({"content_created_at": "1999-01-01 00:00:00"}, metadata) == {"date": "1999"}
+    assert tag_changes({"content_created_at": None}, metadata) == {"date": None}
 
     print("Autoprueba finalizada correctamente.")
