@@ -1,4 +1,4 @@
-"""Escritor de las etiquetas de las canciones en la cola de escritura (hoy, los MP3).
+"""Escritor de las etiquetas de las canciones en la cola de escritura (MP3, FLAC, Ogg, Opus).
 
 Este módulo NO depende de Qt ni de la base de datos. Une la cola de escritura
 ('sync.write_pending_user_data', que reparte los archivos pendientes entre los escritores
@@ -28,13 +28,15 @@ Por cada canción (docs/MOD_MUSICA.md §5, MUS 6.2b):
     - Si se cancela el trabajo: lo que falte, 'deferred'.
 Nunca lanza una excepción por una canción.
 
+1.0.1 Escribe también FLAC, Ogg y Opus: los atiende el motor (MUS 6.3b); aquí solo cambia
+      la documentación.
 1.0.0 Primera versión (28/11/2026; docs/MOD_MUSICA.md, paso MUS 6.2b).
 
 Prueba (la de 'sync.py' lo ejercita de ida y vuelta, con un MP3):
     python -m core.userdata.sync
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["AudioFileWriter"]
 
 # Librerías estándar

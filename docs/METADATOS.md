@@ -114,7 +114,7 @@ Del lector de GPX (`core/metadata/track/`, sin ExifTool), en el orden de la secc
 | Compositor | `audio_details.composer` | `TCOM` | `COMPOSER` | `©wrt` | Insp. «Compositor»; Colección y Filtro «Compositor»; «Texto» | ² |
 | Comentario | `description` | `COMM` sin descripción | `COMMENT` (o `DESCRIPTION`) | `©cmt` | Insp. «Comentario»; Colección «Descripción» | ² |
 
-² Desde `MUS 7`, en el inspector. Desde `MUS 6.2b` (28/11/2026), lo editado de un MP3 se escribe en su etiqueta, sin copias (`core/userdata/audio_writer.py`, con la tabla de `core/userdata/audio_fields.py`), y la valoración, la marca, el color, las palabras clave y lo demás siguen en su `.arca.json`; en FLAC, M4A y Ogg, todo en el `.arca.json` hasta `MUS 6.3` y `6.4`. El año, con `MUS 7.1`, como un año.
+² Desde `MUS 7`, en el inspector. Desde `MUS 6.2b` (28/11/2026), lo editado de un MP3 se escribe en su etiqueta, sin copias (`core/userdata/audio_writer.py`, con la tabla de `core/userdata/audio_fields.py`), y la valoración, la marca, el color, las palabras clave y lo demás siguen en su `.arca.json`; desde `MUS 6.3b`, también en FLAC, Ogg y Opus (sus comentarios Vorbis: `core/audio/vorbis_writer.py`); en M4A, todo en el `.arca.json` hasta `MUS 6.4`. El año, con `MUS 7.1`, como un año.
 
 Los datos técnicos y la carátula los da mutagen en todos los formatos (`core/audio/tag_reader.py`):
 

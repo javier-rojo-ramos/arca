@@ -2,8 +2,8 @@
 
 Este módulo NO depende de Qt ni de la base de datos: recibe una ruta y lo editado, y deja el
 archivo con lo editado o como estaba. Es el motor del escritor de audio de la cola de
-escritura ('core/userdata/audio_writer.py', MUS 6.2). Hoy escribe MP3 (ID3v2 e ID3v1);
-FLAC, M4A y Ogg, en MUS 6.3b y 6.4.
+escritura ('core/userdata/audio_writer.py', MUS 6.2). Hoy escribe MP3 (ID3v2 e ID3v1), FLAC,
+Ogg Vorbis y Opus (comentarios Vorbis); M4A, en MUS 6.4.
 
     result = write_tags(path, {"title": "Vino Tinto", "track": (3, 12)}, preferred)
     result.written         # False si ya tenía esos valores (el archivo no se toca)
@@ -15,7 +15,8 @@ vaciar; lo que no vale es 'ValueError' o 'TypeError').
 
 DOS PARTES (MUS 6.3a): aquí, el recorrido común de toda escritura; lo propio de cada familia
 de etiquetas, en su módulo, con la interfaz 'write_base.FormatWriter': 'id3_writer.py' (el
-MP3). Una familia nueva es un módulo y una línea en '_FORMAT_WRITERS'.
+MP3) y 'vorbis_writer.py' (FLAC, Ogg Vorbis y Opus). Una familia nueva es un módulo y una
+línea en '_FORMAT_WRITERS'.
 
 CÓMO ESCRIBE (docs/MOD_MUSICA.md §5; reglas acordadas con el autor el 16 y el 27/11/2026):
     1. La familia del archivo ('_FORMAT_WRITERS'); si no hay ninguna, 'UnsupportedAudioWriteError'.
@@ -34,6 +35,7 @@ CÓMO ESCRIBE (docs/MOD_MUSICA.md §5; reglas acordadas con el autor el 16 y el 
 Si algo falla, el original queda como estaba, el temporal se borra y se lanza
 'AudioWriteError'. La fecha de modificación del archivo cambia, como con las fotos.
 
+1.2.0 La familia Vorbis: FLAC, Ogg Vorbis y Opus ('vorbis_writer.py', MUS 6.3b).
 1.1.0 En dos partes (MUS 6.3a): el recorrido común, aquí; lo del MP3, a 'id3_writer.py'; lo
       que comparten, a 'write_base.py'. Nada cambia en lo que hace.
 1.0.0 Primera versión (27/11/2026; docs/MOD_MUSICA.md, paso MUS 6.1c).
@@ -42,7 +44,7 @@ Prueba rápida (desde la raíz del proyecto; crea MP3 mínimos en una carpeta te
     python -m core.audio.tag_writer
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["AudioWriteError", "TagWriteResult", "UnsupportedAudioWriteError", "write_tags"]
 
 # Librerías estándar
@@ -61,6 +63,7 @@ from loguru import logger
 from core.audio.id3_writer import Id3Writer
 from core.audio.tag_reader import AudioReadError, UnsupportedAudioError, open_audio, tag_set_of
 from core.audio.tag_set import DEFAULT_MP3_TAGS, TagSet, tags_for_edit
+from core.audio.vorbis_writer import VorbisWriter
 from core.audio.write_base import (
     WRITE_ERRORS,
     AudioWriteError,
@@ -83,7 +86,7 @@ _REPLACEFILE_IGNORE_MERGE_ERRORS = 0x00000002
 _TRANSIENT_WINERRORS: frozenset[int] = frozenset({5, 32, 33})
 
 # Las familias de etiquetas que se escriben, cada una con lo suyo ('write_base.FormatWriter')
-_FORMAT_WRITERS: tuple[FormatWriter, ...] = (Id3Writer(),)
+_FORMAT_WRITERS: tuple[FormatWriter, ...] = (Id3Writer(), VorbisWriter())
 
 
 class _VerifyError(AudioWriteError):
@@ -126,7 +129,7 @@ def write_tags(
     writer = next((family for family in _FORMAT_WRITERS if family.handles(audio)), None)
     if writer is None:
         raise UnsupportedAudioWriteError(
-            f"Todavía no se escriben las etiquetas de «{path.name}» (solo las de los MP3)"
+            f"Todavía no se escriben las etiquetas de «{path.name}» (solo las de MP3, FLAC, Ogg Vorbis y Opus)"
         )
 
     current = tag_set_of(audio, path)
@@ -268,7 +271,8 @@ if __name__ == "__main__":
     import tempfile
     from dataclasses import replace
 
-    from mutagen.flac import FLAC
+    from mutagen._vorbis import VCommentDict
+    from mutagen.flac import FLAC, Picture
     from mutagen.id3 import (
         APIC,
         COMM,
@@ -287,6 +291,9 @@ if __name__ == "__main__":
         TYER,
         Encoding,
     )
+    from mutagen.ogg import OggPage
+    from mutagen.oggopus import OggOpus
+    from mutagen.oggvorbis import OggVorbis
 
     from core.audio import id3_writer
     from core.audio.id3v1 import ID3V1_SIZE, NO_GENRE, Id3v1Tag, build_id3v1, parse_id3v1
@@ -481,13 +488,12 @@ if __name__ == "__main__":
         assert AUDIO in v22.read_bytes()
 
         # --- 6. Lo que no vale y lo que no se escribe (el archivo, como estaba)
-        flac = root / "cancion.flac"
-        streaminfo = struct.pack(">HH", 4096, 4096) + bytes(6)
-        streaminfo += ((44100 << 44) | (1 << 41) | (15 << 36) | 88200).to_bytes(8, "big")
-        streaminfo += bytes(16)
-        flac.write_bytes(b"fLaC\x80" + len(streaminfo).to_bytes(3, "big") + streaminfo)
-        FLAC(flac)  # es un FLAC de verdad
-        expect_error(UnsupportedAudioWriteError, flac, {"title": "X"})
+        wav = root / "cancion.wav"  # un WAV: todavía no se escribe
+        fmt = struct.pack("<HHIIHH", 1, 2, 44100, 44100 * 4, 4, 16)
+        body = b"WAVE" + b"fmt " + struct.pack("<I", len(fmt)) + fmt
+        body += b"data" + struct.pack("<I", 400) + bytes(400)
+        wav.write_bytes(b"RIFF" + struct.pack("<I", len(body)) + body)
+        expect_error(UnsupportedAudioWriteError, wav, {"title": "X"})
         expect_error(AudioWriteError, root / "no_existe.mp3", {"title": "X"})
         for bad in ({"titulo": "X"}, {"date": "05/2001"}, {"date": "0000"}, {"track": (0, 1)},
                     {"track": "3/12"}, {"disc": (True, None)}):  # fmt: skip
@@ -549,6 +555,165 @@ if __name__ == "__main__":
         finally:
             id3_writer._audio_digest = real_digest
         assert v24.read_bytes() == content
+
+        # --- 7. Vorbis (MUS 6.3b): FLAC, Ogg Vorbis y Opus
+        streaminfo = struct.pack(">HH", 4096, 4096) + bytes(6)
+        streaminfo += ((44100 << 44) | (1 << 41) | (15 << 36) | 88200).to_bytes(8, "big")
+        streaminfo += bytes(16)
+        flac_audio = bytes(range(256)) * 8  # las «tramas» (mutagen no las mira)
+
+        def new_flac(name: str, comments: list[tuple[str, str]] | None) -> Path:
+            """Un FLAC mínimo, sin relleno (como los del autor), con una imagen y esos
+            comentarios, tal cual (None: sin bloque de comentarios)."""
+            flac_path = root / name
+            flac_path.write_bytes(
+                b"fLaC\x80" + len(streaminfo).to_bytes(3, "big") + streaminfo + flac_audio
+            )
+            flac = FLAC(flac_path)
+            picture = Picture()
+            picture.type, picture.mime, picture.data = 3, "image/jpeg", b"portada"
+            flac.add_picture(picture)
+            if comments is not None:
+                flac.add_tags()
+                flac.tags.extend(comments)
+            flac.save(padding=lambda info: 0)
+            return flac_path
+
+        def comments_of(tags: Any) -> dict[str, list[str]]:
+            """Los campos de unos comentarios Vorbis, con la clave como está escrita."""
+            found: dict[str, list[str]] = {}
+            for key, value in tags:
+                found.setdefault(key, []).append(value)
+            return found
+
+        # a) Un FLAC con otros nombres de los campos (los de foobar2000): se actualizan
+        #    también; vaciar quita todos; la imagen, el vendor y el audio, intactos
+        rich_flac = new_flac("rica.flac", [
+            ("TITLE", "Viejo"), ("Artist", "Estopa"), ("ALBUM ARTIST", "Varios"),
+            ("TRACKNUMBER", "03"), ("TOTALTRACKS", "12"), ("GENRE", "Rock"),
+            ("DESCRIPTION", "Nota"), ("ORGANIZATION", "Warner"),
+            ("REPLAYGAIN_TRACK_GAIN", "-6 dB"),
+        ])  # fmt: skip
+        vendor = FLAC(rich_flac).tags.vendor
+        result = write_tags(rich_flac, {
+            "title": "Nuevo", "artist": "Estopa", "album_artist": "Estopa", "track": (4, 15),
+            "genre": "Rock; Pop; Jazz", "comment": None,
+        })  # fmt: skip
+        assert result.written and result.tags_after == TagSet(vorbis=True), result
+        after_flac = FLAC(rich_flac)
+        found = comments_of(after_flac.tags)
+        assert found["TITLE"] == ["Nuevo"] and found["Artist"] == ["Estopa"], found
+        assert found["ALBUMARTIST"] == found["ALBUM ARTIST"] == ["Estopa"], found
+        assert found["TRACKNUMBER"] == ["4"], found
+        assert found["TRACKTOTAL"] == found["TOTALTRACKS"] == ["15"], found
+        assert found["GENRE"] == ["Rock", "Pop", "Jazz"], found
+        assert "DESCRIPTION" not in found and "COMMENT" not in found, found
+        assert found["ORGANIZATION"] == ["Warner"] and found["REPLAYGAIN_TRACK_GAIN"] == ["-6 dB"]
+        assert after_flac.tags.vendor == vendor
+        assert [picture.data for picture in after_flac.pictures] == [b"portada"]
+        assert rich_flac.read_bytes().endswith(flac_audio)
+        song = read_audio(rich_flac).tags
+        assert (song.title, song.album_artist, song.genre, song.comment) == (
+            "Nuevo", "Estopa", "Rock; Pop; Jazz", None
+        ), song  # fmt: skip
+        assert (song.track_number, song.track_total) == (4, 15), song
+        mtime = rich_flac.stat().st_mtime_ns  # lo mismo otra vez: no se toca
+        assert not write_tags(rich_flac, {"title": "Nuevo", "track": (4, 15)}).written
+        assert rich_flac.stat().st_mtime_ns == mtime
+
+        # b) «3/12» en la pista: se mantiene esa forma; sin total, fuera sus campos
+        slash = new_flac("barra.flac", [
+            ("TITLE", "Barra"), ("TRACKNUMBER", "3/12"), ("TRACKTOTAL", "12"),
+        ])  # fmt: skip
+        write_tags(slash, {"track": (5, 12)})
+        assert FLAC(slash).tags["TRACKNUMBER"] == ["5/12"]
+        assert FLAC(slash).tags["TRACKTOTAL"] == ["12"]
+        write_tags(slash, {"track": (5, None)})
+        assert FLAC(slash).tags["TRACKNUMBER"] == ["5"] and "TRACKTOTAL" not in FLAC(slash).tags
+        assert (read_audio(slash).tags.track_number, read_audio(slash).tags.track_total) == (
+            5, None
+        )  # fmt: skip
+
+        # c) Un FLAC sin bloque de comentarios: se le crea
+        bare_flac = new_flac("sin_comentarios.flac", None)
+        assert read_audio(bare_flac).tag_type == ""
+        result = write_tags(bare_flac, {"title": "Nuevo"})
+        assert result.tags_changed and read_audio(bare_flac).tag_type == "Vorbis"
+        assert read_audio(bare_flac).tags.title == "Nuevo"
+        assert FLAC(bare_flac).pictures[0].data == b"portada"
+        assert bare_flac.read_bytes().endswith(flac_audio)
+
+        # d) Ogg Vorbis y Opus mínimos: la cabecera de identificación en su página; los
+        #    comentarios (y la configuración) en las suyas, con -1 en las que no terminan
+        #    ningún paquete, como un codificador de verdad; 30 paquetes de «audio»
+        audio_packets = [bytes([number]) * 300 for number in range(30)]
+        vorbis_head = b"\x01vorbis" + struct.pack("<IBIiiiBB", 0, 2, 44100, 0, 128000, 0, 0xB8, 1)
+        vorbis_setup = b"\x05vorbis" + bytes(40)
+        opus_head = b"OpusHead" + struct.pack("<BBHIhB", 1, 2, 312, 48000, 0, 0)
+
+        def new_ogg(name: str, head: bytes, comments: VCommentDict, setup: bytes | None) -> Path:
+            """Un Ogg mínimo (Vorbis si lleva 'setup'; si no, Opus)."""
+            if setup is not None:
+                headers = [b"\x03vorbis" + comments.write(), setup]
+            else:
+                headers = [b"OpusTags" + comments.write(framing=False)]
+            first = OggPage()
+            first.packets, first.first, first.serial = [head], True, 7
+            pages = [first]
+            for page in OggPage.from_packets(headers, sequence=1):
+                page.serial, page.position = 7, 0 if page.complete else -1
+                pages.append(page)
+            sound = OggPage.from_packets(audio_packets, sequence=len(pages))
+            for number, page in enumerate(sound, start=1):
+                page.serial, page.position = 7, number * 960
+            sound[-1].last = True
+            ogg_path = root / name
+            ogg_path.write_bytes(b"".join(page.write() for page in [*pages, *sound]))
+            return ogg_path
+
+        def ogg_packets(ogg_path: Path) -> list[bytes]:
+            """Los paquetes de un Ogg (de su único flujo), leídos aparte."""
+            pages = []
+            with ogg_path.open("rb") as file:
+                while True:
+                    try:
+                        pages.append(OggPage(file))
+                    except EOFError:
+                        return OggPage.to_packets(pages)
+
+        ogg_comments = VCommentDict()
+        ogg_comments.vendor = "Xiph.Org libVorbis (prueba)"
+        ogg_comments["TITLE"] = ["Viejo"]
+        ogg_comments["ORGANIZATION"] = ["Warner"]
+        # Como la carátula de los Ogg del autor: en un campo, en varias páginas
+        ogg_comments["METADATA_BLOCK_PICTURE"] = ["A" * 20000]
+        ogg = new_ogg("cancion.ogg", vorbis_head, ogg_comments, vorbis_setup)
+        assert read_audio(ogg).tag_type == "Vorbis" and read_audio(ogg).tags.title == "Viejo"
+        before_packets = ogg_packets(ogg)
+        result = write_tags(ogg, {"title": "Ogg nuevo", "album": "Álbum", "artist": "A; B"})
+        assert result.written and not result.tags_changed, result
+        after_ogg = OggVorbis(ogg)
+        assert after_ogg.tags["TITLE"] == ["Ogg nuevo"] and after_ogg.tags["ARTIST"] == ["A", "B"]
+        assert after_ogg.tags["METADATA_BLOCK_PICTURE"] == ["A" * 20000]
+        assert after_ogg.tags["ORGANIZATION"] == ["Warner"]
+        assert after_ogg.tags.vendor == "Xiph.Org libVorbis (prueba)"
+        after_packets = ogg_packets(ogg)
+        # La identificación, la configuración y el audio, idénticos (los comentarios, no)
+        assert after_packets[0] == before_packets[0] and after_packets[2:] == before_packets[2:]
+        song = read_audio(ogg).tags
+        assert (song.title, song.artist, song.album) == ("Ogg nuevo", "A; B", "Álbum"), song
+
+        opus_comments = VCommentDict()
+        opus_comments.vendor = "libopus (prueba)"
+        opus_comments["TITLE"] = ["Viejo"]
+        opus = new_ogg("cancion.opus", opus_head, opus_comments, None)
+        assert isinstance(OggOpus(opus).tags, VCommentDict)
+        before_packets = ogg_packets(opus)
+        assert write_tags(opus, {"title": "Opus nuevo", "date": "2001"}).written
+        after_packets = ogg_packets(opus)
+        assert after_packets[0] == before_packets[0] and after_packets[2:] == before_packets[2:]
+        song = read_audio(opus).tags
+        assert (song.title, song.date) == ("Opus nuevo", "2001"), song
 
         # Ningún temporal se ha quedado en la carpeta
         leftovers = list(root.glob(f"*{_TEMP_SUFFIX}"))
