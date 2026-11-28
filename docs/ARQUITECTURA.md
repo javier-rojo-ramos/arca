@@ -295,7 +295,9 @@ core/
     tag_map.py                       ► TABLA campo ↔ etiqueta (ID3, Vorbis, MP4): TAG_FIELDS (la misma para leer y, desde MUS 6, para escribir), MULTI_VALUE_SEPARATOR («; »)
     tag_reader.py                      read_audio -> AudioInfo: campos (AudioTags), datos técnicos aparte (AudioTechnical), tipo de etiqueta e imágenes sin sus bytes (AudioPicture, con su tamaño leído con Pillow); tags_from_id3/vorbis/mp4, sin archivo
     id3v1.py                           El ID3v1 (los 128 bytes del final de un MP3): parse_id3v1, build_id3v1 y apply_changes (solo lo editado, adaptado a sus límites: Latin-1, 30 caracteres, género de la lista)
-    tag_writer.py                    ► ESCRIBIR las etiquetas de una canción (write_tags; hoy, MP3): temporal, ID3v2 sin convertir, ID3v1, comprobación (lo editado, lo demás, el audio) y sustitución conservando la fecha de creación; lo usará la cola de escritura (MUS 6.2)
+    tag_writer.py                    ► ESCRIBIR las etiquetas de una canción (write_tags): el recorrido común (la familia del archivo, en qué etiquetas, el temporal, comprobar y sustituir conservando la fecha de creación); lo usa la cola de escritura (core/userdata/audio_writer.py)
+    write_base.py                      Lo común a las familias de etiquetas: FormatWriter (la interfaz de una familia), PreparedWrite, TagWriteResult, los errores y clean_changes (lo editado, comprobado)
+    id3_writer.py                      La familia ID3 (MP3): Id3Writer, con el ID3v2 sin convertir, el ID3v1 y su comprobación (marco a marco y el audio)
     tag_set.py                       ► El TIPO DE ETIQUETA como dato (TagSet: «ID3v2.3 + ID3v1» y vuelta) y EN QUÉ ETIQUETAS SE ESCRIBE al editar (tags_for_edit: en las que tiene; si falta la principal, la preferida de las Opciones); sin mutagen
     picture_types.py                   Tipos de imagen de ID3 y FLAC (clave en inglés, texto en español, número; los que se ofrecen al elegir)
     codecs.py                          Los formatos del audio: CODEC_NAMES (clave de audio_details.codec -> nombre, «Ogg Vorbis») y codec_name; los usan el inspector y las colecciones inteligentes

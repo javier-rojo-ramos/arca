@@ -135,6 +135,7 @@ python -m core.audio.picture_types                            (tipos de imagen: 
 python -m core.audio.tag_map                                  (tabla campo ↔ etiqueta: completa y sin repetidos)
 python -m core.audio.tag_reader                               (con mutagen: crea un MP3 y un FLAC mínimos; ID3 v2.3, v2.4 y v1, APEv2, sin etiquetas, Vorbis, MP4 e imágenes en memoria; lo que no se lee)
 python -m core.audio.id3v1                                    (sin archivos: componer y leer el ID3v1, ida y vuelta; adaptar lo editado a sus límites; solo cambia lo editado)
+python -m core.audio.write_base                               (sin archivos: lo editado, comprobado y limpio; la interfaz de una familia)
 python -m core.audio.tag_writer                               (con mutagen: crea MP3 mínimos y escribe en ellos: ID3v2.3 con de todo, ID3v1 y APEv2; ID3v2.4; sin etiquetas; solo ID3v1; ID3v2.2; lo que no vale, solo lectura, marcos repetidos, el original que cambia y la comprobación que falla, sin tocar el original)
 python -m core.audio.tag_set                                  (sin mutagen: el texto del tipo de etiqueta, ida y vuelta, la tabla de en qué etiquetas se escribe al editar y la preferida de las Opciones)
 
