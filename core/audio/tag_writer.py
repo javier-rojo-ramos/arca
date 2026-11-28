@@ -35,6 +35,8 @@ CÓMO ESCRIBE (docs/MOD_MUSICA.md §5; reglas acordadas con el autor el 16 y el 
 Si algo falla, el original queda como estaba, el temporal se borra y se lanza
 'AudioWriteError'. La fecha de modificación del archivo cambia, como con las fotos.
 
+1.3.1 Autoprueba: varios valores escritos a mano («Rock;Pop;») y la pista y el disco con
+      dos cifras («04/12», MUS 7.1b).
 1.3.0 La familia MP4: M4A ('mp4_writer.py', MUS 6.4).
 1.2.0 La familia Vorbis: FLAC, Ogg Vorbis y Opus ('vorbis_writer.py', MUS 6.3b).
 1.1.0 En dos partes (MUS 6.3a): el recorrido común, aquí; lo del MP3, a 'id3_writer.py'; lo
@@ -46,7 +48,7 @@ carpeta temporal):
     python -m core.audio.tag_writer
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = ["AudioWriteError", "TagWriteResult", "UnsupportedAudioWriteError", "write_tags"]
 
 # Librerías estándar
@@ -378,7 +380,7 @@ if __name__ == "__main__":
         assert after["TIT2"].text == ["Vino Tinto"] and after["TIT2"].encoding == Encoding.UTF16
         assert "TALB" not in after and "TIME" not in after
         assert after["TYER"].text == ["2001"] and after["TDAT"].text == ["0706"]  # DDMM
-        assert after["TRCK"].text == ["4/12"]
+        assert after["TRCK"].text == ["04/12"]
         assert after["COMM::spa"].text == ["Nuevo"]  # el comentario, con su idioma
         edited = {"TIT2", "TALB", "TYER", "TDAT", "TIME", "TRCK"}
 
@@ -438,7 +440,7 @@ if __name__ == "__main__":
         assert after["TCON"].text == ["Rock", "Pop"] and after["TPE1"].text == ["A", "B"]
         assert after["TCON"].encoding == Encoding.UTF8
         assert str(after["TDRC"]) == "2001-05" and "TYER" not in after
-        assert after["TRCK"].text == ["3"] and after["TPOS"].text == ["1/2"]
+        assert after["TRCK"].text == ["03"] and after["TPOS"].text == ["01/2"]
         assert "TCOM" not in after and after["TIT2"].text == ["Hola"]
         song = read_audio(v24).tags
         assert (song.genre, song.artist, song.date) == ("Rock; Pop", "A; B", "2001-05"), song
@@ -473,7 +475,7 @@ if __name__ == "__main__":
         assert (after["TIT2"].text, after["TPE1"].text, after["TALB"].text) == (
             ["Moderna"], ["Artista"], ["Álbum"]
         )  # fmt: skip
-        assert after["TYER"].text == ["1999"] and after["TRCK"].text == ["5"]
+        assert after["TYER"].text == ["1999"] and after["TRCK"].text == ["05"]
         assert after["TCON"].text == ["Rock"]  # el nombre, no el número del ID3v1
         comments = [(frame.desc, frame.text) for frame in after.getall("COMM")]
         assert comments == [("", ["Comentario v1"])], comments
@@ -609,7 +611,7 @@ if __name__ == "__main__":
         found = comments_of(after_flac.tags)
         assert found["TITLE"] == ["Nuevo"] and found["Artist"] == ["Estopa"], found
         assert found["ALBUMARTIST"] == found["ALBUM ARTIST"] == ["Estopa"], found
-        assert found["TRACKNUMBER"] == ["4"], found
+        assert found["TRACKNUMBER"] == ["04"], found
         assert found["TRACKTOTAL"] == found["TOTALTRACKS"] == ["15"], found
         assert found["GENRE"] == ["Rock", "Pop", "Jazz"], found
         assert "DESCRIPTION" not in found and "COMMENT" not in found, found
@@ -631,13 +633,16 @@ if __name__ == "__main__":
             ("TITLE", "Barra"), ("TRACKNUMBER", "3/12"), ("TRACKTOTAL", "12"),
         ])  # fmt: skip
         write_tags(slash, {"track": (5, 12)})
-        assert FLAC(slash).tags["TRACKNUMBER"] == ["5/12"]
+        assert FLAC(slash).tags["TRACKNUMBER"] == ["05/12"]
         assert FLAC(slash).tags["TRACKTOTAL"] == ["12"]
         write_tags(slash, {"track": (5, None)})
-        assert FLAC(slash).tags["TRACKNUMBER"] == ["5"] and "TRACKTOTAL" not in FLAC(slash).tags
+        assert FLAC(slash).tags["TRACKNUMBER"] == ["05"] and "TRACKTOTAL" not in FLAC(slash).tags
         assert (read_audio(slash).tags.track_number, read_audio(slash).tags.track_total) == (
             5, None
         )  # fmt: skip
+        # Varios valores escritos a mano, con «;» sin espacio y al final (MUS 7.1b)
+        write_tags(slash, {"genre": "Rock;Pop;"})
+        assert FLAC(slash).tags["GENRE"] == ["Rock", "Pop"]
 
         # c) Un FLAC sin bloque de comentarios: se le crea
         bare_flac = new_flac("sin_comentarios.flac", None)

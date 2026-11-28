@@ -31,11 +31,15 @@ se confunde con «AC/DC»). El título, el álbum y el comentario, siempre un te
 v2.4, TDRC; en v2.3, TYER y, si es completa, TDAT (el mes sin día no cabe en v2.3: queda el
 año); si el archivo traía la de la otra versión, también se cambia, para que no digan cosas
 distintas; la hora (TIME) se quita. El comentario es el COMM sin descripción (los de iTunes y
-otros programas no se tocan), con el idioma del que hubiera o «eng».
+otros programas no se tocan), con el idioma del que hubiera o «eng». La pista y el disco,
+con dos cifras al menos («03/12»; el total, sin ceros: 'tag_map.pair_number_text'), también
+en un ID3v2 nuevo, aunque no se hayan editado (toda la etiqueta la escribe la aplicación).
 
 Usa dos cosas internas de mutagen 1.48 (si cambian, falla la autoprueba): 'read_frames' y la
 cabecera ya leída, para saber si se perdería algún marco repetido.
 
+1.1.0 La pista y el disco, con dos cifras al menos («03/12»; 'tag_map.pair_number_text';
+      MUS 7.1b), también en un ID3v2 nuevo (los que vienen del ID3v1 o de un 2.2).
 1.0.0 Primera versión (28/11/2026; docs/MOD_MUSICA.md, paso MUS 6.3a): el código del MP3 de
       'tag_writer.py' 1.0.0 (MUS 6.1c), movido sin cambiar lo que hace.
 
@@ -44,7 +48,7 @@ funciones del motor y de este módulo para simular fallos):
     python -m core.audio.tag_writer
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["Id3Writer"]
 
 # Librerías estándar
@@ -65,8 +69,16 @@ from mutagen.mp3 import MP3
 
 # Módulos del proyecto
 from core.audio.id3v1 import ID3V1_SIZE, Id3v1Tag, apply_changes, build_id3v1, parse_id3v1
-from core.audio.tag_map import COMMENT, DATE, MULTI_VALUE_SEPARATOR, PAIR, TAG_FIELDS, tag_field
-from core.audio.tag_reader import AudioTags, tags_from_id3
+from core.audio.tag_map import (
+    COMMENT,
+    DATE,
+    MULTI_VALUE_SEPARATOR,
+    PAIR,
+    TAG_FIELDS,
+    pair_number_text,
+    tag_field,
+)
+from core.audio.tag_reader import AudioTags, parse_pair, tags_from_id3
 from core.audio.tag_set import TagSet
 from core.audio.write_base import (
     DATE_PATTERN,
@@ -90,6 +102,8 @@ _ID3V2_HEADER_SIZE = 10
 _ID3V2_FOOTER_FLAG = 0x10
 # Bloques de lectura para la huella del audio
 _CHUNK_SIZE = 1 << 20
+# Los campos de pareja (la pista y el disco)
+_PAIR_KEYS: tuple[str, ...] = tuple(field.key for field in TAG_FIELDS if field.kind == PAIR)
 
 
 @dataclass(slots=True)
@@ -221,7 +235,7 @@ def _apply(
             expected[key] = _set_date(tags, value, version, encoding)
         elif field.kind == PAIR:
             number, total = value if value is not None else (None, None)
-            text = None if number is None else (f"{number}/{total}" if total else f"{number}")
+            text = None if number is None else _pair_text(number, total)
             _set_text(tags, field.id3, None if text is None else [text], encoding)
             expected[f"{key}_number"], expected[f"{key}_total"] = number, total
         else:
@@ -304,10 +318,23 @@ def _load_new(path: Path, version: int, encoding: Encoding) -> ID3:
             comment = COMM(encoding=encoding, lang=frame.lang, desc="", text=list(frame.text))
             tags.add(comment)
             plain.append(comment)
+    # La pista y el disco, con dos cifras, como todo lo que escribe la aplicación (la
+    # etiqueta entera es nueva); un texto que no es un número se queda como está
+    for key in _PAIR_KEYS:
+        frame = tags.get(tag_field(key).id3)
+        if frame is not None and frame.text:
+            number, total = parse_pair(frame.text[0])
+            if number is not None:
+                frame.text = [_pair_text(number, total)]
     for frame in tags.values():
         if hasattr(frame, "encoding"):
             frame.encoding = encoding
     return tags
+
+
+def _pair_text(number: int, total: int | None) -> str:
+    """El texto de la pista o del disco: «03/12», o «03» sin total."""
+    return pair_number_text(number) + (f"/{total}" if total else "")
 
 
 def _view(tags: ID3) -> AudioTags:

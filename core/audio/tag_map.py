@@ -42,17 +42,22 @@ Cada campo tiene un TIPO ('kind'), que dice cómo se traduce:
 
 Varios valores (varios géneros o artistas): se unen en un texto con 'MULTI_VALUE_SEPARATOR'
 («; », no la coma de las palabras clave: en un artista la coma es normal, «Earth, Wind &
-Fire»; docs/MOD_MUSICA.md §3.4).
+Fire»; docs/MOD_MUSICA.md §3.4). Lo que escribe el usuario se normaliza con
+'normalize_values' (MUS 7.1b): «Rock;Pop», «Rock ; Pop;» -> «Rock; Pop».
 
 Añadir un campo: una línea en 'TAG_FIELDS' (la clave no se cambia nunca después).
 
+1.2.0 'pair_number_text': el número de la pista y el del disco, con al menos dos cifras
+      («03»; el autor, 28/11/2026: como todas sus canciones; MUS 7.1b).
+1.1.0 'normalize_values': varios valores escritos a mano, separados por «;» con o sin
+      espacios, con el separador de siempre (MUS 7.1b).
 1.0.0 Primera versión (25/11/2026; docs/MOD_MUSICA.md, paso MUS 1.1).
 
 Prueba rápida (desde la raíz del proyecto):
     python -m core.audio.tag_map
 """
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 __all__ = [
     "COMMENT",
     "DATE",
@@ -60,9 +65,12 @@ __all__ = [
     "MP4_GENRE_NUMBER",
     "MULTI_VALUE_SEPARATOR",
     "PAIR",
+    "PAIR_DIGITS",
     "TAG_FIELDS",
     "TEXT",
     "TagField",
+    "normalize_values",
+    "pair_number_text",
     "tag_field",
 ]
 
@@ -76,8 +84,15 @@ PAIR = "pair"
 GENRE = "genre"
 COMMENT = "comment"
 
-# Separador de varios valores en un texto (docs/MOD_MUSICA.md §3.4)
+# Separador de varios valores en un texto (docs/MOD_MUSICA.md §3.4); al escribirlos a mano,
+# basta el punto y coma ('normalize_values')
 MULTI_VALUE_SEPARATOR = "; "
+_VALUE_BREAK = ";"
+
+# Cifras con las que se escribe el número de la pista y el del disco en las etiquetas de
+# texto (ID3, Vorbis): «03», «12», «100» (el autor, 28/11/2026: así tiene todas sus
+# canciones; da igual escribir «3» o «03»). El total, sin ceros. En MP4 es un número
+PAIR_DIGITS = 2
 
 # Átomo de MP4 con el género como número de ID3v1 más uno (solo se lee)
 MP4_GENRE_NUMBER = "gnre"
@@ -126,6 +141,28 @@ TAG_FIELDS: tuple[TagField, ...] = (
 _BY_KEY: dict[str, TagField] = {field.key: field for field in TAG_FIELDS}
 
 
+def normalize_values(text: str) -> str | None:
+    """Varios valores escritos a mano, con el separador de siempre: se separan por «;»
+    (con o sin espacios), sin vacíos ni repetidos, y se unen con «; ». None si no queda
+    nada. «Rock;Pop» y «Rock ; Pop; Rock;» -> «Rock; Pop»; «Pop;» -> «Pop».
+
+    Solo para los campos que admiten varios valores (el artista, el artista del álbum,
+    el compositor y el género): un «;» en un título no separa nada.
+    """
+    parts: list[str] = []
+    for part in text.split(_VALUE_BREAK):
+        part = part.strip()
+        if part and part not in parts:
+            parts.append(part)
+    return MULTI_VALUE_SEPARATOR.join(parts) or None
+
+
+def pair_number_text(number: int) -> str:
+    """El número de la pista o del disco tal como se escribe en una etiqueta de texto:
+    con al menos 'PAIR_DIGITS' cifras (3 -> «03»; 12 -> «12»; 100 -> «100»)."""
+    return f"{number:0{PAIR_DIGITS}d}"
+
+
 def tag_field(key: str) -> TagField:
     """El campo con esa clave.
 
@@ -172,5 +209,15 @@ if __name__ == "__main__":
     assert len(set(vorbis)) == len(vorbis)
     assert MP4_GENRE_NUMBER not in {field.mp4 for field in TAG_FIELDS}
     assert "," not in MULTI_VALUE_SEPARATOR  # la coma es normal en un artista
+
+    # El número de la pista y el del disco, con dos cifras al menos
+    assert [pair_number_text(n) for n in (3, 12, 100)] == ["03", "12", "100"]
+
+    # Varios valores escritos a mano: con el separador de siempre
+    for written, expected in (
+        ("Rock; Pop", "Rock; Pop"), ("Rock;Pop", "Rock; Pop"), (" Rock ; Pop; Rock;", "Rock; Pop"),
+        ("Pop;", "Pop"), (";;", None), ("  ", None), ("Earth, Wind & Fire", "Earth, Wind & Fire"),
+    ):  # fmt: skip
+        assert normalize_values(written) == expected, (written, normalize_values(written))
 
     print("Autoprueba finalizada correctamente.")

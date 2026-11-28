@@ -17,7 +17,7 @@ La tabla (docs/MOD_MUSICA.md §3 y §5; acordada con el autor el 16 y el 28/11/2
     description                 comment              COMM sin descripción
     album                       album                TALB
     album_artist                album_artist         TPE2
-    track_number, track_total   track                TRCK («3/12»; sin número, nada)
+    track_number, track_total   track                TRCK («03/12»; sin número, nada)
     disc_number, disc_total     disc                 TPOS
     genre                       genre                TCON
     composer                    composer             TCOM
@@ -32,6 +32,7 @@ Una PAREJA (la pista y su total, el disco y el suyo) va siempre entera: si está
 una de las dos columnas, se escribe la pareja con los valores del catálogo de las dos. Sin
 número no se guarda el total (ID3 solo admite «3/12» o «3»; decidido el 28/11/2026).
 
+1.1.1 En la tabla de la cabecera, la pista como se escribe: «03/12» (MUS 7.1b).
 1.1.0 El año ('content_created_at' -> 'date', como «1999»; MUS 7.1a).
 1.0.0 Primera versión (28/11/2026; docs/MOD_MUSICA.md, paso MUS 6.2b).
 
@@ -39,7 +40,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.audio_fields
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __all__ = ["AUDIO_TAG_COLUMNS", "tag_changes"]
 
 # Librerías estándar

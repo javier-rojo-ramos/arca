@@ -17,8 +17,11 @@ la fecha («2001», «2001-05» o «2001-05-04»), como texto; la pista y el dis
 vale (una clave que no es de la tabla, una fecha mal escrita, un número que no es positivo)
 es 'ValueError' ('TypeError' si no es un texto): es un error de quien llama, no del archivo.
 Varios valores («Rock; Pop») en el artista, el artista del álbum, el compositor y el género
-('LIST_FIELDS'), sin repetidos; cada familia decide cómo los guarda.
+('LIST_FIELDS'), separados por «;» con o sin espacios y sin repetidos ('tag_map.
+normalize_values': quedan con «; »); cada familia decide cómo los guarda.
 
+1.1.0 Varios valores, con 'tag_map.normalize_values' (MUS 7.1b): un «;» sin espacio
+      detrás o al final ya no se queda pegado al valor («Rock;Pop», «Pop;»).
 1.0.1 Los comentarios, al día con las familias que se escriben (MUS 6.4).
 1.0.0 Primera versión (28/11/2026; docs/MOD_MUSICA.md, paso MUS 6.3a): lo común de
       'tag_writer.py' 1.0.0 (MUS 6.1c), movido sin cambiar lo que hace, y la interfaz de una
@@ -28,7 +31,7 @@ Prueba rápida (desde la raíz del proyecto; sin archivos):
     python -m core.audio.write_base
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __all__ = [
     "DATE_PATTERN",
     "LIST_FIELDS",
@@ -54,7 +57,7 @@ from typing import Any, ClassVar
 from mutagen import MutagenError
 
 # Módulos del proyecto
-from core.audio.tag_map import DATE, MULTI_VALUE_SEPARATOR, PAIR, tag_field
+from core.audio.tag_map import DATE, PAIR, normalize_values, tag_field
 from core.audio.tag_reader import AudioReadError
 from core.audio.tag_set import TagSet
 
@@ -174,7 +177,7 @@ def clean_changes(changes: Mapping[str, Any]) -> dict[str, Any]:
         else:
             text = _clean_text(key, value)
             if text is not None and key in LIST_FIELDS:
-                text = _clean_list(text)
+                text = normalize_values(text)
             cleaned[key] = text
     return cleaned
 
@@ -186,16 +189,6 @@ def _clean_text(key: str, value: object) -> str | None:
     if not isinstance(value, str):
         raise TypeError(f"«{key}» tiene que ser un texto: {value!r}")
     return value.replace("\x00", "").strip() or None
-
-
-def _clean_list(text: str) -> str | None:
-    """Varios valores («Rock; Pop»), sin vacíos ni repetidos."""
-    parts: list[str] = []
-    for part in text.split(MULTI_VALUE_SEPARATOR):
-        part = part.strip()
-        if part and part not in parts:
-            parts.append(part)
-    return MULTI_VALUE_SEPARATOR.join(parts) or None
 
 
 def _clean_date(value: object) -> str | None:
@@ -246,6 +239,10 @@ if __name__ == "__main__":
         "disc": None, "date": "2001-05", "album": None,
     }  # fmt: skip
     assert clean_changes({"artist": "a\x00b"}) == {"artist": "ab"}
+    # El «;» sin espacio o al final no se queda pegado (MUS 7.1b); en un título, no separa
+    assert clean_changes({"genre": "Rock;Pop;", "composer": " ; ", "title": "A;B"}) == {
+        "genre": "Rock; Pop", "composer": None, "title": "A;B",
+    }  # fmt: skip
     assert set(LIST_FIELDS) == {"artist", "album_artist", "composer", "genre"}
     for bad, error in (
         ({"titulo": "x"}, ValueError), ({"date": "05/2001"}, ValueError),

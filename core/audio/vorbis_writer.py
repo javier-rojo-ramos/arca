@@ -15,8 +15,9 @@ CÓMO ESCRIBE (docs/MOD_MUSICA.md, «Cómo se escribe en Vorbis»; acordado con 
        que tenga valor).
     2. La pista y su total, en campos separados (TRACKNUMBER=3, TRACKTOTAL=12), como Mp3tag;
        si el archivo usa «3/12» en TRACKNUMBER, se mantiene esa forma (y los otros nombres
-       del total que tenga, al día). Sin total, se quitan sus campos. El número, tal cual
-       (el cero delante es M10: docs/MOD_MUSICA.md).
+       del total que tenga, al día). Sin total, se quitan sus campos. El número, con dos
+       cifras al menos («03»: 'tag_map.pair_number_text', decidido con el autor el
+       28/11/2026); el total, sin ceros.
     3. Varios valores («Rock; Pop») en el artista, el artista del álbum, el compositor y el
        género, separados de verdad (un GENRE por valor); el título, el álbum, el comentario y
        la fecha, un texto.
@@ -39,13 +40,15 @@ CÓMO ESCRIBE (docs/MOD_MUSICA.md, «Cómo se escribe en Vorbis»; acordado con 
            audio, y lo mismo de cualquier otro flujo del archivo.
 Ogg FLAC y Speex (muy raros) no se escriben.
 
+1.1.0 La pista y el disco, con dos cifras al menos («03»; 'tag_map.pair_number_text';
+      MUS 7.1b).
 1.0.0 Primera versión (28/11/2026; docs/MOD_MUSICA.md, paso MUS 6.3b).
 
 Prueba: la del motor, de punta a punta con archivos mínimos (FLAC, Ogg Vorbis y Opus):
     python -m core.audio.tag_writer
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["VorbisWriter"]
 
 # Librerías estándar
@@ -63,7 +66,7 @@ from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
 # Módulos del proyecto
-from core.audio.tag_map import MULTI_VALUE_SEPARATOR, PAIR, TagField, tag_field
+from core.audio.tag_map import MULTI_VALUE_SEPARATOR, PAIR, TagField, pair_number_text, tag_field
 from core.audio.tag_reader import AudioTags, tags_from_vorbis
 from core.audio.tag_set import TagSet
 from core.audio.write_base import LIST_FIELDS, AudioWriteError, FormatWriter, PreparedWrite
@@ -210,7 +213,8 @@ def _set_pair(tags: Any, field: TagField, number: int | None, total: int | None)
     slash = any("/" in value for key in number_keys for value in tags[key])
     if slash:
         # «3/12» en el número: se mantiene esa forma; los otros nombres del total, al día
-        _set_values(tags, field.vorbis, [f"{number}/{total}" if total else f"{number}"])
+        text = pair_number_text(number)
+        _set_values(tags, field.vorbis, [f"{text}/{total}" if total else text])
         total_values = None if total is None else [str(total)]
         for key in _present(tags, field.vorbis_total):
             if total_values is None:
@@ -218,7 +222,7 @@ def _set_pair(tags: Any, field: TagField, number: int | None, total: int | None)
             else:
                 tags[key] = total_values
     else:
-        _set_values(tags, field.vorbis, [str(number)])
+        _set_values(tags, field.vorbis, [pair_number_text(number)])
         _set_values(tags, field.vorbis_total, None if total is None else [str(total)])
 
 
