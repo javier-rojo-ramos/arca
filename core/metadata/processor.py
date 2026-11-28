@@ -33,8 +33,9 @@ esté pendiente de escribir).
 Metadatos descriptivos editables (título, pie, ubicación...; ver
 'core/userdata/editable_fields.py'): manda el archivo, salvo en las columnas cuyo bit de
 'metadata_edit_pending' está puesto (el cambio del usuario aún no está escrito). En los
-formatos sin XMP, lo editado está en el '.arca.json' de la carpeta y manda siempre sobre lo
-leído. Sin título en el archivo, 'title' vale el nombre del archivo sin extensión.
+formatos con entrada en el '.arca.json' de la carpeta ('policy.has_folder_entry'), lo
+editado que guarda esa entrada ('policy.folder_file_fields') manda siempre sobre lo leído.
+Sin título en el archivo, 'title' vale el nombre del archivo sin extensión.
 
 Fecha de un archivo sin fecha en sus metadatos ('content_date_source' = 'file_mtime'): la
 de modificación del archivo, la PRIMERA vez que se lee. Al releerlo (otra versión del
@@ -42,6 +43,10 @@ extractor, o el archivo cambiado: también al escribirle la valoración) se cons
 guardada, porque la de modificación ya es otra. Si ahora trae una fecha de verdad, manda
 esa (docs/DECISIONES.md, 21/11/2026).
 
+2.7.0 Lo editado que guarda el '.arca.json' se aplica a los formatos con entrada en él
+      ('policy.has_folder_entry') y solo en los campos que guarda (con uno dañado, solo
+      esos se dejan sin tocar); antes, a todos los formatos sin XMP. Nada cambia: hoy son
+      los mismos (MUS 6.2a).
 2.6.0 La fecha del archivo ('file_mtime') ya guardada se conserva al releer: escribir los
       datos del usuario en un PNG o un GIF le cambiaba la fecha a la de la escritura.
 2.5.0 En la primera lectura de un archivo con XMP ('last_scanned_at' vacío antes de
@@ -68,7 +73,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.metadata.processor
 """
 
-__version__ = "2.6.0"
+__version__ = "2.7.0"
 __all__ = [
     "DEFAULT_BATCH_SIZE",
     "SCAN_STAGE_METADATA",
@@ -105,7 +110,7 @@ from core.userdata.editable_fields import (
     unless_pending_sql,
     upsert_sql,
 )
-from core.userdata.policy import uses_xmp
+from core.userdata.policy import folder_file_fields, has_folder_entry, uses_xmp
 from core.userdata.sync import (
     FolderFileCache,
     apply_file_keywords,
@@ -416,8 +421,8 @@ def _extract_rows(
                 cancelled = True
                 continue
             outcome = _to_outcome(row, extractor, path, result)
-            # Formatos sin XMP: lo editado en la aplicación está en su '.arca.json'
-            if outcome.kind == _OK and not uses_xmp(outcome.extension):
+            # Formatos con entrada en el '.arca.json': lo editado que guarda está ahí
+            if outcome.kind == _OK and has_folder_entry(outcome.extension):
                 outcome.folder_edits = folder_file_edits(
                     locations[outcome.location_id], outcome.relative_path, folder_files
                 )
@@ -551,21 +556,25 @@ def _write_success(
         )
 
     values = dict(result.common)
-    # Metadatos editados en la aplicación, en los formatos sin XMP: viven en el '.arca.json'
-    # (el original no se toca) y mandan SIEMPRE sobre lo leído del archivo
+    # Metadatos editados en la aplicación que guarda el '.arca.json' (en los formatos con
+    # entrada en él; el original no se toca): mandan SIEMPRE sobre lo leído del archivo
     # Lo mismo para los campos editables de la tabla de detalles del tipo (la actividad de
     # un track): 'details' es lo que se guardará en ella
     details = dict(result.details) if result.details else {}
     detail_edits = [
         column for column in EDITABLE_COLUMNS if field_for(column).table == extractor.details_table
     ] if extractor.details_table else []
-    if not uses_xmp(outcome.extension):
+    if has_folder_entry(outcome.extension):
         if outcome.folder_edits is None:
-            # '.arca.json' dañado: no se sabe qué se editó; mejor no tocar esas columnas
+            # '.arca.json' dañado: no se sabe qué se editó; mejor no tocar las columnas
+            # que guarda (las demás salen del archivo)
+            kept = folder_file_fields(outcome.extension)
             for column in MAIN_COLUMNS:
-                values.pop(column, None)
+                if kept is None or column in kept:
+                    values.pop(column, None)
             for column in detail_edits:
-                details.pop(column, None)
+                if kept is None or column in kept:
+                    details.pop(column, None)
         else:
             for column, value in outcome.folder_edits.items():
                 if column in MAIN_COLUMNS:

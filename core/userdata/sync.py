@@ -53,6 +53,11 @@ Dos sentidos:
          archivo, el procesador con 'folder_file_edits'. En los formatos con XMP, los
          escribe el procesador como cualquier metadato extraído (salvo lo pendiente).
 
+1.12.0 Con las preguntas separadas de 'policy.py' (MUS 6.2a): esperan a su primera
+       lectura los formatos cuyo destino lee el extractor ('first_read_extensions'), y
+       el '.arca.json' se aplica a los archivos con entrada en él ('has_folder_entry'),
+       solo en los datos que guarda ('folder_file_fields'; también 'folder_file_edits').
+       Nada cambia: hoy son los de antes (FOLDER_FILE, con todo).
 1.11.0 La primera lectura no borra nada del archivo (docs/PENDIENTE.md, GEN 20, paso 1):
        un archivo con XMP que aún no se ha leído nunca no se escribe ('_PENDING_SQL'), y
        en su primera lectura las palabras clave asignadas antes se SUMAN a las del archivo
@@ -88,7 +93,7 @@ Prueba rápida (desde la raíz del proyecto; la parte de XMP necesita ExifTool):
     python -m core.userdata.sync
 """
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 __all__ = [
     "SCAN_STAGE_USERDATA",
     "FolderFileCache",
@@ -141,7 +146,9 @@ from core.userdata.folder_file import (
 from core.userdata.policy import (
     UserDataDestination,
     destination_for,
-    xmp_extensions,
+    first_read_extensions,
+    folder_file_fields,
+    has_folder_entry,
 )
 from core.userdata.writers import USER_COLUMNS as _USER_COLUMNS
 from core.userdata.writers import UserDataWriter, WriteItem, default_writers, split_items
@@ -225,18 +232,23 @@ class UserDataWriteResult:
         return "\n".join(lines)
 
 
-# Extensiones con XMP, para la consulta (de una lista cerrada, 'policy.py': sin inyección)
-_XMP_EXTENSIONS_SQL = ", ".join(f"'{extension}'" for extension in sorted(xmp_extensions()))
+# Extensiones cuyo destino lee el extractor (hoy, las de XMP), para la consulta (de una
+# lista cerrada, 'policy.py': sin inyección)
+_FIRST_READ_EXTENSIONS_SQL = ", ".join(
+    f"'{extension}'" for extension in sorted(first_read_extensions())
+)
 
 # Elementos con algo pendiente de escribir fuera del catálogo (presentes en disco), salvo
-# los archivos con XMP que no se han leído NUNCA: 'last_scanned_at' solo lo pone la
-# lectura de metadatos (también si falla o el formato no se puede leer), así que vacío =
-# lo que trae el archivo aún no está en el catálogo. Esperan a su primera lectura, que
-# respeta lo pendiente (y suma las palabras clave), y después se escriben como los demás
+# los archivos cuyo destino lee el extractor y que no se han leído NUNCA
+# ('policy.waits_for_first_read'): 'last_scanned_at' solo lo pone la lectura de metadatos
+# (también si falla o el formato no se puede leer), así que vacío = lo que trae el archivo
+# aún no está en el catálogo. Esperan a su primera lectura, que respeta lo pendiente (y
+# suma las palabras clave), y después se escriben como los demás
 _PENDING_SQL = (
     "(user_data_pending <> 0 OR keywords_pending <> 0 OR metadata_edit_pending <> 0) "
     "AND is_missing = 0 "
-    f"AND NOT (last_scanned_at IS NULL AND COALESCE(file_extension, '') IN ({_XMP_EXTENSIONS_SQL}))"
+    "AND NOT (last_scanned_at IS NULL "
+    f"AND COALESCE(file_extension, '') IN ({_FIRST_READ_EXTENSIONS_SQL}))"
 )
 
 
@@ -643,9 +655,11 @@ def apply_folder_files(
     """Aplica al catálogo los datos de los archivos de carpeta. Manda el archivo.
 
     Lo llama 'add_folder' tras guardar cada lote (con su transacción abierta). Solo trata
-    los archivos cuyo destino es FOLDER_FILE y, de ellos, los campos que no están
-    pendientes de escribir. Las carpetas sin archivo '.arca.json' no se tocan. Los
-    metadatos editados (título, pie...) solo se tocan si la entrada trae su clave.
+    los archivos con entrada en el '.arca.json' ('policy.has_folder_entry') y, de ellos,
+    los datos que guarda esa entrada ('policy.folder_file_fields': en un formato partido,
+    lo demás sale del propio archivo) que no están pendientes de escribir. Las carpetas
+    sin archivo '.arca.json' no se tocan. Los metadatos editados (título, pie...) solo se
+    tocan si la entrada trae su clave.
 
     Args:
         conn: Conexión (con la transacción del lote abierta).
@@ -661,8 +675,9 @@ def apply_folder_files(
         cache = {}
     changed = 0
     for relative_path in relative_paths:
-        if destination_for(relative_path) is not UserDataDestination.FOLDER_FILE:
+        if not has_folder_entry(relative_path):
             continue
+        fields = folder_file_fields(relative_path)  # lo que guarda su entrada (None, todo)
         posix = PurePosixPath(relative_path)
         data = _folder_data(location_root / posix.parent, cache)
         if data is None or not data.exists:
@@ -680,14 +695,18 @@ def apply_folder_files(
             continue
         # Palabras clave: las de la entrada (sin la clave = ninguna), salvo si están
         # pendientes de escribir
-        keywords_changed = not row[5] and set_media_keywords(
-            conn, row[0], keywords_from_entry(entry)
+        keywords_changed = (
+            not row[5]
+            and _in_folder_file(fields, KEYWORDS_KEY)
+            and set_media_keywords(conn, row[0], keywords_from_entry(entry))
         )
         current = dict(zip(_USER_COLUMNS, row[1:4], strict=True))
         updates = {
             column: values[column]
             for column in _USER_COLUMNS
-            if not row[4] & USER_FIELD_BITS[column] and values[column] != current[column]
+            if _in_folder_file(fields, column)
+            and not row[4] & USER_FIELD_BITS[column]
+            and values[column] != current[column]
         }
         if updates:
             assignments = ", ".join(f"{column} = ?" for column in updates)
@@ -696,10 +715,13 @@ def apply_folder_files(
                 (*updates.values(), row[0]),
             )
         # Metadatos editados: solo los que la entrada trae (sin la clave, manda lo que
-        # lea el extractor), salvo los pendientes de escribir
-        edits_changed = _apply_edited_values(
-            conn, row[0], posix.name, edited_values_from_entry(entry)
-        )
+        # lea el extractor) y guarda, salvo los pendientes de escribir
+        edits = {
+            column: value
+            for column, value in edited_values_from_entry(entry).items()
+            if _in_folder_file(fields, column)
+        }
+        edits_changed = _apply_edited_values(conn, row[0], posix.name, edits)
         if updates or keywords_changed or edits_changed:
             changed += 1
     return changed
@@ -708,11 +730,12 @@ def apply_folder_files(
 def folder_file_edits(
     location_root: Path, relative_path: str, cache: FolderFileCache
 ) -> dict[str, str | None] | None:
-    """Metadatos editados que guarda el '.arca.json' para un archivo FOLDER_FILE.
+    """Metadatos editados que guarda el '.arca.json' para un archivo con entrada en él
+    ('policy.has_folder_entry'): solo los campos que guarda esa entrada
+    ('policy.folder_file_fields').
 
-    Lo usa el procesador de metadatos: en estos formatos lo editado en la aplicación vive
-    solo en el archivo de carpeta (el original no se toca), así que manda SIEMPRE sobre
-    lo que lea el extractor.
+    Lo usa el procesador de metadatos: lo editado en la aplicación que vive en el archivo
+    de carpeta (el original no se toca) manda SIEMPRE sobre lo que lea el extractor.
 
     Args:
         location_root: Carpeta raíz de la ubicación.
@@ -731,7 +754,15 @@ def folder_file_edits(
     if not data.exists:
         return {}
     key = find_entry_key(data.items, posix.name)
-    return edited_values_from_entry(data.items.get(key) if key else None)
+    edits = edited_values_from_entry(data.items.get(key) if key else None)
+    fields = folder_file_fields(relative_path)
+    return {column: value for column, value in edits.items() if _in_folder_file(fields, column)}
+
+
+def _in_folder_file(fields: frozenset[str] | None, name: str) -> bool:
+    """True si la entrada del '.arca.json' guarda ese dato ('fields', lo que da
+    'policy.folder_file_fields': None, todos)."""
+    return fields is None or name in fields
 
 
 def _folder_data(folder: Path, cache: FolderFileCache) -> FolderData | None:

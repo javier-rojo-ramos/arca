@@ -269,7 +269,7 @@ core/
     audio/inspect_cli.py               Diagnóstico de canciones para comparar con Mp3tag: campos traducidos, datos técnicos e imágenes (--resumen, --bruto, --json)
     inspect_cli.py                     Herramienta de diagnóstico (qué lee ExifTool / qué se guardaría; --campos elige imagen o vídeo según el archivo)
   userdata/                          ── Datos del usuario fuera del catálogo ── (ver core/userdata/LEEME.md)
-    policy.py                        ► destino de cada formato: XMP incrustado, sidecar .xmp o archivo de carpeta
+    policy.py                        ► destino de cada formato: XMP incrustado, sidecar .xmp o archivo de carpeta; y las preguntas a un destino (uses_xmp, has_folder_entry, folder_file_fields, waits_for_first_read): no preguntar «¿es FOLDER_FILE?»
     editable_fields.py               ► metadatos descriptivos editables: columna, bit de pendiente, etiquetas XMP y antiguas, clave del .arca.json
     folder_file.py                     Archivo de carpeta '.arca.json' (lectura, escritura atómica, copia .bak)
     xmp_writer.py                      Escritura en XMP con ExifTool (solo los campos pendientes; comprueba releyendo); el GPS, también en el EXIF

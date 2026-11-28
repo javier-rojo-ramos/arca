@@ -82,6 +82,9 @@ Uso:
     result = execute_file_moves(conn, plan, progress=..., cancel_event=...)   # el trabajo
     reconcile_file_operations(conn)                               # al abrir el catálogo
 
+1.6.2 La entrada del '.arca.json' va con los archivos que la tienen
+      ('policy.has_folder_entry'; antes, «su destino es FOLDER_FILE»: hoy, los mismos).
+      Preparado para el MP3 partido (MUS 6.2a).
 1.6.1 Al mover una carpeta, si al final no se mueve (algo cambió en el disco), la barra
       de estado dice «Movidos: 0», no «Renombrados: 0».
 1.6.0 Mover una carpeta a otra de su ubicación (CAT 4.4c): 'plan_folder_move' (el trabajo
@@ -112,7 +115,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.file_ops.moves
 """
 
-__version__ = "1.6.1"
+__version__ = "1.6.2"
 __all__ = [
     "FileMoveRequest",
     "FileMoveResult",
@@ -170,7 +173,7 @@ from core.userdata.folder_file import (
     read_folder_file,
     write_folder_file,
 )
-from core.userdata.policy import UserDataDestination, destination_for
+from core.userdata.policy import UserDataDestination, destination_for, has_folder_entry
 
 # Motivos por los que un archivo se omite (para el aviso y el registro)
 SKIP_GONE = "ya no está en el catálogo"
@@ -613,7 +616,7 @@ def plan_file_moves(
                 target_path=target_path,
                 title=title,
                 sidecars=tuple(sidecars),
-                folder_file=destination == UserDataDestination.FOLDER_FILE,
+                folder_file=has_folder_entry(extension or file_name),
             )
         )
     return MovePlan(tuple(moves), tuple(skipped))
@@ -1419,7 +1422,7 @@ def reconcile_file_operations(conn: sqlite3.Connection) -> ReconcileResult:
         if item is None:
             continue  # el elemento ya no está (sus notas se fueron en cascada)
         extension, file_name, title = item
-        if destination_for(extension or file_name) == UserDataDestination.FOLDER_FILE:
+        if has_folder_entry(extension or file_name):
             try:
                 _move_folder_file_entry(source.parent, source.name, target.parent, target.name)
             except FolderFileError as exc:

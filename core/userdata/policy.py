@@ -21,6 +21,20 @@ la base de datos, se guardan en UN único sitio por formato:
 Un solo destino por formato, a propósito: si el mismo dato viviera en dos sitios,
 podrían acabar distintos sin saber cuál vale.
 
+LAS PREGUNTAS QUE SE LE HACEN A UN DESTINO (antes, todas eran «¿es FOLDER_FILE?»; separadas
+el 28/11/2026, MUS 6.2a, para el primer formato partido, el MP3: sus etiquetas, dentro del
+archivo, y la valoración, la marca, el color y las palabras clave, en el '.arca.json'):
+    uses_xmp              ¿sus datos van en XMP (incrustado o sidecar)? El extractor los
+                          lee de ahí (la valoración, las palabras clave...)
+    has_folder_entry      ¿tiene entrada en el '.arca.json'? Entonces la entrada va con el
+                          archivo al renombrarlo o moverlo, y se borra al eliminarlo
+    folder_file_fields    ¿qué datos guarda esa entrada? (None, todos)
+    waits_for_first_read  ¿su destino lo lee el extractor? Entonces no se escribe hasta la
+                          primera lectura del archivo (lo que trae aún no está en el
+                          catálogo); 'first_read_extensions', las mismas, para el SQL
+Hoy las respuestas siguen siendo las de antes: solo FOLDER_FILE tiene entrada (con todo), y
+los destinos con XMP esperan a la primera lectura.
+
 Cómo añadir un formato:
     - Si ExifTool sabe escribir XMP dentro de él y otros programas lo leen de ahí:
       añadir su extensión a '_EMBEDDED_EXTENSIONS'.
@@ -32,18 +46,25 @@ leerían del destino nuevo (vacío). Si algún día hiciera falta, habría que m
 Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.policy
 
+1.3.0 Las preguntas a un destino, separadas: 'has_folder_entry', 'folder_file_fields',
+      'waits_for_first_read' y 'first_read_extensions'; 'uses_xmp', solo los destinos con
+      XMP (antes, todo lo que no era FOLDER_FILE). Nada cambia (MUS 6.2a).
 1.2.0 '.jfif' (un JPEG con otra extensión) con el XMP dentro, como los demás JPEG (antes
       iba al '.arca.json'); comprobado con ExifTool el 19/11/2026.
 1.1.0 'xmp_extensions': las extensiones cuyos datos van en XMP (para filtrar en SQL; la
       usa la escritura para no escribir en un archivo que aún no se ha leído).
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "UserDataDestination",
     "destination_for",
+    "first_read_extensions",
+    "folder_file_fields",
+    "has_folder_entry",
     "sidecar_path_for_writing",
     "uses_xmp",
+    "waits_for_first_read",
     "xmp_extensions",
 ]
 
@@ -103,6 +124,20 @@ _SIDECAR_EXTENSIONS: frozenset[str] = frozenset(
 
 assert not _EMBEDDED_EXTENSIONS & _SIDECAR_EXTENSIONS  # cada extensión, un solo destino
 
+# Las respuestas de cada destino a las preguntas de la cabecera
+_XMP_DESTINATIONS: frozenset[UserDataDestination] = frozenset(
+    {UserDataDestination.XMP_EMBEDDED, UserDataDestination.XMP_SIDECAR}
+)
+# Qué guarda la entrada del '.arca.json' de un archivo, por su destino: None = todo; vacío =
+# nada (no tiene entrada). Un destino partido dirá aquí los datos que se quedan en ella
+_FOLDER_FILE_FIELDS: dict[UserDataDestination, frozenset[str] | None] = {
+    UserDataDestination.XMP_EMBEDDED: frozenset(),
+    UserDataDestination.XMP_SIDECAR: frozenset(),
+    UserDataDestination.FOLDER_FILE: None,
+}
+# Los destinos que lee el extractor: no se escriben hasta la primera lectura del archivo
+_FIRST_READ_DESTINATIONS: frozenset[UserDataDestination] = _XMP_DESTINATIONS
+
 
 def _normalize_extension(extension_or_path: str | Path | None) -> str:
     """Extensión en minúsculas y sin punto, a partir de 'jpg', '.JPG' o una ruta."""
@@ -139,8 +174,41 @@ def destination_for(extension_or_path: str | Path | None) -> UserDataDestination
 
 
 def uses_xmp(extension_or_path: str | Path | None) -> bool:
-    """True si los datos de este archivo viven en XMP (incrustado o sidecar)."""
-    return destination_for(extension_or_path) is not UserDataDestination.FOLDER_FILE
+    """True si los datos de este archivo viven en XMP (incrustado o sidecar): el extractor
+    los lee de ahí (la valoración, la marca, el color, las palabras clave)."""
+    return destination_for(extension_or_path) in _XMP_DESTINATIONS
+
+
+def has_folder_entry(extension_or_path: str | Path | None) -> bool:
+    """True si el archivo tiene entrada en el '.arca.json' de su carpeta: entonces la
+    entrada va con él al renombrarlo o moverlo, y se borra al eliminarlo."""
+    return folder_file_fields(extension_or_path) != frozenset()
+
+
+def folder_file_fields(extension_or_path: str | Path | None) -> frozenset[str] | None:
+    """Qué datos del archivo guarda su entrada del '.arca.json': None, todos (los de
+    FOLDER_FILE); vacío, ninguno (no tiene entrada). Los nombres son las claves de
+    'writers.WriteItem.wanted': 'rating', 'flag', 'color_label', 'keywords' y las
+    columnas editables."""
+    return _FOLDER_FILE_FIELDS[destination_for(extension_or_path)]
+
+
+def waits_for_first_read(extension_or_path: str | Path | None) -> bool:
+    """True si el destino de este archivo lo lee el extractor (hoy, el XMP): no se escribe
+    hasta la primera lectura del archivo, porque lo que trae aún no está en el catálogo y
+    escribir lo del catálogo podría borrarlo."""
+    return destination_for(extension_or_path) in _FIRST_READ_DESTINATIONS
+
+
+def first_read_extensions() -> frozenset[str]:
+    """Las extensiones (en minúsculas y sin punto, como 'file_extension') a las que
+    'waits_for_first_read' dice que sí: para filtrar en una consulta SQL."""
+    extensions: set[str] = set()
+    if UserDataDestination.XMP_EMBEDDED in _FIRST_READ_DESTINATIONS:
+        extensions |= _EMBEDDED_EXTENSIONS
+    if UserDataDestination.XMP_SIDECAR in _FIRST_READ_DESTINATIONS:
+        extensions |= _SIDECAR_EXTENSIONS
+    return frozenset(extensions)
 
 
 def xmp_extensions() -> frozenset[str]:
@@ -187,6 +255,20 @@ if __name__ == "__main__":
     assert {"jpg", "heic", "dng", "nef", "cr3"} <= xmp_extensions()
     assert not xmp_extensions() & {"mp4", "gpx", "bmp", "jxl", ""}
     assert all(uses_xmp(ext) and ext == ext.lower() and "." not in ext for ext in xmp_extensions())
+    # Las preguntas a un destino (hoy, las mismas respuestas que antes de separarlas): solo
+    # FOLDER_FILE tiene entrada en el '.arca.json', con todo; los de XMP esperan a la
+    # primera lectura
+    for value in cases:
+        destination = destination_for(value)
+        folder = destination is D.FOLDER_FILE
+        assert has_folder_entry(value) is folder, value
+        assert uses_xmp(value) is not folder, value
+        assert waits_for_first_read(value) is not folder, value
+        assert folder_file_fields(value) == (None if folder else frozenset()), value
+    assert first_read_extensions() == xmp_extensions()
+    assert all(waits_for_first_read(ext) for ext in first_read_extensions())
+    # Cada destino tiene su respuesta (uno nuevo tiene que decir qué guarda el '.arca.json')
+    assert set(_FOLDER_FILE_FIELDS) == set(D)
 
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "IMG_0001.CR3"

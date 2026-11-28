@@ -33,6 +33,16 @@ Un solo destino por formato, a propósito: si el mismo dato viviera en dos sitio
 acabar distintos sin saber cuál vale. Lo que no está en ninguna lista va a `FOLDER_FILE`,
 que nunca modifica el original.
 
+**Las preguntas a un destino** (separadas el 28/11/2026, `MUS 6.2a`, para el primer formato
+partido, el MP3): no se pregunta «¿es `FOLDER_FILE`?», sino lo que se quiere saber:
+
+| Pregunta (`policy.py`) | Para qué | Hoy |
+|---|---|---|
+| `uses_xmp` | El extractor lee del archivo la valoración, la marca, el color y las palabras clave | XMP incrustado y sidecar |
+| `has_folder_entry` | Tiene entrada en el `.arca.json`: va con el archivo al renombrarlo o moverlo y se borra al eliminarlo | `FOLDER_FILE` |
+| `folder_file_fields` | Qué datos guarda esa entrada (lo demás sale del archivo): la lectura al añadir una carpeta (`apply_folder_files`) y al releer (`folder_file_edits`) | `FOLDER_FILE`, todos |
+| `waits_for_first_read` | Su destino lo lee el extractor: no se escribe hasta la primera lectura | XMP incrustado y sidecar |
+
 ## Cómo fluye
 
 ```
@@ -114,10 +124,10 @@ del destino nuevo (vacío). Si algún día hiciera falta, habría que migrarlos.
 Desde el 16/11/2026 (`GEN 14`), el trabajo de escritura (`sync.write_pending_user_data`) no sabe cómo escribe cada formato: reparte los archivos pendientes entre los escritores de `writers.py`. Para uno nuevo, **`sync.py` no se toca**:
 
 1. Una clase que herede de `UserDataWriter` (en su archivo, si es larga). Su `write(items, cancel_event)` recibe los `WriteItem` de un lote; de cada uno escribe **solo** `item.wanted` (los campos pendientes, con su valor) y apunta en él cómo ha ido: `ok`, `written`, `message`, `deferred` (no se intentó: falta la herramienta), `db_updates` (el tamaño y la fecha nuevos del archivo) y `rescan` (había cambiado fuera). No lanza excepciones por un archivo ni por su herramienta; si esta no está, pone `unavailable`.
-2. Su destino en `policy.py` (`UserDataDestination` y las extensiones que lo usan) y su línea en `default_writers` (`writers.py`).
+2. Su destino en `policy.py` (`UserDataDestination` y las extensiones que lo usan), con sus respuestas a las preguntas de arriba (`_XMP_DESTINATIONS`, `_FOLDER_FILE_FIELDS` y `_FIRST_READ_DESTINATIONS`; la autoprueba exige que diga qué guarda el `.arca.json`), y su línea en `default_writers` (`writers.py`).
 3. Si no sabe guardar todos los campos (unas etiquetas de audio no tienen dónde poner el color), `fields_for(item)` devuelve los que sí. **Lo demás va solo al `.arca.json`** (`split_items`): el archivo se parte en dos `WriteItem`, y cada parte quita sus marcas de pendiente por separado (si una falla, solo esa sigue pendiente). Hoy ningún formato se parte: XMP sabe guardar todo lo de las fotos.
 4. Las reglas de siempre (ver «Archivos del usuario» en `CLAUDE.md`): solo lo pedido, conservar lo que no se conoce, escribir en un temporal que sustituye al original una vez comprobado, y no tocar el contenido.
-5. **Pendiente, con el primer formato que se parta** (`MUS 6`): la lectura. Al releer un archivo así, qué sale del archivo y qué del `.arca.json` (hoy `apply_folder_files` y `folder_file_edits` valen para los formatos que van enteros al `.arca.json`).
+5. **La lectura de un formato partido** (preparada en `MUS 6.2a`): lo que guarda su entrada del `.arca.json` lo dice `folder_file_fields`, y `apply_folder_files` (al añadir una carpeta) y `folder_file_edits` (al releer) solo aplican eso; lo demás sale del archivo, con el extractor. El primero será el MP3 (`MUS 6.2b`).
 
 Para probarlo sin tocar originales: `write_pending_user_data(conn, writers={...})` admite los escritores (ver el escritor de mentira del final de la autoprueba de `sync.py`).
 

@@ -52,6 +52,9 @@ Uso desde la interfaz:
 Prueba rápida (desde la raíz del proyecto):
     python -m core.catalog.media_removal
 
+1.3.1 Se borra la entrada del '.arca.json' de los archivos que la tienen
+      ('policy.has_folder_entry'; antes, «su destino es FOLDER_FILE»: hoy, los mismos).
+      Preparado para el MP3 partido (MUS 6.2a).
 1.3.0 Las carpetas que se quedan vacías al enviar a la papelera ya no se borran del disco
       (CAT 5: se ven en el árbol con 0, como en Lightroom): fuera 'RemovalPlan.empty_folders',
       'empty_folder_names', 'empty_folder_items', 'folders_keeping_items' y
@@ -67,7 +70,7 @@ Prueba rápida (desde la raíz del proyecto):
       la barra de estado.
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 __all__ = [
     "CATALOG_ONLY_REASONS",
     "REASON_MISSING",
@@ -105,7 +108,7 @@ from core.userdata.folder_file import (
     read_folder_file,
     write_folder_file,
 )
-from core.userdata.policy import UserDataDestination, destination_for
+from core.userdata.policy import UserDataDestination, destination_for, has_folder_entry
 
 # Función que envía UN archivo a la papelera del sistema. Debe lanzar OSError si no puede
 # (el archivo se queda donde estaba). La pone la interfaz ('ui_file_manager.move_to_trash').
@@ -584,7 +587,7 @@ def _trash_batch(
                 result.sidecars_trashed += 1
             except OSError as exc:
                 result.warnings.append(f"No se pudo enviar a la papelera el sidecar {sidecar}: {exc}")
-        if destination == UserDataDestination.FOLDER_FILE:
+        if has_folder_entry(row["file_extension"] or path):
             folder_entries.setdefault(path.parent, []).append(path.name)
     return removable, folder_entries
 
