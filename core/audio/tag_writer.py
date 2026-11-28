@@ -35,6 +35,7 @@ CÓMO ESCRIBE (docs/MOD_MUSICA.md §5; reglas acordadas con el autor el 16 y el 
 Si algo falla, el original queda como estaba, el temporal se borra y se lanza
 'AudioWriteError'. La fecha de modificación del archivo cambia, como con las fotos.
 
+1.3.2 Autoprueba: los saltos de línea del comentario («\r\n» en el archivo; MUS 7.1c).
 1.3.1 Autoprueba: varios valores escritos a mano («Rock;Pop;») y la pista y el disco con
       dos cifras («04/12», MUS 7.1b).
 1.3.0 La familia MP4: M4A ('mp4_writer.py', MUS 6.4).
@@ -48,7 +49,7 @@ carpeta temporal):
     python -m core.audio.tag_writer
 """
 
-__version__ = "1.3.1"
+__version__ = "1.3.2"
 __all__ = ["AudioWriteError", "TagWriteResult", "UnsupportedAudioWriteError", "write_tags"]
 
 # Librerías estándar
@@ -930,6 +931,18 @@ if __name__ == "__main__":
             file.seek(before_offset + 500)
             file.write(b"\xee")
         assert digest_of(other_audio) != digest_of(normalized)
+
+        # --- 9. Los saltos de línea del comentario (MUS 7.1c): en el archivo, los de Windows
+        #     («\r\n», como Mp3tag); al leerlo, «\n»; lo mismo otra vez no toca el archivo
+        write_tags(v24, {"comment": "Una\nDos"})
+        assert [f.text for f in raw(v24).getall("COMM") if not f.desc] == [["Una\r\nDos"]]
+        write_tags(rich_flac, {"comment": "Una\nDos"})
+        assert FLAC(rich_flac).tags["COMMENT"] == ["Una\r\nDos"]
+        write_tags(padded, {"comment": "Una\nDos"})
+        assert MP4(padded).tags["\xa9cmt"] == ["Una\r\nDos"]
+        for song_path in (v24, rich_flac, padded):
+            assert read_audio(song_path).tags.comment == "Una\nDos", song_path
+            assert not write_tags(song_path, {"comment": "Una\nDos"}).written, song_path
 
         # Ningún temporal se ha quedado en la carpeta
         leftovers = list(root.glob(f"*{_TEMP_SUFFIX}"))

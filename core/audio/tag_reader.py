@@ -21,7 +21,8 @@ Formatos:
       Un archivo dañado o que no se puede leer: 'AudioReadError' (la clase de la anterior).
 
 Cómo se traduce (los detalles de cada campo, en 'tag_map.py'):
-    - Un texto vacío o solo con espacios es «sin valor» (None).
+    - Un texto vacío o solo con espacios es «sin valor» (None). Sus saltos de línea, «\n»
+      (los de Windows, «\r\n», que escribe Mp3tag, también).
     - Varios valores: unidos con 'MULTI_VALUE_SEPARATOR' («Rock; Pop»), sin repetir.
     - Pista y disco: «3/12» -> 3 y 12; «03» -> 3. Lo que no es un número positivo, None.
     - La fecha, tal cual («2001», «2001-05-04»): el extractor decide qué guarda.
@@ -43,6 +44,8 @@ La tasa de bits es la MEDIA, como la de Mp3tag (comparado con las 75 canciones d
 la que da mutagen, salvo en Ogg Vorbis, donde mutagen da la nominal de la cabecera y se
 calcula con el tamaño del archivo sin las etiquetas.
 
+1.7.0 Los saltos de línea de los textos, «\n», también los «\r\n» de Windows (los que
+      escriben Mp3tag y, desde MUS 7.1c, la aplicación: 'tag_map.LINE_BREAK').
 1.6.0 'open_audio' y 'tag_set_of', públicas (antes '_open' y '_tag_set'): el escritor
       ('tag_writer.py', MUS 6.1c) abre las canciones y ve sus etiquetas como el lector.
 1.5.0 El tipo de etiqueta ('AudioInfo.tag_type') se calcula con 'tag_set.TagSet', con el
@@ -61,7 +64,7 @@ temporal):
     python -m core.audio.tag_reader
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __all__ = [
     "ID3_FAMILY",
     "MP4_FAMILY",
@@ -701,10 +704,11 @@ def _file_tail(path: Path) -> bytes:
 
 
 def _clean(text: object) -> str | None:
-    """Un texto sin espacios a los lados ni caracteres nulos; None si queda vacío."""
+    """Un texto sin espacios a los lados ni caracteres nulos, con los saltos de línea como
+    «\n» (también los «\r\n» de Windows); None si queda vacío."""
     if text is None:
         return None
-    cleaned = str(text).replace("\x00", "").strip()
+    cleaned = str(text).replace("\x00", "").replace("\r\n", "\n").replace("\r", "\n").strip()
     return cleaned or None
 
 
@@ -837,6 +841,8 @@ if __name__ == "__main__":
     assert (tags.disc_number, tags.disc_total, tags.genre) == (1, None, "Rock")
     assert tags.date == "2001-01-01T08:00:00Z"
     assert tags_from_mp4({"©gen": ["Pop Folk"], "gnre": [18]}).genre == "Pop Folk"
+    # Los saltos de línea de Windows (los de Mp3tag), como «\n»
+    assert tags_from_mp4({"©cmt": ["Una\r\nDos\rTres"]}).comment == "Una\nDos\nTres"
     assert tags_from_mp4({"trkn": [(0, 0)]}).track_number is None
 
     # --- Imágenes en memoria

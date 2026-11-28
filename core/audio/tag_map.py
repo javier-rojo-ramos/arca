@@ -47,6 +47,8 @@ Fire»; docs/MOD_MUSICA.md §3.4). Lo que escribe el usuario se normaliza con
 
 Añadir un campo: una línea en 'TAG_FIELDS' (la clave no se cambia nunca después).
 
+1.3.0 'tag_text': los saltos de línea de un texto (el comentario) como se escriben en una
+      etiqueta, «\r\n», como Mp3tag (el autor, 28/11/2026; MUS 7.1c).
 1.2.0 'pair_number_text': el número de la pista y el del disco, con al menos dos cifras
       («03»; el autor, 28/11/2026: como todas sus canciones; MUS 7.1b).
 1.1.0 'normalize_values': varios valores escritos a mano, separados por «;» con o sin
@@ -57,7 +59,7 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.audio.tag_map
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "COMMENT",
     "DATE",
@@ -72,6 +74,7 @@ __all__ = [
     "normalize_values",
     "pair_number_text",
     "tag_field",
+    "tag_text",
 ]
 
 # Librerías estándar
@@ -93,6 +96,12 @@ _VALUE_BREAK = ";"
 # texto (ID3, Vorbis): «03», «12», «100» (el autor, 28/11/2026: así tiene todas sus
 # canciones; da igual escribir «3» o «03»). El total, sin ceros. En MP4 es un número
 PAIR_DIGITS = 2
+
+# El salto de línea dentro de una etiqueta (el comentario): el de Windows, como lo escribe
+# Mp3tag (comprobado el 28/11/2026: un comentario de dos líneas, «88\r\nSS»); el estándar
+# de ID3 dice «\n», pero Mp3tag y otros programas de Windows no lo dibujan. Al leer, los
+# dos son «\n» ('tag_reader')
+LINE_BREAK = "\r\n"
 
 # Átomo de MP4 con el género como número de ID3v1 más uno (solo se lee)
 MP4_GENRE_NUMBER = "gnre"
@@ -163,6 +172,12 @@ def pair_number_text(number: int) -> str:
     return f"{number:0{PAIR_DIGITS}d}"
 
 
+def tag_text(text: str) -> str:
+    """Un texto tal como se escribe en una etiqueta: sus saltos de línea («\n»), como
+    'LINE_BREAK' («88\nSS» -> «88\r\nSS»)."""
+    return text.replace("\r\n", "\n").replace("\n", LINE_BREAK)
+
+
 def tag_field(key: str) -> TagField:
     """El campo con esa clave.
 
@@ -209,6 +224,9 @@ if __name__ == "__main__":
     assert len(set(vorbis)) == len(vorbis)
     assert MP4_GENRE_NUMBER not in {field.mp4 for field in TAG_FIELDS}
     assert "," not in MULTI_VALUE_SEPARATOR  # la coma es normal en un artista
+
+    # Los saltos de línea, como los escribe Mp3tag
+    assert tag_text("88\nSS") == tag_text("88\r\nSS") == "88\r\nSS" and tag_text("Una") == "Una"
 
     # El número de la pista y el del disco, con dos cifras al menos
     assert [pair_number_text(n) for n in (3, 12, 100)] == ["03", "12", "100"]

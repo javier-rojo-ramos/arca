@@ -33,6 +33,8 @@ subir 'AUDIO_FIELDS_VERSION'); un archivo dañado, 'MetadataError' (va a la list
 Un extractor nunca escribe datos del usuario: la valoración, la marca, el color y las
 palabras clave de una canción están en el '.arca.json' de su carpeta.
 
+1.1.0 AUDIO_FIELDS_VERSION 2: los saltos de línea de los textos, «\n» también si el
+      archivo trae los de Windows (tag_reader 1.7.0; MUS 7.1c).
 1.0.0 Primera versión (25/11/2026; docs/MOD_MUSICA.md, paso MUS 1.3).
 
 Prueba rápida (desde la raíz del proyecto; crea un catálogo, un MP3 y un FLAC de prueba en
@@ -40,7 +42,7 @@ una carpeta temporal):
     python -m core.metadata.audio.extractor
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["AUDIO_FIELDS_VERSION", "AudioExtractor", "parse_tag_date"]
 
 # Librerías estándar
@@ -61,7 +63,8 @@ from core.metadata.base import (
 
 # Versión de los campos de audio. Se guarda en 'media_items.scan_version'. Súbela cada vez
 # que el extractor lea campos nuevos o cambie una regla: las canciones se volverán a leer.
-AUDIO_FIELDS_VERSION = 1
+# 2 (28/11/2026): los saltos de línea de Windows («\r\n») de los textos, como «\n»
+AUDIO_FIELDS_VERSION = 2
 # Historial:
 #   1  primera versión (25/11/2026, MUS 1.3)
 
@@ -312,7 +315,8 @@ if __name__ == "__main__":
                 "Rehab", "Amy Winehouse", "Primera")  # fmt: skip
             assert (song["content_created_at"], song["content_date_precision"]) == (
                 "2006-01-01 00:00:00", "year")  # fmt: skip
-            assert song["content_date_source"] == ID3_FAMILY and song["scan_version"] == 1
+            assert song["content_date_source"] == ID3_FAMILY
+            assert song["scan_version"] == AUDIO_FIELDS_VERSION
             assert (song["album"], song["album_artist"], song["genre"]) == (
                 "Back To Black", "Amy Winehouse", "Soul")  # fmt: skip
             assert (song["track_number"], song["track_total"], song["disc_number"]) == (1, 11, None)

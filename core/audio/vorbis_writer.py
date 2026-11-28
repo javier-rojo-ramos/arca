@@ -40,6 +40,8 @@ CÓMO ESCRIBE (docs/MOD_MUSICA.md, «Cómo se escribe en Vorbis»; acordado con 
            audio, y lo mismo de cualquier otro flujo del archivo.
 Ogg FLAC y Speex (muy raros) no se escriben.
 
+1.2.0 El comentario, con los saltos de línea de Windows («\r\n», como Mp3tag:
+      'tag_map.tag_text'; MUS 7.1c).
 1.1.0 La pista y el disco, con dos cifras al menos («03»; 'tag_map.pair_number_text';
       MUS 7.1b).
 1.0.0 Primera versión (28/11/2026; docs/MOD_MUSICA.md, paso MUS 6.3b).
@@ -48,7 +50,7 @@ Prueba: la del motor, de punta a punta con archivos mínimos (FLAC, Ogg Vorbis y
     python -m core.audio.tag_writer
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["VorbisWriter"]
 
 # Librerías estándar
@@ -66,7 +68,15 @@ from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
 # Módulos del proyecto
-from core.audio.tag_map import MULTI_VALUE_SEPARATOR, PAIR, TagField, pair_number_text, tag_field
+from core.audio.tag_map import (
+    COMMENT,
+    MULTI_VALUE_SEPARATOR,
+    PAIR,
+    TagField,
+    pair_number_text,
+    tag_field,
+    tag_text,
+)
 from core.audio.tag_reader import AudioTags, tags_from_vorbis
 from core.audio.tag_set import TagSet
 from core.audio.write_base import LIST_FIELDS, AudioWriteError, FormatWriter, PreparedWrite
@@ -181,7 +191,10 @@ def _apply(tags: Any, wanted: Mapping[str, Any]) -> dict[str, Any]:
         else:
             values: list[str] | None = None
             if value is not None:
-                values = value.split(MULTI_VALUE_SEPARATOR) if key in LIST_FIELDS else [value]
+                if key in LIST_FIELDS:
+                    values = value.split(MULTI_VALUE_SEPARATOR)
+                else:  # el comentario, con los saltos de línea de Windows (como Mp3tag)
+                    values = [tag_text(value) if field.kind == COMMENT else value]
             _set_values(tags, field.vorbis, values)
             expected[key] = value
     return expected

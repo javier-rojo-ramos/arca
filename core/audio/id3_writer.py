@@ -31,13 +31,16 @@ se confunde con «AC/DC»). El título, el álbum y el comentario, siempre un te
 v2.4, TDRC; en v2.3, TYER y, si es completa, TDAT (el mes sin día no cabe en v2.3: queda el
 año); si el archivo traía la de la otra versión, también se cambia, para que no digan cosas
 distintas; la hora (TIME) se quita. El comentario es el COMM sin descripción (los de iTunes y
-otros programas no se tocan), con el idioma del que hubiera o «eng». La pista y el disco,
+otros programas no se tocan), con el idioma del que hubiera o «eng» y los saltos de línea
+de Windows («\r\n», como Mp3tag: 'tag_map.tag_text'). La pista y el disco,
 con dos cifras al menos («03/12»; el total, sin ceros: 'tag_map.pair_number_text'), también
 en un ID3v2 nuevo, aunque no se hayan editado (toda la etiqueta la escribe la aplicación).
 
 Usa dos cosas internas de mutagen 1.48 (si cambian, falla la autoprueba): 'read_frames' y la
 cabecera ya leída, para saber si se perdería algún marco repetido.
 
+1.2.0 El comentario, con los saltos de línea de Windows («\r\n», como Mp3tag:
+      'tag_map.tag_text'; MUS 7.1c).
 1.1.0 La pista y el disco, con dos cifras al menos («03/12»; 'tag_map.pair_number_text';
       MUS 7.1b), también en un ID3v2 nuevo (los que vienen del ID3v1 o de un 2.2).
 1.0.0 Primera versión (28/11/2026; docs/MOD_MUSICA.md, paso MUS 6.3a): el código del MP3 de
@@ -48,7 +51,7 @@ funciones del motor y de este módulo para simular fallos):
     python -m core.audio.tag_writer
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["Id3Writer"]
 
 # Librerías estándar
@@ -77,6 +80,7 @@ from core.audio.tag_map import (
     TAG_FIELDS,
     pair_number_text,
     tag_field,
+    tag_text,
 )
 from core.audio.tag_reader import AudioTags, parse_pair, tags_from_id3
 from core.audio.tag_set import TagSet
@@ -264,7 +268,7 @@ def _set_comment(tags: ID3, value: str | None, encoding: Encoding) -> None:
     for frame in plain:
         del tags[frame.HashKey]
     if value is not None:
-        tags.add(COMM(encoding=encoding, lang=language, desc="", text=[value]))
+        tags.add(COMM(encoding=encoding, lang=language, desc="", text=[tag_text(value)]))
 
 
 def _set_date(tags: ID3, value: str | None, version: int, encoding: Encoding) -> str | None:

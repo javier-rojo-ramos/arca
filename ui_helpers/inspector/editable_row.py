@@ -13,7 +13,8 @@ común a todas:
     - Intro o salir de la caja: si el texto ha cambiado, señal 'committed(valor)' (None =
       vacío). Un «Varios» sin tocar no cambia nada; borrado, sí (vaciar en todos). Quien
       la usa decide y responde con 'mark_applied()' (se aplica), 'revert()' (no) o
-      'reject(aviso)' (no vale: vuelve y muestra el aviso junto a la caja). Con
+      'reject(aviso)' (no vale: vuelve y muestra el aviso debajo de la caja, unos
+      segundos; es propio, '_Notice', no un texto emergente de Qt). Con
       Intro, además, la caja suelta el foco y vuelve a verse como texto (si siguiera con
       el borde de acento, parecería que no se ha aplicado; pedido por el autor).
     - Esc: vuelve al valor que se mostró. Tab: a la caja siguiente. En la de varias
@@ -29,6 +30,12 @@ Como en la caja de palabras clave ('keyword_editor_section.py'), las teclas se a
 en subclases ('keyPressEvent') y salir de la caja para abrir su menú contextual
 ('PopupFocusReason') no cuenta como salir.
 
+1.4.0 El aviso de 'reject', propio ('_Notice', con la paleta y el marco de los textos
+      emergentes): el de Qt ('QToolTip') se ocultaba en cuanto cambiaba el foco, y
+      aplicar lo escrito siempre lo cambia (Intro suelta el foco; Tab y un clic fuera,
+      también), así que no llegaba a verse (visto por el autor el 28/11/2026 en el año
+      de «Audio»; pasaba también en el GPS de «Metadatos»). Se va solo a los
+      'REJECT_NOTICE_MS', al volver a la caja o al dejar de verse la caja.
 1.3.0 'reject(aviso)': lo escrito no vale (una ubicación imposible): la caja vuelve a su
       valor y muestra el aviso junto a ella, unos segundos (decidido por el autor).
 1.2.0 El texto de la caja de varias líneas, a la misma distancia del borde que en la de
@@ -43,13 +50,23 @@ Prueba rápida (sin ventana; necesita PySide6):
     python -m ui_helpers.inspector.editable_row
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["MULTI_LINE_ROWS", "REJECT_NOTICE_MS", "EditableValue"]
 
 # Librerías de terceros (Qt)
-from qtpy.QtCore import QPoint, QRect, Qt, QTimer, Signal
-from qtpy.QtGui import QFocusEvent, QKeyEvent, QShowEvent
-from qtpy.QtWidgets import QLineEdit, QPlainTextEdit, QToolTip, QVBoxLayout, QWidget
+from qtpy.QtCore import QPoint, Qt, QTimer, Signal
+from qtpy.QtGui import QFocusEvent, QHideEvent, QKeyEvent, QPaintEvent, QPalette, QShowEvent
+from qtpy.QtWidgets import (
+    QLabel,
+    QLineEdit,
+    QPlainTextEdit,
+    QStyle,
+    QStyleOptionFrame,
+    QStylePainter,
+    QToolTip,
+    QVBoxLayout,
+    QWidget,
+)
 
 # Módulos del proyecto
 from ui_helpers.inspector.metadata_fields import MIXED_TEXT
@@ -129,6 +146,45 @@ class _TextEditor(QPlainTextEdit):
             self.commit_requested.emit()
 
 
+class _Notice(QLabel):
+    """El aviso de un valor que no vale, debajo de la caja ('EditableValue.reject').
+
+    Se ve como un texto emergente de Qt (su paleta, la que pone el tema, y su marco),
+    pero es propio: los de Qt se ocultan en cuanto cambia el foco, y aplicar lo escrito
+    siempre lo cambia (ver la versión 1.4.0). Se va solo a los 'REJECT_NOTICE_MS'.
+    """
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent, Qt.WindowType.ToolTip)
+        self.setPalette(QToolTip.palette())
+        self.setForegroundRole(QPalette.ColorRole.ToolTipText)
+        self.setBackgroundRole(QPalette.ColorRole.ToolTipBase)
+        # El mismo margen que un texto emergente de Qt ('QTipLabel')
+        frame = self.style().pixelMetric(QStyle.PixelMetric.PM_ToolTipLabelFrameWidth, None, self)
+        self.setMargin(1 + frame)
+        self.setIndent(1)
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self.hide)
+
+    def show_below(self, widget: QWidget, text: str) -> None:
+        """Muestra el aviso justo debajo de 'widget', 'REJECT_NOTICE_MS' milisegundos."""
+        self.setText(text)
+        self.adjustSize()
+        self.move(widget.mapToGlobal(QPoint(0, widget.height())))
+        self.show()
+        self._timer.start(REJECT_NOTICE_MS)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        # El fondo y el marco de un texto emergente, como los pinta el estilo
+        painter = QStylePainter(self)
+        option = QStyleOptionFrame()
+        option.initFrom(self)
+        painter.drawPrimitive(QStyle.PrimitiveElement.PE_PanelTipLabel, option)
+        painter.end()
+        super().paintEvent(event)
+
+
 class EditableValue(QWidget):
     """Caja editable de una fila del inspector (ver el docstring del módulo).
 
@@ -147,6 +203,7 @@ class EditableValue(QWidget):
         self._mixed = False  # se mostró «Varios» (valores distintos en la selección)
         self._updating = False  # el texto lo está poniendo el programa
         self._busy = False  # avisando de un cambio (p. ej. con un aviso abierto)
+        self._notice: _Notice | None = None  # el aviso de 'reject' (se crea al usarlo)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -210,12 +267,14 @@ class EditableValue(QWidget):
     def reject(self, notice: str) -> None:
         """Lo escrito no vale: vuelve al valor mostrado y avisa junto a la caja.
 
-        El aviso es un texto emergente justo debajo de la caja, unos segundos
-        ('REJECT_NOTICE_MS'); no es la ayuda al pasar el ratón (las cajas no la tienen).
+        El aviso sale justo debajo de la caja, unos segundos ('REJECT_NOTICE_MS'), aunque
+        el foco se vaya de ella ('_Notice'); se va antes si se vuelve a la caja. No es la
+        ayuda al pasar el ratón (las cajas no la tienen).
         """
         self.revert()
-        below = self._editor.mapToGlobal(QPoint(0, self._editor.height()))
-        QToolTip.showText(below, notice, self._editor, QRect(), REJECT_NOTICE_MS)
+        if self._notice is None:
+            self._notice = _Notice(self)
+        self._notice.show_below(self._editor, notice)
 
     def editor(self) -> QWidget:
         """La caja de texto (para el orden del tabulador y las pruebas)."""
@@ -244,10 +303,11 @@ class EditableValue(QWidget):
             self._set_mixed_style(self._mixed and self.text() == self._shown)
 
     def _on_focused(self) -> None:
-        """Al entrar en «Varios», se selecciona entero (lo que se escriba lo sustituye).
-
-        Después de que el clic coloque el cursor (si no, lo deseleccionaría).
+        """Al entrar en la caja se va el aviso de 'reject', si lo había. Y en «Varios»,
+        se selecciona entero (lo que se escriba lo sustituye), después de que el clic
+        coloque el cursor (si no, lo deseleccionaría).
         """
+        self._hide_notice()
         if self._mixed and self.text() == self._shown:
             QTimer.singleShot(0, self._editor.selectAll)
 
@@ -285,9 +345,20 @@ class EditableValue(QWidget):
         style.unpolish(self._editor)
         style.polish(self._editor)
 
+    def _hide_notice(self) -> None:
+        """Quita el aviso de 'reject', si está a la vista."""
+        if self._notice is not None and self._notice.isVisible():
+            self._notice.hide()
+
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         self._fit_height()
+
+    def hideEvent(self, event: QHideEvent) -> None:
+        # Si la caja deja de verse (otra selección sin canciones, la sección plegada...),
+        # su aviso no se queda flotando
+        super().hideEvent(event)
+        self._hide_notice()
 
     def _fit_height(self) -> None:
         """Alto fijo de la caja de varias líneas: 'MULTI_LINE_ROWS' líneas de texto."""
@@ -458,7 +529,21 @@ if __name__ == "__main__":
     line.editor().setText("abc")
     line.reject("No es una ubicación válida.")
     assert line.text() == "42°40'55\" N 0°4'12\" E" and not line.is_editing()
-    print("7. Valor no válido: vuelve al de antes")
+    notice = line._notice
+    assert notice is not None and notice.isVisible() and notice.text() == "No es una ubicación válida."
+    assert notice._timer.isActive() and notice._timer.interval() == REJECT_NOTICE_MS
+    assert notice.palette().color(QPalette.ColorRole.ToolTipBase) == QToolTip.palette().color(
+        QPalette.ColorRole.ToolTipBase
+    )  # fmt: skip
+    # Sigue a la vista aunque el foco cambie (el texto emergente de Qt se ocultaba)
+    focused.setFocus()
+    line.editor().clearFocus()
+    app.processEvents()
+    assert notice.isVisible()
+    # Se va al volver a la caja
+    line.editor().focused.emit()
+    assert not notice.isVisible()
+    print("7. Valor no válido: vuelve al de antes, con su aviso, aunque cambie el foco")
 
     for widget in (line, text, nested, focused):
         widget.deleteLater()

@@ -34,13 +34,15 @@ CÓMO ESCRIBE (docs/MOD_MUSICA.md, «Cómo se escribe en MP4»; acordado con el 
        pista...), y que cada trozo de audio, leído a través de sus tablas, es idéntico
        aunque esté en otro sitio.
 
+1.1.0 El comentario, con los saltos de línea de Windows («\r\n», como Mp3tag:
+      'tag_map.tag_text'; MUS 7.1c).
 1.0.0 Primera versión (28/11/2026; docs/MOD_MUSICA.md, paso MUS 6.4).
 
 Prueba: la del motor, de punta a punta con M4A mínimos:
     python -m core.audio.tag_writer
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["Mp4Writer"]
 
 # Librerías estándar
@@ -56,7 +58,7 @@ import mutagen
 from mutagen.mp4 import MP4, Atoms
 
 # Módulos del proyecto
-from core.audio.tag_map import GENRE, MP4_GENRE_NUMBER, PAIR, tag_field
+from core.audio.tag_map import COMMENT, GENRE, MP4_GENRE_NUMBER, PAIR, tag_field, tag_text
 from core.audio.tag_reader import AudioTags, tags_from_mp4
 from core.audio.tag_set import TagSet
 from core.audio.write_base import AudioWriteError, FormatWriter, PreparedWrite
@@ -184,7 +186,9 @@ def _apply(tags: Any, wanted: Mapping[str, Any]) -> dict[str, Any]:
             if value is None:
                 tags.pop(field.mp4, None)
             else:
-                tags[field.mp4] = [value]  # varios valores, en un texto (paso 2)
+                # Varios valores, en un texto (paso 2); el comentario, con los saltos de
+                # línea de Windows (como Mp3tag)
+                tags[field.mp4] = [tag_text(value) if field.kind == COMMENT else value]
             expected[key] = value
     return expected
 
