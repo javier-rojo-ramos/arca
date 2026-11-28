@@ -142,7 +142,8 @@ python -m core.audio.tag_set                                  (sin mutagen: el t
 python -m core.userdata.editable_fields                        (las etiquetas que se escriben son las mismas que se leen)
 python -m core.userdata.folder_file
 python -m core.userdata.policy
-python -m core.userdata.sync                                   (ExifTool; ida y vuelta completa; los escritores de 'writers.py' y un archivo repartido entre dos destinos)
+python -m core.userdata.sync                                   (ExifTool; ida y vuelta completa; los escritores de 'writers.py', un archivo repartido entre dos destinos y un MP3: sus etiquetas al archivo y lo demás al .arca.json)
+python -m core.userdata.audio_fields                           (sin archivos: qué columnas van a las etiquetas de una canción; lo pendiente, para el motor; las parejas)
 python -m core.userdata.xmp_writer                             (ExifTool)
 
 # controllers

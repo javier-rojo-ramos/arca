@@ -16,6 +16,8 @@ Dos sentidos:
        XMP_EMBEDDED  -> XMP dentro del archivo (ExifTool)
        XMP_SIDECAR   -> sidecar .xmp del RAW (ExifTool; se crea si no existe)
        FOLDER_FILE   -> entrada del archivo en el '.arca.json' de su carpeta
+       AUDIO_TAGS    -> partido (el MP3): sus etiquetas, dentro del archivo
+                        ('audio_writer.py'); lo demás, a su entrada del '.arca.json'
    Las palabras clave van igual, con su propia marca ('keywords_pending'): se escriben
    EXACTAMENTE las del catálogo (las rutas asignadas; ver 'xmp_writer' y 'folder_file').
    Los metadatos editados (título, pie, ubicación...; 'editable_fields.py') también, con
@@ -53,6 +55,10 @@ Dos sentidos:
          archivo, el procesador con 'folder_file_edits'. En los formatos con XMP, los
          escribe el procesador como cualquier metadato extraído (salvo lo pendiente).
 
+1.13.0 El MP3, partido (MUS 6.2b): con el escritor de sus etiquetas ('audio_writer.py',
+       en 'default_writers'). 'WriteItem.reread' (un MP3 con su ID3v2 nuevo): solo se
+       releen sus metadatos, y cuenta en 'rescan_requested'. 'exiftool_missing', solo si
+       falta ExifTool (sin mutagen, al registro). Autoprueba: ida y vuelta de un MP3.
 1.12.0 Con las preguntas separadas de 'policy.py' (MUS 6.2a): esperan a su primera
        lectura los formatos cuyo destino lee el extractor ('first_read_extensions'), y
        el '.arca.json' se aplica a los archivos con entrada en él ('has_folder_entry'),
@@ -93,7 +99,7 @@ Prueba rápida (desde la raíz del proyecto; la parte de XMP necesita ExifTool):
     python -m core.userdata.sync
 """
 
-__version__ = "1.12.0"
+__version__ = "1.13.0"
 __all__ = [
     "SCAN_STAGE_USERDATA",
     "FolderFileCache",
@@ -151,7 +157,13 @@ from core.userdata.policy import (
     has_folder_entry,
 )
 from core.userdata.writers import USER_COLUMNS as _USER_COLUMNS
-from core.userdata.writers import UserDataWriter, WriteItem, default_writers, split_items
+from core.userdata.writers import (
+    UserDataWriter,
+    WriteItem,
+    XmpFileWriter,
+    default_writers,
+    split_items,
+)
 
 # Nombre de la fase para la columna 'stage' de la tabla 'scan_errors'
 SCAN_STAGE_USERDATA = "userdata"
@@ -180,8 +192,9 @@ class UserDataWriteResult:
         skipped_offline: Elementos de unidades desconectadas (siguen pendientes).
         cancelled: True si se interrumpió.
         exiftool_missing: True si había XMP que escribir pero ExifTool no está.
-        rescan_requested: Archivos que habían cambiado fuera de la aplicación (p. ej. en
-            Lightroom) y han quedado pendientes de releer sus metadatos.
+        rescan_requested: Archivos que han quedado pendientes de releer sus metadatos: los
+            que habían cambiado fuera de la aplicación (p. ej. en Lightroom) y los MP3 a
+            los que se les ha creado el ID3v2 (su tipo de etiqueta es otro).
         failed_messages: Algunos motivos de fallo (para el registro y la interfaz).
     """
 
@@ -384,7 +397,7 @@ def write_pending_user_data(
 
         # Recuento por ARCHIVO (sus partes juntas)
         for group in _by_media(parts):
-            counts["rescan"] += int(any(part.rescan for part in group))
+            counts["rescan"] += int(any(part.rescan or part.reread for part in group))
             failed = [part for part in group if not part.ok and not part.deferred]
             if failed:
                 counts["failed"] += 1
@@ -402,8 +415,12 @@ def write_pending_user_data(
         failed=counts["failed"],
         skipped_offline=counts["offline"],
         cancelled=cancelled,
-        # La herramienta de algún escritor no está (hoy, solo ExifTool la necesita)
-        exiftool_missing=any(writer.unavailable for writer in ordered_writers),
+        # Falta ExifTool (el escritor de XMP). Sin mutagen (el de las canciones), lo suyo
+        # también queda pendiente, pero el aviso de la interfaz habla de ExifTool: va al
+        # registro (ver 'audio_writer.py')
+        exiftool_missing=any(
+            writer.unavailable for writer in ordered_writers if writer.name == XmpFileWriter.name
+        ),
         rescan_requested=counts["rescan"],
         failed_messages=tuple(messages),
     )
@@ -465,6 +482,10 @@ def _save_results(conn: sqlite3.Connection, items: Iterable[WriteItem]) -> None:
                     WHERE id = ?""",
                 (item.media_id,),
             )
+        elif item.reread:
+            # Se le escribió algo que el catálogo no sabe (un MP3 con su ID3v2 nuevo): solo
+            # se releen sus metadatos (la miniatura sigue valiendo)
+            conn.execute("UPDATE media_items SET scan_version = 0 WHERE id = ?", (item.media_id,))
 
         if item.ok:
             # Se quita el bit de cada campo escrito SOLO si su valor sigue siendo el
@@ -1341,5 +1362,106 @@ if __name__ == "__main__":
         assert "Sol" not in tags_of(library / "playa.jpg")["XMP-dc:Subject"]
         print("Primera lectura: nada se escribe antes; las palabras asignadas se suman a las del archivo")
         fresh.close()
+
+    # --- 11. Un MP3 (MUS 6.2b), el primer formato partido: sus etiquetas, dentro del
+    #     archivo; la valoración, la marca, el color, las palabras clave y lo demás, en el
+    #     '.arca.json'; y de vuelta en un catálogo nuevo ----------------------------------
+    from mutagen.id3 import ID3, TALB, TIT2, TPE1
+
+    from core.audio.tag_reader import read_audio
+    from core.metadata.audio.extractor import AudioExtractor
+
+    audio_registry = ExtractorRegistry()
+    audio_registry.register(AudioExtractor())
+    silence = b"\xff\xfb\x90\x00" + bytes(413)  # una trama de MP3 (MPEG-1 Layer III)
+
+    def audio_row(conn: sqlite3.Connection, media_id: int) -> tuple:
+        """Los campos de una canción que van a sus etiquetas (y la ciudad, que no)."""
+        return tuple(conn.execute(
+            "SELECT m.title, m.creator, m.description, m.city, a.album, a.track_number, "
+            "a.track_total, a.genre FROM media_items AS m "
+            "JOIN audio_details AS a ON a.media_id = m.id WHERE m.id = ?",
+            (media_id,),
+        ).fetchone())  # fmt: skip
+
+    with tempfile.TemporaryDirectory() as tmp:
+        library = Path(tmp) / "Musica"
+        library.mkdir()
+        song = library / "01 - Vino Tinto.mp3"
+        song.write_bytes(silence * 20)
+        id3 = ID3()
+        id3.add(TIT2(encoding=1, text=["Vino tinto"]))
+        id3.add(TPE1(encoding=1, text=["Estopa"]))
+        id3.add(TALB(encoding=1, text=["Destrangis"]))
+        id3.save(song, v2_version=3, v1=0)
+        bare = library / "02 - Sin etiquetas.mp3"
+        bare.write_bytes(silence * 20)
+        catalog = new_catalog()
+        add_folder(catalog, library)
+        by_path = ids(catalog)
+        song_id, bare_id = by_path[song.name], by_path[bare.name]
+
+        # a) Sin leer, no se escribe (espera a su primera lectura, como las fotos); al
+        #    leerlo, lo pendiente no se pisa
+        update_user_field(catalog, [song_id], "rating", 2)
+        update_metadata_fields(catalog, [song_id], {"album": "Destrangis (reedición)"})
+        catalog.commit()
+        mtime_before = song.stat().st_mtime_ns
+        assert pending(catalog) == 0 and write_pending_user_data(catalog).total == 0
+        assert song.stat().st_mtime_ns == mtime_before
+        process_pending_metadata(catalog, registry=audio_registry)
+        assert audio_row(catalog, song_id)[4] == "Destrangis (reedición)"
+
+        # b) Escritura: las etiquetas, al MP3; lo demás, al '.arca.json'. Al MP3 sin
+        #    etiquetas se le crea el ID3v2 (la preferida) y se relee
+        update_metadata_fields(catalog, [song_id], {
+            "title": "Vino Tinto", "creator": "Estopa; Rosendo", "description": "Primer disco",
+            "track_number": 3, "track_total": 12, "genre": "Rock", "city": "Barcelona",
+        })  # fmt: skip
+        update_user_field(catalog, [song_id], "flag", 1)
+        update_user_field(catalog, [song_id], "color_label", "red")
+        assign_keyword(catalog, [song_id], ensure_keyword_path(catalog, ("Rumba",)))
+        update_metadata_fields(catalog, [bare_id], {"album": "Nuevo"})
+        catalog.commit()
+        result = write_pending_user_data(catalog)
+        assert (result.total, result.written, result.failed) == (2, 2, 0), result.summary()
+        assert result.rescan_requested == 1 and pending(catalog) == 0, result.summary()
+        tags = read_audio(song).tags
+        assert (tags.title, tags.artist, tags.album) == (
+            "Vino Tinto", "Estopa; Rosendo", "Destrangis (reedición)"
+        ), tags  # fmt: skip
+        assert (tags.track_number, tags.track_total, tags.genre, tags.comment) == (
+            3, 12, "Rock", "Primer disco"
+        ), tags  # fmt: skip
+        entry = read_folder_file(library).items[song.name]
+        assert (entry["rating"], entry["flag"], entry["color_label"]) == (2, 1, "red"), entry
+        assert entry["keywords"] == [["Rumba"]] and entry["city"] == "Barcelona", entry
+        # Lo de las etiquetas, solo en el archivo (un dato, un sitio)
+        assert not {"title", "creator", "description", "album", "track_number", "genre"} & set(
+            entry
+        ), entry
+        assert (read_audio(bare).tag_type, read_audio(bare).tags.album) == ("ID3v2.3", "Nuevo")
+        # El catálogo relee el que tiene etiqueta nueva y no ve falsos cambios en ninguno
+        process_pending_metadata(catalog, registry=audio_registry)
+        assert catalog.execute(
+            "SELECT tag_type FROM audio_details WHERE media_id = ?", (bare_id,)
+        ).fetchone()[0] == "ID3v2.3"
+        assert add_folder(catalog, library).changed_items == 0
+
+        # c) Catálogo NUEVO: las etiquetas salen del archivo y lo demás, del '.arca.json'
+        rebuilt = new_catalog()
+        add_folder(rebuilt, library)
+        process_pending_metadata(rebuilt, registry=audio_registry)
+        new_id = ids(rebuilt)[song.name]
+        assert audio_row(rebuilt, new_id) == (
+            "Vino Tinto", "Estopa; Rosendo", "Primer disco", "Barcelona",
+            "Destrangis (reedición)", 3, 12, "Rock",
+        ), audio_row(rebuilt, new_id)  # fmt: skip
+        assert user_values(rebuilt)[song.name] == (2, 1, "red")
+        assert media_keyword_paths(rebuilt, new_id) == [("Rumba",)]
+        assert pending(rebuilt) == 0
+        print("MP3: sus etiquetas en el archivo y lo demás en el .arca.json, de ida y vuelta")
+        catalog.close()
+        rebuilt.close()
 
     print("Autoprueba finalizada correctamente.")

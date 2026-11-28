@@ -41,6 +41,9 @@ Uso (en el controlador principal, que solo lo crea, lo conecta y le pasa cada ca
     self.job_coordinator.start_metadata()
     self.job_coordinator.detach()             # al cerrarlo (cancela lo que haya en marcha)
 
+1.2.0 La escritura de los datos del usuario lleva la etiqueta preferida de los MP3 de las
+      Opciones (Opciones > Música), leída al lanzarla ('_userdata_writer'; también la de
+      'pending_writer'): la que se crea en un MP3 al que le falta el ID3v2 (MUS 6.2b).
 1.1.0 Trabajo 'files' («Moviendo archivos», CAT 4.2): renombrar o mover archivos, con las
       mismas reglas que eliminar ('start_file_job', 'files_finished', 'files_failed').
 1.0.0 Primera versión (GEN 15.1): el código de 'main_window_controller.py', movido.
@@ -49,7 +52,7 @@ Prueba rápida (desde la raíz del proyecto; sin ventana):
     python -m controllers.job_coordinator
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "JOB_FILES",
     "JOB_METADATA",
@@ -66,6 +69,7 @@ __all__ = [
 # Librerías estándar
 import time
 from collections.abc import Callable
+from functools import partial
 from typing import Any
 
 # Librerías de terceros
@@ -76,12 +80,19 @@ from qtpy.QtCore import QObject, QTimer, Signal
 from qtpy.QtWidgets import QMainWindow
 
 # Módulos del proyecto
-from config.app_constants import SETTING_WRITE_USER_DATA_TO_FILES, AppIcons
+from config.app_constants import (
+    SETTING_AUDIO_ID3_VERSION,
+    SETTING_AUDIO_INCLUDE_ID3V1,
+    SETTING_WRITE_USER_DATA_TO_FILES,
+    AppIcons,
+)
 from controllers.metadata_progress import MetadataProgress
+from core.audio.tag_set import mp3_tags_from_settings
 from core.jobs.progress import JobProgress
 from core.metadata.processor import process_pending_metadata
 from core.thumbnails.job import generate_pending_thumbnails, invalidate_thumbnails
 from core.userdata.sync import count_pending_user_data, write_pending_user_data
+from core.userdata.writers import default_writers
 from core.workers.job_manager import JobManager
 from ui_helpers.helpers.ui_message import MessageBoxHelper
 from ui_helpers.helpers.ui_status import message_bar
@@ -311,8 +322,20 @@ class JobCoordinator(QObject):
         ya confirmada en esta sesión: así vuelve con el archivo si se sincroniza otra vez.
         """
         if self._write_to_files_enabled() and self._userdata_backlog_state == "ok":
-            return write_pending_user_data
+            return self._userdata_writer()
         return None
+
+    def _userdata_writer(self) -> Callable[..., object]:
+        """La escritura de los datos del usuario, con la etiqueta preferida de los MP3 de
+        las Opciones leída ahora (Opciones > Música: así vale lo último que se eligió).
+
+        Cada llamada, sus escritores nuevos ('default_writers'): uno por trabajo.
+        """
+        preferred = mp3_tags_from_settings(
+            self._config.get(SETTING_AUDIO_ID3_VERSION),
+            self._config.get(SETTING_AUDIO_INCLUDE_ID3V1),
+        )
+        return partial(write_pending_user_data, writers=default_writers(preferred_mp3=preferred))
 
     def _start_write(self) -> None:
         """Lanza la escritura de los datos del usuario pendientes, si procede.
@@ -344,7 +367,7 @@ class JobCoordinator(QObject):
         if self._jobs.is_running(JOB_METADATA):
             self._userdata_rerun_requested = True  # se lanza al terminar los metadatos
             return
-        if not self._jobs.start(JOB_USERDATA, write_pending_user_data):
+        if not self._jobs.start(JOB_USERDATA, self._userdata_writer()):
             self._userdata_rerun_requested = True
 
     def _on_userdata_backlog_counted(self, count: int) -> None:
@@ -915,9 +938,27 @@ if __name__ == "__main__":
     assert "userdata" not in jobs.names() and coordinator.pending_writer() is None
     coordinator.write_option_changed()
     assert jobs.names()[-1] == "userdata" and len(box.questions) == 1
-    assert coordinator.pending_writer() is write_pending_user_data
+    writer = coordinator.pending_writer()
+    assert writer is not None and writer.func is write_pending_user_data
     jobs.finish("userdata")
     print("11. Muchos pendientes: pregunta; «Más tarde» y la opción")
+
+    # 11b. La escritura lleva la etiqueta preferida de los MP3 de las Opciones, leída al
+    #      lanzarla: sin elegir, ID3v2.3 sin ID3v1; después, lo elegido
+    from core.audio.tag_set import DEFAULT_MP3_TAGS, TagSet
+    from core.userdata.policy import UserDataDestination
+
+    def preferred_mp3() -> TagSet:
+        writer = coordinator.pending_writer()
+        assert writer is not None
+        return writer.keywords["writers"][UserDataDestination.AUDIO_TAGS]._preferred
+
+    assert preferred_mp3() == DEFAULT_MP3_TAGS
+    settings[SETTING_AUDIO_ID3_VERSION] = 4
+    settings[SETTING_AUDIO_INCLUDE_ID3V1] = True
+    assert preferred_mp3() == TagSet(id3v2=4, id3v1=True)
+    del settings[SETTING_AUDIO_ID3_VERSION], settings[SETTING_AUDIO_INCLUDE_ID3V1]
+    print("11b. La escritura, con la etiqueta preferida de las Opciones")
 
     # 12. Con la opción desactivada no se programa nada; activada, se escribe tras la espera
     settings[SETTING_WRITE_USER_DATA_TO_FILES] = False

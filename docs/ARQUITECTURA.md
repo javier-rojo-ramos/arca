@@ -9,7 +9,7 @@ Catalogador de archivos multimedia (tipo DAM) de escritorio y multiplataforma (W
 
 Principios:
 
-- **Los archivos originales no se mueven, no se renombran ni se borran; lo que el usuario edita sí se guarda en ellos, sin generar copias** (regla del 16/11/2026; [DECISIONES.md](DECISIONES.md)). Previsto: las etiquetas y carátulas del audio ([MOD_MUSICA.md](MOD_MUSICA.md)) y los GPX editados ([MOD_TRACKS.md](MOD_TRACKS.md)). Hoy se escribe: la valoración, la marca, el color, las palabras clave y los metadatos descriptivos editados en la aplicación (título, pie de ilustración, creador, copyright y ubicación) con las reglas de `core/userdata/` (XMP incrustado, sidecar `.xmp` o `.arca.json`; ver su `LEEME.md`), y se envía a la papelera lo que el usuario pide eliminar del disco.
+- **Los archivos originales no se mueven, no se renombran ni se borran; lo que el usuario edita sí se guarda en ellos, sin generar copias** (regla del 16/11/2026; [DECISIONES.md](DECISIONES.md)). Previsto: las etiquetas y carátulas del audio ([MOD_MUSICA.md](MOD_MUSICA.md)) y los GPX editados ([MOD_TRACKS.md](MOD_TRACKS.md)). Hoy se escribe: la valoración, la marca, el color, las palabras clave y los metadatos descriptivos editados en la aplicación (título, pie de ilustración, creador, copyright y ubicación) con las reglas de `core/userdata/` (XMP incrustado, sidecar `.xmp` o `.arca.json`; ver su `LEEME.md`); desde `MUS 6.2b`, lo editado de las etiquetas de un MP3, en el propio archivo (sin nada que lo edite hasta `MUS 7`), y se envía a la papelera lo que el usuario pide eliminar del disco.
 - **Un catálogo es una carpeta autónoma**: `catalogo.db` (SQLite en modo WAL) + `cache/<tipo>/` + `media_assets/{backdrops,covers,posters}/` + `export/`.
 - **La referencia de metadatos es Lightroom Classic**: se leen los campos que muestran sus paneles EXIF y Ubicación.
 - La interfaz **nunca** toca la base de datos ni hace trabajo largo en el hilo principal.
@@ -274,6 +274,8 @@ core/
     folder_file.py                     Archivo de carpeta '.arca.json' (lectura, escritura atómica, copia .bak)
     xmp_writer.py                      Escritura en XMP con ExifTool (solo los campos pendientes; comprueba releyendo); el GPS, también en el EXIF
     writers.py                         UserDataWriter (la interfaz de un escritor), WriteItem, FolderFileWriter (.arca.json) y XmpFileWriter (ExifTool); split_items (un archivo entre el escritor de su formato y el .arca.json) y default_writers. AQUÍ se añade un escritor nuevo
+    audio_writer.py                    AudioFileWriter: las etiquetas de las canciones (hoy, MP3) en la cola de escritura, con write_tags y la etiqueta preferida de las Opciones (MUS 6.2b)
+    audio_fields.py                    AUDIO_TAG_COLUMNS (columna del catálogo → campo de la etiqueta) y tag_changes (lo pendiente, para write_tags)
     sync.py                            write_pending_user_data (trabajo: qué hay pendiente, lo reparte entre los escritores de writers.py y anota el resultado) y la lectura al importar (apply_file_user_data, apply_folder_files)
   file_ops/                          ── Operaciones con archivos en el disco: renombrar y mover con el catálogo al día (CAT 4; reglas en docs/DECISIONES.md, 19/11/2026) ──
     naming.py                          Nombres válidos en Windows, macOS y Linux (name_problem, clean_name) y renombrar sin la extensión (rename_keeping_extension)

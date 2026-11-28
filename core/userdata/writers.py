@@ -1,8 +1,9 @@
 """Escritores de los datos del usuario: quién sabe guardar qué, fuera del catálogo.
 
 Este módulo NO depende de Qt ni de la base de datos. Aquí está la INTERFAZ que cumple todo
-escritor ('UserDataWriter') y los dos que hay: el del archivo de carpeta ('.arca.json') y el
-de XMP (con ExifTool). El trabajo que decide QUÉ hay pendiente y anota el resultado en el
+escritor ('UserDataWriter') y dos de los tres que hay: el del archivo de carpeta
+('.arca.json') y el de XMP (con ExifTool); el de las etiquetas de las canciones está en
+'audio_writer.py' (MUS 6.2b). El trabajo que decide QUÉ hay pendiente y anota el resultado en el
 catálogo es 'sync.write_pending_user_data': reparte los archivos entre los escritores y no
 sabe cómo escribe cada uno (docs/PENDIENTE.md, GEN 14).
 
@@ -18,10 +19,11 @@ sabe cómo escribe cada uno (docs/PENDIENTE.md, GEN 14).
 UN ARCHIVO, DOS DESTINOS ('split_items'): los campos pendientes que el escritor de un
 formato no sabe guardar se escriben en el '.arca.json' de su carpeta. El elemento se parte
 en dos 'WriteItem' del mismo archivo, cada uno con sus campos ('only'), y cada parte quita
-sus marcas de pendiente por separado: si una falla, solo esa sigue pendiente. Hoy ningún
-formato se parte (XMP sabe guardar todo lo de las fotos): está para el audio y los libros.
-La LECTURA de un formato partido (al releer, qué sale del archivo y qué del '.arca.json')
-se hará con el primero que lo necesite (docs/MOD_MUSICA.md, MUS 6).
+sus marcas de pendiente por separado: si una falla, solo esa sigue pendiente. El primer
+formato que se parte es el MP3 (MUS 6.2b): sus etiquetas al archivo y la valoración, la
+marca, el color y las palabras clave al '.arca.json'. Las fotos no se parten (XMP sabe
+guardar todo). La LECTURA de un formato partido (qué sale del archivo y qué del
+'.arca.json') la dice 'policy.folder_file_fields'.
 
 Lo que 'write' deja en cada 'WriteItem' (el trabajo lo lee después):
     ok          el destino tiene ya los valores pedidos (escritos ahora o de antes)
@@ -30,7 +32,10 @@ Lo que 'write' deja en cada 'WriteItem' (el trabajo lo lee después):
     deferred    no se ha intentado (falta la herramienta, se canceló): sigue pendiente, sin
                 contar como fallo del archivo
     db_updates  columnas de 'media_items' que hay que anotar (tamaño y fecha nuevos...)
-    rescan      el archivo había cambiado fuera de la aplicación: hay que releerlo
+    rescan      el archivo había cambiado fuera de la aplicación: hay que releerlo entero
+                (también la miniatura)
+    reread      se le ha escrito algo que el catálogo no sabe (un MP3 al que se le crea el
+                ID3v2: su tipo de etiqueta): hay que releer solo sus metadatos
 Un escritor NUNCA lanza una excepción por un archivo o por su herramienta: lo apunta en el
 elemento. Si su herramienta no está (ExifTool), pone además 'unavailable'.
 
@@ -38,6 +43,9 @@ Reglas que cumple todo escritor (CLAUDE.md, «Archivos del usuario»): solo camb
 pedidos ('WriteItem.wanted': los pendientes), conserva lo que no conoce, comprueba lo escrito
 y nunca deja un archivo a medias.
 
+1.2.0 El escritor de las etiquetas de las canciones ('audio_writer.AudioFileWriter', destino
+      AUDIO_TAGS) en 'default_writers', con la etiqueta preferida de los MP3 de las
+      Opciones ('preferred_mp3'); 'WriteItem.reread' (MUS 6.2b).
 1.1.0 Un archivo, dos destinos: 'UserDataWriter.fields_for', 'WriteItem.only' y
       'split_items' (docs/PENDIENTE.md, GEN 14, paso 2).
 1.0.0 Primera versión (16/11/2026; docs/PENDIENTE.md, GEN 14): la interfaz, y los dos
@@ -48,7 +56,7 @@ Prueba (la de 'sync.py' los ejercita de ida y vuelta; necesita ExifTool):
     python -m core.userdata.sync
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
     "USER_COLUMNS",
     "FolderFileWriter",
@@ -72,6 +80,7 @@ from typing import Any, ClassVar
 from loguru import logger
 
 # Módulos del proyecto
+from core.audio.tag_set import DEFAULT_MP3_TAGS, TagSet
 from core.catalog.keywords import same_keywords
 from core.catalog.media_queries import USER_FIELD_BITS
 from core.metadata.exiftool_runner import ExifToolError, ExifToolRunner, find_sidecars
@@ -137,6 +146,7 @@ class WriteItem:
     message: str = ""
     db_updates: dict[str, Any] = field(default_factory=dict)  # columnas a actualizar tras escribir
     rescan: bool = False  # el archivo cambió fuera de la aplicación: releer sus metadatos
+    reread: bool = False  # se le escribió algo que el catálogo no sabe: releer sus metadatos
 
     @property
     def wanted(self) -> dict[str, Any]:
@@ -457,15 +467,25 @@ def split_items(
 
 def default_writers(
     runner_factory: Callable[[], ExifToolRunner] | None = None,
+    preferred_mp3: TagSet = DEFAULT_MP3_TAGS,
 ) -> dict[UserDataDestination, UserDataWriter]:
     """Los escritores de un trabajo: uno por destino ('policy.destination_for').
 
     El orden es el de escritura: primero el archivo de carpeta, después los XMP (un mismo
-    escritor para el incrustado y el sidecar).
+    escritor para el incrustado y el sidecar) y las etiquetas de las canciones.
+
+    Args:
+        runner_factory: Crea el lector de ExifTool (por defecto, 'ExifToolRunner()').
+        preferred_mp3: La etiqueta preferida de los MP3 (Opciones > Música): la que se crea
+            en uno al que le falta el ID3v2.
     """
+    # Aquí y no arriba: 'audio_writer' importa este módulo (su interfaz y 'WriteItem')
+    from core.userdata.audio_writer import AudioFileWriter
+
     xmp = XmpFileWriter(runner_factory)
     return {
         UserDataDestination.FOLDER_FILE: FolderFileWriter(),
         UserDataDestination.XMP_EMBEDDED: xmp,
         UserDataDestination.XMP_SIDECAR: xmp,
+        UserDataDestination.AUDIO_TAGS: AudioFileWriter(preferred_mp3),
     }

@@ -17,9 +17,15 @@ la base de datos, se guardan en UN único sitio por formato:
     FOLDER_FILE   Un único archivo oculto por carpeta ('.arca.json', ver 'folder_file.py')
                   con una entrada por archivo. Para todo lo demás (vídeo, audio, ebooks,
                   GPX...): nunca un sidecar por archivo.
+    AUDIO_TAGS    PARTIDO (MUS 6.2b): los campos de las etiquetas de una canción (título,
+                  artista, álbum, pista...; 'audio_fields.AUDIO_TAG_COLUMNS'), dentro del
+                  propio archivo, como Mp3tag; la valoración, la marca, el color, las
+                  palabras clave y lo demás, en su entrada del '.arca.json'. Hoy, el MP3;
+                  FLAC, M4A y Ogg, cuando se escriban (MUS 6.3 y 6.4).
 
 Un solo destino por formato, a propósito: si el mismo dato viviera en dos sitios,
-podrían acabar distintos sin saber cuál vale.
+podrían acabar distintos sin saber cuál vale. En un destino partido, cada DATO sigue
+teniendo un solo sitio: unos van al archivo y otros al '.arca.json', nunca a los dos.
 
 LAS PREGUNTAS QUE SE LE HACEN A UN DESTINO (antes, todas eran «¿es FOLDER_FILE?»; separadas
 el 28/11/2026, MUS 6.2a, para el primer formato partido, el MP3: sus etiquetas, dentro del
@@ -32,8 +38,8 @@ archivo, y la valoración, la marca, el color y las palabras clave, en el '.arca
     waits_for_first_read  ¿su destino lo lee el extractor? Entonces no se escribe hasta la
                           primera lectura del archivo (lo que trae aún no está en el
                           catálogo); 'first_read_extensions', las mismas, para el SQL
-Hoy las respuestas siguen siendo las de antes: solo FOLDER_FILE tiene entrada (con todo), y
-los destinos con XMP esperan a la primera lectura.
+FOLDER_FILE tiene entrada con todo; AUDIO_TAGS, con lo que no va a las etiquetas, y espera
+a la primera lectura (decidido con el autor el 28/11/2026), como los destinos con XMP.
 
 Cómo añadir un formato:
     - Si ExifTool sabe escribir XMP dentro de él y otros programas lo leen de ahí:
@@ -46,6 +52,8 @@ leerían del destino nuevo (vacío). Si algún día hiciera falta, habría que m
 Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.policy
 
+1.4.0 Destino AUDIO_TAGS, partido, para el MP3 (MUS 6.2b): sus etiquetas en el archivo y
+      lo demás en el '.arca.json'; espera a su primera lectura.
 1.3.0 Las preguntas a un destino, separadas: 'has_folder_entry', 'folder_file_fields',
       'waits_for_first_read' y 'first_read_extensions'; 'uses_xmp', solo los destinos con
       XMP (antes, todo lo que no era FOLDER_FILE). Nada cambia (MUS 6.2a).
@@ -55,7 +63,7 @@ Prueba rápida (desde la raíz del proyecto):
       usa la escritura para no escribir en un archivo que aún no se ha leído).
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "UserDataDestination",
     "destination_for",
@@ -74,6 +82,8 @@ from pathlib import Path
 
 # Módulos del proyecto
 from core.metadata.exiftool_runner import find_sidecars
+from core.userdata.audio_fields import AUDIO_TAG_COLUMNS
+from core.userdata.editable_fields import EDITABLE_COLUMNS
 
 
 class UserDataDestination(StrEnum):
@@ -82,6 +92,7 @@ class UserDataDestination(StrEnum):
     XMP_EMBEDDED = "xmp_embedded"
     XMP_SIDECAR = "xmp_sidecar"
     FOLDER_FILE = "folder_file"
+    AUDIO_TAGS = "audio_tags"  # partido: las etiquetas en el archivo; lo demás, '.arca.json'
 
 
 # Formatos en los que el XMP va DENTRO del archivo. ExifTool sabe escribir XMP en todos
@@ -122,21 +133,40 @@ _SIDECAR_EXTENSIONS: frozenset[str] = frozenset(
     }
 )  # fmt: skip
 
-assert not _EMBEDDED_EXTENSIONS & _SIDECAR_EXTENSIONS  # cada extensión, un solo destino
+# Canciones cuyas etiquetas se escriben en el propio archivo (las demás, al '.arca.json'
+# hasta que se escriban: FLAC en MUS 6.3, M4A y Ogg en MUS 6.4)
+_AUDIO_TAG_EXTENSIONS: frozenset[str] = frozenset({"mp3"})
+
+# Las extensiones de cada destino (lo que no está en ninguna, FOLDER_FILE)
+_EXTENSIONS: dict[UserDataDestination, frozenset[str]] = {
+    UserDataDestination.XMP_EMBEDDED: _EMBEDDED_EXTENSIONS,
+    UserDataDestination.XMP_SIDECAR: _SIDECAR_EXTENSIONS,
+    UserDataDestination.AUDIO_TAGS: _AUDIO_TAG_EXTENSIONS,
+}
+# Cada extensión, un solo destino
+assert sum(map(len, _EXTENSIONS.values())) == len(frozenset().union(*_EXTENSIONS.values()))
+
+# Los datos del usuario de un archivo, con los nombres de 'writers.WriteItem.wanted': la
+# valoración, la marca, el color, las palabras clave y los metadatos editables
+_USER_FIELDS: frozenset[str] = frozenset({"rating", "flag", "color_label", "keywords"})
+_ALL_FIELDS: frozenset[str] = _USER_FIELDS | frozenset(EDITABLE_COLUMNS)
 
 # Las respuestas de cada destino a las preguntas de la cabecera
 _XMP_DESTINATIONS: frozenset[UserDataDestination] = frozenset(
     {UserDataDestination.XMP_EMBEDDED, UserDataDestination.XMP_SIDECAR}
 )
 # Qué guarda la entrada del '.arca.json' de un archivo, por su destino: None = todo; vacío =
-# nada (no tiene entrada). Un destino partido dirá aquí los datos que se quedan en ella
+# nada (no tiene entrada); en uno partido, los datos que se quedan en ella
 _FOLDER_FILE_FIELDS: dict[UserDataDestination, frozenset[str] | None] = {
     UserDataDestination.XMP_EMBEDDED: frozenset(),
     UserDataDestination.XMP_SIDECAR: frozenset(),
     UserDataDestination.FOLDER_FILE: None,
+    UserDataDestination.AUDIO_TAGS: _ALL_FIELDS - AUDIO_TAG_COLUMNS,
 }
 # Los destinos que lee el extractor: no se escriben hasta la primera lectura del archivo
-_FIRST_READ_DESTINATIONS: frozenset[UserDataDestination] = _XMP_DESTINATIONS
+_FIRST_READ_DESTINATIONS: frozenset[UserDataDestination] = _XMP_DESTINATIONS | {
+    UserDataDestination.AUDIO_TAGS
+}
 
 
 def _normalize_extension(extension_or_path: str | Path | None) -> str:
@@ -166,10 +196,9 @@ def destination_for(extension_or_path: str | Path | None) -> UserDataDestination
         segura, porque nunca modifica el archivo original.
     """
     extension = _normalize_extension(extension_or_path)
-    if extension in _EMBEDDED_EXTENSIONS:
-        return UserDataDestination.XMP_EMBEDDED
-    if extension in _SIDECAR_EXTENSIONS:
-        return UserDataDestination.XMP_SIDECAR
+    for destination, extensions in _EXTENSIONS.items():
+        if extension in extensions:
+            return destination
     return UserDataDestination.FOLDER_FILE
 
 
@@ -194,21 +223,18 @@ def folder_file_fields(extension_or_path: str | Path | None) -> frozenset[str] |
 
 
 def waits_for_first_read(extension_or_path: str | Path | None) -> bool:
-    """True si el destino de este archivo lo lee el extractor (hoy, el XMP): no se escribe
-    hasta la primera lectura del archivo, porque lo que trae aún no está en el catálogo y
-    escribir lo del catálogo podría borrarlo."""
+    """True si el destino de este archivo lo lee el extractor (el XMP, las etiquetas de un
+    MP3): no se escribe hasta la primera lectura del archivo, porque lo que trae aún no
+    está en el catálogo y escribir lo del catálogo podría borrarlo."""
     return destination_for(extension_or_path) in _FIRST_READ_DESTINATIONS
 
 
 def first_read_extensions() -> frozenset[str]:
     """Las extensiones (en minúsculas y sin punto, como 'file_extension') a las que
     'waits_for_first_read' dice que sí: para filtrar en una consulta SQL."""
-    extensions: set[str] = set()
-    if UserDataDestination.XMP_EMBEDDED in _FIRST_READ_DESTINATIONS:
-        extensions |= _EMBEDDED_EXTENSIONS
-    if UserDataDestination.XMP_SIDECAR in _FIRST_READ_DESTINATIONS:
-        extensions |= _SIDECAR_EXTENSIONS
-    return frozenset(extensions)
+    return frozenset().union(
+        *(_EXTENSIONS.get(destination, ()) for destination in _FIRST_READ_DESTINATIONS)
+    )
 
 
 def xmp_extensions() -> frozenset[str]:
@@ -241,12 +267,12 @@ if __name__ == "__main__":
     cases = {
         "jpg": D.XMP_EMBEDDED, ".JPG": D.XMP_EMBEDDED, "heic": D.XMP_EMBEDDED,
         "dng": D.XMP_EMBEDDED, "cr3": D.XMP_SIDECAR, ".NEF": D.XMP_SIDECAR,
-        "mp4": D.FOLDER_FILE, "mkv": D.FOLDER_FILE, "mp3": D.FOLDER_FILE,
+        "mp4": D.FOLDER_FILE, "mkv": D.FOLDER_FILE, "mp3": D.AUDIO_TAGS,
         "gpx": D.FOLDER_FILE, "epub": D.FOLDER_FILE, "bmp": D.FOLDER_FILE,
-        "jxl": D.FOLDER_FILE,
+        "jxl": D.FOLDER_FILE, "flac": D.FOLDER_FILE, "m4a": D.FOLDER_FILE,
         "": D.FOLDER_FILE, None: D.FOLDER_FILE,
         "IMG_0001.CR3": D.XMP_SIDECAR, "a/b/foto.Jpeg": D.XMP_EMBEDDED,
-        Path("x/peli.MKV"): D.FOLDER_FILE,
+        Path("x/peli.MKV"): D.FOLDER_FILE, "Musica/01 - Cancion.MP3": D.AUDIO_TAGS,
     }  # fmt: skip
     for value, expected in cases.items():
         assert destination_for(value) is expected, (value, destination_for(value))
@@ -255,20 +281,33 @@ if __name__ == "__main__":
     assert {"jpg", "heic", "dng", "nef", "cr3"} <= xmp_extensions()
     assert not xmp_extensions() & {"mp4", "gpx", "bmp", "jxl", ""}
     assert all(uses_xmp(ext) and ext == ext.lower() and "." not in ext for ext in xmp_extensions())
-    # Las preguntas a un destino (hoy, las mismas respuestas que antes de separarlas): solo
-    # FOLDER_FILE tiene entrada en el '.arca.json', con todo; los de XMP esperan a la
-    # primera lectura
+    # Las preguntas a un destino: (con XMP, con entrada en el '.arca.json', espera a la
+    # primera lectura)
+    answers = {
+        D.XMP_EMBEDDED: (True, False, True), D.XMP_SIDECAR: (True, False, True),
+        D.FOLDER_FILE: (False, True, False), D.AUDIO_TAGS: (False, True, True),
+    }  # fmt: skip
     for value in cases:
-        destination = destination_for(value)
-        folder = destination is D.FOLDER_FILE
-        assert has_folder_entry(value) is folder, value
-        assert uses_xmp(value) is not folder, value
-        assert waits_for_first_read(value) is not folder, value
-        assert folder_file_fields(value) == (None if folder else frozenset()), value
-    assert first_read_extensions() == xmp_extensions()
+        expected = answers[destination_for(value)]
+        assert (uses_xmp(value), has_folder_entry(value), waits_for_first_read(value)) == (
+            expected
+        ), value
+    assert first_read_extensions() == xmp_extensions() | {"mp3"}
     assert all(waits_for_first_read(ext) for ext in first_read_extensions())
+    # Qué guarda el '.arca.json': todo (FOLDER_FILE), nada (XMP) o, en un MP3, lo que no
+    # va a sus etiquetas (la valoración, las palabras clave, la ubicación...)
+    assert folder_file_fields("mp4") is None and folder_file_fields("jpg") == frozenset()
+    mp3 = folder_file_fields("mp3")
+    assert mp3 is not None and {"rating", "flag", "color_label", "keywords", "city"} <= mp3
+    assert not mp3 & {"title", "creator", "description", "album", "track_number", "genre"}
+    assert mp3 | AUDIO_TAG_COLUMNS == _ALL_FIELDS and not mp3 & AUDIO_TAG_COLUMNS
     # Cada destino tiene su respuesta (uno nuevo tiene que decir qué guarda el '.arca.json')
     assert set(_FOLDER_FILE_FIELDS) == set(D)
+    # Los nombres de los datos del usuario son los de 'WriteItem.wanted'
+    from core.userdata.folder_file import KEYWORDS_KEY
+    from core.userdata.writers import USER_COLUMNS
+
+    assert _USER_FIELDS == {*USER_COLUMNS, KEYWORDS_KEY}
 
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "IMG_0001.CR3"

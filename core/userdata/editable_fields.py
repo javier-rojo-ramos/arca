@@ -51,6 +51,10 @@ Cómo añadir un campo:
     3. La clave del '.arca.json' tampoco se cambia después: está en los archivos de los
        usuarios.
 
+1.4.0 Los campos de las canciones sin columna común, en 'audio_details' y solo de las
+      canciones: álbum, artista del álbum, pista y total, disco y total, género y
+      compositor (bits 16384 a 2097152; MUS 6.2b). Tipo nuevo, INTEGER (entero positivo),
+      para la pista y el disco.
 1.3.0 Un campo puede no tener etiqueta XMP, estar en una tabla de detalles ('table') y ser
       solo de algunos tipos de archivo ('media_types'): la actividad de los tracks
       ('activity_type', bit 8192). 'XMP_COLUMNS', 'MAIN_COLUMNS', 'read_sql', 'upsert_sql' y
@@ -65,11 +69,12 @@ Prueba rápida (desde la raíz del proyecto):
     python -m core.userdata.editable_fields
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "ALL_EDIT_BITS",
     "EDITABLE_COLUMNS",
     "EDITABLE_FIELDS",
+    "INTEGER",
     "MAIN_COLUMNS",
     "MAIN_TABLE",
     "NUMBER",
@@ -100,6 +105,7 @@ from pathlib import Path
 # Tipos de valor de un campo editable
 TEXT = "text"
 NUMBER = "number"
+INTEGER = "integer"  # un entero positivo (la pista y el disco de una canción)
 
 # La tabla de los elementos: la de los campos comunes y la que lleva las marcas de pendiente
 MAIN_TABLE = "media_items"
@@ -121,7 +127,8 @@ class EditableField:
             ya las tiene. En los numéricos (GPS), su etiqueta EXIF.
         folder_key: Clave del valor en la entrada del archivo de carpeta ('.arca.json').
         multiline: True si admite saltos de línea (el pie de ilustración).
-        kind: TEXT (texto) o NUMBER (número decimal: el GPS).
+        kind: TEXT (texto), NUMBER (número decimal: el GPS) o INTEGER (entero positivo:
+            la pista y el disco).
         limits: En los numéricos, (mínimo, máximo) admitidos; None = sin límites.
         circular: En los numéricos con límites, True si el valor da la vuelta (la
             dirección: 360° = 0°, −90° = 270°) en lugar de rechazarse.
@@ -203,6 +210,35 @@ EDITABLE_FIELDS: tuple[EditableField, ...] = (
     EditableField(
         "activity_type", 8192, "", (), "activity",
         table="track_details", media_types=("track",),
+    ),
+    # Los campos de las canciones que no tienen columna común (MUS 6.2b): en su tabla de
+    # detalles y solo de las canciones. Sin XMP (una canción no lleva XMP): en un MP3 van a
+    # sus etiquetas ('audio_fields.py'); en los demás formatos, al '.arca.json'. El título,
+    # el artista ('creator') y el comentario ('description') son los campos comunes de arriba
+    EditableField("album", 16384, "", (), "album", table="audio_details", media_types=("audio",)),
+    EditableField(
+        "album_artist", 32768, "", (), "album_artist",
+        table="audio_details", media_types=("audio",),
+    ),
+    EditableField(
+        "track_number", 65536, "", (), "track_number",
+        kind=INTEGER, table="audio_details", media_types=("audio",),
+    ),
+    EditableField(
+        "track_total", 131072, "", (), "track_total",
+        kind=INTEGER, table="audio_details", media_types=("audio",),
+    ),
+    EditableField(
+        "disc_number", 262144, "", (), "disc_number",
+        kind=INTEGER, table="audio_details", media_types=("audio",),
+    ),
+    EditableField(
+        "disc_total", 524288, "", (), "disc_total",
+        kind=INTEGER, table="audio_details", media_types=("audio",),
+    ),
+    EditableField("genre", 1048576, "", (), "genre", table="audio_details", media_types=("audio",)),
+    EditableField(
+        "composer", 2097152, "", (), "composer", table="audio_details", media_types=("audio",)
     ),
 )  # fmt: skip
 
@@ -325,8 +361,10 @@ def applies_sql(column: str) -> tuple[str, tuple[str, ...]]:
     return f" AND media_type IN ({', '.join('?' * len(types))})", types
 
 
-def normalize_value(column: str, value: object) -> str | float | None:
+def normalize_value(column: str, value: object) -> str | float | int | None:
     """Valor editado tal como se guarda: texto limpio o número, o None si queda vacío.
+
+    Entero (la pista, el disco): un int positivo; vacío, None ('_normalize_integer').
 
     Texto:
     - Los finales de línea pasan a ser '\\n'; en un campo de una línea, cada salto de
@@ -351,6 +389,8 @@ def normalize_value(column: str, value: object) -> str | float | None:
     spec = field_for(column)
     if spec.kind == NUMBER:
         return _normalize_number(spec, value)
+    if spec.kind == INTEGER:
+        return _normalize_integer(spec, value)
     if value is None:
         return None
     if not isinstance(value, str):
@@ -383,6 +423,18 @@ def _normalize_number(spec: EditableField, value: object) -> float | None:
     elif not low <= number <= high:
         raise ValueError(f"{spec.column!r} debe estar entre {low:g} y {high:g}: {number:g}")
     return number
+
+
+def _normalize_integer(spec: EditableField, value: object) -> int | None:
+    """Valor de un campo entero (la pista, el disco): un entero positivo, o None si está
+    vacío. Como en el GPS, un número escrito como texto ('3') no se acepta."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"Valor no válido para {spec.column!r}: {value!r} (se esperaba un entero)")
+    if value <= 0:
+        raise ValueError(f"{spec.column!r} debe ser un número positivo: {value}")
+    return value
 
 
 def incomplete_pairs(values: Mapping[str, object]) -> tuple[tuple[str, str], ...]:
@@ -431,7 +483,7 @@ if __name__ == "__main__":
     # 1. Bits: potencias de 2 distintas; columnas y claves sin repetir
     bits = [spec.bit for spec in EDITABLE_FIELDS]
     assert all(bit > 0 and bit & (bit - 1) == 0 for bit in bits), bits
-    assert len(set(bits)) == len(bits) and ALL_EDIT_BITS == sum(bits) == 16383
+    assert len(set(bits)) == len(bits) and ALL_EDIT_BITS == sum(bits) == (1 << 22) - 1
     assert len(set(EDITABLE_COLUMNS)) == len(EDITABLE_COLUMNS)
     assert len({spec.folder_key for spec in EDITABLE_FIELDS}) == len(EDITABLE_FIELDS)
     # Las claves de los datos del usuario que ya están en el '.arca.json' no se reutilizan
@@ -463,13 +515,25 @@ if __name__ == "__main__":
     activity = field_for("activity_type")
     assert (activity.table, activity.xmp_tag, activity.folder_key) == ("track_details", "", "activity")
     assert activity.media_types == ("track",) and activity.bit == 8192
+    # Los de las canciones: en 'audio_details', sin XMP y solo de las canciones; la pista y
+    # el disco, enteros
+    audio_columns = EDITABLE_COLUMNS[14:]
+    assert audio_columns == (
+        "album", "album_artist", "track_number", "track_total", "disc_number", "disc_total",
+        "genre", "composer",
+    ), audio_columns  # fmt: skip
+    for column in audio_columns:
+        spec = field_for(column)
+        assert (spec.table, spec.xmp_tag, spec.media_types) == ("audio_details", "", ("audio",))
+        assert spec.folder_key == column
+        assert (spec.kind == INTEGER) == column.endswith(("_number", "_total")), column
 
     # 3. Máscaras de bits
     assert bits_for(["title", "city"]) == 1 | 32
     assert bits_for([]) == 0
     assert pending_columns(1 | 32) == ("title", "city")
     assert pending_columns(ALL_EDIT_BITS) == EDITABLE_COLUMNS
-    assert pending_columns((1 << 20) | 2) == ("description",)  # un bit desconocido se ignora
+    assert pending_columns((1 << 40) | 2) == ("description",)  # un bit desconocido se ignora
     assert pending_columns(512 | 1024 | 4096) == ("latitude", "longitude", "gps_direction")
     for bad in (lambda: bits_for(["rating"]), lambda: field_for("file_name")):
         try:
@@ -578,6 +642,21 @@ if __name__ == "__main__":
         except error:
             pass
     print("Números del GPS: normalizados y dentro de sus límites")
+
+    # 4b'. Enteros (la pista, el disco): positivos; vacío = None
+    assert normalize_value("track_number", 3) == 3 and normalize_value("disc_total", 12) == 12
+    for empty in (None, "", "  "):
+        assert normalize_value("track_total", empty) is None
+    for bad, error in ((("track_number", 0), ValueError), (("track_number", -2), ValueError),
+                       (("track_number", 3.0), TypeError), (("disc_number", "3"), TypeError),
+                       (("track_total", True), TypeError)):  # fmt: skip
+        try:
+            normalize_value(*bad)
+            raise AssertionError(f"debía rechazar {bad}")
+        except error:
+            pass
+    assert normalize_value("album", "  Destrangis ") == "Destrangis"
+    print("Enteros de la pista y el disco: positivos")
 
     # 4c. La latitud y la longitud, siempre juntas
     assert incomplete_pairs({"title": "x"}) == ()

@@ -14,9 +14,13 @@ core/userdata/
 │                      campo. Se editan en el inspector («Metadatos» de Imagen)
 ├── folder_file.py     El archivo de carpeta '.arca.json' (leer, escribir de forma atómica, copia .bak)
 ├── xmp_writer.py      Escritura en XMP con ExifTool (incrustado o sidecar), con comprobación
-├── writers.py       ► AQUÍ se añade un ESCRITOR nuevo: la interfaz ('UserDataWriter') y los dos
-│                      que hay (el del '.arca.json' y el de XMP); 'split_items' reparte un archivo
-│                      entre el escritor de su formato y el '.arca.json'
+├── writers.py       ► AQUÍ se añade un ESCRITOR nuevo: la interfaz ('UserDataWriter'), el del
+│                      '.arca.json' y el de XMP; 'split_items' reparte un archivo entre el
+│                      escritor de su formato y el '.arca.json'
+├── audio_writer.py    El escritor de las etiquetas de las canciones (hoy, MP3), con el motor de
+│                      'core/audio/tag_writer.py' (MUS 6.2b)
+├── audio_fields.py    Qué columnas de una canción van a sus etiquetas y a qué campo (la tabla del
+│                      escritor de audio; lo demás, al '.arca.json')
 └── sync.py            Une catálogo y archivos: el trabajo de escritura (qué hay pendiente, repartirlo
                        entre los escritores y anotar el resultado) y la lectura al importar
 ```
@@ -27,10 +31,11 @@ core/userdata/
 |---|---|---|
 | `XMP_EMBEDDED` | JPEG, TIFF, PNG, WebP, GIF, PSD, DNG, HEIC/HEIF/AVIF | Dentro del propio archivo (como Lightroom) |
 | `XMP_SIDECAR` | RAW propietarios: CR2, CR3, NEF, ARW, ORF, RW2, RAF, PEF... | `IMG_0001.xmp` junto al original (se reutiliza `IMG_0001.CR3.xmp` si ya existe) |
-| `FOLDER_FILE` | Todo lo demás: vídeo, audio, ebooks, GPX, BMP, JPEG XL... | Un `.arca.json` oculto por carpeta, con una entrada por archivo |
+| `FOLDER_FILE` | Todo lo demás: vídeo, audio (salvo MP3), ebooks, GPX, BMP, JPEG XL... | Un `.arca.json` oculto por carpeta, con una entrada por archivo |
+| `AUDIO_TAGS` | MP3 (desde `MUS 6.2b`; FLAC, M4A y Ogg, con `MUS 6.3` y `6.4`) | **Partido**: lo editado de sus etiquetas (título, artista, comentario, álbum, artista del álbum, pista, disco, género, compositor; `audio_fields.py`), en el propio archivo; la valoración, la marca, el color, las palabras clave y lo demás, en su entrada del `.arca.json` |
 
 Un solo destino por formato, a propósito: si el mismo dato viviera en dos sitios podrían
-acabar distintos sin saber cuál vale. Lo que no está en ninguna lista va a `FOLDER_FILE`,
+acabar distintos sin saber cuál vale (en uno partido, cada dato sigue teniendo un sitio). Lo que no está en ninguna lista va a `FOLDER_FILE`,
 que nunca modifica el original.
 
 **Las preguntas a un destino** (separadas el 28/11/2026, `MUS 6.2a`, para el primer formato
@@ -39,9 +44,9 @@ partido, el MP3): no se pregunta «¿es `FOLDER_FILE`?», sino lo que se quiere 
 | Pregunta (`policy.py`) | Para qué | Hoy |
 |---|---|---|
 | `uses_xmp` | El extractor lee del archivo la valoración, la marca, el color y las palabras clave | XMP incrustado y sidecar |
-| `has_folder_entry` | Tiene entrada en el `.arca.json`: va con el archivo al renombrarlo o moverlo y se borra al eliminarlo | `FOLDER_FILE` |
-| `folder_file_fields` | Qué datos guarda esa entrada (lo demás sale del archivo): la lectura al añadir una carpeta (`apply_folder_files`) y al releer (`folder_file_edits`) | `FOLDER_FILE`, todos |
-| `waits_for_first_read` | Su destino lo lee el extractor: no se escribe hasta la primera lectura | XMP incrustado y sidecar |
+| `has_folder_entry` | Tiene entrada en el `.arca.json`: va con el archivo al renombrarlo o moverlo y se borra al eliminarlo | `FOLDER_FILE` y `AUDIO_TAGS` |
+| `folder_file_fields` | Qué datos guarda esa entrada (lo demás sale del archivo): la lectura al añadir una carpeta (`apply_folder_files`) y al releer (`folder_file_edits`) | `FOLDER_FILE`, todos; `AUDIO_TAGS`, todos menos los de sus etiquetas |
+| `waits_for_first_read` | Su destino lo lee el extractor: no se escribe hasta la primera lectura | XMP incrustado, sidecar y `AUDIO_TAGS` |
 
 ## Cómo fluye
 
@@ -127,7 +132,7 @@ Desde el 16/11/2026 (`GEN 14`), el trabajo de escritura (`sync.write_pending_use
 2. Su destino en `policy.py` (`UserDataDestination` y las extensiones que lo usan), con sus respuestas a las preguntas de arriba (`_XMP_DESTINATIONS`, `_FOLDER_FILE_FIELDS` y `_FIRST_READ_DESTINATIONS`; la autoprueba exige que diga qué guarda el `.arca.json`), y su línea en `default_writers` (`writers.py`).
 3. Si no sabe guardar todos los campos (unas etiquetas de audio no tienen dónde poner el color), `fields_for(item)` devuelve los que sí. **Lo demás va solo al `.arca.json`** (`split_items`): el archivo se parte en dos `WriteItem`, y cada parte quita sus marcas de pendiente por separado (si una falla, solo esa sigue pendiente). Hoy ningún formato se parte: XMP sabe guardar todo lo de las fotos.
 4. Las reglas de siempre (ver «Archivos del usuario» en `CLAUDE.md`): solo lo pedido, conservar lo que no se conoce, escribir en un temporal que sustituye al original una vez comprobado, y no tocar el contenido.
-5. **La lectura de un formato partido** (preparada en `MUS 6.2a`): lo que guarda su entrada del `.arca.json` lo dice `folder_file_fields`, y `apply_folder_files` (al añadir una carpeta) y `folder_file_edits` (al releer) solo aplican eso; lo demás sale del archivo, con el extractor. El primero será el MP3 (`MUS 6.2b`).
+5. **La lectura de un formato partido** (preparada en `MUS 6.2a`): lo que guarda su entrada del `.arca.json` lo dice `folder_file_fields`, y `apply_folder_files` (al añadir una carpeta) y `folder_file_edits` (al releer) solo aplican eso; lo demás sale del archivo, con el extractor. El primero es el MP3 (`MUS 6.2b`; su escritor, `audio_writer.py`, y su autoprueba de ida y vuelta, la sección 11 de la de `sync.py`).
 
 Para probarlo sin tocar originales: `write_pending_user_data(conn, writers={...})` admite los escritores (ver el escritor de mentira del final de la autoprueba de `sync.py`).
 
